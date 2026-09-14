@@ -12,6 +12,8 @@ Fundamental Ephemeris Computations For Use With JPL Data, Paul J. Heafners
 /* Header Files *****************************************************/
 #include "astrolib.h"
 
+#include <cmath>
+
 Fecsoft::~Fecsoft()
 {
 #ifdef SGNL_USE_CALCEPH
@@ -554,6 +556,21 @@ void Fecsoft::pleph(const double jd[2], int targ, int cent, int ipv,
     /* Initialize jed[] for state() and set up component count */
     const double jed[2] = {jd[0], jd[1]};
     const double jdtot = jed[0] + jed[1];
+
+    // A diverging trajectory arrives here with a non-finite epoch, and the
+    // range test below lets NaN through: every comparison against it is false.
+    // The crash then lands deep inside interp() with nothing to say what went
+    // wrong. Name the real cause instead.
+    if (!std::isfinite(jdtot)) {
+        std::cerr << "pleph: epoch is not a finite number. The trajectory has\n"
+                     "diverged before reaching the ephemeris - check the force\n"
+                     "model, in particular whether the selected radiation\n"
+                     "pressure model has the spacecraft properties it needs\n"
+                     "(rp_model = 3, box-wing, needs per-face areas and optical\n"
+                     "properties that the default spacecraft does not set)."
+                  << std::endl;
+        std::exit(1);
+    }
 
     if (jdtot < SS[0] || jdtot > SS[1]) {
         std::cerr << "pleph: requested date not covered by ephemeris file."

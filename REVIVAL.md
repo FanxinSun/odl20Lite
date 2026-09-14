@@ -413,6 +413,18 @@ misclassifications - a result that survives ECOM, reproduces across dates to
 - The ray-traced SRP grid files the code expects do not exist anywhere, and
   neither does the ray-tracer that made them. `Force_rp_gridfile` is intact but
   has nothing to read.
+- **A box-wing radiation-pressure model is present** (`rp_model = 3`,
+  `Force_rp_box_wing.cpp`) and needs **no** grid files - only per-face areas and
+  optical properties, which `Resident_constants.cpp` carries for the catalogued
+  spacecraft. It is the natural instrument for testing sensitivity to shape,
+  which the cannonball cannot do: in a cannonball, reflectivity and area enter
+  as one scalar that the estimated scale absorbs exactly.
+
+  It was not used anywhere in this work, and it is **not** ready to be. With the
+  default `testRSO` spacecraft it gives a 114 m residual at the first iteration
+  and then diverges; before September 2026 that surfaced as a segmentation fault
+  deep in the ephemeris reader, and now reports what actually went wrong.
+  Anyone using it must supply real per-face properties first.
 - There is no licence or copyright statement for the first-party code. See
   `PROVENANCE.md`; that question needs UCL, not a code change.
 
