@@ -420,11 +420,26 @@ misclassifications - a result that survives ECOM, reproduces across dates to
   which the cannonball cannot do: in a cannonball, reflectivity and area enter
   as one scalar that the estimated scale absorbs exactly.
 
-  It was not used anywhere in this work, and it is **not** ready to be. With the
-  default `testRSO` spacecraft it gives a 114 m residual at the first iteration
-  and then diverges; before September 2026 that surfaced as a segmentation fault
-  deep in the ephemeris reader, and now reports what actually went wrong.
-  Anyone using it must supply real per-face properties first.
+  It was not used anywhere in this work, and there are two things to get past
+  before it will do anything useful.
+
+  **It is silently disabled unless `srp` or `erp` is non-zero.**
+  `Configuration.cpp` zeroes `rp_model` when both fluxes are off, and
+  symmetrically zeroes the fluxes when `rp_model` is not 1, 2 or 3. Both rules
+  are correct - a radiation pressure model with no flux has nothing to act on -
+  but they used to apply silently, so setting `rp_model = 3` in a config with
+  `srp = 0` gave a clean run with plausible output and no radiation pressure at
+  all. Both overrides now say so. Note that `analyses/qbfanxin` ships with
+  `srp = 1`, `erp = 1` and `rp_model = 0`, so its radiation-pressure settings
+  have never done anything.
+
+  **It needs real per-face properties.** With the default `testRSO` - which is
+  not a named branch in `Resident_constants.cpp` at all, so it falls through to
+  defaults - a 22-hour fit gives a 114 m residual at the first iteration and
+  then diverges. Before September 2026 that surfaced as a segmentation fault
+  deep in the ephemeris reader; it now reports what actually went wrong. Use
+  `testbox` or one of the catalogued GNSS vehicles, which do set `face_area`
+  and the per-face optical properties.
 - There is no licence or copyright statement for the first-party code. See
   `PROVENANCE.md`; that question needs UCL, not a code change.
 

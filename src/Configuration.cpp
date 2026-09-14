@@ -195,8 +195,19 @@ bool Configuration::parse_config_file(std::string filename)
         trr = 0;
     }
 
+    // These two rules are correct - a radiation pressure model with no flux has
+    // nothing to act on, and fluxes with no model have nothing to drive - but
+    // they used to apply silently. Setting rp_model = 3 in a config with
+    // srp = 0 produced a clean run, plausible output, and no radiation pressure
+    // whatsoever, with nothing to say the setting had been discarded. Say so.
+
     // If no craft radiation model selected then there's no need for fluxes
     if (rp_model != 1 && rp_model != 2 && rp_model != 3) {
+        if (srp != 0 || erp != 0 || trr != 0) {
+            std::cout << "Configuration: rp_model = " << rp_model
+                      << " is not a radiation pressure model, so srp, erp and "
+                         "trr have been disabled.\n";
+        }
         srp = 0;
         erp = 0;
         rp_model = 0;
@@ -205,6 +216,11 @@ bool Configuration::parse_config_file(std::string filename)
 
     // Similarly, if no flux models enabled, we don't need a radiation model
     if (srp == 0 && erp == 0) {
+        if (rp_model != 0 || trr != 0) {
+            std::cout << "Configuration: srp = 0 and erp = 0, so rp_model = "
+                      << rp_model << " and trr have been disabled - a radiation "
+                         "pressure model has no flux to act on.\n";
+        }
         rp_model = 0;
         trr = 0;
     }
