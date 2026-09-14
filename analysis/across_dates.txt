@@ -1,0 +1,8 @@
+SAT   BLOCK          AM_d022    AM_d023   DIFF_pct   RMS_d023
+G01   BLOCKIIF        0.0206     0.0206       0.00     0.0573
+G04   BLOCKIIIA       0.0143     0.0143       0.00     0.2560
+G16   BLOCKIIR-A      0.0195     0.0195       0.00     0.0663
+G29   BLOCKIIR-M      0.0190     0.0191       0.53     0.0843
+G19   BLOCKIIR-B      0.0196     0.0196       0.00     0.0766
+G25   BLOCKIIF        0.0206     0.0206       0.00     0.0802
+G11   BLOCKIIIA       0.0153     0.0153       0.00     0.3292
