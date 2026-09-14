@@ -107,16 +107,44 @@ int main(int argc, char *argv[])
     JPL_orbit_format reference(reference_files);
 
     const size_t no_obs = reference.orbit_time_series.size();
-    if (no_obs < 8) {
-        std::cerr << "Only " << no_obs
-                  << " reference states; too few to fit six parameters."
+    // Each state supplies six observations against at most seven parameters,
+    // so three is the arithmetic floor. Short arcs are the point of the
+    // degradation study, so let conditioning rather than a round number decide
+    // whether a fit is usable.
+    if (no_obs < 3) {
+        std::cerr << "Only " << no_obs << " reference states; need at least 3."
                   << std::endl;
         return 1;
     }
 
+    // Observations are matched to propagated states BY EPOCH, not by index, so
+    // the reference may be irregular or have gaps - which is what real tracking
+    // looks like. The propagation still steps uniformly at output_interval;
+    // every observation epoch must land on one of those steps.
     config_ops.output_interval = output_interval;
-    config_ops.simulation_time =
-        (static_cast<double>(no_obs) - 1.0) * output_interval;
+
+    std::vector<size_t> obs_index(no_obs, 0);
+    double span = 0.0;
+    for (size_t i = 0; i < no_obs; ++i) {
+        const double dt = reference.orbit_time_series[i].epoch - start;
+        if (dt < -1.0) {
+            std::cerr << "Reference state " << i << " precedes the config epoch."
+                      << std::endl;
+            return 1;
+        }
+        const double steps = dt / output_interval;
+        obs_index[i] = static_cast<size_t>(steps + 0.5);
+        if (std::abs(steps - static_cast<double>(obs_index[i])) > 0.01) {
+            std::cerr << "Reference epoch " << i << " is " << dt
+                      << " s after the start, which is not a multiple of the "
+                      << output_interval << " s output interval." << std::endl;
+            return 1;
+        }
+        if (dt > span) {
+            span = dt;
+        }
+    }
+    config_ops.simulation_time = span;
 
     Matrix6x1 Observation = Matrix6x1::Zero();
     Matrix6x1 Computed = Matrix6x1::Zero();
@@ -217,10 +245,10 @@ int main(int argc, char *argv[])
         sgnlOPS::ignore(sim_time);
 
         auto sim_data = propagator->output.get_store();
-        if (sim_data.size() < no_obs) {
+        if (sim_data.size() <= obs_index[no_obs - 1]) {
             std::cerr << "Propagation produced " << sim_data.size()
-                      << " states but " << no_obs
-                      << " were expected; check step size and interval."
+                      << " states but epoch index " << obs_index[no_obs - 1]
+                      << " is needed; check step size and interval."
                       << std::endl;
             return 1;
         }
@@ -228,7 +256,12 @@ int main(int argc, char *argv[])
         State_vector sim_state;
 
         for (size_t i = 1; i < no_obs; ++i) {
-            std::tie(sim_state, Phi, Sens) = sim_data[i];
+            if (obs_index[i] >= sim_data.size()) {
+                std::cerr << "Propagation is short of reference epoch " << i
+                          << std::endl;
+                return 1;
+            }
+            std::tie(sim_state, Phi, Sens) = sim_data[obs_index[i]];
             Computed = convert_vector(sim_state);
             Observation = convert_vector(reference.orbit_time_series[i]);
             OMC = Observation - Computed;
@@ -306,19 +339,8 @@ int main(int argc, char *argv[])
               << " m\n"
               << "  worst residual       : " << (1000.0 * max_pos) << " m\n";
 
-    if (estimate_srp) {
-        // The scale factor multiplies the configured model, so the effective
-        // area-to-mass ratio it implies is the check worth reporting: it can be
-        // compared against the published figure for the spacecraft block.
-        const double area = config_ops.area > 0.0 ? config_ops.area : 10.0;
-        const double mass = config_ops.mass > 0.0 ? config_ops.mass : 1000.0;
-        std::cout << "  SRP scale factor     : " << x(6) << "  (started at "
-                  << x0(6) << ")\n"
-                  << "    implied area       : " << (x(6) * area) << " m^2 of "
-                  << area << " m^2 configured\n"
-                  << "    implied A/m        : " << (x(6) * area / mass)
-                  << " m^2/kg\n";
-    }
+    // Reported after the covariance is formed, below, so the estimate can
+    // carry its uncertainty. An estimate without one is not a measurement.
 
     std::cout << "  total correction     : "
               << 1000.0 * (x - x0).segment(0, 3).norm() << " m position, "
@@ -343,6 +365,28 @@ int main(int argc, char *argv[])
             std::cout << "    " << label[k] << " : " << sigma
                       << ((k < 3) ? " km" : (k < 6 ? " km/s" : "")) << "\n";
         }
+        if (estimate_srp) {
+            // What a cannonball fit recovers is an effective A*C_R/m: the
+            // reflectivity coefficient is inside it and cannot be separated
+            // from the area. Quote it as such rather than as an area over a
+            // mass. The nominal area and mass below are only the units the
+            // scale factor is expressed in - the fit is invariant to them.
+            const double area = config_ops.area > 0.0 ? config_ops.area : 10.0;
+            const double mass = config_ops.mass > 0.0 ? config_ops.mass : 1000.0;
+            const double sigma_scale = std::sqrt(std::abs(covariance(6, 6)));
+
+            std::cout << std::fixed << std::setprecision(6)
+                      << "\n  SRP scale factor     : " << x(6) << " +/- "
+                      << sigma_scale << "  (" << std::setprecision(2)
+                      << (100.0 * sigma_scale / x(6)) << "%)\n"
+                      << std::setprecision(6)
+                      << "  effective A*C_R/m    : " << (x(6) * area / mass)
+                      << " +/- " << (sigma_scale * area / mass) << " m^2/kg\n"
+                      << "  effective area       : " << std::setprecision(3)
+                      << (x(6) * area) << " +/- " << (sigma_scale * area)
+                      << " m^2 (at " << mass << " kg nominal)\n";
+        }
+
         std::cout << std::fixed << std::setprecision(4)
                   << "    position 1-sigma : "
                   << 1000.0 * std::sqrt(std::abs(covariance(0, 0)) +
