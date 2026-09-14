@@ -40,6 +40,12 @@ class Configuration
     double reflectivity;
     double specularity;
     double srp_scale;
+    //! Sinusoidal modulation of srp_scale, for generating synthetic arcs of
+    //! a tumbling object whose projected area varies. Amplitude is a
+    //! fraction (0.3 = +/-30%); period is in seconds. Zero amplitude, the
+    //! default, leaves the scale constant.
+    double srp_scale_amp;
+    double srp_scale_period;
 
     // Simulation settings:
     double simulation_time;

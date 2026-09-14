@@ -1,0 +1,14 @@
+=== A: SD vs noise (G01, 22 h, hourly) — expect SD proportional to noise ===
+  22h hourly 1m                G01    mean 0.020655  SD 0.000136  (0.66%)  seeds=10
+  22h hourly 3m                G01    mean 0.020684  SD 0.000407  (1.97%)  seeds=10
+  22h hourly 10m               G01    mean 0.020785  SD 0.001357  (6.53%)  seeds=10
+=== B: SD vs arc length (G01, hourly, 3 m) ===
+  22h hourly 3m                G01    mean 0.020684  SD 0.000407  (1.97%)  seeds=10
+  12h hourly 3m                G01    mean 0.019721  SD 0.003553  (18.01%)  seeds=10
+  6h hourly 3m                 G01    mean 0.024594  SD 0.007857  (31.95%)  seeds=10
+  3h hourly 3m                 G01    mean 0.071384  SD 0.053218  (74.55%)  seeds=10
+=== C: SD across satellites of different signal (22 h, hourly, 3 m) ===
+    if SD is the same but mean differs, fractional error scales as 1/signal
+  22h hourly 3m                G01    mean 0.020684  SD 0.000407  (1.97%)  seeds=10
+  22h hourly 3m                G16    mean 0.019533  SD 0.000330  (1.69%)  seeds=10
+  22h hourly 3m                G04    mean 0.014426  SD 0.000386  (2.68%)  seeds=10

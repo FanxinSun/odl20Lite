@@ -57,6 +57,8 @@ void Resident_constants::setup(const Configuration &config)
     if (config.srp_scale > 0.0) {
         srp_scale = config.srp_scale;
     }
+    srp_scale_amp = config.srp_scale_amp;
+    srp_scale_period = config.srp_scale_period;
 
     // But if the mass hasn't been set at all, make it something sensible
     if (mass <= 0.0) {

@@ -256,58 +256,75 @@ point it at:
 
 `scripts/validate_sp3.sh` fits an orbit to an IGS final precise ephemeris and
 reports the residuals. IGS finals are good to about 2.5 cm, so for this purpose
-they are truth, and the residual RMS is the closest thing here to a validated
-accuracy figure.
+they are truth, and the residual RMS is the accuracy figure for these force
+models over the arc.
 
     ./scripts/validate_sp3.sh                        # GPS G01, 2023-01-22
-    ./scripts/validate_sp3.sh 2246 20230230000 G01   # another day
     ./scripts/validate_sp3.sh 2246 20230220000 G05   # another satellite
 
-GPS MEO, 21.75 h arcs, 15-minute sampling, full force model:
+Across 57 arcs on 2023-01-22, one untuned configuration, no per-satellite
+tuning, seven parameters (six state elements plus a radiation-pressure scale):
 
-| arc | 6 parameters, area hand-tuned | 7 parameters, nothing tuned |
-|---|---|---|
-| G01, 2023-01-22 | 0.343 m | **0.065 m** |
-| G01, 2023-01-23 | 0.334 m | **0.057 m** |
-| G05, 2023-01-22 | 3.200 m | **0.187 m** |
+| constellation | n | converged | best | **median** | worst |
+|---|---|---|---|---|---|
+| GPS | 31 | 31/31 | 0.065 m | **0.140 m** | 0.490 m |
+| Galileo | 26 | 26/26 | 0.153 m | **0.329 m** | 0.551 m |
 
-The right-hand column estimates a solar radiation pressure scale factor as a
-seventh parameter alongside the six state elements, and is the default. The
-left-hand column is the state-only fit, still available with `--six`, and needs
-the spacecraft area hand-tuned per satellite to get anywhere.
+**Quote the medians, not the best case.** The 0.065 m figure is real but it is
+the best satellite in the better constellation, and quoting it alone
+misrepresents the tree.
 
-The seventh parameter is what makes one configuration work for every satellite.
-`res/configOPS_gnss.txt` carries a deliberately generic 10 m^2 and 1000 kg; the
-fit recovers the rest:
+The six-parameter state-only fit is still available with `--six`. It needs the
+spacecraft area hand-tuned per satellite to get anywhere - 0.343 m for G01 with
+the area tuned, against 3.200 m for G05 with the same tuned value.
 
-| arc | scale | implied A/m | published GPS |
+### What the estimated parameter is
+
+`A*C_R/m`, an effective area-to-mass ratio with the reflectivity coefficient
+inside it. A cannonball fit cannot separate the two. Sorting the 31 GPS
+satellites by it reproduces their five IGS ANTEX hardware blocks with zero
+misclassifications, and multiplying by published on-orbit masses the fit never
+saw puts the three Block IIR variants - which share a bus - within 4% of a
+common effective area. Details in the Phase 4 report under
+`~/.claude/handover/`.
+
+### Where it stops working
+
+`scripts/degrade_eci.py` shortens, thins and adds noise to a reference arc.
+Degrading one axis at a time is misleading: six observations over 22 hours give
+0.35%, and a one-hour densely sampled arc holds 2.3%. Neither sparsity nor arc
+length binds. **Noise binds, and far harder on a short arc:**
+
+| arc, hourly sampling | 1 m | 3 m | 10 m |
 |---|---|---|---|
-| G01, 2023-01-22 | 2.0638 | 0.0206 m^2/kg | ~0.020 |
-| G01, 2023-01-23 | 2.0644 | 0.0206 m^2/kg | |
-| G05, 2023-01-22 | 1.9009 | 0.0190 m^2/kg | |
+| 22 h (n=22) | 1.3% | 4.2% | 14% |
+| 6 h (n=7) | 23% | - | - |
 
-Two checks worth more than the RMS figures. The same satellite on two different
-days returns a scale agreeing to 0.03%, so the parameter is a property of the
-spacecraft and not of the arc. And G05 returns a *different* value from G01,
-which is correct - they are different blocks, and that difference is exactly why
-the state-only fit was ten times worse on G05.
+against a 2.75% threshold for telling adjacent blocks apart.
 
-The sensitivity is integrated, not differenced: `d(S)/dt = dF/dy * S + [0; da/dp]`
-alongside the state transition matrix, in the two propagators that carry it
-(RKF7/8 and RK4). For `a = p * a0` the partial `da/dp` is just the unscaled SRP
-acceleration, which the force model already computes, so no position partials
-for SRP were needed. Adding it left the trajectory bit-identical: the two-body
-check below still reads 0.01476 m.
+The scatter of the estimate is proportional to tracking noise, independent of
+the object's signal strength, and steep in arc length. Because the absolute
+error does not depend on signal, the *fractional* error goes as 1/signal - which
+inverts into a minimum object for a given tracking quality. At 10 m noise:
 
-The second row is the one that counts: the spacecraft area was tuned on
-2023-01-22 and then used unchanged on 2023-01-23, so that number is
-out-of-sample. The parameter generalises, which says it is a physical property
-of the satellite rather than a curve fit.
+| arc | minimum A*C_R/m |
+|---|---|
+| 22 h | 0.033 |
+| 6 h | 0.95 |
 
-The third row is equally worth keeping. G05 is a different GPS block with a
-different area-to-mass ratio, and the value fitted for G01 does not suit it, so
-the residuals are ten times larger. Accuracy here is limited by how well the
-spacecraft is described, not by the dynamics.
+GNSS is 0.021, so ordinary satellites fail. The HAMR property sets in
+`Resident_constants.cpp` are 0.16 to 6.3, so they pass by 5x to 190x. That
+result is synthetic - the truth arcs were generated with the same force model
+that then fitted them - and needs a real high-area-to-mass object to confirm.
+
+### Uncertainty
+
+The fit reports a formal 1-sigma on the estimate. **It is optimistic by 10 to
+20x**: 0.01-0.035% formal against 0.29% empirical scatter within Block IIF and
+0-0.5% for one satellite across two dates. The weight matrix is identity on
+positions, asserting independent white noise, while the residuals are systematic
+and correlated along the arc. Use the empirical scatter, not the formal sigma,
+for any decision.
 
 ### Where the error comes from
 

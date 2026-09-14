@@ -4,6 +4,7 @@
 	@brief SGNL OPS implementation of an analytic radiation pressure method.
  */
 
+#include <cmath>
 #include "../include/Force_rp_analytic.h"
 
 void Force_rp_analytic::setup(const Resident_constants &rso_const,
@@ -12,6 +13,9 @@ void Force_rp_analytic::setup(const Resident_constants &rso_const,
     Force_rp::setup(rso_const, in_state);
 
     state->srp_scale = rso_const.srp_scale;
+    state->srp_scale_amp = rso_const.srp_scale_amp;
+    state->srp_scale_period = rso_const.srp_scale_period;
+    state->srp_scale_t0 = state->eci.epoch.get_MJD_UTC();
 
     a_coef = rso_const.area *
              (9.0 + 4.0 * rso_const.nu * (1.0 - rso_const.mu)) /
@@ -56,6 +60,17 @@ void Force_rp_analytic::compute_acceleration()
     state->srp_unscaled_eci += a_eci;
     state->srp_unscaled_ecef += a_ecef;
 
-    state->total_a_eci += state->srp_scale * a_eci;
-    state->total_a_ecef += state->srp_scale * a_ecef;
+    // A tumbling object presents a varying projected area. Modulating the
+    // scale here lets a synthetic arc carry that variation, so a fit that
+    // assumes a constant scale can be tested against one that does not hold.
+    double applied = state->srp_scale;
+    if (state->srp_scale_amp != 0.0 && state->srp_scale_period > 0.0) {
+        const double dt =
+            (state->eci.epoch.get_MJD_UTC() - state->srp_scale_t0) * 86400.0;
+        applied *= 1.0 + state->srp_scale_amp *
+                             std::sin(2.0 * M_PI * dt / state->srp_scale_period);
+    }
+
+    state->total_a_eci += applied * a_eci;
+    state->total_a_ecef += applied * a_ecef;
 }

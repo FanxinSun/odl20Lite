@@ -101,6 +101,8 @@ class Resident_constants
     //! model as configured; the orbit fit estimates it as a 7th parameter,
     //! which absorbs error in the area, reflectivity and mass together.
     double srp_scale = 1.0;
+    double srp_scale_amp = 0.0;
+    double srp_scale_period = 0.0;
 
     double nu = 0.65; //!< Reflectivity, used by Force_rp_analytic
     double mu = 0.5;  //!< Specularity, used by Force_rp_analytic

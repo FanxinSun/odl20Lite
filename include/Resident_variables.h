@@ -96,6 +96,10 @@ class Resident_variables
     //! setup; the orbit fit varies it directly between iterations, so it
     //! deliberately lives here rather than being cached inside the force.
     double srp_scale = 1.0;
+    //! Tumble modulation applied on top of srp_scale (synthetic arcs only).
+    double srp_scale_amp = 0.0;
+    double srp_scale_period = 0.0;
+    double srp_scale_t0 = 0.0;
 
     Cartesian srp_unscaled_eci;
     Cartesian srp_unscaled_ecef;
