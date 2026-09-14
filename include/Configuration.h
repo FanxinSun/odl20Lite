@@ -39,6 +39,7 @@ class Configuration
     double area;
     double reflectivity;
     double specularity;
+    double srp_scale;
 
     // Simulation settings:
     double simulation_time;

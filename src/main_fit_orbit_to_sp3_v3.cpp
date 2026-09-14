@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+#include "../include/Matrix.h"
+
 #include "../include/JPL_orbit_format.h"
 #include "../include/Propagators.h"
 
@@ -52,6 +54,17 @@ int main(int argc, char *argv[])
     const std::string config_path = argv[1];
     const std::string reference_path = argv[2];
     const double output_interval = (argc > 3) ? std::atof(argv[3]) : 900.0;
+
+    // Six parameters is the initial state alone; seven adds a scale factor on
+    // the solar radiation pressure acceleration. Seven is the default because
+    // SRP mismodelling dominates the residuals; --six reproduces the
+    // state-only baseline for comparison.
+    bool estimate_srp = true;
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--six") { estimate_srp = false; }
+        if (std::string(argv[i]) == "--seven") { estimate_srp = true; }
+    }
+    const int n_par = estimate_srp ? 7 : 6;
 
     Configuration config_ops(config_path);
 
@@ -98,14 +111,17 @@ int main(int argc, char *argv[])
     Matrix6x1 Computed = Matrix6x1::Zero();
     Matrix6x1 OMC = Matrix6x1::Zero();
     Matrix6x6 Phi = Matrix6x6::Identity();
+    Matrix6x1 Sens = Matrix6x1::Zero(); // dy/d(srp_scale)
 
-    Matrix6x6 Phi_t_Phi = Matrix6x6::Zero();
-    Matrix6x1 Phi_t_L = Matrix6x1::Zero();
+    // Design matrix per observation: [Phi | dy/dp], 6 by n_par.
+    Eigen::MatrixXd A(6, n_par);
+    Eigen::MatrixXd A_t_A = Eigen::MatrixXd::Zero(n_par, n_par);
+    Eigen::VectorXd A_t_L = Eigen::VectorXd::Zero(n_par);
 
-    Matrix6x1 x = Matrix6x1::Zero();
-    Matrix6x1 x0 = Matrix6x1::Zero();
-    Matrix6x1 dx0 = Matrix6x1::Zero();
-    Matrix6x1 dx = Matrix6x1::Zero();
+    Eigen::VectorXd x = Eigen::VectorXd::Zero(n_par);
+    Eigen::VectorXd x0 = Eigen::VectorXd::Zero(n_par);
+    Eigen::VectorXd dx0 = Eigen::VectorXd::Zero(n_par);
+    Eigen::VectorXd dx = Eigen::VectorXd::Zero(n_par);
 
     // Velocities here are differentiated from SP3 positions rather than
     // measured, so they are downweighted by six orders of magnitude and the
@@ -130,7 +146,10 @@ int main(int argc, char *argv[])
     propagator->output.reserve_store(no_obs);
 
     State_vector my_state = propagator->rso.get_eci();
-    x = convert_vector(my_state);
+    x.head(6) = convert_vector(my_state);
+    if (estimate_srp) {
+        x(6) = propagator->rso.get_srp_scale();
+    }
     x0 = x;
 
     std::cout << "Fitting " << no_obs << " reference states at "
@@ -142,8 +161,8 @@ int main(int argc, char *argv[])
     bool converged = false;
 
     while (iteration_num < max_iterations) {
-        Phi_t_Phi = Matrix6x6::Zero();
-        Phi_t_L = Matrix6x1::Zero();
+        A_t_A = Eigen::MatrixXd::Zero(n_par, n_par);
+        A_t_L = Eigen::VectorXd::Zero(n_par);
         L_t_L = 0.0;
         sum_sq_pos = 0.0;
         sum_sq_axis[0] = sum_sq_axis[1] = sum_sq_axis[2] = 0.0;
@@ -155,6 +174,10 @@ int main(int argc, char *argv[])
 
         // Recycle rso by resetting various properties
         propagator->rso.phiM = Matrix6x6::Identity();
+        propagator->rso.srpS = Matrix6x1::Zero();
+        if (estimate_srp) {
+            propagator->rso.set_srp_scale(x(6));
+        }
         propagator->rso.initial_state = Keplerian_elements(
             new_state, static_cast<long double>(propagator->rso.get_GM()));
         propagator->rso.update_with_acc_and_deriv(new_state);
@@ -175,13 +198,18 @@ int main(int argc, char *argv[])
         State_vector sim_state;
 
         for (size_t i = 1; i < no_obs; ++i) {
-            std::tie(sim_state, Phi) = sim_data[i];
+            std::tie(sim_state, Phi, Sens) = sim_data[i];
             Computed = convert_vector(sim_state);
             Observation = convert_vector(reference.orbit_time_series[i]);
             OMC = Observation - Computed;
 
-            Phi_t_Phi += Phi.transpose() * W * Phi;
-            Phi_t_L += Phi.transpose() * W * OMC;
+            A.leftCols(6) = Phi;
+            if (estimate_srp) {
+                A.col(6) = Sens;
+            }
+
+            A_t_A += A.transpose() * W * A;
+            A_t_L += A.transpose() * W * OMC;
             L_t_L += OMC.transpose() * W * OMC;
 
             const double r2 =
@@ -196,7 +224,7 @@ int main(int argc, char *argv[])
             ++n_res;
         }
 
-        dx = Phi_t_Phi.inverse() * Phi_t_L;
+        dx = A_t_A.inverse() * A_t_L;
 
         std::cout << "  iteration " << std::setw(2) << iteration_num
                   << "   position RMS "
@@ -210,7 +238,8 @@ int main(int argc, char *argv[])
             std::abs(dx(2) - dx0(2)) < tol_position &&
             std::abs(dx(3) - dx0(3)) < tol_velocity &&
             std::abs(dx(4) - dx0(4)) < tol_velocity &&
-            std::abs(dx(5) - dx0(5)) < tol_velocity) {
+            std::abs(dx(5) - dx0(5)) < tol_velocity &&
+            (!estimate_srp || std::abs(dx(6) - dx0(6)) < 1.0E-9)) {
             converged = true;
             break;
         }
@@ -247,26 +276,42 @@ int main(int argc, char *argv[])
               << " m\n"
               << "  worst residual       : " << (1000.0 * max_pos) << " m\n";
 
+    if (estimate_srp) {
+        // The scale factor multiplies the configured model, so the effective
+        // area-to-mass ratio it implies is the check worth reporting: it can be
+        // compared against the published figure for the spacecraft block.
+        const double area = config_ops.area > 0.0 ? config_ops.area : 10.0;
+        const double mass = config_ops.mass > 0.0 ? config_ops.mass : 1000.0;
+        std::cout << "  SRP scale factor     : " << x(6) << "  (started at "
+                  << x0(6) << ")\n"
+                  << "    implied area       : " << (x(6) * area) << " m^2 of "
+                  << area << " m^2 configured\n"
+                  << "    implied A/m        : " << (x(6) * area / mass)
+                  << " m^2/kg\n";
+    }
+
     std::cout << "  total correction     : "
-              << 1000.0 * (x - x0).head(3).norm() << " m position, "
-              << 1000.0 * (x - x0).tail(3).norm() << " mm/s velocity\n";
+              << 1000.0 * (x - x0).segment(0, 3).norm() << " m position, "
+              << 1000.0 * (x - x0).segment(3, 3).norm()
+              << " mm/s velocity\n";
 
     // Formal covariance of the estimated initial state. The normal matrix is
     // built from weighted residuals, so scale it by the variance of unit
     // weight to get something in km^2 and (km/s)^2.
-    const double dof = static_cast<double>(6 * n_res) - 6.0;
+    const double dof =
+        static_cast<double>(6 * n_res) - static_cast<double>(n_par);
     if (dof > 0.0) {
         const double variance_of_unit_weight = L_t_L / dof;
-        Matrix6x6 covariance =
-            variance_of_unit_weight * Phi_t_Phi.inverse();
+        Eigen::MatrixXd covariance =
+            variance_of_unit_weight * A_t_A.inverse();
 
         std::cout << "\n  formal 1-sigma on the fitted initial state\n"
                   << std::scientific << std::setprecision(4);
-        const char *label[6] = {"x", "y", "z", "u", "v", "w"};
-        for (int k = 0; k < 6; ++k) {
+        const char *label[7] = {"x", "y", "z", "u", "v", "w", "srp_scale"};
+        for (int k = 0; k < n_par; ++k) {
             const double sigma = std::sqrt(std::abs(covariance(k, k)));
             std::cout << "    " << label[k] << " : " << sigma
-                      << ((k < 3) ? " km" : " km/s") << "\n";
+                      << ((k < 3) ? " km" : (k < 6 ? " km/s" : "")) << "\n";
         }
         std::cout << std::fixed << std::setprecision(4)
                   << "    position 1-sigma : "

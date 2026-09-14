@@ -97,6 +97,11 @@ class Resident_constants
     double drag_coeff = 2.2; //!< Drag coefficient, used by Force_drag
 
     // Reflectivity and specularity for MLI, approximately
+    //! Multiplies the solar radiation pressure acceleration. 1.0 is the
+    //! model as configured; the orbit fit estimates it as a 7th parameter,
+    //! which absorbs error in the area, reflectivity and mass together.
+    double srp_scale = 1.0;
+
     double nu = 0.65; //!< Reflectivity, used by Force_rp_analytic
     double mu = 0.5;  //!< Specularity, used by Force_rp_analytic
 

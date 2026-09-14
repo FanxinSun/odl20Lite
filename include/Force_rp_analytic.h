@@ -21,6 +21,8 @@ class Force_rp_analytic : public Force_rp
   private:
     double a_coef = 0.0;
 
+
+
   public:
     Force_rp_analytic() = default;
 

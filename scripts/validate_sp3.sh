@@ -26,6 +26,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WEEK=${1:-2246}
 STAMP=${2:-20230220000}
 SAT=${3:-G01}
+TEMPLATE=${4:-$ROOT/res/configOPS_gnss.txt}
 
 SP3DIR=$ROOT/res/sp3
 SP3NAME=IGS0OPSFIN_${STAMP}_01D_15M_ORB.SP3
@@ -70,7 +71,7 @@ awk -v y="$YEAR" -v mo="$MON" -v d="$DAY" -v h="$HR" -v mi="$MIN" -v s="$SEC" \
     /^v0 / { print "v0                  = " v;  next }
     /^w0 / { print "w0                  = " w;  next }
     { print }
-' "$ROOT/res/configOPS_gps.txt" > "$CFG"
+' "$TEMPLATE" > "$CFG"
 
 echo
 ./fit_orbit_to_sp3_v3 "$CFG" "$ECI" 900

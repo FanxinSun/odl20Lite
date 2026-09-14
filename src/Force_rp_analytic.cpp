@@ -11,6 +11,8 @@ void Force_rp_analytic::setup(const Resident_constants &rso_const,
 {
     Force_rp::setup(rso_const, in_state);
 
+    state->srp_scale = rso_const.srp_scale;
+
     a_coef = rso_const.area *
              (9.0 + 4.0 * rso_const.nu * (1.0 - rso_const.mu)) /
              (9000.0 * rso_const.mass * sgnlOPS::c);
@@ -49,6 +51,11 @@ void Force_rp_analytic::compute_acceleration()
     // a_eci += compute_panel_accel(Flux::eci_fluxes, eci_attitude.panel);
     // a_ecef += compute_panel_accel(Flux::ecef_fluxes, ecef_attitude.panel);
 
-    state->total_a_eci += a_eci;
-    state->total_a_ecef += a_ecef;
+    // a_eci and a_ecef above are the unscaled model. Publish them for the
+    // sensitivity integration, then contribute the scaled acceleration.
+    state->srp_unscaled_eci += a_eci;
+    state->srp_unscaled_ecef += a_ecef;
+
+    state->total_a_eci += state->srp_scale * a_eci;
+    state->total_a_ecef += state->srp_scale * a_ecef;
 }

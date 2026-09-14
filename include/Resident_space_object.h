@@ -36,6 +36,20 @@ class Resident_space_object
     // phiM is the state transition matrix, 6 by 6
     Matrix6x6 phiM = Matrix6x6::Identity();
 
+    //! srpS is the sensitivity of the state to the solar radiation pressure
+    //! scale factor, dy/dp. It starts at zero because the initial state does
+    //! not depend on p, and is integrated as d(srpS)/dt = dF/dy * srpS +
+    //! [0; da/dp] alongside phiM. Only the propagators that carry phiM
+    //! (RKF7/8 and RK4) integrate it.
+    Matrix6x1 srpS = Matrix6x1::Zero();
+
+    //! da/dp: the unscaled solar radiation pressure acceleration, in ECI.
+    Cartesian get_srp_partial() const;
+
+    //! The radiation pressure scale factor, which the orbit fit estimates.
+    double get_srp_scale() const;
+    void set_srp_scale(double scale);
+
   private:
     std::vector<std::unique_ptr<Force>> forces;
     std::vector<double> acc;

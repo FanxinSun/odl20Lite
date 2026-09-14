@@ -54,6 +54,9 @@ void Resident_constants::setup(const Configuration &config)
     if (config.specularity > 0.0) {
         mu = config.specularity;
     }
+    if (config.srp_scale > 0.0) {
+        srp_scale = config.srp_scale;
+    }
 
     // But if the mass hasn't been set at all, make it something sensible
     if (mass <= 0.0) {

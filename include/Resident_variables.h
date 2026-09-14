@@ -89,6 +89,17 @@ inline State_vector compute_rotation_to_eci(State_vector ecef, Ephemeris &ephem,
 class Resident_variables
 {
   public:
+    //! The solar radiation pressure acceleration BEFORE srp_scale is applied,
+    //! kept so the propagator can integrate d(state)/d(srp_scale). For
+    //! a = p * a0 the partial with respect to p is just a0.
+    //! Multiplies the SRP acceleration. Seeded from Resident_constants at
+    //! setup; the orbit fit varies it directly between iterations, so it
+    //! deliberately lives here rather than being cached inside the force.
+    double srp_scale = 1.0;
+
+    Cartesian srp_unscaled_eci;
+    Cartesian srp_unscaled_ecef;
+
     Cartesian total_a_eci;
     Cartesian total_a_ecef;
 

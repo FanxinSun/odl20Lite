@@ -265,11 +265,39 @@ accuracy figure.
 
 GPS MEO, 21.75 h arcs, 15-minute sampling, full force model:
 
-| arc                      | position RMS | worst residual |
-|--------------------------|--------------|----------------|
-| G01, 2023-01-22          | 0.343 m      | 0.81 m         |
-| G01, 2023-01-23          | 0.334 m      | 0.79 m         |
-| G05, 2023-01-22          | 3.200 m      | 6.85 m         |
+| arc | 6 parameters, area hand-tuned | 7 parameters, nothing tuned |
+|---|---|---|
+| G01, 2023-01-22 | 0.343 m | **0.065 m** |
+| G01, 2023-01-23 | 0.334 m | **0.057 m** |
+| G05, 2023-01-22 | 3.200 m | **0.187 m** |
+
+The right-hand column estimates a solar radiation pressure scale factor as a
+seventh parameter alongside the six state elements, and is the default. The
+left-hand column is the state-only fit, still available with `--six`, and needs
+the spacecraft area hand-tuned per satellite to get anywhere.
+
+The seventh parameter is what makes one configuration work for every satellite.
+`res/configOPS_gnss.txt` carries a deliberately generic 10 m^2 and 1000 kg; the
+fit recovers the rest:
+
+| arc | scale | implied A/m | published GPS |
+|---|---|---|---|
+| G01, 2023-01-22 | 2.0638 | 0.0206 m^2/kg | ~0.020 |
+| G01, 2023-01-23 | 2.0644 | 0.0206 m^2/kg | |
+| G05, 2023-01-22 | 1.9009 | 0.0190 m^2/kg | |
+
+Two checks worth more than the RMS figures. The same satellite on two different
+days returns a scale agreeing to 0.03%, so the parameter is a property of the
+spacecraft and not of the arc. And G05 returns a *different* value from G01,
+which is correct - they are different blocks, and that difference is exactly why
+the state-only fit was ten times worse on G05.
+
+The sensitivity is integrated, not differenced: `d(S)/dt = dF/dy * S + [0; da/dp]`
+alongside the state transition matrix, in the two propagators that carry it
+(RKF7/8 and RK4). For `a = p * a0` the partial `da/dp` is just the unscaled SRP
+acceleration, which the force model already computes, so no position partials
+for SRP were needed. Adding it left the trajectory bit-identical: the two-body
+check below still reads 0.01476 m.
 
 The second row is the one that counts: the spacecraft area was tuned on
 2023-01-22 and then used unchanged on 2023-01-23, so that number is

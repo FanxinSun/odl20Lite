@@ -14,6 +14,8 @@ void Resident_variables::reset()
     panel_flux_lw[0] = 0.0;
     panel_flux_lw[1] = 0.0;
 
+    srp_unscaled_eci.set(0.0, 0.0, 0.0);
+    srp_unscaled_ecef.set(0.0, 0.0, 0.0);
     total_a_eci.set(0.0, 0.0, 0.0);
     total_a_ecef.set(0.0, 0.0, 0.0);
 

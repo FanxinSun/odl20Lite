@@ -114,6 +114,7 @@ bool Configuration::parse_config_file(std::string filename)
 			if(param=="area")            {            area = std::stod(value); }
 			if(param=="reflectivity")    {    reflectivity = std::stod(value); }
 			if(param=="specularity")     {     specularity = std::stod(value); }
+			if(param=="srp_scale")       {       srp_scale = std::stod(value); }
 
 			if(param=="propagator")      {      propagator = std::stoi(value); }
 			if(param=="step_size")       {       step_size = std::stod(value); }
@@ -413,6 +414,7 @@ void Configuration::set_defaults()
     area = 0.0;
     reflectivity = 0.0;
     specularity = 0.0;
+    srp_scale = 0.0;
 
     propagator = 1;
     step_size = 1.0; //!< propagator timestep (seconds)

@@ -74,18 +74,27 @@ void Prop_erkf78::step()
     State_vector Xo = rso.get_eci(); // Initial state vector
     Matrix6x6 PhiMo = rso.phiM;      // Initial state transition matrix
 
+    const Matrix6x1 So = rso.srpS; // Initial SRP sensitivity, dy/dp
+
     State_vector Xi; // i-th state vector
     Matrix6x6 PhiMi; // i-th Phi matrix
+    Matrix6x1 Si;    // i-th sensitivity column
 
     State_vector dXidt[m_bRow]; // Time derivatives of ith State_vector.
     Matrix6x6 dPhidt[m_bRow];   // Time derivatives of ith Phi matrix.
+    Matrix6x1 dSdt[m_bRow];     // Time derivatives of ith sensitivity column.
 
     Cartesian a = rso.get_acceleration();
     Matrix6x6 dfdy = rso.get_partial_derivatives();
+    Cartesian dadp = rso.get_srp_partial();
+
+    Matrix6x1 forcing = Matrix6x1::Zero();
 
     // Calculate time derivatives
     dXidt[0].set(Xo.u, Xo.v, Xo.w, a.x, a.y, a.z, Xo.epoch);
     dPhidt[0] = dfdy * PhiMo;
+    forcing(3) = dadp.x; forcing(4) = dadp.y; forcing(5) = dadp.z;
+    dSdt[0] = dfdy * So + forcing;
 
     for (int i = 1; i < m_bRow; ++i) {
 
@@ -93,23 +102,29 @@ void Prop_erkf78::step()
         Xi.epoch.step(m_c[i] * h);
 
         PhiMi = m_a[i][0] * dPhidt[0];
+        Si = m_a[i][0] * dSdt[0];
 
         for (int j = 1; j < i; ++j) {
             Xi += m_a[i][j] * dXidt[j];
             PhiMi += m_a[i][j] * dPhidt[j];
+            Si += m_a[i][j] * dSdt[j];
         }
 
         Xi = Xi * h + Xo;
         PhiMi = PhiMi * h + PhiMo;
+        Si = Si * h + So;
 
         rso.update_with_acc_and_deriv(Xi);
 
         a = rso.get_acceleration();
         dfdy = rso.get_partial_derivatives();
+        dadp = rso.get_srp_partial();
 
         // Calculate time derivatives
         dXidt[i].set(Xi.u, Xi.v, Xi.w, a.x, a.y, a.z);
         dPhidt[i] = dfdy * PhiMi;
+        forcing(3) = dadp.x; forcing(4) = dadp.y; forcing(5) = dadp.z;
+        dSdt[i] = dfdy * Si + forcing;
 
         /* Note that, dPHI/dt = dF/dy * PHI
          PHI = dy/dy0 ; PHI(t0) = I
@@ -139,22 +154,27 @@ void Prop_erkf78::step()
 
     State_vector Xf; // final state vector
     Matrix6x6 PhiMf; // final Phi matrix
+    Matrix6x1 Sf;    // final sensitivity column
 
     Xf = m_b[5] * dXidt[5];
     Xf.epoch = Xo.epoch;
     Xf.epoch.step(h_i, h_f);
 
     PhiMf = m_b[5] * dPhidt[5];
+    Sf = m_b[5] * dSdt[5];
 
     for (int i = 6; i < m_bRow; ++i) {
         Xf += m_b[i] * dXidt[i];
         PhiMf += m_b[i] * dPhidt[i];
+        Sf += m_b[i] * dSdt[i];
     }
 
     Xf = Xf * h + Xo;
     PhiMf = PhiMf * h + PhiMo;
+    Sf = Sf * h + So;
 
     rso.phiM = PhiMf;
+    rso.srpS = Sf;
     rso.update_with_acc_and_deriv(Xf);
 
     // Calculate error state:

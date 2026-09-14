@@ -143,7 +143,7 @@ void Output_handler::buffer_output(const Resident_space_object &rso)
         output_buffer << "\n";
         break;
     case STORE:
-        store.push_back(std::make_tuple(rso.get_eci(), rso.phiM));
+        store.push_back(std::make_tuple(rso.get_eci(), rso.phiM, rso.srpS));
         break;
     case OPS:
         stream_full_state(rso);

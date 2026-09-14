@@ -290,6 +290,27 @@ Cartesian Resident_space_object::get_acceleration() const
            state->frame_transform.rotate_ecef_to_eci(state->total_a_ecef);
 }
 
+/*!
+ * The partial of the acceleration with respect to the radiation pressure
+ * scale factor. Because the model contributes p * a0, that partial is simply
+ * a0, combined across frames the same way get_acceleration() does.
+ */
+double Resident_space_object::get_srp_scale() const
+{
+    return state->srp_scale;
+}
+
+void Resident_space_object::set_srp_scale(double scale)
+{
+    state->srp_scale = scale;
+}
+
+Cartesian Resident_space_object::get_srp_partial() const
+{
+    return state->srp_unscaled_eci +
+           state->frame_transform.rotate_ecef_to_eci(state->srp_unscaled_ecef);
+}
+
 Cartesian Resident_space_object::compute_and_get_acceleration()
 {
     compute_acceleration();
