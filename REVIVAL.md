@@ -429,9 +429,31 @@ misclassifications - a result that survives ECOM, reproduces across dates to
   are correct - a radiation pressure model with no flux has nothing to act on -
   but they used to apply silently, so setting `rp_model = 3` in a config with
   `srp = 0` gave a clean run with plausible output and no radiation pressure at
-  all. Both overrides now say so. Note that `analyses/qbfanxin` ships with
-  `srp = 1`, `erp = 1` and `rp_model = 0`, so its radiation-pressure settings
-  have never done anything.
+  all. Both overrides now say so.
+
+  **Both shipped cubesat analyses are affected.** `analyses/qbfanxin` and
+  `analyses/qb50` each set `srp = 1`, `erp = 1` and `rp_model = 0`, so their
+  radiation-pressure settings have never had any effect. That is not a small
+  omission at this altitude. Measured on the qbfanxin orbit - QB50 at 725 km,
+  NRLMSISE-00 densities, six hours:
+
+  | force switched on vs off | positional effect |
+  |---|---|
+  | drag | 9.71 m |
+  | solar radiation pressure | **11.73 m** |
+
+  Radiation pressure moves this orbit slightly *more* than drag does. The object
+  is a 1.33 kg cubesat with an area-to-mass ratio of 0.0236 m^2/kg, which is
+  high enough that radiation pressure is not a correction to drag but a peer of
+  it. Any absolute trajectory from those two configs is missing a term the same
+  size as the one it was studying.
+
+  What this does not affect: the density work in this tree was about
+  plausibility, out-of-range handling and diurnal variation, none of which
+  depends on the trajectory being right, and `scripts/smoke_test.sh` checks
+  density values rather than positions. Comparisons *between* drag models from
+  those configs also stand, since radiation pressure was absent from all of them
+  equally.
 
   **It needs real per-face properties.** With the default `testRSO` - which is
   not a named branch in `Resident_constants.cpp` at all, so it falls through to
