@@ -76,8 +76,14 @@ awk -v y="$YEAR" -v mo="$MON" -v d="$DAY" -v h="$HR" -v mi="$MIN" -v s="$SEC" \
 # Sampling interval, taken from the SP3 header rather than assumed: IGS finals
 # are 15-minute, the multi-GNSS products are 5-minute, and passing the wrong one
 # silently misaligns the fit against the reference.
-INTERVAL=$(awk 'NR==2 { printf "%d", $3 }' "$SP3DIR/$SP3NAME")
-[ -z "$INTERVAL" ] || [ "$INTERVAL" -le 0 ] && INTERVAL=900
+# Line 2 is: ## <week> <sow> <interval> <mjd> <frac>, so the interval is the
+# FOURTH field. Getting this wrong is silent: the fit still runs, it just
+# compares against the wrong epochs.
+INTERVAL=$(awk 'NR==2 { printf "%d", $4 }' "$SP3DIR/$SP3NAME")
+if [ -z "$INTERVAL" ] || [ "$INTERVAL" -lt 30 ] || [ "$INTERVAL" -gt 3600 ]; then
+    echo "Could not read a sane sampling interval from $SP3NAME (got '$INTERVAL')" >&2
+    exit 5
+fi
 
 echo
 OUT=$(./fit_orbit_to_sp3_v3 "$CFG" "$ECI" "$INTERVAL" 2>&1)
@@ -104,6 +110,13 @@ want_mass=$(awk '$1=="mass" { print $3; exit }' "$TEMPLATE")
     say_fail "area is $got_area, template says $want_area"
 [ -z "$want_mass" ] || [ "$want_mass" = "$got_mass" ] ||
     say_fail "mass is $got_mass, template says $want_mass"
+
+# the interval the fit actually used must be the one the SP3 declares. This
+# caught a real bug: seconds-of-week sits next to the interval on line 2 and is
+# 0 on the first day of a GPS week, so reading the wrong field looks correct on
+# day 1 of 7 and is wrong on the other six.
+echo "$OUT" | grep -q "at ${INTERVAL} s spacing" ||
+    say_fail "fit used a different sampling interval than ${INTERVAL} s"
 
 # the epoch must be the reference arc's first record, not a leftover from
 # whichever config was edited last
