@@ -64,6 +64,17 @@ int main(int argc, char *argv[])
         if (std::string(argv[i]) == "--six") { estimate_srp = false; }
         if (std::string(argv[i]) == "--seven") { estimate_srp = true; }
     }
+
+    // Velocities in the reference are differentiated from SP3 positions, not
+    // measured, so they are down-weighted. How much that matters has been an
+    // assumption rather than a measurement; --vel-weight makes it testable.
+    // 0 excludes velocity entirely and fits positions alone.
+    double vel_weight = 1.0e-6;
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string(argv[i]) == "--vel-weight") {
+            vel_weight = std::atof(argv[i + 1]);
+        }
+    }
     const int n_par = estimate_srp ? 7 : 6;
 
     Configuration config_ops(config_path);
@@ -127,9 +138,9 @@ int main(int argc, char *argv[])
     // measured, so they are downweighted by six orders of magnitude and the
     // solution is driven by the positions.
     Matrix6x6 W = Matrix6x6::Identity();
-    W(3, 3) = 1.0 / (1000.0 * 1000.0);
-    W(4, 4) = 1.0 / (1000.0 * 1000.0);
-    W(5, 5) = 1.0 / (1000.0 * 1000.0);
+    W(3, 3) = vel_weight;
+    W(4, 4) = vel_weight;
+    W(5, 5) = vel_weight;
 
     double L_t_L = 0.0;
 
@@ -151,6 +162,25 @@ int main(int argc, char *argv[])
         x(6) = propagator->rso.get_srp_scale();
     }
     x0 = x;
+
+    // Echo the configuration actually in force. A substitution that silently
+    // fails to apply - a sed that does not match, a template argument that is
+    // ignored - otherwise reports a number computed from a different config,
+    // and nothing in the output says so. Callers assert against these lines.
+    std::cout << "CONFIG  file       : " << config_path << "\n"
+              << "CONFIG  epoch      : " << start.str_UTC_datestamp() << "\n"
+              << "CONFIG  propagator : " << config_ops.propagator
+              << "   step " << config_ops.step_size << " s\n"
+              << "CONFIG  area/mass  : " << config_ops.area << " m^2 / "
+              << config_ops.mass << " kg\n"
+              << "CONFIG  forces     : srp=" << config_ops.srp
+              << " rp_model=" << config_ops.rp_model
+              << " third_body=" << config_ops.third_body
+              << " drag=" << config_ops.drag
+              << " grav=" << config_ops.gravity_model << "/"
+              << config_ops.grav_degree << "\n"
+              << "CONFIG  parameters : " << n_par
+              << "   velocity weight " << vel_weight << "\n";
 
     std::cout << "Fitting " << no_obs << " reference states at "
               << output_interval << " s spacing (" << std::setprecision(4)

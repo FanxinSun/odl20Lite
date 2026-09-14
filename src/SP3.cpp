@@ -23,18 +23,32 @@ void SP3::read_SP3()
         Timetag lastEpochRead;
 
         //-----------------------------------------------------------------
-        // Skipping the headerlines
-        for (unsigned short j = 0; j < 22; j++) {
-            std::getline(infile, line);
-            line = "";
+        // Skip the header by reading until the first epoch line rather than a
+        // fixed count. The header length depends on the SP3 version and on how
+        // many satellites the file carries: SP3-c with 32 GPS satellites has 22
+        // header lines, but an SP3-d multi-GNSS file with ~120 satellites has
+        // 32, because the satellite-id and accuracy blocks grow. Skipping a
+        // fixed 22 lands mid-header on those and the parse fails.
+        bool found_epoch = false;
+
+        while (std::getline(infile, line)) {
             line_counter++;
+
+            if (!line.empty() && line[0] == '*') {
+                found_epoch = true;
+                break;
+            }
+
+            if (line.substr(0, 3) == std::string("EOF")) {
+                break;
+            }
         }
 
-        // get the first line
-        line = "";
-        std::getline(infile, line);
-        // mark the line we read
-        line_counter++;
+        if (!found_epoch) {
+            printf("SP3::read_SP3() -> no epoch line found in %s\n",
+                   sp3_list[i].c_str());
+            exit(1);
+        }
 
         // go through all the epochs
         do {

@@ -73,5 +73,72 @@ awk -v y="$YEAR" -v mo="$MON" -v d="$DAY" -v h="$HR" -v mi="$MIN" -v s="$SEC" \
     { print }
 ' "$TEMPLATE" > "$CFG"
 
+# Sampling interval, taken from the SP3 header rather than assumed: IGS finals
+# are 15-minute, the multi-GNSS products are 5-minute, and passing the wrong one
+# silently misaligns the fit against the reference.
+INTERVAL=$(awk 'NR==2 { printf "%d", $3 }' "$SP3DIR/$SP3NAME")
+[ -z "$INTERVAL" ] || [ "$INTERVAL" -le 0 ] && INTERVAL=900
+
 echo
-./fit_orbit_to_sp3_v3 "$CFG" "$ECI" 900
+OUT=$(./fit_orbit_to_sp3_v3 "$CFG" "$ECI" "$INTERVAL" 2>&1)
+echo "$OUT"
+
+# --- assert the run used the configuration we think it did -------------------
+# A substitution that silently fails to apply reports a number computed from
+# some other configuration, and nothing in the output says so. This happened
+# during development: a sed that did not match left an earlier hand-tuned
+# config in place, and the run looked entirely normal. Fail loudly instead.
+fail=0
+say_fail() { echo "ASSERTION FAILED: $1" >&2; fail=1; }
+
+got_cfg=$(echo "$OUT"  | awk -F': ' '/^CONFIG  file/{print $2}' | tr -d ' ')
+[ "$got_cfg" = "$CFG" ] || say_fail "fit read '$got_cfg', expected '$CFG'"
+
+# area and mass must match the template that was actually requested
+cfgline='^CONFIG  area\/mass  : \([0-9.eE+-]*\) m^2 \/ \([0-9.eE+-]*\) kg.*'
+got_area=$(echo "$OUT" | sed -n "s|$cfgline|\1|p")
+got_mass=$(echo "$OUT" | sed -n "s|$cfgline|\2|p")
+want_area=$(awk '$1=="area" { print $3; exit }' "$TEMPLATE")
+want_mass=$(awk '$1=="mass" { print $3; exit }' "$TEMPLATE")
+[ -z "$want_area" ] || [ "$want_area" = "$got_area" ] ||
+    say_fail "area is $got_area, template says $want_area"
+[ -z "$want_mass" ] || [ "$want_mass" = "$got_mass" ] ||
+    say_fail "mass is $got_mass, template says $want_mass"
+
+# the epoch must be the reference arc's first record, not a leftover from
+# whichever config was edited last
+want_day=$(awk 'NR==1 { printf "%d/%2d/%d", $4, $3, $2 }' "$ECI")
+echo "$OUT" | grep -q "CONFIG  epoch      : $want_day" ||
+    say_fail "epoch is not the reference arc's first record ($want_day)"
+
+if [ "$fail" -ne 0 ]; then
+    echo >&2
+    echo "The numbers above were NOT produced by the intended configuration." >&2
+    exit 3
+fi
+
+echo
+echo "  configuration asserted: $(basename "$TEMPLATE"), ${INTERVAL}s sampling"
+
+# --- regression baselines ----------------------------------------------------
+# Known-good results, so this script is a test rather than something someone
+# remembers to eyeball. Tolerance is 10%: the fit is deterministic, so anything
+# outside that is a real change in the dynamics, not noise. Add arcs freely.
+RMS=$(echo "$OUT" | awk '/position RMS  *:/{print $4}')
+case "${SAT}_${STAMP}_$(basename "$TEMPLATE")" in
+    G01_20230220000_configOPS_gnss.txt) BASE=0.0645 ;;
+    G01_20230230000_configOPS_gnss.txt) BASE=0.0573 ;;
+    G05_20230220000_configOPS_gnss.txt) BASE=0.1870 ;;
+    *) BASE="" ;;
+esac
+
+if [ -n "$BASE" ]; then
+    ok=$(awk -v a="$RMS" -v b="$BASE" \
+        'BEGIN { d=(a-b); if(d<0)d=-d; print (d <= 0.10*b) ? "y" : "n" }')
+    if [ "$ok" = y ]; then
+        echo "  baseline OK: $RMS m against $BASE m"
+    else
+        echo "REGRESSION: $SAT $STAMP gave $RMS m, baseline $BASE m (>10%)" >&2
+        exit 4
+    fi
+fi
