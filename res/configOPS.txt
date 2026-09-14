@@ -1,0 +1,56 @@
+//!< @file configOPS.txt (Use this file to set configurable parameters for OPS)
+//!< @brief A config file to initialise settings in SGNL OPS.
+//!< 
+
+// initial time in UTC (in MJD format or yyyy,mm,dd,hh,mm,ss.ss format)
+t0                  = 2014,01,01,00,00,00.00
+
+// position (in km) and velocity (in km/s) in ECI, i.e. J2000
+x0                  = 42164.0
+y0                  = 0.0
+z0                  = 0.0
+u0                  = 0.0
+v0                  = 3.074666
+w0                  = 0.0
+
+// spacecraft name, can be used to set custom properties inside OPS
+spacecraft			= testRSO
+
+// mass of spacecraft or debris object (kg), default value is 1000 kg
+mass                = 1000
+
+// choose propagator (0. Keplerian, 1. RK8/7, 2. SGP4, 3. RKF7/8, 4. RK4)
+propagator          = 1
+step_size           = 0.25 // in seconds
+
+// simulation time and output interval (in s) and format (ops, eci, or all)
+simulation_time     = 2700
+output_interval     = 100
+output_format       = eci
+
+// choose gravity model and degree/order to use
+// [1. EGM96 (360x360), 2. GRIM5-S1 (99x95), 3. JGM3 (70x70),
+//  4. GRIM-C1 (120x120), 5. GRACE-GGM01C (200x200),
+//  6. GRACE-GGM01S (120x120), 7 GRACE-GGM03C (360x360)]
+gravity_model       = 7
+grav_degree         = 6
+
+// choose magnetic field model and degree/order to use
+// [0. none, 1. IGRF11 (13x13), 2. IGRF12 (13x13)]
+magnetic_model      = 0
+mag_degree          = 13
+specific_charge     = -1.0 // Measured in nC/kg
+
+// select force models to use (0 for off, 1 for on, unless stated otherwise):
+antenna_thrust      = 0
+drag                = 0
+gr_correction       = 0
+srp                 = 0 // (0 off, 1 ecef model, 2 eci model)
+erp                 = 0 // (0 off, 1 simple ecef, 2 simple eci, 3 CERES model)
+trr                 = 0 // (0 off, 1 Stu model, 2 one layer, 3 better two layer)
+rp_model            = 0 // (0 off, 1 analytic, 2 grid files, 3 box and wing)
+third_body          = 0
+y_bias              = 0
+pole_tide           = 0
+solid_earth_tide    = 0
+time_var_grav       = 0

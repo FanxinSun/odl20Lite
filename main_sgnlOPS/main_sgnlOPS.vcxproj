@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{79c31f6a-ed43-42d0-888e-5a3833e44536}</ProjectGuid>
+    <RootNamespace>mainsgnlOPS</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <UndefinePreprocessorDefinitions>%(UndefinePreprocessorDefinitions)</UndefinePreprocessorDefinitions>
+      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="..\include\.DS_Store" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\Attitude_state.h" />
+    <ClInclude Include="..\include\Cartesian.h" />
+    <ClInclude Include="..\include\Configuration.h" />
+    <ClInclude Include="..\include\constants.h" />
+    <ClInclude Include="..\include\Eclipse_model.h" />
+    <ClInclude Include="..\include\Ephemeris.h" />
+    <ClInclude Include="..\include\filesystem_utils.h" />
+    <ClInclude Include="..\include\Flux.h" />
+    <ClInclude Include="..\include\Flux_earth_ceres.h" />
+    <ClInclude Include="..\include\Flux_earth_ecef.h" />
+    <ClInclude Include="..\include\Flux_earth_eci.h" />
+    <ClInclude Include="..\include\Flux_solar_ecef.h" />
+    <ClInclude Include="..\include\Flux_solar_eci.h" />
+    <ClInclude Include="..\include\Force.h" />
+    <ClInclude Include="..\include\Force_antenna_thrust.h" />
+    <ClInclude Include="..\include\Force_drag.h" />
+    <ClInclude Include="..\include\Force_drag_tiegcm.h" />
+    <ClInclude Include="..\include\Force_drag_ussa76.h" />
+    <ClInclude Include="..\include\Force_earth_gravity.h" />
+    <ClInclude Include="..\include\Force_earth_tide.h" />
+    <ClInclude Include="..\include\Force_gr_correction.h" />
+    <ClInclude Include="..\include\Force_lorentz.h" />
+    <ClInclude Include="..\include\Force_rp.h" />
+    <ClInclude Include="..\include\Force_rp_analytic.h" />
+    <ClInclude Include="..\include\Force_rp_box_wing.h" />
+    <ClInclude Include="..\include\Force_rp_gridfile.h" />
+    <ClInclude Include="..\include\Force_third_body.h" />
+    <ClInclude Include="..\include\Force_trr.h" />
+    <ClInclude Include="..\include\Force_trr2.h" />
+    <ClInclude Include="..\include\Force_trr3.h" />
+    <ClInclude Include="..\include\Force_y_bias.h" />
+    <ClInclude Include="..\include\Frame_transform.h" />
+    <ClInclude Include="..\include\JPL_orbit_format.h" />
+    <ClInclude Include="..\include\Keplerian_elements.h" />
+    <ClInclude Include="..\include\lagrange_interpolation.h" />
+    <ClInclude Include="..\include\Matrix.h" />
+    <ClInclude Include="..\include\Output_handler.h" />
+    <ClInclude Include="..\include\polynomial.h" />
+    <ClInclude Include="..\include\Propagators.h" />
+    <ClInclude Include="..\include\Prop_erk87.h" />
+    <ClInclude Include="..\include\Prop_erkf78.h" />
+    <ClInclude Include="..\include\Prop_kepler.h" />
+    <ClInclude Include="..\include\Prop_rk4.h" />
+    <ClInclude Include="..\include\Prop_sgp4.h" />
+    <ClInclude Include="..\include\Resident_constants.h" />
+    <ClInclude Include="..\include\Resident_space_object.h" />
+    <ClInclude Include="..\include\Resident_variables.h" />
+    <ClInclude Include="..\include\SP3.h" />
+    <ClInclude Include="..\include\State_vector.h" />
+    <ClInclude Include="..\include\Timetag.h" />
+    <ClInclude Include="..\include\Total_solar_irradiance.h" />
+    <ClInclude Include="..\include\Two_line_element.h" />
+    <ClInclude Include="..\include\Two_line_element_reader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\Attitude_state.cpp" />
+    <ClCompile Include="..\src\Configuration.cpp" />
+    <ClCompile Include="..\src\Eclipse_model.cpp" />
+    <ClCompile Include="..\src\Ephemeris.cpp" />
+    <ClCompile Include="..\src\Flux.cpp" />
+    <ClCompile Include="..\src\Flux_earth_ceres.cpp" />
+    <ClCompile Include="..\src\Flux_earth_ecef.cpp" />
+    <ClCompile Include="..\src\Flux_earth_eci.cpp" />
+    <ClCompile Include="..\src\Flux_solar_ecef.cpp" />
+    <ClCompile Include="..\src\Flux_solar_eci.cpp" />
+    <ClCompile Include="..\src\Force.cpp" />
+    <ClCompile Include="..\src\Force_antenna_thrust.cpp" />
+    <ClCompile Include="..\src\Force_drag.cpp" />
+    <ClCompile Include="..\src\Force_drag_tiegcm.cpp" />
+    <ClCompile Include="..\src\Force_drag_ussa76.cpp" />
+    <ClCompile Include="..\src\Force_earth_gravity.cpp" />
+    <ClCompile Include="..\src\Force_earth_tide.cpp" />
+    <ClCompile Include="..\src\Force_gr_correction.cpp" />
+    <ClCompile Include="..\src\Force_lorentz.cpp" />
+    <ClCompile Include="..\src\Force_rp.cpp" />
+    <ClCompile Include="..\src\Force_rp_analytic.cpp" />
+    <ClCompile Include="..\src\Force_rp_box_wing.cpp" />
+    <ClCompile Include="..\src\Force_rp_gridfile.cpp" />
+    <ClCompile Include="..\src\Force_third_body.cpp" />
+    <ClCompile Include="..\src\Force_trr.cpp" />
+    <ClCompile Include="..\src\Force_trr2.cpp" />
+    <ClCompile Include="..\src\Force_trr3.cpp" />
+    <ClCompile Include="..\src\Force_y_bias.cpp" />
+    <ClCompile Include="..\src\Frame_transform.cpp" />
+    <ClCompile Include="..\src\JPL_orbit_format.cpp" />
+    <ClCompile Include="..\src\Keplerian_elements.cpp" />
+    <ClCompile Include="..\src\main_car2kep.cpp" />
+    <ClCompile Include="..\src\main_ECEF2ECI.cpp" />
+    <ClCompile Include="..\src\main_ECI2ECEF.cpp" />
+    <ClCompile Include="..\src\main_fit_orbit_to_sp3_v3.cpp" />
+    <ClCompile Include="..\src\main_kep2car.cpp" />
+    <ClCompile Include="..\src\main_sgnlOPS.cpp" />
+    <ClCompile Include="..\src\main_SP3_to_eci.cpp" />
+    <ClCompile Include="..\src\Output_handler.cpp" />
+    <ClCompile Include="..\src\Propagators.cpp" />
+    <ClCompile Include="..\src\Prop_erk87.cpp" />
+    <ClCompile Include="..\src\Prop_erkf78.cpp" />
+    <ClCompile Include="..\src\Prop_kepler.cpp" />
+    <ClCompile Include="..\src\Prop_rk4.cpp" />
+    <ClCompile Include="..\src\Prop_sgp4.cpp" />
+    <ClCompile Include="..\src\Resident_constants.cpp" />
+    <ClCompile Include="..\src\Resident_space_object.cpp" />
+    <ClCompile Include="..\src\Resident_variables.cpp" />
+    <ClCompile Include="..\src\SP3.cpp" />
+    <ClCompile Include="..\src\Timetag.cpp" />
+    <ClCompile Include="..\src\Total_solar_irradiance.cpp" />
+    <ClCompile Include="..\src\Two_line_element.cpp" />
+    <ClCompile Include="..\src\Two_line_element_reader.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

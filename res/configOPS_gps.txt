@@ -1,0 +1,50 @@
+//!< @file configOPS_gps.txt
+//!< @brief Fitting a GPS MEO orbit to an IGS precise ephemeris.
+//!<
+//!< Used by scripts/validate_sp3.sh. The initial state is a starting guess
+//!< only - fit_orbit_to_sp3_v3 solves for it - but it must be close enough
+//!< for the least-squares to converge, so it is taken from the first epoch
+//!< of the reference arc.
+
+t0                  = 2023,01,22,00,59,42.00
+
+x0                  = -16084.161238
+y0                  =   7753.686564
+z0                  =  19468.757903
+u0                  =     -2.908391130
+v0                  =     -2.108733267
+w0                  =     -1.504732227
+
+spacecraft          = testRSO
+mass                = 1630        // representative GPS block IIF mass, kg
+area                = 34          // m^2; A/m 0.0209, close to the published GPS value
+
+// Propagator 3 (RKF7/8) and 4 (RK4) are the two that integrate the state
+// transition matrix alongside the state, which the orbit fit needs.
+propagator          = 3
+step_size           = 30          // in seconds
+simulation_time     = 78300
+output_interval     = 900         // must match the reference ephemeris
+output_format       = eci
+
+// EGM2008. Degree 12 is ample at GPS altitude, where the field is already
+// close to a point mass; the dominant perturbations are luni-solar and SRP.
+gravity_model       = 8
+grav_degree         = 12
+
+magnetic_model      = 0
+mag_degree          = 0
+specific_charge     = 0.0
+
+antenna_thrust      = 0
+drag                = 0           // negligible at 20 200 km
+gr_correction       = 1           // relativistic correction, ~centimetres/day
+srp                 = 1
+erp                 = 0
+trr                 = 0
+rp_model            = 1           // analytic cannonball SRP
+third_body          = 1           // Sun and Moon dominate at this altitude
+y_bias              = 0
+pole_tide           = 0
+solid_earth_tide    = 1
+time_var_grav       = 0

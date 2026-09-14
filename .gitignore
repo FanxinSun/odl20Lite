@@ -1,0 +1,55 @@
+# --- Dropbox sidecars -------------------------------------------------------
+# This tree was synced through Dropbox, which left ~1850 metadata files next to
+# the real ones. They are not content.
+*:com.dropbox.attrs
+*:com.dropbox.posix.executable
+
+# --- build output -----------------------------------------------------------
+obj/*
+!obj/.gitkeep
+lib/*
+!lib/.gitkeep
+bin/*
+!bin/.gitkeep
+output/*
+!output/.gitkeep
+*.o
+*.d
+*.a
+
+# Visual Studio project caches: main_sgnlOPS/.vs alone is 391 MB.
+# The .sln and .vcxproj files are kept; only the caches and build dirs go.
+.vs/
+Debug/
+Release/
+x64/
+*.vcxproj.user
+
+# --- vendored libraries that are built, not authored -------------------------
+# CALCEPH is compiled from upstream source into here; the Makefile detects its
+# absence and builds without it. See REVIVAL.md for the build command.
+external/calceph/bin/
+external/calceph/lib/
+external/calceph/include/
+external/calceph/share/
+
+# --- bulk data --------------------------------------------------------------
+# The TIE-GCM tables are ~565 MB across 12 files and are model output that
+# cannot be regenerated from this tree. They are deliberately NOT in version
+# control; see res/LARGE_DATA.md for what they are and where they must sit.
+res/Densities*.txt
+res/Heights*.txt
+res/SkimedDensities*.txt
+res/SkimedHeights*.txt
+
+# IGS precise orbits: downloadable on demand by scripts/validate_sp3.sh
+res/sp3/
+
+# --- working files ----------------------------------------------------------
+.attic/
+*.bak
+
+# Bulk simulation data relocated to /mnt/d (see res/LARGE_DATA.md). The
+# symlinks left behind are specific to this machine.
+analyses/qbfanxin
+analyses/qb50
