@@ -7,7 +7,17 @@ This file records facts only. It does not assert ownership of anything, does
 not grant or assume any licence for the first-party code, and is not legal
 advice. The first-party licensing question is **open** - see the last section.
 
-Compiled 2026-09-15.
+Compiled 2026-09-15. Final state.
+
+One correction to the spacecraft property sets in `src/Resident_constants.cpp`,
+recorded here because their contents were used as evidence about the population
+this software was aimed at. Two entries were mislabelled: `Large_Sphere_HAMR`
+was defined twice with the second unreachable and its own comment reading LAMR,
+and `Medium_Sphere_LAMR` encoded the highest area-to-mass ratio in the file.
+Both names now match their values. **The labels in that file were unreliable, so
+any inference from it rests on the values, not the names** - which does not
+change the conclusion, since the range is 0.016 to 6.3 m^2/kg, 1x to 305x GNSS,
+whichever name sits on which entry.
 
 ## Third-party code, vendored under `external/`
 

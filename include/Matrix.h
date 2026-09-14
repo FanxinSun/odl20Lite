@@ -53,6 +53,11 @@ typedef Eigen::Matrix<double, 6, 6, Eigen::DontAlign> Matrix6x6;
 
 typedef Eigen::Matrix<double, 3, 1> Matrix3x1;
 typedef Eigen::Matrix<double, 6, 1> Matrix6x1;
+//! Sensitivity block dy/dp for the empirical radiation-pressure parameters:
+//! column 0 is the scale on the a priori SRP model (equivalent to ECOM D0),
+//! columns 1-4 are Y0, B0, Bc and Bs. Classical ECOM is all five.
+typedef Eigen::Matrix<double, 6, 5> Matrix6x5;
+static const int N_EMP = 5;
 
 template <typename Scalar>
 inline Eigen::Quaternion<Scalar> rotate_around_x(Scalar alpha)

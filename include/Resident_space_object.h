@@ -41,14 +41,20 @@ class Resident_space_object
     //! not depend on p, and is integrated as d(srpS)/dt = dF/dy * srpS +
     //! [0; da/dp] alongside phiM. Only the propagators that carry phiM
     //! (RKF7/8 and RK4) integrate it.
-    Matrix6x1 srpS = Matrix6x1::Zero();
+    Matrix6x5 srpS = Matrix6x5::Zero();
 
     //! da/dp: the unscaled solar radiation pressure acceleration, in ECI.
     Cartesian get_srp_partial() const;
 
+    //! da/dp for empirical parameter i, in ECI.
+    Cartesian get_emp_partial(int i) const;
+
     //! The radiation pressure scale factor, which the orbit fit estimates.
     double get_srp_scale() const;
     void set_srp_scale(double scale);
+
+    //! ECOM coefficients 1-4 (Y0, B0, Bc, Bs), in km/s^2.
+    void set_emp_coeff(int i, double value);
 
   private:
     std::vector<std::unique_ptr<Force>> forces;

@@ -73,4 +73,42 @@ void Force_rp_analytic::compute_acceleration()
 
     state->total_a_eci += applied * a_eci;
     state->total_a_ecef += applied * a_ecef;
+
+    // --- empirical (ECOM) terms ---------------------------------------------
+    // Classical ECOM resolves the residual radiation-pressure acceleration in
+    // the sun-oriented DYB frame: D towards the Sun, Y along the solar panel
+    // rotation axis, B completing the set, with a once-per-revolution term in
+    // B. Column 0 of the sensitivity block is the scale on the a priori model
+    // above, which plays the role of D0; these are the other four.
+    //
+    // The partials are just the unit directions, because the acceleration is
+    // linear in each coefficient. All of them vanish in eclipse.
+    const Cartesian e_D = state->eci_rso_sun_hat;
+    const Cartesian r = Cartesian(state->eci.x, state->eci.y, state->eci.z);
+    Cartesian e_Y = cross_product(e_D, r);
+
+    if (e_Y.length() > 0.0 && state->eclipse_state > 0.0) {
+        e_Y.normalise();
+        const Cartesian e_B = cross_product(e_D, e_Y);
+
+        // Argument of latitude, from the ascending node.
+        const Cartesian h_hat = normalise(state->h);
+        Cartesian node = cross_product(Cartesian(0.0, 0.0, 1.0), h_hat);
+        double u = 0.0;
+        if (node.length() > 0.0) {
+            node.normalise();
+            u = std::atan2(dot_product(r, cross_product(h_hat, node)),
+                           dot_product(r, node));
+        }
+
+        const double sun = state->eclipse_state;
+        state->emp_partial[1] = sun * e_Y;
+        state->emp_partial[2] = sun * e_B;
+        state->emp_partial[3] = (sun * std::cos(u)) * e_B;
+        state->emp_partial[4] = (sun * std::sin(u)) * e_B;
+
+        for (int q = 1; q < 5; ++q) {
+            state->total_a_eci += state->emp_coeff[q] * state->emp_partial[q];
+        }
+    }
 }

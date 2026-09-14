@@ -101,6 +101,13 @@ class Resident_variables
     double srp_scale_period = 0.0;
     double srp_scale_t0 = 0.0;
 
+    //! da/dp for each empirical parameter, in ECI. Column 0 is the unscaled
+    //! SRP acceleration; 1-4 are the ECOM unit directions Y, B, B*cos(u),
+    //! B*sin(u). Zero outside sunlight, where none of them act.
+    Cartesian emp_partial[5];
+    //! Estimated ECOM coefficients (km/s^2); column 0 is handled by srp_scale.
+    double emp_coeff[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+
     Cartesian srp_unscaled_eci;
     Cartesian srp_unscaled_ecef;
 

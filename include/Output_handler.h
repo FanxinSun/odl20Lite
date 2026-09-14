@@ -17,7 +17,7 @@ class Output_handler
     std::string output_file;
     OutputFormat output_format = OPS; // Default to UCL OPS format
 
-    std::vector<std::tuple<State_vector, Matrix6x6, Matrix6x1>> store;
+    std::vector<std::tuple<State_vector, Matrix6x6, Matrix6x5>> store;
 
     // Collect 1 MiB of output into buffer before writing
     static constexpr int buffer_limit = 1024 * 1024;
@@ -89,7 +89,7 @@ class Output_handler
         store.reserve(max);
     }
 
-    std::vector<std::tuple<State_vector, Matrix6x6, Matrix6x1>> get_store() const
+    std::vector<std::tuple<State_vector, Matrix6x6, Matrix6x5>> get_store() const
     {
         return store;
     }

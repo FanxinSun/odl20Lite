@@ -1134,7 +1134,9 @@ void Resident_constants::set_name_specific_values(const Configuration &config)
         mu = 0.0;
     }
     // Medium Sphere HAMR 0.5kg 1.0m diameter -4.01e-05 ms-2
-    else if (name == "Medium_Sphere_LAMR") {
+    // The name said LAMR while the values give 6.28 m^2/kg, the highest
+    // area-to-mass ratio in this file. The comment was right.
+    else if (name == "Medium_Sphere_HAMR") {
         mass = 0.5;
         area = sgnlOPS::D_PI * 1.0 * 1.0;
         drag_coeff = 2.2;
@@ -1150,7 +1152,10 @@ void Resident_constants::set_name_specific_values(const Configuration &config)
         mu = 0.0;
     }
     // Large Sphere LAMR 1000.0kg 5.0m diameter -2.50e-05 ms-2
-    else if (name == "Large_Sphere_HAMR") {
+    // Was a second "Large_Sphere_HAMR", unreachable behind the entry above and
+    // contradicted by its own comment and its 1000 kg mass. Named for what it
+    // encodes.
+    else if (name == "Large_Sphere_LAMR") {
         mass = 1000.0;
         area = sgnlOPS::D_PI * 2.5 * 2.5;
         drag_coeff = 2.2;

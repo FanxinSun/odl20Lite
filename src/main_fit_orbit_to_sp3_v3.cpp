@@ -60,9 +60,14 @@ int main(int argc, char *argv[])
     // SRP mismodelling dominates the residuals; --six reproduces the
     // state-only baseline for comparison.
     bool estimate_srp = true;
+    // Classical ECOM: the scale on the a priori model (playing the role of D0)
+    // plus Y0, B0 and a once-per-revolution pair in B. Diagnostic rather than
+    // default - it asks how much of the residual is radiation-pressure shaped.
+    bool ecom = false;
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--six") { estimate_srp = false; }
         if (std::string(argv[i]) == "--seven") { estimate_srp = true; }
+        if (std::string(argv[i]) == "--ecom") { estimate_srp = true; ecom = true; }
     }
 
     // Velocities in the reference are differentiated from SP3 positions, not
@@ -75,7 +80,8 @@ int main(int argc, char *argv[])
             vel_weight = std::atof(argv[i + 1]);
         }
     }
-    const int n_par = estimate_srp ? 7 : 6;
+    const int n_emp = ecom ? N_EMP : (estimate_srp ? 1 : 0);
+    const int n_par = 6 + n_emp;
 
     Configuration config_ops(config_path);
 
@@ -150,7 +156,7 @@ int main(int argc, char *argv[])
     Matrix6x1 Computed = Matrix6x1::Zero();
     Matrix6x1 OMC = Matrix6x1::Zero();
     Matrix6x6 Phi = Matrix6x6::Identity();
-    Matrix6x1 Sens = Matrix6x1::Zero(); // dy/d(srp_scale)
+    Matrix6x5 Sens = Matrix6x5::Zero(); // dy/dp for the empirical set
 
     // Design matrix per observation: [Phi | dy/dp], 6 by n_par.
     Eigen::MatrixXd A(6, n_par);
@@ -232,9 +238,12 @@ int main(int argc, char *argv[])
 
         // Recycle rso by resetting various properties
         propagator->rso.phiM = Matrix6x6::Identity();
-        propagator->rso.srpS = Matrix6x1::Zero();
+        propagator->rso.srpS = Matrix6x5::Zero();
         if (estimate_srp) {
             propagator->rso.set_srp_scale(x(6));
+        }
+        for (int q = 1; q < n_emp; ++q) {
+            propagator->rso.set_emp_coeff(q, x(6 + q));
         }
         propagator->rso.initial_state = Keplerian_elements(
             new_state, static_cast<long double>(propagator->rso.get_GM()));
@@ -267,8 +276,8 @@ int main(int argc, char *argv[])
             OMC = Observation - Computed;
 
             A.leftCols(6) = Phi;
-            if (estimate_srp) {
-                A.col(6) = Sens;
+            for (int q = 0; q < n_emp; ++q) {
+                A.col(6 + q) = Sens.col(q);
             }
 
             A_t_A += A.transpose() * W * A;
@@ -359,11 +368,13 @@ int main(int argc, char *argv[])
 
         std::cout << "\n  formal 1-sigma on the fitted initial state\n"
                   << std::scientific << std::setprecision(4);
-        const char *label[7] = {"x", "y", "z", "u", "v", "w", "srp_scale"};
+        const char *label[11] = {"x", "y", "z", "u", "v", "w",
+                                 "srp_scale", "Y0", "B0", "Bc", "Bs"};
         for (int k = 0; k < n_par; ++k) {
             const double sigma = std::sqrt(std::abs(covariance(k, k)));
             std::cout << "    " << label[k] << " : " << sigma
-                      << ((k < 3) ? " km" : (k < 6 ? " km/s" : "")) << "\n";
+                      << ((k < 3) ? " km" : (k < 6 ? " km/s" : (k == 6 ? "" : " km/s^2")))
+                      << "\n";
         }
         if (estimate_srp) {
             // What a cannonball fit recovers is an effective A*C_R/m: the
@@ -385,6 +396,20 @@ int main(int argc, char *argv[])
                       << "  effective area       : " << std::setprecision(3)
                       << (x(6) * area) << " +/- " << (sigma_scale * area)
                       << " m^2 (at " << mass << " kg nominal)\n";
+        }
+
+        if (ecom) {
+            const char *en[4] = {"Y0", "B0", "Bc", "Bs"};
+            std::cout << std::scientific << std::setprecision(3)
+                      << "  ECOM coefficients (km/s^2, with formal sigma)\n";
+            for (int q = 1; q < N_EMP; ++q) {
+                const double sg = std::sqrt(std::abs(covariance(6 + q, 6 + q)));
+                std::cout << "    " << en[q - 1] << " : " << x(6 + q) << " +/- "
+                          << sg << "   (" << std::fixed << std::setprecision(1)
+                          << (sg > 0.0 ? std::abs(x(6 + q)) / sg : 0.0)
+                          << " sigma)" << std::scientific
+                          << std::setprecision(3) << "\n";
+            }
         }
 
         std::cout << std::fixed << std::setprecision(4)

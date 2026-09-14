@@ -74,26 +74,28 @@ void Prop_erkf78::step()
     State_vector Xo = rso.get_eci(); // Initial state vector
     Matrix6x6 PhiMo = rso.phiM;      // Initial state transition matrix
 
-    const Matrix6x1 So = rso.srpS; // Initial SRP sensitivity, dy/dp
+    const Matrix6x5 So = rso.srpS; // Initial SRP sensitivity, dy/dp
 
     State_vector Xi; // i-th state vector
     Matrix6x6 PhiMi; // i-th Phi matrix
-    Matrix6x1 Si;    // i-th sensitivity column
+    Matrix6x5 Si;    // i-th sensitivity column
 
     State_vector dXidt[m_bRow]; // Time derivatives of ith State_vector.
     Matrix6x6 dPhidt[m_bRow];   // Time derivatives of ith Phi matrix.
-    Matrix6x1 dSdt[m_bRow];     // Time derivatives of ith sensitivity column.
+    Matrix6x5 dSdt[m_bRow];     // Time derivatives of ith sensitivity block.
 
     Cartesian a = rso.get_acceleration();
     Matrix6x6 dfdy = rso.get_partial_derivatives();
-    Cartesian dadp = rso.get_srp_partial();
 
-    Matrix6x1 forcing = Matrix6x1::Zero();
+    Matrix6x5 forcing = Matrix6x5::Zero();
 
     // Calculate time derivatives
     dXidt[0].set(Xo.u, Xo.v, Xo.w, a.x, a.y, a.z, Xo.epoch);
     dPhidt[0] = dfdy * PhiMo;
-    forcing(3) = dadp.x; forcing(4) = dadp.y; forcing(5) = dadp.z;
+    for (int q = 0; q < N_EMP; ++q) {
+        const Cartesian dp = rso.get_emp_partial(q);
+        forcing(3, q) = dp.x; forcing(4, q) = dp.y; forcing(5, q) = dp.z;
+    }
     dSdt[0] = dfdy * So + forcing;
 
     for (int i = 1; i < m_bRow; ++i) {
@@ -118,12 +120,14 @@ void Prop_erkf78::step()
 
         a = rso.get_acceleration();
         dfdy = rso.get_partial_derivatives();
-        dadp = rso.get_srp_partial();
 
         // Calculate time derivatives
         dXidt[i].set(Xi.u, Xi.v, Xi.w, a.x, a.y, a.z);
         dPhidt[i] = dfdy * PhiMi;
-        forcing(3) = dadp.x; forcing(4) = dadp.y; forcing(5) = dadp.z;
+        for (int q = 0; q < N_EMP; ++q) {
+            const Cartesian dp = rso.get_emp_partial(q);
+            forcing(3, q) = dp.x; forcing(4, q) = dp.y; forcing(5, q) = dp.z;
+        }
         dSdt[i] = dfdy * Si + forcing;
 
         /* Note that, dPHI/dt = dF/dy * PHI
@@ -154,7 +158,7 @@ void Prop_erkf78::step()
 
     State_vector Xf; // final state vector
     Matrix6x6 PhiMf; // final Phi matrix
-    Matrix6x1 Sf;    // final sensitivity column
+    Matrix6x5 Sf;    // final sensitivity column
 
     Xf = m_b[5] * dXidt[5];
     Xf.epoch = Xo.epoch;

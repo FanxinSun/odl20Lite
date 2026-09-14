@@ -372,3 +372,57 @@ class written against this same OPS that calls NRLMSISE-00 instead of the
 TIE-GCM tables. NRLMSISE-00 has no three-day, 481 km window, so that is the
 natural replacement for the drag model whose limits are described above. The
 author notes it does not compile outside the rest of the OPS sources.
+
+
+---
+
+# If you are picking this up cold
+
+**What it is.** The UCL SGNL Orbit Prediction Software, a numerical orbit
+propagator with a high-fidelity force model set, written 2014-2020 and revived
+in September 2026. It builds and runs on current Linux with GCC 15. Start with
+`make rebuild` then `./scripts/smoke_test.sh`.
+
+**What it has been shown to do.** Fitted against IGS final precise orbits it
+reproduces GPS satellites to a **median 0.14 m** over 22-hour arcs, 0.33 m for
+Galileo, across 57 arcs with no per-satellite tuning. Adding a classical ECOM
+empirical set brings the median to **0.036 m** and the worst case to 0.044 m.
+Reproduce it with `./scripts/validate_sp3.sh`.
+
+It also estimates an effective `A*C_R/m` from dynamics alone, and that estimate
+sorts the GPS constellation into its five hardware blocks with no
+misclassifications - a result that survives ECOM, reproduces across dates to
+0.5%, and agrees with published on-orbit masses the fit never saw.
+
+**What it cannot do.**
+
+- It has no observation models. It fits to a precise ephemeris, not to radar,
+  optical or ranging measurements.
+- The `A*C_R/m` recovery does not survive realistic tracking of ordinary
+  objects. At 10 m position noise an object needs `A*C_R/m` above ~0.033 m^2/kg
+  on a 22-hour arc; GNSS is 0.021 and fails. High area-to-mass objects (0.16 to
+  6.3 in the property sets here) pass comfortably - but that has only been
+  shown synthetically.
+- The formal uncertainty it reports is optimistic by 10-20x. Use the empirical
+  scatter.
+- Precision improves as 1/signal only down to a floor set by how well shape and
+  attitude are known. An error that scales with radiation pressure - wrong
+  reflectivity, wrong shape, unknown attitude - keeps a constant fractional size
+  however strong the signal. Measured example: a +/-30% slow tumble biases the
+  estimate 3.28% at every signal strength tested.
+- The ray-traced SRP grid files the code expects do not exist anywhere, and
+  neither does the ray-tracer that made them. `Force_rp_gridfile` is intact but
+  has nothing to read.
+- There is no licence or copyright statement for the first-party code. See
+  `PROVENANCE.md`; that question needs UCL, not a code change.
+
+**The one thing that would move it forward.** A precise ephemeris for a real
+high area-to-mass object. Everything known about that regime here is synthetic -
+the truth arcs were generated with the same force model that then fitted them,
+which is a fair test of the estimator and no test at all of the physics. One
+real object would settle whether the capability is worth anything outside GNSS.
+The blocker is access, not code: the archives need credentials.
+
+**Where the detail is.** `~/.claude/handover/2026-09-15-odl-business-value-phase*.REPORT.md`,
+seven phases, each leading with its failures. `analysis/` holds the sweep
+outputs the tables above are computed from.

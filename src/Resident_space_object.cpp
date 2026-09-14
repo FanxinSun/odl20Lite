@@ -305,6 +305,21 @@ void Resident_space_object::set_srp_scale(double scale)
     state->srp_scale = scale;
 }
 
+void Resident_space_object::set_emp_coeff(int i, double value)
+{
+    if (i > 0 && i < N_EMP) {
+        state->emp_coeff[i] = value;
+    }
+}
+
+Cartesian Resident_space_object::get_emp_partial(int i) const
+{
+    if (i == 0) {
+        return get_srp_partial();
+    }
+    return state->emp_partial[i];
+}
+
 Cartesian Resident_space_object::get_srp_partial() const
 {
     return state->srp_unscaled_eci +
