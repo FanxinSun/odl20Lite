@@ -1,0 +1,86 @@
+NOTICE
+======
+
+What LICENSE covers
+-------------------
+
+`LICENSE` is the PolyForm Noncommercial License 1.0.0. It applies to the
+first-party code and documentation of this repository: `src/`, `include/`,
+`scripts/`, `pyutils/`, `analysis/`, the configuration files under `res/` that
+are written here, and the Markdown documents at the top level.
+
+In short: read it, run it, change it and pass it on for research, teaching,
+personal or other noncommercial purposes. Commercial use needs a separate
+licence from the copyright holder. The licence text is the authority; this
+paragraph is not.
+
+An open question, stated plainly
+--------------------------------
+
+The first-party code originates with University College London, as the SGNL
+Orbit Prediction Software (2017b), itself a 2014 rewrite of the pre-2010 UCL
+Orbit Dynamics Library. **No copyright or licence statement existed anywhere in
+the tree** - not in `README.md`, not in any file header, and there was no
+`LICENSE` file. Nothing in this repository establishes who holds the rights or
+who is entitled to license them.
+
+`LICENSE` is therefore offered by the repository owner to the extent they are
+entitled to do so, and it does not settle that question. Anyone intending to
+rely on it for anything that matters should confirm the position with UCL
+first. This file exists so that nobody discovers the ambiguity later.
+
+Third-party components, which LICENSE does NOT cover
+----------------------------------------------------
+
+Each of these keeps its own terms. `PROVENANCE.md` has versions, origins and
+the two cases that need a decision before any binary is distributed.
+
+  external/Eigen             Eigen 3.4.0, MPL 2.0. Notice in each header.
+
+  external/calceph           CALCEPH 4.0.5, IMCCE / Observatoire de Paris.
+                             Triple-licensed CeCILL-C, CeCILL-B or CeCILL v2.1;
+                             a licensee must CHOOSE one and no choice has been
+                             recorded here. The Makefile links it statically, so
+                             under CeCILL-C or v2.1 that choice reaches the
+                             binaries. The build drops CALCEPH automatically if
+                             the directory is absent.
+
+  external/nrlmsise00        NRLMSISE-00, model by Picone, Hedin and Drob (US
+                             Naval Research Laboratory); C translation by
+                             Dominik Brodowski. Generally treated as public
+                             domain; no licence file in this copy.
+
+  external/fecsoft           FECsoft `astrolib`, Joe Heafner, modified by
+                             Charles Gamble. Companion code to *Fundamental
+                             Ephemeris Computations*. Terms not stated here.
+
+  external/sgp4              SGP4, companion code to Vallado, *Fundamentals of
+                             Astrodynamics and Applications* (2007). Terms not
+                             stated here.
+
+  external/png++-0.2.9       png++ 0.2.9, Alex Shulgin. BSD 3-clause; see
+                             `external/png++-0.2.9/COPYING`.
+
+Third-party data under res/
+---------------------------
+
+Redistributed from their publishers under those publishers' terms, not under
+`LICENSE`:
+
+  res/eopc04                 IERS Earth orientation, EOP 14 C04 + Bulletin A
+  res/SW-All.csv             CelesTrak consolidated space weather
+  res/1980_2020              JPL DE405, repacked by scripts/jpl2fecsoft.py
+  res/gravity_fields/        EGM96, EGM2008, JGM-3, GRIM5, GRACE GGM01C/S,
+                             GGM03C
+  res/sp3/                   IGS precise orbits, fetched on demand
+  res/slr/                   ILRS laser ranging normal points for LightSail-2,
+                             from the EUROLAS Data Centre at DGFI-TUM
+  res/slr_stations.txt       SLRF2020 station coordinates, ILRS
+  res/teme_check/            a CelesTrak element set and a JPL Horizons table
+
+Citing the underlying work
+--------------------------
+
+The orbit dynamics, the radiation pressure modelling and the validation cases
+are UCL's work. If this repository contributes to something published, cite
+UCL's Space Geodesy and Navigation Laboratory rather than this repository.

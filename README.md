@@ -24,3 +24,13 @@ All spaceraft/mission/analysis specific data is in the relevant folder in
 make
 or 
 make rebuild
+
+## Licence
+
+PolyForm Noncommercial 1.0.0 - research, teaching and personal use; commercial
+use needs a separate licence. See `LICENSE`.
+
+The vendored libraries under `external/` and the data under `res/` keep their
+own terms, and the underlying work is UCL's. `NOTICE` says what is carved out
+and records an open question about who is entitled to license the first-party
+code at all; `PROVENANCE.md` traces every file to where it came from.
