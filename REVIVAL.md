@@ -518,7 +518,10 @@ between arcs was attributed to ACS3's active attitude steering; reference noise
 of the measured size accounts for it without any appeal to the spacecraft. The
 eightfold fall in residual as the arc shortens was read as the signature of a
 slowly varying effective area; a reference stitched from successive element sets
-predicts the same fall, so the observation does not distinguish the two.
+predicts the same fall, so the observation does not distinguish the two - and the
+numbers favour the dull explanation, since 2458 m over 48 h against 292 m over
+6 h is a factor of 8.4 for a factor of 8 in arc length, which is reference error
+growing linearly in time.
 
 **SGP4 output is TEME, and it is converted now.** `Prop_sgp4` used to feed SGP4's
 state straight through as ECI. Measured against the Horizons ephemeris at the
