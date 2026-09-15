@@ -645,15 +645,82 @@ per-day time bias out and what remains is 94 m to 341 m. That is why laser
 stations apply time biases, and it is a clean measurement of how fast a 6 m^2/kg
 object becomes unpredictable.
 
-**What is still untested.** The debris case proper: passive, tumbling, no
-onboard receiver, no cooperative target, tracked sparsely by angles alone, with
-shape and attitude unknown. LightSail-2 closes the *measurement* half of that -
-real ranges, real high area-to-mass, no element set anywhere in the chain - and
-`fit_orbit_to_slr` closes the machinery half, since it fits to observations
-rather than to states. What it does not close is the uncooperative half: this
-object carried a retroreflector, and the objects that would justify the work do
-not. Angles-only observations need a different measurement model and, more
-importantly, public astrometry of a high area-to-mass object to point it at.
+**The uncooperative half: angles, and what they will not give you.**
+LightSail-2 closed Gap B with laser ranging, and laser ranging only works on an
+object built to be ranged. ACS3 has no retroreflector. Neither does anything in
+the population this software exists for. What those objects produce is angles -
+somebody photographed a moving dot against stars and measured where it was - so
+`src/main_fit_orbit_to_angles.cpp` fits those instead: light time, the
+observer's position in the inertial frame, right ascension and declination
+partials across the line of sight, and the same Levenberg-Marquardt and scaled
+normal equations the laser fit uses. The two share `include/Tracking_fit.h`;
+the laser result is bit-identical after the split.
+
+The data is real and public. The SeeSat-L list has carried amateur astrometry
+since 1994 and its archives are open, so `scripts/seesat2angles.py` harvests
+them: **26 observations of ACS3 between September 2024 and October 2025, every
+one from a single observer in England**. That is what tracking an uncooperative
+object actually looks like - two or three points per pass, a handful of nights,
+tens of arcseconds - and it is in `res/angles/`.
+
+**The observation format was measured rather than assumed**, because guessing it
+would have been the same mistake this tree keeps making. satobs.org publishes a
+U.K. format specification and these lines do not follow it: the right ascension
+sits two columns early and no position-format code is written, and reading
+decimal minutes as seconds would be a 20% error in the right ascension rate,
+absorbed into the orbit without complaint. Over 4780 observation lines in the
+archive, the third pair of digits of the right ascension never once exceeds 59,
+so that field is seconds; the fifth digit of the declination is uniform over
+0-9, so that field is tenths of an arcminute. Nothing was assumed that could be
+counted instead.
+
+**There is no element set anywhere in the chain.** An angles-only fit needs a
+starting orbit and taking one from a TLE would put the thing being escaped
+back in, so `scripts/angles_iod.py` derives it from the angles: three lines of
+sight, a circular-orbit assumption to supply the range they cannot,
+Herrick-Gibbs for the velocity, and a bisection on the assumption's own
+self-consistency.
+
+| prior on the initial state | angular residual | condition number |
+|---|---|---|
+| 5000 km, 5 km/s | 13.97 arcsec | 1.6e8 |
+| 500 km, 1 km/s | 26.14 arcsec | 1.8e7 |
+| 100 km, 0.2 km/s | 39.33 arcsec | 1.5e6 |
+
+**The fit works and the orbit is not determined, and those are the same
+sentence.** Thirteen arcseconds against real amateur astrometry is the force
+model reproducing where a person actually saw the object - but at a condition
+number of 1.6e8, which says the solution is sliding freely along a direction the
+data does not see. Tighten the prior and the geometry conditions and the
+residual gets worse. That trade is the whole difficulty of uncooperative
+tracking, and here it is with numbers on it.
+
+Why it is so bad is worth being specific about. **A single 71-second pass from
+one site determines nothing about range**: run the admissible region over the
+range and range-rate the angles cannot see (`scripts/angles_admissible.py`) and
+orbits with semi-major axes from 13,900 km to 16,800 km fit that pass equally
+well, to 0.12 degrees. Linking it to the next pass six days later would fix it,
+and that needs the semi-major axis to about 0.05 km, because at this altitude a
+kilometre of semi-major axis is six degrees of phase after six days. A grid over
+range and range-rate cannot reach that resolution, and a local least squares
+cannot get there either - started from the single-pass orbit, the fourteen-day
+arc begins 65 degrees out and Levenberg-Marquardt takes no step at all.
+
+**So the gap has moved rather than closed.** The software can now fit a
+measurement of either kind, range or angle, and both have been run against real
+public data for real high area-to-mass objects rather than against themselves.
+What is missing is no longer a capability and no longer data: it is that
+twenty-six angles from one observer do not determine an orbit, never mind a
+radiation pressure coefficient. Closing it needs either more observers - the
+same object from two sites on one pass fixes the range immediately - or
+attributable linking, which solves for the range and range-rate at two passes
+together instead of searching for them. Neither is a large piece of work, and
+both need the observations to exist first.
+
+One defect the new path surfaced, of the usual kind: an observation sitting on
+the first integration step made the fit step backwards for light time into
+nothing, and return a residual of 1e30 that read as a hopeless orbit rather than
+as a mis-specified arc. It refuses now.
 
 **Where the detail is.** `~/.claude/handover/2026-09-15-odl-business-value-phase*.REPORT.md`,
 seven phases, each leading with its failures. `analysis/` holds the sweep
