@@ -1,0 +1,57 @@
+//!< @file configOPS_acs3_angles.txt
+//!< @brief NASA's ACS3 solar sail (2024-077B), fitted to amateur optical
+//!<        angles from the SeeSat-L archives.
+//!<
+//!< 80 m^2 of sail on a 16 kg spacecraft: 5.0 m^2/kg. Unlike LightSail-2 it
+//!< carries no retroreflector, so there is no laser ranging and never will be.
+//!< What exists is angles - someone measured where it was against the stars -
+//!< which is the only kind of data the objects this software is aimed at ever
+//!< produce.
+//!<
+//!< The initial state comes from scripts/angles_iod.py: a circular-orbit
+//!< initial orbit determination from the three angles of 2024-09-03, with no
+//!< element set anywhere in the chain. It is a guess and a poor one - one short
+//!< pass from one site does not determine a range - and res/slr/README.txt
+//!< explains why that matters.
+//!<
+//!< Used by scripts/validate_angles.sh.
+
+t0                  = 2024,09,03,21,34,28.930000
+
+x0                  =        4448.242415
+y0                  =       -4294.330564
+z0                  =        5490.685067
+u0                  =       -4.250465739
+v0                  =        2.066961902
+w0                  =        5.086888641
+
+spacecraft          = testRSO
+mass                = 16
+area                = 80
+
+propagator          = 3
+step_size           = 30
+simulation_time     = 3600
+output_interval     = 30
+output_format       = eci
+
+gravity_model       = 8
+grav_degree         = 12
+
+magnetic_model      = 0
+mag_degree          = 0
+specific_charge     = 0.0
+antenna_thrust      = 0
+
+drag                = 3
+drag_coeff          = 2.2
+gr_correction       = 1
+srp                 = 2
+erp                 = 0
+trr                 = 0
+rp_model            = 1
+third_body          = 1
+y_bias              = 0
+pole_tide           = 0
+solid_earth_tide    = 1
+time_var_grav       = 0

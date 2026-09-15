@@ -1,0 +1,14 @@
+// Optical observing sites, as their observers state them: geodetic latitude and
+// longitude in degrees and altitude in metres.
+//
+// These are amateur sites and the coordinates are given to about ten metres,
+// which at a thousand kilometres is under a hundredth of an arcsecond - far
+// below what the astrometry itself delivers. No velocities: plate motion here
+// would be centimetres a year.
+//
+// Site numbers are the four-digit ones used in the U.K. and IOD observation
+// formats. The coordinates are taken from the observers' own postings to the
+// SeeSat-L list, which is where the observations come from too.
+//
+// id     name           lat (deg)    lon (deg)   alt (m)
+2675     WHITING         52.1358      -2.3264        70
