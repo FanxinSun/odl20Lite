@@ -114,6 +114,7 @@ bool Configuration::parse_config_file(std::string filename)
 			if(param=="area")            {            area = std::stod(value); }
 			if(param=="reflectivity")    {    reflectivity = std::stod(value); }
 			if(param=="specularity")     {     specularity = std::stod(value); }
+			if(param=="drag_coeff")      {      drag_coeff = std::stod(value); }
 			if(param=="srp_scale")       {       srp_scale = std::stod(value); }
 			if(param=="srp_scale_amp")   {   srp_scale_amp = std::stod(value); }
 			if(param=="srp_scale_period"){srp_scale_period = std::stod(value); }
@@ -432,6 +433,11 @@ void Configuration::set_defaults()
     area = 0.0;
     reflectivity = 0.0;
     specularity = 0.0;
+    // 0 leaves the per-spacecraft value alone; Resident_constants defaults it
+    // to 2.2. Drag and radiation pressure both scale as area over mass, so for
+    // a high area-to-mass object they are close to degenerate and this is the
+    // knob that says how much of the observed along-track drift is which.
+    drag_coeff = 0.0;
     srp_scale = 0.0;
     srp_scale_amp = 0.0;
     srp_scale_period = 0.0;

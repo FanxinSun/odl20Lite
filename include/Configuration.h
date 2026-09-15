@@ -39,6 +39,7 @@ class Configuration
     double area;
     double reflectivity;
     double specularity;
+    double drag_coeff;
     double srp_scale;
     //! Sinusoidal modulation of srp_scale, for generating synthetic arcs of
     //! a tumbling object whose projected area varies. Amplitude is a

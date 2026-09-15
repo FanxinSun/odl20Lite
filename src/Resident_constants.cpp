@@ -57,6 +57,9 @@ void Resident_constants::setup(const Configuration &config)
     if (config.srp_scale > 0.0) {
         srp_scale = config.srp_scale;
     }
+    if (config.drag_coeff > 0.0) {
+        drag_coeff = config.drag_coeff;
+    }
     srp_scale_amp = config.srp_scale_amp;
     srp_scale_period = config.srp_scale_period;
 
