@@ -78,6 +78,14 @@ class Frame_transform
     Matrix3x3 R = Matrix3x3::Identity(); //!< ECI/ECEF transformation matrix
     Matrix3x3 V = Matrix3x3::Identity(); //!< velocity transformation matrix
 
+    //! Precession-nutation alone, mapping J2000 to True Of Date. R is this
+    //! followed by the sidereal rotation and polar motion; keeping the piece
+    //! lets TEME be reached without a second implementation of either.
+    Matrix3x3 PN_eci_to_tod = Matrix3x3::Identity();
+
+    //! Equation of the equinoxes, GAST - GMST, in radians.
+    double eq_equinox = 0.0;
+
   private:
     /* Need the time period of interest in order to determine rotations */
     long int MJD_startday = 55000l;
@@ -166,6 +174,47 @@ class Frame_transform
     {
         // Warning, R is a matrix, this operation is NOT commutative!
         return ecef * R;
+    }
+
+    /******************** TEME to ECI rotation functions ********************/
+
+    /*!
+     * SGP4 works in TEME - true equator, mean equinox of date - and every
+     * other frame here is J2000. The two differ by precession and nutation
+     * since J2000 plus the equation of the equinoxes, which by 2026 is about
+     * 0.37 degrees: tens of kilometres of inertial position for a satellite
+     * in low Earth orbit. It is a pure rotation, so it leaves |r| untouched,
+     * which is why it can hide in results that only depend on altitude.
+     *
+     * J2000 -> TOD  is PN_eci_to_tod
+     * TOD   -> TEME is a z-rotation by the equation of the equinoxes,
+     *               the same form as the GAST rotation into an Earth-fixed
+     *               frame, which is what makes TEME -> PEF come out as a
+     *               single rotation through GMST.
+     *
+     * so TEME -> J2000 is PN^T times that rotation, reversed.
+     */
+    Matrix3x3 teme_to_eci_matrix() const
+    {
+        return PN_eci_to_tod.transpose() *
+               get_matrix(rotate_around_z(eq_equinox));
+    }
+
+    Cartesian rotate_teme_to_eci(Cartesian teme) const
+    {
+        return teme_to_eci_matrix() * teme;
+    }
+
+    State_vector rotate_teme_to_eci(State_vector teme) const
+    {
+        // TEME drifts against J2000 only through precession and nutation, of
+        // order 50 arcsec a year. The extra velocity that implies is about
+        // 6e-5 m/s at this altitude, so the same rotation serves for both
+        // position and velocity - unlike the Earth-fixed transforms above,
+        // which need the V matrix for the Earth's rotation.
+        State_vector eci = teme_to_eci_matrix() * teme;
+        eci.epoch = teme.epoch;
+        return eci;
     }
 
     /**

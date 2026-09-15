@@ -137,6 +137,70 @@ if [ -n "${SGNL_TEST_EPHEMERIS:-}" ] && [ -f "${SGNL_TEST_EPHEMERIS}" ]; then
     fi
 fi
 
+# --- TEME to J2000, against a mission ephemeris ------------------------------
+# SGP4 works in TEME; everything else here is J2000. The two differ by
+# precession and nutation since J2000 - tens of kilometres by 2026 - and it is a
+# pure rotation, so it leaves |r| alone and hides in anything that only depends
+# on altitude. res/teme_check holds a TLE and the same object over the same
+# hours from JPL Horizons, so this is an end-to-end check with no network. It
+# checks the frame conversion, not the orbit: forward of a TLE epoch Horizons'
+# ACS3 ephemeris is that same TLE.
+TEMEDIR=$ROOT/res/teme_check
+if [ -f "$TEMEDIR/acs3.tle" ] && [ -f "$TEMEDIR/acs3_horizons_20260914.eci" ]; then
+    {
+        printf 'tle0 = ACS3\n'
+        printf 'tle1 = %s\n' "$(sed -n 2p "$TEMEDIR/acs3.tle" | tr -d '\r')"
+        printf 'tle2 = %s\n' "$(sed -n 3p "$TEMEDIR/acs3.tle" | tr -d '\r')"
+        cat <<'CFG'
+spacecraft          = testRSO
+mass                = 16
+area                = 80
+propagator          = 2
+step_size           = 10
+simulation_time     = 18000
+output_interval     = 900
+output_format       = eci
+gravity_model       = 8
+grav_degree         = 2
+magnetic_model      = 0
+antenna_thrust      = 0
+drag                = 0
+gr_correction       = 0
+srp                 = 0
+erp                 = 0
+trr                 = 0
+rp_model            = 0
+third_body          = 0
+y_bias              = 0
+pole_tide           = 0
+solid_earth_tide    = 0
+time_var_grav       = 0
+CFG
+    } > "$OUT/teme.cfg"
+
+    if ./sgnlOPS "$OUT/teme.cfg" "$OUT/teme.out" >/dev/null 2>&1 &&
+       [ -s "$OUT/teme.out" ]; then
+        read -r mean mx <<EOF
+$(paste "$TEMEDIR/acs3_horizons_20260914.eci" "$OUT/teme.out" | awk '
+   { n=NF/2; dx=$8-$(8+n); dy=$9-$(9+n); dz=$10-$(10+n)
+     d=sqrt(dx*dx+dy*dy+dz*dz)*1000; s+=d; c++; if(d>mx)mx=d }
+   END { printf "%.1f %.1f", (c?s/c:9e9), mx+0 }')
+EOF
+        # 2.2 m with the conversion, 34000 m without. 20 m is far below the
+        # failure and well above the residual, which is the 0.064 arcsec
+        # between this code's IAU-76/80 precession-nutation and the
+        # IAU-2006/2000A Horizons uses. It is also tight enough to catch a
+        # reference regenerated at a rounded epoch: 10 ms of rounding is 24 m
+        # along track here. See res/teme_check/README.txt.
+        ok=$(awk -v a="$mx" 'BEGIN{ print (a < 20) ? "y" : "n" }')
+        [ "$ok" = y ] &&
+            pass "TEME->J2000 vs JPL Horizons (mean ${mean} m, max ${mx} m)" ||
+            bad "TEME->J2000 disagrees with Horizons by ${mx} m (expect < 20)"
+    else
+        bad "TEME check run failed"
+    fi
+fi
+
 # --- the utilities that need data we do not ship ----------------------------
 # These must report a missing input rather than crash.
 ./SP3_to_eci >/dev/null 2>&1

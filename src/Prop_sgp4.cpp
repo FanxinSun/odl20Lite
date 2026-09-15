@@ -10,7 +10,10 @@ void Prop_sgp4::step()
 {
     if (rso.sgp4_state.step_TLE_time(h_i, h_f)) {
 
-        rso.update(rso.sgp4_state.get_current_state());
+        // SGP4's state is in TEME, not J2000. Converting here keeps every
+        // frame downstream consistent; without it the position carries a
+        // silent rotation of tens of kilometres that preserves |r|.
+        rso.update_from_teme(rso.sgp4_state.get_current_state());
 
     } else {
 

@@ -141,6 +141,19 @@ class Resident_space_object
         return state->eclipse_state;
     }
 
+    /*!
+     * Take a state in TEME, the frame SGP4 works in, and update from it.
+     * The epoch's precession and nutation are computed first so the
+     * conversion has them. TDB - TT enters only through the Julian century
+     * that drives precession, where a millisecond is of order 1e-11 arcsec,
+     * so passing zero for it costs nothing measurable.
+     */
+    void update_from_teme(State_vector teme)
+    {
+        state->frame_transform.compute_rotations(teme.epoch, 0.0);
+        update(state->frame_transform.rotate_teme_to_eci(teme));
+    }
+
     void update(State_vector in_state)
     {
         state->update(in_state);

@@ -195,22 +195,6 @@ bool Configuration::parse_config_file(std::string filename)
         trr = 0;
     }
 
-    // SGP4 produces its state in TEME, and nothing in this tree converts it.
-    // Downstream every state is treated as J2000/ECI, so an SGP4 run carries a
-    // silent frame rotation: measured against a mission ephemeris for an object
-    // at 900 km in 2026, the position vectors differ by 34 km on average and
-    // 48 km at worst, while their MAGNITUDES agree to 1.7 km - the signature of
-    // a rotation rather than a different orbit. The size grows with time since
-    // J2000. Results are usable for relative work and for anything driven by
-    // altitude, and wrong in inertial direction.
-    if (propagator == 2) {
-        std::cout << "Configuration: propagator = 2 (SGP4) returns its state in "
-                     "TEME, which\nthis software does not convert. Positions are "
-                     "rotated from J2000 by tens of\nkilometres (~34 km at 900 km "
-                     "altitude in 2026, growing since J2000). Use a\nnumerical "
-                     "propagator where inertial direction matters.\n";
-    }
-
     // These two rules are correct - a radiation pressure model with no flux has
     // nothing to act on, and fluxes with no model have nothing to drive - but
     // they used to apply silently. Setting rp_model = 3 in a config with

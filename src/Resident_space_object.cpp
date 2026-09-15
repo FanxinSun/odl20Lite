@@ -97,7 +97,21 @@ void Resident_space_object::setup(const Configuration &in_config)
     //     // we want to set int method = config.drag
     // }
 
-    update_with_acc_and_deriv(config.initial_state);
+    // An initial state that came from a TLE is in TEME, like everything else
+    // SGP4 produces, and has to be rotated into J2000 before anything uses it.
+    // This is the first state of the run and it does not pass through the
+    // propagator's step(), so converting there alone leaves exactly one epoch
+    // wrong - which is easy to miss, because it is the one epoch a fit is
+    // least likely to look at. It applies to any propagator started from a
+    // TLE, not just SGP4.
+    State_vector start = config.initial_state;
+
+    if (config.tle_set) {
+        state->frame_transform.compute_rotations(start.epoch, 0.0);
+        start = state->frame_transform.rotate_teme_to_eci(start);
+    }
+
+    update_with_acc_and_deriv(start);
 }
 
 std::unique_ptr<Force_earth_gravity> Resident_space_object::gravity_statistics(

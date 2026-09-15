@@ -242,6 +242,12 @@ polar_motion Frame_transform::compute_rotations(Timetag epoch,
     PN *= rotate_around_y(-Theta);
     PN *= rotate_around_z(Xi);
 
+    // Keep the precession-nutation block and the equation of the equinoxes so
+    // TEME can be reached later without recomputing either. GAST is already in
+    // radians here; GMST is still in micro arc-seconds, as RAY returned it.
+    PN_eci_to_tod = get_matrix(PN);
+    eq_equinox = GAST - GMST * sgnlOPS::microsec_to_rad;
+
     R = get_matrix(RW * PN); // Create ECI to ECEF rotation matrix, R
 
     // A rotation matrix should have a determinant of exactly 1, and to ensure
