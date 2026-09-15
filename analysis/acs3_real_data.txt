@@ -1,4 +1,12 @@
 ACS3 (NORAD 59588, NAIF -159588), reference: JPL Horizons, {source: ACS3}
+
+NOTE added 2026-09-15: that reference is not a mission-determined orbit.
+The Horizons ephemeris ends 15.000 days after the current TLE epoch and
+reproduces that TLE to 2 m over the whole forward span; it is a rolling
+TLE-fed product, accurate to kilometres. The A*C_R/m values below stand as
+TLE-accuracy measurements - the radiation pressure signal is 23 km over
+48 h against a 1-3 km reference - but the kilometre-level residuals are
+the reference, not the sail. See REVIVAL.md.
 published geometric A/m = 80 m^2 / 16 kg = 5.00 m^2/kg
 
 arc                RMS (m)      A*C_R/m

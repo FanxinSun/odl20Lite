@@ -465,13 +465,12 @@ misclassifications - a result that survives ECOM, reproduces across dates to
 - There is no licence or copyright statement for the first-party code. See
   `PROVENANCE.md`; that question needs UCL, not a code change.
 
-**Tested on a real high area-to-mass object.** The synthetic HAMR results have
-since been checked against real flight data. NASA's ACS3 solar sail (NORAD
-59588) is an 80 m^2 sail on a 16 kg spacecraft - a geometric 5.00 m^2/kg, about
-240x GNSS - and **JPL Horizons publishes its trajectory with no credentials**,
-as a mission-supplied kernel (`{source: ACS3}`) rather than a propagated element
-set. `scripts/horizons2eci.py` converts a Horizons vector table into the format
-the fit reads.
+**Tested on a real high area-to-mass object, against a reference that turned out
+to be weaker than advertised.** NASA's ACS3 solar sail (NORAD 59588) is an 80 m^2
+sail on a 16 kg spacecraft - a geometric 5.00 m^2/kg, about 240x GNSS - and JPL
+Horizons publishes its trajectory with no credentials.
+`scripts/horizons2eci.py` converts a Horizons vector table into the format the
+fit reads.
 
 | arc | residual | recovered A*C_R/m |
 |---|---|---|
@@ -482,48 +481,78 @@ the fit reads.
 | 48 h, three weeks earlier | 1895 m | 6.35 +/- 0.14 |
 | solar radiation pressure removed | diverges to NaN | - |
 
-Three things this establishes and one it does not.
-
 The estimator **recovers a real HAMR object's effective A\*C_R/m**, 4.5 to 5.6
-over 12-48 hour arcs against a published geometric 5.00. Radiation pressure is
-load-bearing: remove it and the fit diverges rather than degrades.
+over 12-48 hour arcs against a published geometric 5.00, and radiation pressure
+is load-bearing: remove it and the fit diverges rather than degrades. The 6-hour
+arc returns 8.88, outside the others, which is the observability limit the
+degradation study put at that arc length showing up on real data.
 
-The **residual falls eightfold as the arc shortens**, 2458 m at 48 h to 292 m at
-6 h. That is the signature of a slowly varying effective area, which is exactly
-what an actively steered sail has - and exactly what the synthetic tumbling test
-predicted.
+**What the reference actually is.** Horizons labels this trajectory
+`{source: ACS3}`, which reads like a mission-supplied kernel. It is not one.
+Measured, not assumed:
 
-The **6-hour arc returns 8.88**, well outside the others, which is the
-observability limit the degradation study put at that arc length showing up on
-real data.
+- The kernel stops at **2026-09-29 17:27:31.8468 UT**, which is the epoch of the
+  current TLE plus 15.000 days, matching the TLE epoch to the millisecond.
+- Forward of that epoch it **is** that TLE: our SGP4 tracks it to 2-3 m, flat,
+  for five days with no growth. An independently determined orbit for a decaying
+  solar sail could not do that.
+- Before that epoch it is **not** that TLE: propagating the same element set
+  backwards diverges by 2.2 km after one day, 18 km after four and 57 km after
+  ten. So the history comes from earlier element sets, not from this one.
 
-What it does **not** establish is per-arc repeatability: two spans three weeks
-apart give 5.47 and 6.35, a 16% spread, against 0.03% for a GNSS satellite
-across two days. That is a property of the object rather than the method - ACS3
-is under active attitude control and its projected area is steered - but it
-means the number is an arc-averaged effective value, not a measurement of the
-sail.
+It is a rolling, TLE-fed product - history from whatever elements were current
+at the time, future from the latest set. Its accuracy is TLE class, kilometres,
+not the centimetres of a precise orbit determination.
 
-**SGP4 output is TEME and is not converted.** Found while trying to measure how
-much better the Horizons reference is than a TLE. `Prop_sgp4` feeds SGP4's state
-straight through as ECI; there is no TEME handling anywhere in the tree.
-Measured against the ACS3 mission ephemeris at the TLE's own epoch, the position
-vectors differ by 34 km on average and 48 km at worst - but their **magnitudes**
-agree to 1.7 km, which is a rotation rather than a different orbit. The rotation
-is precession since J2000 and grows with time. `analyses/qbfanxin` and
-`analyses/qb50` both ship with `propagator = 2`, so their inertial positions
-carry it; anything driven by altitude or by relative comparison is unaffected.
-The software now says so when SGP4 is selected. Converting properly needs the
-precession and nutation that `Frame_transform` already computes.
+**That reclassifies the ACS3 result rather than voiding it.** Successive TLEs are
+fitted to real tracking, so the trajectory does carry the sail's real dynamics;
+it carries them at kilometre accuracy. The signal is large enough for that to
+work: propagating ACS3 with and without radiation pressure, the two separate by
+**23 km over 48 hours**, against a reference good to 1-3 km. A signal-to-noise
+of roughly ten to twenty predicts a per-arc precision of five to ten percent -
+and 5.47 +/- 0.18 with a 16% spread between arcs three weeks apart is exactly
+that. The number is a real measurement of a real sail, at TLE accuracy.
 
-That number is also a caution about the measurement: the first comparison read
-34 km as *TLE error* and it is almost entirely frame. The real TLE error for
-this object is the ~1.7 km radial figure.
+Two earlier readings of this table were wrong and are withdrawn. The 16% spread
+between arcs was attributed to ACS3's active attitude steering; reference noise
+of the measured size accounts for it without any appeal to the spacecraft. The
+eightfold fall in residual as the arc shortens was read as the signature of a
+slowly varying effective area; a reference stitched from successive element sets
+predicts the same fall, so the observation does not distinguish the two.
 
-**What is still untested.** The debris case: passive, tumbling, no onboard GNSS,
-tracked sparsely by angles only. Every high area-to-mass object with a usable
-public ephemeris is an active spacecraft, because the ephemeris comes from its
-own GPS. That is the remaining gap, and it is not a code problem.
+**SGP4 output is TEME, and it is converted now.** `Prop_sgp4` used to feed SGP4's
+state straight through as ECI. Measured against the Horizons ephemeris at the
+TLE's own epoch, the position vectors differed by 34 km on average and 48 km at
+worst while their magnitudes agreed to a metre - a rotation, not a different
+orbit, growing with time since J2000. `Frame_transform` now supplies
+`teme_to_eci_matrix()` as `PN^T * Rz(Eqeq)` with `Eqeq = GAST - GMST`, reusing
+the precession and nutation it already computes rather than carrying a second
+implementation, and `Resident_space_object::update_from_teme()` applies it -
+including to the initial state, which does not pass through `step()` and was the
+last 46 km of the error. After it, agreement is **2.2 m mean, 3.6 m max**.
+
+That residual is itself explicable: 2.2 m at 7278 km is 0.064 arcsec, the size
+of the difference between the IAU-76/80 precession-nutation implemented here and
+the IAU-2006/2000A Horizons uses. `scripts/smoke_test.sh` asserts it stays under
+20 m against the reference in `res/teme_check/`.
+
+Two cautions from the measurement itself. The first comparison read the 34 km as
+*TLE error*; it was almost entirely frame, and the real disagreement is metres.
+And the conversion appeared to leave 26 m until the reference was regenerated at
+the TLE's exact epoch: 26257.72745193 is 17:27:31.846752, and asking Horizons for
+17:27:31.85 displaces it 3.2 ms, which at 7.4 km/s is 24 m. Ten milliseconds of
+rounding in a timestamp is a ten-fold error here, and nothing announces it.
+
+**What is still untested.** A high area-to-mass object with a genuinely precise
+ephemeris. ACS3 was taken for one and is not: it is the best public HAMR
+reference we found, and it is TLE class. Everything above it in accuracy -
+the centimetre agreement demonstrated on GNSS - rests on IGS products that exist
+only for satellites carrying their own GNSS receivers, and no HAMR object does.
+Beyond that sits the debris case proper: passive, tumbling, no onboard receiver,
+tracked sparsely by angles only, with shape and attitude unknown. Neither is a
+code problem. The first needs someone's tracking data; the second needs an
+observation model this software does not have, since it fits to states rather
+than to measurements.
 
 **Where the detail is.** `~/.claude/handover/2026-09-15-odl-business-value-phase*.REPORT.md`,
 seven phases, each leading with its failures. `analysis/` holds the sweep

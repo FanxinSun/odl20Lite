@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Convert a JPL Horizons vector table into the ECI text format the orbit fit
-reads, so a mission-supplied trajectory can be used as a reference.
+reads, so a published trajectory can be used as a reference.
 
-Horizons carries spacecraft ephemerides supplied by the missions themselves -
-for ACS3 the header reads "{source: ACS3}", meaning an ACS3-specific kernel
-rather than a propagated element set. That matters: a TLE contains no radiation
-pressure at all, so it cannot be used to estimate one, whereas a real orbit
-determination contains whatever the spacecraft actually did.
+Check what the trajectory actually is before trusting it. For ACS3 the header
+reads "{source: ACS3}", which looks like a mission-supplied kernel and is not
+one: the ephemeris stops exactly 15.000 days after the current TLE epoch and
+reproduces that TLE to 2 m for the whole of that span, while diverging from it
+by kilometres going backwards. It is a rolling TLE-fed product, accurate to
+kilometres rather than centimetres. That is usable - successive TLEs are fitted
+to real tracking, so the dynamics are real - but it is not orbit determination,
+and a residual of kilometres against it is the reference, not the model.
 
 Fetch a table with, for a spacecraft at NAIF id -159588 (ACS3):
 
