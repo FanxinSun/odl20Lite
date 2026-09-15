@@ -1,33 +1,43 @@
 NOTICE
 ======
 
-What LICENSE covers
+What LICENSE grants
 -------------------
 
-`LICENSE` is the PolyForm Noncommercial License 1.0.0. It applies to the
-first-party code and documentation of this repository: `src/`, `include/`,
-`scripts/`, `pyutils/`, `analysis/`, the configuration files under `res/` that
-are written here, and the Markdown documents at the top level.
+Nothing. `LICENSE` is a bare copyright notice: it records where the first-party
+code came from and declines to license it.
 
-In short: read it, run it, change it and pass it on for research, teaching,
-personal or other noncommercial purposes. Commercial use needs a separate
-licence from the copyright holder. The licence text is the authority; this
-paragraph is not.
+The first-party code and documentation - `src/`, `include/`, `scripts/`,
+`pyutils/`, `analysis/`, the configuration files under `res/` that are written
+here, and the Markdown documents at the top level - originate with University
+College London, as the SGNL Orbit Prediction Software (2017b), itself a 2014
+rewrite of the pre-2010 UCL Orbit Dynamics Library. **No copyright or licence
+statement existed anywhere in the original tree** - not in `README.md`, not in
+any file header, and there was no `LICENSE` file. Nothing here establishes who
+holds the rights or who is entitled to license them, and `LICENSE` does not
+assert an answer.
 
-An open question, stated plainly
---------------------------------
+Between 15 and 16 September 2026 `LICENSE` offered the PolyForm Noncommercial
+License 1.0.0. **That offer is withdrawn**, and is recorded rather than deleted
+so that anyone who saw the earlier state knows. The reasoning is short: you
+cannot license what you have not established you own, and an offer that may not
+be the offeror's to make is worse than no offer at all.
 
-The first-party code originates with University College London, as the SGNL
-Orbit Prediction Software (2017b), itself a 2014 rewrite of the pre-2010 UCL
-Orbit Dynamics Library. **No copyright or licence statement existed anywhere in
-the tree** - not in `README.md`, not in any file header, and there was no
-`LICENSE` file. Nothing in this repository establishes who holds the rights or
-who is entitled to license them.
+Two consequences worth saying out loud, because neither is obvious:
 
-`LICENSE` is therefore offered by the repository owner to the extent they are
-entitled to do so, and it does not settle that question. Anyone intending to
-rely on it for anything that matters should confirm the position with UCL
-first. This file exists so that nobody discovers the ambiguity later.
+  * The withdrawn licence permitted research and teaching. This one permits
+    nothing, so nobody can rely on it to run this software and reproduce the
+    results in `REVIVAL.md` - the LightSail-2 laser-ranging fit included. That
+    is a real cost of the conservative position, knowingly taken.
+
+  * The repository is public on GitHub, and GitHub's terms of service let
+    anyone who can see a public repository view and fork it within GitHub
+    whatever `LICENSE` says. "No licence granted" governs use, modification
+    and distribution beyond that; it is not a claim that nobody may look.
+
+Settling the underlying question needs UCL, and is deliberately not being
+pursued for now. This file exists so that nobody discovers the ambiguity
+later.
 
 Third-party components, which LICENSE does NOT cover
 ----------------------------------------------------
@@ -76,6 +86,11 @@ Redistributed from their publishers under those publishers' terms, not under
   res/slr/                   ILRS laser ranging normal points for LightSail-2,
                              from the EUROLAS Data Centre at DGFI-TUM
   res/slr_stations.txt       SLRF2020 station coordinates, ILRS
+  res/angles/                amateur optical astrometry of ACS3, from the
+                             SeeSat-L archives; the observations are their
+                             observers' work
+  res/obs_sites.txt          observing site coordinates, from the observers'
+                             own postings to SeeSat-L
   res/teme_check/            a CelesTrak element set and a JPL Horizons table
 
 Citing the underlying work

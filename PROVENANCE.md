@@ -5,9 +5,9 @@ terms each third-party component is distributed.
 
 This file records facts only. It does not assert ownership of anything, does
 not grant or assume any licence for the first-party code, and is not legal
-advice. A licence was applied in September 2026 (`LICENSE`, `NOTICE`), but the
-question of who is entitled to grant it remains **open** - see the last
-section.
+advice. A licence was briefly applied in September 2026 and then withdrawn in
+favour of a bare copyright notice, because the question of who is entitled to
+grant one is **open** - see the last section.
 
 Compiled 2026-09-15. Final state.
 
@@ -95,13 +95,14 @@ separately attributed in file headers.
 ## What is missing
 
 - **No licence or copyright statement for the first-party code existed anywhere
-  in the tree** until September 2026 - not in `README.md`, not in any file
-  header, and there was no `LICENSE` file. There is one now: PolyForm
-  Noncommercial 1.0.0, offered by the repository owner when this tree was made
-  public. **That does not resolve the question, it only answers it.** Nothing in
-  this repository establishes who holds the rights or who is entitled to license
-  them, and the licence is granted only to the extent the owner is entitled to
-  grant it. Settling it needs UCL, not a code change. See `NOTICE`.
+  in the tree** - not in `README.md`, not in any file header, and there was no
+  `LICENSE` file. There is a `LICENSE` now and it grants nothing: a bare
+  copyright notice that records the origin, states that nobody has established
+  who may license the work, and declines to license it. A PolyForm
+  Noncommercial grant was offered for one day in September 2026 and withdrawn,
+  on the reasoning that an offer which may not be the offeror's to make is
+  worse than no offer. **The question is unchanged by any of that** - settling
+  it needs UCL, not a code change. See `NOTICE`.
 - **No contribution or employment record** establishing whether rights sit with
   the named authors or with UCL.
 - Two vendored components (FECsoft, SGP4) have no licence text in the tree.

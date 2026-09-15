@@ -27,10 +27,17 @@ make rebuild
 
 ## Licence
 
-PolyForm Noncommercial 1.0.0 - research, teaching and personal use; commercial
-use needs a separate licence. See `LICENSE`.
+**None is granted.** `LICENSE` is a bare copyright notice. The first-party code
+originates with UCL and no rights statement ever existed in the original tree,
+so nobody has established who may license it - and rather than offer a grant
+that may not be the offeror's to make, none is offered. A PolyForm
+Noncommercial licence was offered for a day in September 2026 and withdrawn.
 
-The vendored libraries under `external/` and the data under `res/` keep their
-own terms, and the underlying work is UCL's. `NOTICE` says what is carved out
-and records an open question about who is entitled to license the first-party
-code at all; `PROVENANCE.md` traces every file to where it came from.
+The repository stays public and GitHub's own terms still permit viewing and
+forking within GitHub; what is withheld is use, modification and distribution
+beyond that. The practical cost is that nobody can rely on a licence here to
+run this and reproduce the results in `REVIVAL.md`.
+
+The vendored libraries under `external/` and the data under `res/` are not
+affected and keep their own terms. `NOTICE` lists them; `PROVENANCE.md` traces
+every file to where it came from.
