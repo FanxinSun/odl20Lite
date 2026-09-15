@@ -237,6 +237,10 @@ int main(int argc, char *argv[])
         State_vector new_state(x(0), x(1), x(2), x(3), x(4), x(5), start);
 
         // Recycle rso by resetting various properties
+        // A trial state from an earlier iteration may have left an error
+        // behind; without clearing it this propagation halts on somebody
+        // else's problem.
+        propagator->rso.clear_errors();
         propagator->rso.phiM = Matrix6x6::Identity();
         propagator->rso.srpS = Matrix6x5::Zero();
         if (estimate_srp) {
@@ -382,8 +386,15 @@ int main(int argc, char *argv[])
             // from the area. Quote it as such rather than as an area over a
             // mass. The nominal area and mass below are only the units the
             // scale factor is expressed in - the fit is invariant to them.
+            //
+            // C_R is NOT 1. Force_rp_analytic builds its coefficient from
+            // (9 + 4*nu*(1-mu))/9, and nu and mu default to 0.65 and 0.5, so
+            // an unconfigured craft is already carrying C_R = 1.1444. This
+            // used to report the scale times A/m and call it A*C_R/m, which
+            // understated it by exactly that factor.
             const double area = config_ops.area > 0.0 ? config_ops.area : 10.0;
             const double mass = config_ops.mass > 0.0 ? config_ops.mass : 1000.0;
+            const double C_R = propagator->rso.get_srp_CR();
             const double sigma_scale = std::sqrt(std::abs(covariance(6, 6)));
 
             std::cout << std::fixed << std::setprecision(6)
@@ -391,11 +402,14 @@ int main(int argc, char *argv[])
                       << sigma_scale << "  (" << std::setprecision(2)
                       << (100.0 * sigma_scale / x(6)) << "%)\n"
                       << std::setprecision(6)
-                      << "  effective A*C_R/m    : " << (x(6) * area / mass)
-                      << " +/- " << (sigma_scale * area / mass) << " m^2/kg\n"
-                      << "  effective area       : " << std::setprecision(3)
-                      << (x(6) * area) << " +/- " << (sigma_scale * area)
-                      << " m^2 (at " << mass << " kg nominal)\n";
+                      << "  effective A*C_R/m    : "
+                      << (x(6) * area * C_R / mass) << " +/- "
+                      << (sigma_scale * area * C_R / mass) << " m^2/kg"
+                      << "   (C_R = " << std::setprecision(4) << C_R << ")\n"
+                      << std::setprecision(3)
+                      << "  effective area       : " << (x(6) * area)
+                      << " +/- " << (sigma_scale * area) << " m^2 (at " << mass
+                      << " kg nominal)\n";
         }
 
         if (ecom) {

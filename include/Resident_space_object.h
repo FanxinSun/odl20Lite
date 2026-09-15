@@ -115,6 +115,21 @@ class Resident_space_object
     }
     std::string why_bad_state() const;
 
+    /*! Forget the force model errors recorded so far.
+     *
+     *  Nothing used to clear this list, which is fine for a single run and
+     *  fatal for a fit. An orbit fit propagates the same object tens of times;
+     *  if one trial state dips into the atmosphere, Force_drag files an error,
+     *  and every subsequent propagation - including the good ones - halts at
+     *  once on the stale entry. The solver then sees every direction as
+     *  impassable and stops where it started, which looks exactly like a fit
+     *  that has converged.
+     */
+    void clear_errors()
+    {
+        state->errors.clear();
+    }
+
     // Accessor methods for propagators to interface with Force class
     State_vector get_eci() const
     {
@@ -124,6 +139,18 @@ class Resident_space_object
     State_vector get_ecef() const
     {
         return state->ecef;
+    }
+
+    /*! The radiation pressure coefficient the analytic model is actually
+     *  using. Force_rp_analytic builds its coefficient from area, mass and
+     *  (9 + 4*nu*(1-mu))/9, and nu and mu default to 0.65 and 0.5 rather than
+     *  to zero, so what an estimated SRP scale multiplies is A*C_R/m with
+     *  C_R = 1.1444, not A/m. Reporting the scale times A/m as an effective
+     *  A*C_R/m understates it by that factor.
+     */
+    double get_srp_CR() const
+    {
+        return (9.0 + 4.0 * rso_const.nu * (1.0 - rso_const.mu)) / 9.0;
     }
 
     double get_GM() const
