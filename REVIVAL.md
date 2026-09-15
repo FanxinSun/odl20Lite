@@ -465,12 +465,49 @@ misclassifications - a result that survives ECOM, reproduces across dates to
 - There is no licence or copyright statement for the first-party code. See
   `PROVENANCE.md`; that question needs UCL, not a code change.
 
-**The one thing that would move it forward.** A precise ephemeris for a real
-high area-to-mass object. Everything known about that regime here is synthetic -
-the truth arcs were generated with the same force model that then fitted them,
-which is a fair test of the estimator and no test at all of the physics. One
-real object would settle whether the capability is worth anything outside GNSS.
-The blocker is access, not code: the archives need credentials.
+**Tested on a real high area-to-mass object.** The synthetic HAMR results have
+since been checked against real flight data. NASA's ACS3 solar sail (NORAD
+59588) is an 80 m^2 sail on a 16 kg spacecraft - a geometric 5.00 m^2/kg, about
+240x GNSS - and **JPL Horizons publishes its trajectory with no credentials**,
+as a mission-supplied kernel (`{source: ACS3}`) rather than a propagated element
+set. `scripts/horizons2eci.py` converts a Horizons vector table into the format
+the fit reads.
+
+| arc | residual | recovered A*C_R/m |
+|---|---|---|
+| 48 h | 2458 m | 5.47 +/- 0.18 |
+| 24 h | 683 m | 4.54 +/- 0.14 |
+| 12 h | 449 m | 5.56 +/- 0.26 |
+| 6 h | 292 m | 8.88 +/- 0.48 |
+| 48 h, three weeks earlier | 1895 m | 6.35 +/- 0.14 |
+| solar radiation pressure removed | diverges to NaN | - |
+
+Three things this establishes and one it does not.
+
+The estimator **recovers a real HAMR object's effective A\*C_R/m**, 4.5 to 5.6
+over 12-48 hour arcs against a published geometric 5.00. Radiation pressure is
+load-bearing: remove it and the fit diverges rather than degrades.
+
+The **residual falls eightfold as the arc shortens**, 2458 m at 48 h to 292 m at
+6 h. That is the signature of a slowly varying effective area, which is exactly
+what an actively steered sail has - and exactly what the synthetic tumbling test
+predicted.
+
+The **6-hour arc returns 8.88**, well outside the others, which is the
+observability limit the degradation study put at that arc length showing up on
+real data.
+
+What it does **not** establish is per-arc repeatability: two spans three weeks
+apart give 5.47 and 6.35, a 16% spread, against 0.03% for a GNSS satellite
+across two days. That is a property of the object rather than the method - ACS3
+is under active attitude control and its projected area is steered - but it
+means the number is an arc-averaged effective value, not a measurement of the
+sail.
+
+**What is still untested.** The debris case: passive, tumbling, no onboard GNSS,
+tracked sparsely by angles only. Every high area-to-mass object with a usable
+public ephemeris is an active spacecraft, because the ephemeris comes from its
+own GPS. That is the remaining gap, and it is not a code problem.
 
 **Where the detail is.** `~/.claude/handover/2026-09-15-odl-business-value-phase*.REPORT.md`,
 seven phases, each leading with its failures. `analysis/` holds the sweep

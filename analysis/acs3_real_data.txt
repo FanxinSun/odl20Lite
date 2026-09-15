@@ -1,0 +1,10 @@
+ACS3 (NORAD 59588, NAIF -159588), reference: JPL Horizons, {source: ACS3}
+published geometric A/m = 80 m^2 / 16 kg = 5.00 m^2/kg
+
+arc                RMS (m)      A*C_R/m
+48 h span A      2458.01    5.47 +/- 0.18
+24 h span A       683.29    4.54 +/- 0.14
+12 h span A       448.68    5.56 +/- 0.26
+ 6 h span A       291.94    8.88 +/- 0.48   (below observability, cf Job J)
+48 h span B      1894.53    6.35 +/- 0.14   (independent, 3 weeks earlier)
+SRP removed       diverges to NaN
