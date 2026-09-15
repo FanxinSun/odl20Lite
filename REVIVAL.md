@@ -504,6 +504,22 @@ is under active attitude control and its projected area is steered - but it
 means the number is an arc-averaged effective value, not a measurement of the
 sail.
 
+**SGP4 output is TEME and is not converted.** Found while trying to measure how
+much better the Horizons reference is than a TLE. `Prop_sgp4` feeds SGP4's state
+straight through as ECI; there is no TEME handling anywhere in the tree.
+Measured against the ACS3 mission ephemeris at the TLE's own epoch, the position
+vectors differ by 34 km on average and 48 km at worst - but their **magnitudes**
+agree to 1.7 km, which is a rotation rather than a different orbit. The rotation
+is precession since J2000 and grows with time. `analyses/qbfanxin` and
+`analyses/qb50` both ship with `propagator = 2`, so their inertial positions
+carry it; anything driven by altitude or by relative comparison is unaffected.
+The software now says so when SGP4 is selected. Converting properly needs the
+precession and nutation that `Frame_transform` already computes.
+
+That number is also a caution about the measurement: the first comparison read
+34 km as *TLE error* and it is almost entirely frame. The real TLE error for
+this object is the ~1.7 km radial figure.
+
 **What is still untested.** The debris case: passive, tumbling, no onboard GNSS,
 tracked sparsely by angles only. Every high area-to-mass object with a usable
 public ephemeris is an active spacecraft, because the ephemeris comes from its
