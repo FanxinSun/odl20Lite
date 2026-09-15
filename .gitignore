@@ -53,3 +53,6 @@ res/sp3/
 # symlinks left behind are specific to this machine.
 analyses/qbfanxin
 analyses/qb50
+
+# ILRS orbit predictions are half a megabyte each; validate_slr.sh fetches them
+res/slr/*.nxt

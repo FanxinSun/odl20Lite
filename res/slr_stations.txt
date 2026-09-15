@@ -1,0 +1,15 @@
+// ILRS laser ranging station coordinates.
+//
+// Source: SLRF2020, the ILRS extension of ITRF2020, taken from
+//   https://ilrs.gsfc.nasa.gov/docs/2025/SLRF2020_POS+VEL_2025.05.13.snx
+// which is public and needs no credentials. The SINEX gives position and
+// velocity per station and solution; the values below are the STAX/STAY/STAZ
+// and VELX/VELY/VELZ entries with their solution epoch.
+//
+// These are the telescope's invariant reference point in a crust-fixed frame.
+// fit_orbit_to_slr propagates them to the observation epoch with the velocity
+// and rotates them into ECI; it does NOT apply solid Earth tide or ocean
+// loading displacement, which reach about 0.3 m and 0.03 m respectively.
+//
+// id    name         X (m)             Y (m)             Z (m)            VX (m/yr)  VY         VZ         epoch
+7090    YARRAGADEE   -2389007.770050    5043329.485814   -3078523.970881   -0.046824   0.007970   0.050960   2015.0

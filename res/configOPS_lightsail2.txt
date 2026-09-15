@@ -1,0 +1,69 @@
+//!< @file configOPS_lightsail2.txt
+//!< @brief LightSail-2 (NORAD 44420), fitted to ILRS laser ranging.
+//!<
+//!< A 32 m^2 sail on a 5.035 kg 3U CubeSat: 6.36 m^2/kg, the only object with
+//!< a high area-to-mass ratio in the public satellite laser ranging archive.
+//!< Everything else the ILRS tracks is a dense sphere or a large spacecraft,
+//!< by design - geodetic targets are built to make non-gravitational forces
+//!< small, which is the opposite of what is wanted here.
+//!<
+//!< The initial state is a starting guess taken from the ILRS prediction for
+//!< the arc (scripts/cpf2eci.py); fit_orbit_to_slr solves for it. Predictions
+//!< for this object degrade quickly, so it is a guess and nothing more.
+//!<
+//!< Used by scripts/validate_slr.sh.
+
+t0                  = 2019,08,31,21,10,0.000000
+
+x0                  =        1139.185122
+y0                  =       -6714.879658
+z0                  =        1942.133228
+u0                  =        7.134434641
+v0                  =        0.567265359
+w0                  =       -2.271183032
+
+spacecraft          = testRSO
+mass                = 5.035
+area                = 32
+
+// Propagators 3 (RKF7/8) and 4 (RK4) are the two that integrate the state
+// transition matrix; the fit refuses the others.
+propagator          = 3
+step_size           = 30          // in seconds
+simulation_time     = 260000
+output_interval     = 30          // fit_orbit_to_slr overrides this
+output_format       = eci
+
+// EGM2008. At 700 km the field is not close to a point mass; degree 20 leaves
+// well under a metre over this arc, which is far below what the orbit itself
+// is uncertain by here.
+gravity_model       = 8
+grav_degree         = 20
+
+magnetic_model      = 0
+mag_degree          = 0
+specific_charge     = 0.0
+antenna_thrust      = 0
+
+// At 700 km with 6.36 m^2/kg, drag and solar radiation pressure are the same
+// order. That is the whole difficulty of this object and the reason it is
+// worth fitting.
+drag                = 3           // NRLMSISE-00
+
+// An EFFECTIVE drag coefficient, not a gas-surface one. The model multiplies
+// drag_coeff by the same `area` the radiation pressure uses, and a steered sail
+// does not present 32 m^2 to the oncoming air. 0.52 is what the laser data
+// itself prefers: profiling it over 0.2 to 2.2 gives a clean minimum there, and
+// the residual runs 155 m at 0.2, 59 m at 0.5 and 755 m at the textbook 2.2.
+// It stands for an effective drag area of about 7.6 m^2 at a physical 2.2.
+drag_coeff          = 0.52
+gr_correction       = 1
+srp                 = 2           // ECI solar flux model
+erp                 = 0
+trr                 = 0
+rp_model            = 1           // analytic cannonball
+third_body          = 1
+y_bias              = 0
+pole_tide           = 0
+solid_earth_tide    = 1
+time_var_grav       = 0
