@@ -146,8 +146,9 @@ add_subdirectory(modules/relativity)
 add_subdirectory(modules/thirdbody)
 add_subdirectory(modules/tides)
 add_subdirectory(modules/atmosphere)
-add_subdirectory(modules/dynamics)
+
 add_subdirectory(modules/integrators)
+add_subdirectory(modules/dynamics)
 
 # --------------------------------------------------------------------------- #
 

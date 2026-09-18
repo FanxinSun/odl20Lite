@@ -2105,6 +2105,83 @@ inside the test from the same-controller family, so **there is no absolute numbe
 been chosen after seeing the result** — which is what an absolute floor, adjusted upward once it
 failed, would have been.
 
+## 23. L3 step 3 — the state transition matrix, and a threshold that could not be fitted
+
+**Date.** 2026-09-18. **State.** `tools/ci.sh` exits 0: **12 gates, 233 tests**.
+`SPEC-stm.md` v1.0, Spec ID `STM`: 24 own-prefix identifiers, 13 requirements and refusals, 11
+discharged, 2 excused, 0 uncovered.
+
+### 23.1 `STM-P-1`, written before the first run, and why the textbook figure would have failed it
+
+The gate is agreement with finite differences, and the agreement depends on the perturbation
+size — a free parameter. Plan §4 rule 7 therefore applies in its sharpest form, and the
+criterion was settled first.
+
+**A central difference of a *propagated* state carries three errors, not the two an analysis of
+finite differencing gives**: truncation ~ *h*²/6, machine round-off ~ ε/*h*, and **the
+integrator's own noise ~ τ/(2*h*)**. The third dominates, and it is the one a textbook treatment
+omits: each perturbed trajectory carries τ independently and the difference divides by 2*h*, so
+it is **amplified by the very step that suppresses truncation**.
+
+Minimising *h*²/6 + τ/(2*h*) at τ = 10⁻¹² predicted **best agreement ≈ 6.6 × 10⁻⁹ at
+*h* ≈ 1.1 × 10⁻⁴**. **If only round-off mattered the answer would be ε^⅔ ≈ 3.8 × 10⁻¹¹** — so a
+criterion taken from the familiar figure would have been **wrong by three orders in the
+direction that fails a correct implementation.**
+
+**Measured: 1.98 × 10⁻⁸**, a factor of three from the prediction and nowhere near ε^⅔.
+
+### 23.2 The threshold itself contains no absolute number
+
+`STM-A-001` judges the analytic Φ against a **band measured in the same run** from
+finite-difference estimates at several perturbation sizes — a family whose spread depends on the
+differencing and not at all on whether the analytic derivative is right. `INTG-A-011`'s shape,
+one level up.
+
+**The h family is chosen from the prediction, not the result**: a decade centred on `STM-P-1`'s
+optimal *h*. That matters in the unobvious direction — a *wider* family is a **weaker** test.
+With *h* out to 10⁻³ the perturbation is 7 km, its own truncation inflates the band to
+1.6 × 10⁻⁵, and `worst ≤ band` then passes trivially. Narrowed to the predicted optimum the band
+is 1.96 × 10⁻⁶ against a best agreement of 1.98 × 10⁻⁸.
+
+**One check was removed rather than adjusted.** A first version asserted `band < 1e-6`; the band
+came out at 1.96 × 10⁻⁶. The bound was both redundant and unprincipled — **the band scales with
+how wide the family is, which is a design choice**, so any bound on it is a number about the test
+rather than about the code, and raising it once it failed would have been exactly the fitting
+rule 7 forbids. Non-degeneracy is established instead by `STM-P-1`: a degenerate comparison would
+not land within a factor of three of a figure predicted before anything ran.
+
+### 23.3 An invariant the finite-difference comparison cannot see
+
+`STM-A-005` checks **Liouville's theorem**: d(det Φ)/d*t* = tr(A) det Φ, so for a force with
+tr(∂a/∂v) = 0 the determinant is 1 for all time. **No difference estimate enters it.** Measured
+at 600, 3000 and 6246 s: det Φ = 1 to the integrator's own accuracy at every span.
+
+That is why `STM-A-001` is not alone. A band built from finite differences bounds how well Φ
+matches *a finite-difference estimate of itself*; Liouville is a property of the true Φ. For both
+to pass while Φ is wrong, two unrelated failure modes would have to conspire.
+
+### 23.4 `GRAV-Q-006` resolved, with both routes measured
+
+The second derivative follows the same three-term recursion as the first — **one array and one
+line**:
+
+> d²P̄[n] = a(n,m)·(2·dP̄[n−1] + u·d²P̄[n−1]) − b(n,m)·d²P̄[n−2]
+
+| degree | P̄, dP̄ | P̄, dP̄, d²P̄ | incremental | a second traversal |
+|---|---|---|---|---|
+| 180 | 0.035 ms | 0.037 ms | **+7.5 %** | +100 % |
+| 360 | 0.146 ms | 0.151 ms | **+4.0 %** | +100 % |
+| 2190 | 5.797 ms | 6.675 ms | **+15.2 %** | +100 % |
+
+**Take it from the same recursion** — 6.6× to 25× cheaper. Two qualifications recorded rather
+than smoothed over: at degree 2190 the increment is **15 %, which is not "negligible"**, the
+extra array costing cache at that length; and **+100 % is a lower bound** on the alternative,
+since a real second traversal repeats the harmonic sum as well as the column.
+
+The measurement is **recorded, not asserted in CI**: a wall-clock assertion is machine-dependent,
+and one tuned until it passed here would be a threshold chosen by whoever is judged by it — the
+rule this step was told to apply.
+
 ## Changelog
 
 | date | change |
@@ -2115,6 +2192,7 @@ failed, would have been.
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
 | 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
+| 2026-09-18 | §23 added: L3 step 3. STM-P-1 predicted the FD agreement before the run, including that the textbook figure would be wrong by three orders; the threshold is a band measured in the same run and contains no absolute number; Liouville checks what finite differences cannot; GRAV-Q-006 resolved on measured cost. |
 | 2026-09-18 | §22 added: L3 step 2. RKF7(8) read from page images and proved against the order conditions; Fehlberg's own prose count of 40 error coefficients confirms the reading. Table XI's agreement predicted before the run and borne out, including the part predicted to fail. |
 | 2026-09-18 | §21 added: L3 step 1. The crossing gate the plan asked for would have fired 14 times and caught nothing; replaced by a register, which is ci.sh gate 10. An annotation is not a permit. The SRP-versus-drag figure compared two vehicles. |
 | 2026-09-18 | §20.8-20.9 added: ci.sh exited 1 on NOTICE drift while the individual checkers were green — the submission criterion is now the composed gate's exit code. EPH-Q-005 resolved: IAU 2012 B2 obtained and pinned, and L2 can close. |

@@ -14,7 +14,7 @@
 // the right-hand side depends on x alone. The controller is blind there, not
 // merely optimistic.
 
-#include "rkf78_coefficients.hpp"
+#include <odl/integrators/rkf78_coefficients.hpp>
 
 #include <array>
 #include <cmath>

@@ -456,7 +456,7 @@ external table in the layer is manifest-declared with a hash.
 
 ---
 
-### 3.4 L3 `dynamics` — 2 of 4 done; **the open layer**
+### 3.4 L3 `dynamics` — 3 of 4 done; **the open layer**
 
 Small in code and the hinge of the design: this is where the predecessor's fixed-width
 sensitivity block becomes a registry, which is what later gives a joint covariance instead of a
@@ -535,8 +535,39 @@ grid scan.
    *Gate:* the analytic two-body solution, Fehlberg's Example (53) — a coupled nonlinear system
    with a closed form, verified to solve its own stated system before being used — step-size
    insensitivity demonstrated rather than assumed, and the quadrature blindness **exhibited**.
-3. **TODO** — State transition matrix, integrated alongside the state. Gate: agreement with
-   finite differences of the propagated state to a stated tolerance.
+3. **DONE** — State transition matrix, integrated alongside the state, **analytic** because
+   finite differences checked against finite differences would pass while checking nothing.
+   Gate: agreement with finite differences of the propagated state, to a tolerance set by §4
+   rule 7 rather than chosen.
+
+   *The sizing is the result.* A central difference of a **propagated** state carries three
+   errors, not the two a textbook treatment of differencing gives: truncation ~ *h*²/6, machine
+   round-off ~ ε/*h*, and **integrator noise ~ τ/2*h***, because each perturbed trajectory
+   carries the integrator's own error independently and the difference divides by 2*h* — so it is
+   *amplified* by the very step that suppresses truncation. Minimising at τ = 10⁻¹² predicts best
+   agreement 6.6 × 10⁻⁹ at *h* = 1.1 × 10⁻⁴; measured 1.98 × 10⁻⁸, a factor of three. The
+   default criterion, ε^(2/3) = 3.7 × 10⁻¹¹, is **179× too tight** — wrong in the direction that
+   fails a correct implementation.
+
+   *And a second axis the first cannot see.* A band built from finite differences bounds how well
+   Φ matches a finite-difference estimate **of itself**. `STM-A-005` checks Liouville —
+   d(det Φ)/d*t* = tr(A) det Φ, so with tr(∂a/∂v) = 0 the determinant is 1 for all time — and no
+   difference estimate enters it. det Φ = 1 at 600, 3000 and 6246 s. For both to pass while Φ is
+   wrong, two unrelated failure modes would have to conspire.
+
+   *`GRAV-Q-006` resolved, both routes measured.* The second derivative follows the same
+   three-term recursion as the first — one array, one line — costing **+7.5% at degree 180, +4.0%
+   at 360 and +15.2% at 2190**, against a **lower bound** of +100% for a second traversal, which
+   repeats the harmonic sum as well as the column. Take it from the same recursion. Note that
+   15% is not "negligible", which is how `GRAV-Q-006` worded it and how this plan repeated it:
+   right in direction, optimistic in size, because the extra array costs cache at that length.
+   The measurement is recorded and **not** asserted in CI — a wall-clock assertion tuned until it
+   passed on one machine is a threshold chosen by whoever is judged by it.
+
+   *Units:* ∂a/∂r is s⁻² and ∂a/∂v is s⁻¹, both **invariant** under the uniform scaling that takes
+   metres to kilometres, so A is the same matrix in either system and the variational equations
+   introduce no conversion. Gate 11 confirms it structurally: 72 production sources, still 15
+   literals.
 4. **TODO** — Parameter sensitivity registry: any registered parameter automatically gains a
    sensitivity column and a place in the joint covariance, for whatever set is registered, with
    no fixed width anywhere. Gate: a registered parameter's column matches finite differences,
@@ -898,6 +929,15 @@ governs. Three rules apply to all of them:
    only the initial step moves the answer more (7.02 × 10⁻⁷) than changing every constant does
    (5.65 × 10⁻⁷)**, at the same accepted-step count. The criterion is now that relation, and
    there is no absolute number in it that anyone could have fitted afterwards.
+
+   *The strongest form has one loophole and it must be closed explicitly.* The number cannot be
+   fitted, but **the comparator family can** — and widening it weakens the test, which is the
+   unobvious direction. L3 step 3 is the case: with the finite-difference perturbation taken out
+   to *h* = 10⁻³ the perturbation is 7 km, its own truncation inflates the band to 1.6 × 10⁻⁵,
+   and `worst ≤ band` passes on anything. Narrowed to a decade around the **predicted** optimum
+   the band is 1.96 × 10⁻⁶ against a best agreement of 1.98 × 10⁻⁸. So the family is chosen from
+   a prediction made before the run, by the middle form above, and a threshold is not fitted at
+   one level by being made relative at another.
 
 8. **A reference implementation is an oracle when a specification exists that it implements, and
    is itself normative when none does — and the difference is a search, not a preference.** Rule

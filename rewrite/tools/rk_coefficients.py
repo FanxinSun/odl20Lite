@@ -231,7 +231,7 @@ def emit(stats: dict) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="modules/integrators/src/rkf78_coefficients.hpp")
+    ap.add_argument("--out", default="modules/integrators/include/odl/integrators/rkf78_coefficients.hpp")
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args()
     stats = verify(verbose=not a.check)
