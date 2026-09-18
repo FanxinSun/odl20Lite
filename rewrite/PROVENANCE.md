@@ -104,13 +104,20 @@ tree's template exists to prevent.
 precession **IAU 2006**, nutation **IAU 2000A**, origin **CIO-based**, with the ERFA version
 string; `odl::frames::model_version()` emits it.
 
-**Measured, and it contradicts what this ledger and plan §4 rule 1 assumed.** The upgrade was
-expected to move results by 0.06–0.08 arcsec, about 2.2 m at 7000 km, against the predecessor.
-On the ITRF↔GCRS path it does not: oracle case F-01–F-03 reproduces **to 1.6 mm out of
-7717 km**, which is 2 × 10⁻¹⁰ relative and means the same algorithm and effectively the same
-EOP, not a model difference. The 2.2 m of oracle T-01 is a **TEME** comparison, where the
-conversion convention genuinely differs. Rule 1 needs narrowing to the TEME path; see §12.5 and
-the L1 report. Any comparison against a pre-upgrade
+**Measured, and it contradicts what this ledger and plan §4 rule 1 assumed — though not for the
+reason first recorded here.** The upgrade was expected to move results by 0.06–0.08 arcsec, about
+2.2 m, against the predecessor. On the ITRF↔GCRS path it does not: oracle case F-01–F-03
+reproduces **to 1.56 mm out of 7717 km**, 4.2 × 10⁻⁵ arcsec.
+
+**Why**, corrected: the two chains are **not** running the same algorithm, and it is not the same
+EOP. Each applies the celestial-pole offset series matched to its own model — the predecessor adds
+dψ, dε to an IAU-1980 nutation, this tree adds δ*X*, δ*Y* to the IAU 2006/2000A CIP. Those series
+exist precisely to bring each model onto the **observed** pole, so two different algorithms each
+corrected onto the same physical pole must agree, and the model difference **cancels by
+construction**. It was never going to appear on that path, and rule 1 ignored the correction
+series. TEME is different because it is referred to the **mean equinox of date**, a model
+construct with no correction series, so the difference appears undiluted — which is what oracle
+T-01's 2.2 m is. See §12.5. Any comparison against a pre-upgrade
 baseline must record both model versions.
 
 ---
@@ -606,6 +613,7 @@ find this class of thing, and a list of them is the evidence that it worked.
 | `from_calendar` evaluated the rate-dependent offsets once at the naive epoch instead of iterating to a fixed point; the comment justifying it was out by nine orders of magnitude | 1.15 µs against a 1 ns budget | the all-scales round trip |
 | `ut1_two_part_jd` added ΔUT1 to **TAI** rather than to UTC | 37 s | the pre-1972 refusal test |
 | ω × r was formed in ITRS with ω along its z. The Earth spins about the **CIP**, which is TIRS's z, and polar motion separates them by ≈ 0.3″ | 0.96 mm s⁻¹ | Vallado's published velocity |
+| The kinematic equation-of-equinoxes term was omitted from the TEME chain, `FRAME-R-030` v1.2 having forbidden it along with the equinox-based route it does not belong to | 85 mm | Vallado's published position |
 | The EOP contiguity check compared against **stored** rows, so skipping any row reported a phantom gap | whole-file refusal | loading the real `finals2000A.all` |
 | `FRAME-A-006` evaluated `eraXy06` at J2000 expecting the polynomial's constant term; the series **value** at *t* = 0 is −5.558″, not −0.016617″ | the test, not the code | itself |
 
@@ -632,13 +640,28 @@ Measured against oracle F-01–F-03, at MJD 57372.37458333 with the input state 
 | as an angle | 4.2 × 10⁻⁵ arcsec |
 | predicted by rule 1 | ≈ 0.064 arcsec, ≈ 2.2 m |
 
-2 × 10⁻¹⁰ relative agreement is the same algorithm and effectively the same EOP. **Rule 1 does
-not hold on the ITRF↔GCRS path.** It evidently does hold on the TEME path, where oracle T-01's
-2.2 m is a difference of *conversion convention* — which is what `FRAME-Q-001` concluded
-independently. The step-4 gate was specified as a required-disagreement test on the ITRF path and
-has been restated as what the oracle actually supports: magnitudes agree, the separation is
-bounded well above the measurement so a gross error still fails, and the round trip beats the
-predecessor's closure.
+**Rule 1 does not hold on the ITRF↔GCRS path**, and the mechanism — corrected after the manager
+checked the arithmetic — is not the one first written here:
+
+- The two chains run **genuinely different algorithms**. Each applies the celestial-pole offset
+  series matched to its own model: dψ, dε onto an IAU-1980 nutation in the predecessor, δ*X*, δ*Y*
+  onto the IAU 2006/2000A CIP here. Those series bring each model onto the **observed** pole, so
+  the model difference cancels *by construction*. Rule 1 ignored the correction series.
+- **TEME has no such series.** It is referred to the mean equinox of date, a model construct with
+  nothing to reconcile two precession models against an observation, so the difference appears
+  undiluted. Oracle T-01: 2.2 m at |r| = 7234 km is **0.0627 arcsec**, and the accumulated
+  IAU-76-versus-IAU-2006 precession difference of 0.064 arcsec is **2.245 m** there — essentially
+  all of it.
+- **The kinematic equation-of-equinoxes terms are not the explanation.** They max at about
+  0.0027 arcsec, which is **95 mm** at that radius — 4 % of T-01. An earlier draft of this
+  section offered them as the cause; a gate set from them would have been **twenty-five times too
+  small** and would have failed a correct implementation. They must still be carried
+  (`FRAME-R-030`, amended); they are simply not why T-01 is 2.2 m.
+
+The step-4 gate was specified as a required-disagreement test on the ITRF path and has been
+restated as what the oracle actually supports: magnitudes agree, the separation is bounded well
+above the measurement so a gross error still fails, and the round trip beats the predecessor's
+closure. The required-disagreement gate moves to T-01 at L6, at **≈ 2.2 m**.
 
 ---
 
@@ -646,6 +669,7 @@ predecessor's closure.
 
 | date | change |
 |---|---|
+| 2026-09-18 | **Four specification amendments applied**, at the manager's verdict, all three module specs to v1.3: `EOP-A-003` to TN36 §8.2's published tolerance; `FRAME-R-030` corrected to require the kinematic equation-of-equinoxes terms and `FRAME-A-001` restated at 25 mm with the unexplained z-rotation left recorded; `TIME-R-021a` for `eraDtdb`'s UT1 argument; and the prediction/leap-horizon interaction as `SPEC-eop` §4.6 and `SPEC-time` §4.9. §1 and §12.5 corrected: the ITRF-path agreement is **not** "the same algorithm" but two different algorithms whose model difference cancels because each is corrected onto the observed pole, and the kinematic terms are 4 % of T-01 rather than its cause. |
 | 2026-09-18 | **L1 steps 1–4 executed and gated.** §12 added: what was built, the generated tidal tables with their agreement against the four IERS published test cases, the six errors the tests caught, the dependency capture, and the measurement showing plan §4 rule 1's required disagreement is absent on the ITRF↔GCRS path. §1 module register updated to *implemented* and gains `core`. §8.11 records the FetchContent capture. |
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |

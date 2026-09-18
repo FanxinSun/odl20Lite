@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `TIME` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-09-18 |
 | **Layer** | `time` (`doc/REWRITE_PLAN.md` §2) |
 | **Feature** | F3's foundation (plan §3) |
@@ -226,6 +226,15 @@ All of these are exact or series-based and involve no table:
   term. For a geocentric epoch those location arguments are zero; for a station epoch they
   MUST be supplied. The diurnal term reaches about 2.1 µs, which is 16 mm of along-track
   position at LEO and is therefore **not** negligible for SLR.
+- **TIME-R-021a.** `eraDtdb` also takes **UT1 as a fraction of a day**, which §5's signature
+  does not provide and versions 1.0–1.2 of this specification did not mention. UTC's day
+  fraction MUST be used in its place, and the reason is quantitative: only the diurnal term
+  depends on that argument, it has a one-day period and an amplitude of about 2.1 µs, so an
+  error of up to 0.9 s in UT1 moves the result by **under 0.2 ns** — four orders below
+  `TIME-P-5`'s 10 ns budget. Requiring ΔUT1 here would make a barycentric time conversion
+  depend on the EOP layer for no measurable gain, which is a worse trade than the
+  approximation. The substitution MUST be documented where the operation is implemented, so
+  that nobody has to rediscover why no EOP is threaded through.
 - **TIME-S-022.** TCG and TCB SHOULD be provided for completeness but need not be used by any
   P1–P6 module. Nothing in this tree's dynamics is formulated in TCB.
 
@@ -369,6 +378,25 @@ as secondary reporting, see `TIME-Q-004`].
   leap-second table. A table whose last entry is decades old MUST be as valid as one updated
   yesterday, subject only to the expiry rule of `TIME-R-051`.
 
+### 4.9 The expiry horizon binds layers above this one
+
+`TIME-R-051`'s refusal is not confined to this module, and the collision it causes was found by
+implementation rather than anticipated here. **IERS rapid-service products predict roughly a year
+ahead** — `finals2000A.all` does — and routinely extend past the leap-second table's expiry. A
+consumer that asked this module for ΔAT on every row of such a file was refused the whole file.
+
+- **TIME-R-056.** A layer that ingests a product extending past the expiry MUST truncate it at
+  that horizon, count what it excluded, and raise **its own** out-of-coverage diagnostic for
+  epochs beyond it — not propagate `TIME-F-004` upward. A diagnostic about ΔAT, raised when the
+  caller asked for something else, names the wrong thing and sends the reader to the wrong
+  module. `SPEC-eop.md` §4.6 is the worked instance.
+- **TIME-R-057.** Where `TIME-R-052`'s single named override is set for a run, it MUST be visible
+  to those layers, so that one declared decision governs the horizon everywhere rather than
+  several that can disagree about where the data ends.
+
+This will recur at every layer that ingests a forecast, so it is stated here rather than left to
+each of them.
+
 The sanity check on parsed ΔUT1 in `SPEC-eop.md` is bounded at 1 s **for the historical era
 only**, for exactly this reason.
 
@@ -497,7 +525,7 @@ warning [`ERFA` `src/dat.c`, note 1]. Under this spec the tree does not call `er
 | `TIME-A-008` | round trip `Epoch` → (scale, calendar, 12 decimal places) → `Epoch`, for 10⁵ pseudo-random epochs in 1972–2050 and each scale | identity | closed-form identity | < 1 ns max, < 0.1 ns RMS | P-2, R-011, R-012, R-013 |
 | `TIME-A-009` | TDB − TT over 1980–2050, geocentric | matches `eraDtdb` | `ERFA` — the routine we call; this test pins the call convention, not the model | bit-identical | R-021, P-5 |
 | `TIME-A-010` | TDB − TT peak-to-peak amplitude over one year | ≈ 3.4 ms peak-to-peak (±1.7 ms) | `TN36-10` §10.1, "maximum amplitude of around 1.6 ms" for *P(TT)* | within a factor 1.1 — a magnitude check, not a model check | R-021 |
-| `TIME-A-011` | TDB − TT diurnal term for a station at 45° N, 0° E | differs from the geocentric value by ≈ 2 µs peak-to-peak | `eraDtdb` documentation; a magnitude check | within a factor 1.2 | R-021 |
+| `TIME-A-011` | TDB − TT diurnal term for a station at 45° N, 0° E | differs from the geocentric value by ≈ 2 µs peak-to-peak | `eraDtdb` documentation; a magnitude check | within a factor 1.2 | R-021, R-021a |
 | `TIME-A-012` | `two_part_jd_of()` output shape | part1 integral, part2 ∈ [0, 1) | `TIME-R-014` | exact | R-014 |
 | `TIME-A-013` | refusal: UTC at 1971-12-31T23:59:59 | refusal `TIME-F-002` naming that epoch and the 1972 boundary | this spec | — | F-002 |
 | `TIME-A-014` | acceptance: TT at 1965-06-01 | succeeds | this spec, `TIME-R-041` | — | R-041 |
@@ -525,6 +553,7 @@ an oversight:
 | `TIME-R-024` | An interface fact about ERFA (it declares no GPS routines), not a behaviour of this module. Discharged by the dependency register in `PROVENANCE.md` §3. |
 | `TIME-R-053` | A design constraint — "do not call `eraDat`, do not use the global leap-table setters". Discharged by review of the dependency register, and by `TIME-A-019`, which fails if any global table is in play. |
 | `TIME-R-055` | A negative property of the interface. The corresponding positive check is `SPEC-eop.md` `EOP-A-011`. |
+| `TIME-R-056`, `TIME-R-057` | Obligations on the layers **above** this one, so they are discharged where they bind: `SPEC-eop.md` `EOP-A-033` and `EOP-A-034` test both against the real `finals2000A.all`. |
 | `TIME-F-008` | The general form of `SPEC-template.md` `R-ERR-2`. It binds every dependency call and is discharged by review; the one concrete instance it was written for (`eraDat`'s `+1`) does not arise, because `TIME-R-053` removes the call. |
 | `TIME-F-006`, `TIME-S-025` | GPS week/time-of-week support is optional in P1. Both are untested until a consumer exists, and MUST be tested when one does. |
 
@@ -562,6 +591,7 @@ When this module is implemented, the following are added to `PROVENANCE.md`:
 
 | version | date | change |
 |---|---|---|
+| 1.3 | 2026-09-18 | **Amended after implementation.** `TIME-R-021a` added: `eraDtdb` needs UT1, which §5's signature does not supply, and UTC's day fraction stands in for it at a cost of under 0.2 ns. §4.9 added — the expiry horizon binds the layers above, since rapid-service products routinely predict past it — with `TIME-R-056` and `TIME-R-057`, discharged in `SPEC-eop.md` where they bind. |
 | 1.2 | 2026-09-18 | **Acceptance coverage completed.** Added `TIME-A-021` … `TIME-A-027` and the §8 *Coverage* table listing every requirement and refusal not discharged by a test, with the reason. v1.0–1.1 claimed the template's coverage rule without meeting it. **No requirement was added, removed or changed**; the adopted requirement set is exactly as at v1.1. |
 | 1.1 | 2026-09-18 | **Adopted.** All six design decisions of the tranche adopted unchanged. `TIME-R-052`'s named-and-logged override shape generalised to plan rule **R12**, binding every refusal in the tree. `TIME-Q-001` (pre-1972 refusal) and `TIME-Q-005` (representation origin) confirmed; `TIME-Q-002`, `-003`, `-004`, `-006` remain open. |
 | 1.0 | 2026-09-18 | First draft, P1 tranche, for manager review. |

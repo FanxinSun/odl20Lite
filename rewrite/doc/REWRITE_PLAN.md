@@ -277,24 +277,28 @@ template parameter**, so `State<Gcrs>` and `State<Teme>` are unrelated types and
 to reassign. That is the answer to the risk flagged at L0, and it is the second time a C++20
 "optional at implementation" hazard was closed by making the compiler the enforcer.
 
-**Specification amendments this layer requires**, to be applied before L2 opens, by their author:
+**Specification amendments this layer required — all applied 2026-09-18, specs at v1.3.**
 
-- `SPEC-eop`: EOP-R-007 mandates implementing from the printed tables *because* the IERS Fortran
-  is unlicensed, while EOP-A-003 demands matching `ORTHO_EOP` to the last published digit. TN36
-  §8.2 settles it in as many words — the two routes "agree at the level of a few microarcseconds
-  in polar motion and a few tenths of a microsecond in UT1". Achieved 0.09–0.34 µas and 0.007 µs.
-  EOP-A-003 takes the Conventions' own tolerance.
-- `SPEC-frames`: FRAME-R-030 forbade the equinox route outright, but Vallado's eq. (C-1) requires
-  the **kinematic** equation-of-equinoxes terms, and those are not the ambiguous part — his
-  ambiguities are in the geometric nutation terms this chain never uses. FRAME-A-001's 1 mm is
-  not achievable; 13.3 mm is, characterised as a pure z-rotation of 3.45 × 10⁻⁴ arcsec that
-  neither the two-term form nor `eraEect00` explains. Tolerance 25 mm **plus an assertion that
-  the residual stays a pure rotation** — a radial component would mean a scale or units error,
-  which no rotation can produce. The unexplained rotation stays recorded as unexplained.
-- `SPEC-time`: record that `tdb_minus_tt` uses UTC's day fraction for the diurnal term, the
-  amplitude being ≈ 2.1 µs so 0.9 s of UT1 ambiguity moves it under 0.2 ns.
-- Both `SPEC-time` and `SPEC-eop`: record the prediction/leap-horizon interaction. It will recur
-  at every layer that ingests a forecast.
+- `SPEC-eop` EOP-A-003 now takes TN36 §8.2's own bound (1 µas, 0.05 µs) instead of "the last
+  published digit", with the contradiction against EOP-R-007 written out so the next reader sees
+  why it changed rather than only that it did.
+- `SPEC-frames` FRAME-R-030 corrected: the kinematic equation-of-equinoxes terms are **required**,
+  and v1.2's conflation of them with the equinox-based TOD route is named as the error — all
+  three of Vallado's ambiguities are in the geometric nutation terms this chain never uses.
+  FRAME-A-001 restated at 25 mm **with the pure-rotation assertion kept as a separate check**,
+  because a radial component would mean a scale or units error, which no rotation can produce.
+  The 3.45 × 10⁻⁴ arcsec z-rotation stays recorded as unexplained, including that `eraEect00`
+  and the two-term form differ by only 8 × 10⁻⁶ arcsec, so neither accounts for it.
+- `SPEC-time` TIME-R-021a records `eraDtdb`'s UT1 argument and its 0.2 ns justification.
+- Both specs record the prediction/leap-horizon interaction as rules rather than as notes about
+  one product (SPEC-eop §4.6, SPEC-time §4.9, TIME-R-056/057, EOP-R-054/056).
+- FRAME-Q-001 corrected from "convention" to **model difference**, carrying the arithmetic and
+  the observation that a gate set from the kinematic terms would have been 25× too small.
+
+Two new tests were needed to discharge the new requirements, and writing one of them taught
+something: built as a UTC calendar epoch, a request past the leap horizon is refused by
+TIME-F-004 before the EOP layer sees it at all — correct behaviour, so the test goes through a
+uniform scale, which is also the realistic path since the dynamics works in TT/TAI.
 
 ---
 
@@ -304,8 +308,8 @@ Everything the spacecraft moves through or is pulled by, with no reference to th
 itself. A gravity field is the environment; a drag force is a spacecraft property and lives in
 L4.
 
-**Entry:** L1 exit gate — **passed 2026-09-18**, so this layer is open once L1's
-specification amendments above are applied.
+**Entry:** L1 exit gate — **passed 2026-09-18**, amendments applied the same day, so this
+layer is open.
 
 1. **TODO** — `ephemerides`: planetary and lunar positions, SPK through CALCEPH. Sources: the
    JPL DE documentation and the SPK format specification. Gate: published DE test values, with

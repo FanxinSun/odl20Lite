@@ -95,7 +95,10 @@ def check_spec(path: Path, quiet: bool) -> tuple[bool, dict]:
     discharged: set[str] = set()
     for row in re.findall(rf"^\|\s*`{prefix}-A-\d+`.*$", body, re.M):
         col = row.rstrip().rstrip("|").rsplit("|", 1)[-1]
-        for letter, num in re.findall(r"\b([RF])-(\d+)\b", col):
+        # The suffix letter matters: an amendment that inserts R-021a between
+        # R-021 and R-022 keeps every later identifier stable, which is worth
+        # more than tidy numbering — but only if the discharge parser sees it.
+        for letter, num in re.findall(r"\b([RF])-(\d+[a-z]?)\b", col):
             discharged.add(f"{prefix}-{letter}-{num}")
         for l1, a, _l2, b in RANGE_RE.findall(col):
             for n in range(int(a), int(b) + 1):

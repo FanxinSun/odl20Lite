@@ -117,9 +117,9 @@ TEST_CASE("FRAME-A-001: PRIMARY FRAMES GATE — Vallado's published ITRS/TEME wo
     // where 3.45e-4 arcsec is needed. It sits somewhere in Vallado's own
     // formulation of that term, which the paper describes but does not print.
     //
-    // 25 mm is set to be comfortably above the characterised residual and far
-    // below anything that would matter physically; SPEC-frames FRAME-A-001's
-    // "1 mm" was written before anyone had tried it. See the report.
+    // 25 mm is comfortably above the characterised residual and far below
+    // anything that would matter physically. SPEC-frames FRAME-A-001 said 1 mm
+    // until v1.3, which was written before anyone had tried it.
     REQUIRE(sep_m(teme->position(), published_r) < 0.025);             // < 25 mm
     REQUIRE((teme->velocity() - published_v).norm() * 1000.0 < 1e-4);  // < 0.1 mm/s
     // The residual must stay a pure rotation: a radial component would mean a
@@ -333,12 +333,24 @@ TEST_CASE("L1 step 4 gate: the REQUIRED DISAGREEMENT with the predecessor, oracl
     // computes IAU 2006/2000A, so "certain disagreements are required, of
     // predictable size, and agreement would be the failure".
     //
-    // ON THIS PATH THE PREDICTION IS FALSE, and the measurement is below. The
-    // two implementations agree to about 1.6 mm out of 7717 km — 2e-10 relative,
-    // which is the same algorithm and effectively the same EOP, not a 0.064
-    // arcsec model difference. See the report: rule 1 holds for the TEME path
-    // (oracle T-01), where the conversion convention genuinely differs, and does
-    // not hold for ITRF<->GCRS.
+    // ON THIS PATH THE PREDICTION IS FALSE, and the measurement is below: the
+    // two agree to about 1.56 mm out of 7717 km, which is 4.2e-5 arcsec.
+    //
+    // WHY, and it is not "the same algorithm". The two chains are genuinely
+    // different, and each applies the celestial-pole offset series matched to its
+    // own model — dPsi/dEps onto an IAU-1980 nutation in the predecessor, dX/dY
+    // onto the IAU 2006/2000A CIP here. Those series exist to bring each model
+    // onto the OBSERVED pole, so two different algorithms corrected onto the same
+    // physical pole must agree and the model difference cancels by construction.
+    // Rule 1 ignored the correction series.
+    //
+    // TEME is different because it is referred to the mean equinox of date, a
+    // model construct with no correction series, so the difference appears
+    // undiluted: oracle T-01's 2.2 m at 7234 km is 0.0627 arcsec, and the
+    // IAU-76-versus-IAU-2006 precession difference of 0.064 arcsec is 2.245 m
+    // there. The kinematic equation-of-equinoxes terms are 95 mm at that radius,
+    // 4% of it, and are NOT the cause. The required-disagreement gate therefore
+    // belongs at L6 on T-01, at about 2.2 m.
     //
     // So this gate asserts what the oracle actually supports: the magnitude is
     // preserved, the two agree closely, and the round trip beats the

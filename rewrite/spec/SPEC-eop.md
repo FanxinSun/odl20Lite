@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `EOP` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-09-18 |
 | **Layer** | `time` / `io` boundary (`doc/REWRITE_PLAN.md` §2) |
 | **Feature** | F3 (plan §3), F12's EOP readers |
@@ -368,6 +368,28 @@ performs: a **4-point Lagrange interpolation** of *x*, *y* and UT1−UTC (`LAGIN
   exceeds the data can be rejected at configuration time rather than partway through an
   integration.
 
+### 4.6 The prediction horizon and the leap-second horizon do not coincide
+
+**Two adopted specifications collide here and neither anticipated it.** `finals2000A.all` predicts
+roughly **a year ahead**. `SPEC-time.md` `TIME-R-051` **refuses UTC past the leap-second table's
+expiry**, currently 2027-06-28. The product routinely extends past the table, and a loader that
+asked for ΔAT on every row refused the whole file.
+
+- **EOP-R-054.** A row whose epoch lies beyond the leap-second table's usable horizon MUST be
+  **excluded at load**, counted, and the count exposed — exactly as the pre-1972 rows are
+  (`SPEC-time.md` `TIME-R-040`). The series is truncated at the horizon where UTC is still well
+  defined, and `coverage()` reports the truncated interval.
+- **EOP-R-055.** The refusal a caller meets beyond that horizon MUST therefore be `EOP-F-007`
+  naming the coverage, and **not** a leap-table error surfacing from three layers down. A
+  diagnostic about ΔAT, raised when the caller asked for Earth orientation, names the wrong thing
+  and sends the reader to the wrong module.
+- **EOP-R-056.** Where the leap table's single named override (`TIME-R-052`) is set for a run it
+  MUST extend this horizon too, so that one declared decision governs both modules rather than two
+  that can disagree.
+
+This will recur at every layer that ingests a forecast, so it is stated as a rule rather than as a
+note about one product.
+
 The justification for the absoluteness of `EOP-R-051` is the shape of the error it prevents.
 Running a day past the end of `finals2000A` with the last ΔUT1 held constant produces an error
 that grows at the rate of LOD — of order 1 ms per day — which is 0.5 m of position per day at
@@ -393,8 +415,9 @@ EopPolicy   := { max_quality: Quality,          -- worst acceptable; default Bul
 ```
 
 ```
-load_c04(bytes, source_id)              -> Result<EopSeries, EopError>
-load_finals2000a(bytes, source_id)      -> Result<EopSeries, EopError>
+load_c04(bytes, source_id, &LeapTable)       -> Result<EopSeries, EopError>
+load_finals2000a(bytes, source_id, &LeapTable)
+                                             -> Result<EopSeries, EopError>
 splice(final: EopSeries, rapid: EopSeries, EopPolicy)
                                         -> Result<EopSeries, EopError>   -- reports discontinuities
 
@@ -407,6 +430,11 @@ eop_raw_at(EopSeries, Epoch, EopPolicy) -> Result<EopRecord, EopError>    -- sub
 
 Notes for the manager's review:
 
+- **The leap table is taken at LOAD, not at the query** — versions 1.0–1.2 put it on neither, and
+  the query needs it implicitly: an `Epoch` must become the UTC MJD the tables are indexed by,
+  which needs ΔAT. Converting each row once at load leaves `eop_at` the pure function this section
+  wanted, and the spacing between stored rows then **is** the actual length of that UTC day, 86400
+  or 86401 s, so a leap second is handled without the query knowing about one.
 - **`EopSeries` is immutable and carries its own provenance.** Two series loaded from
   different revisions of the same URL are different values with different hashes; nothing can
   confuse them, and `provenance()` answers "which EOP did this run use" from the value itself
@@ -466,7 +494,7 @@ these measurements, a few times worse. That is a property of the world, not a de
 |---|---|---|---|---|---|
 | `EOP-A-001` | parse the whole C04 20 file: first row | 1962-01-01, MJD 37665.00, *x* = −0.012 700″, *y* = 0.213 000″, UT1−UTC = 0.032 633 8 s | `C04` — **the published file** | exact | R-020, R-024, P-1 |
 | `EOP-A-002` | MJD monotone, one-day spacing, YR/MM/DD consistent with MJD, across every row | holds | `C04` | exact | R-021, R-022 |
-| `EOP-A-003` | **`ORTHO_EOP` published test case**: MJD 47100 | Δ*x* = −162.838 637 327 963 653 0 µas; Δ*y* = 117.790 752 584 266 897 4 µas; ΔUT1 = −23.390 923 706 098 082 14 µs | `ORTHO` — **published test case in the reference routine's own header** | to the last published digit | R-007, R-008, R-042(1,2), P-4 |
+| `EOP-A-003` | **`ORTHO_EOP` published test case**: MJD 47100 | Δ*x* = −162.838 637 327 963 653 0 µas; Δ*y* = 117.790 752 584 266 897 4 µas; ΔUT1 = −23.390 923 706 098 082 14 µs | `ORTHO` — published test case in the reference routine's own header | **The tolerance the Conventions themselves publish**, not the routine's printed digits: TN36 §8.2 states the table implementation and `ORTHO_EOP.F` "agree at the level of a few microarcseconds in polar motion and a few tenths of a microsecond in UT1". So **1 µas** in Δ*x*, Δ*y* and **0.05 µs** in ΔUT1 — inside that bound and above the achieved 0.09–0.34 µas and 0.007 µs. See the note below. | R-007, R-008, R-042(1,2), P-4 |
 | `EOP-A-004` | **`PMSDNUT2` published test case**: MJD 54335 (2007-08-23) | Δ*x* = 24.831 442 382 733 648 34 µas; Δ*y* = −14.092 406 920 418 376 61 µas | `PMSD` — published test case | to the last published digit | R-007, R-008, R-042(3), P-4 |
 | `EOP-A-005` | **`UTLIBR` published test case a**: MJD 44239.1 (1980-01-01 02:24:00) | ΔUT1 = 2.441 143 834 386 761 746 µs; ΔLOD = −14.789 712 473 494 494 92 µs/day | `UTLIBR` — published test case | to the last published digit | R-007, R-008, R-042(4), R-043 |
 | `EOP-A-006` | **`UTLIBR` published test case b**: MJD 55227.4 (2010-01-31 09:35:59) | ΔUT1 = −2.655 705 844 335 680 244 µs; ΔLOD = 27.394 458 265 998 469 67 µs/day | `UTLIBR` — published test case | to the last published digit | R-007, R-008, R-042(4) |
@@ -487,6 +515,8 @@ these measurements, a few times worse. That is a property of the world, not a de
 | `EOP-A-021` | `subdaily_applied = false` records are rejected by `SPEC-frames.md` | `FRAME-F-003` | this spec + `SPEC-frames.md` | — | R-045 |
 | `EOP-A-022` | refusal: load a pinned file whose bytes have been altered by one character | `EOP-F-010`, naming both hashes and both retrieval dates | this spec (plan R11) | — | R-006, F-010 |
 | `EOP-A-023` | a baseline recorded against a pinned series is unchanged by a re-fetch of the live series | the baseline's recorded hash is untouched | this spec (plan R11) | exact | R-004, R-009 |
+| `EOP-A-034` | the leap table's single named override (`TIME-R-052`) extends this horizon too: the same file loads with no rows excluded and the series reaches past the table's expiry | as stated | this spec §4.6 | — | R-056 |
+| `EOP-A-033` | loading the real `finals2000A.all`, which predicts past the leap table's expiry, succeeds; the excluded rows are counted; an epoch beyond the horizon is refused by `EOP-F-007` naming the coverage, not by a leap-table error | as stated | this spec §4.6 | — | R-054, R-055 |
 | `EOP-A-024` | refusal: a C04 file whose header identifies it as **14 C04** | `EOP-F-001`, naming the header line found and the series expected | this spec, §3.1 | — | R-001, F-001 |
 | `EOP-A-025` | refusal: `finals.all` supplied where `finals2000A.all` was expected | `EOP-F-002`, naming which nutation theory the offsets belong to. Detected by manifest identity, and independently by the δ-columns being inconsistent with mas-scale IAU 2000A offsets | this spec, §3.2 | — | R-002, F-002 |
 | `EOP-A-026` | refusal: a C04 file with a one-day gap, with a duplicated epoch, and with a decreasing MJD — three cases | `EOP-F-003`, naming the line numbers and the two MJDs in each case | this spec | — | R-021, F-003 |
@@ -505,6 +535,20 @@ are the strongest available substitute — they check the part that is genuinely
 71-constituent and 10/11-term tidal series) against values the IERS does publish — and
 `EOP-A-007`…`EOP-A-009` check the interpolation itself against closed-form properties. This
 is recorded at `EOP-Q-001` rather than silently re-scoped.
+
+**Note on `EOP-A-003`'s tolerance, and a contradiction versions 1.0–1.2 carried.**
+`EOP-R-007` requires the tidal models to be implemented **from the tables printed in the
+Conventions**, because the IERS Fortran carries no licence. `EOP-A-003` required matching
+`ORTHO_EOP`'s test case **"to the last published digit"**. Those cannot both hold, and TN36 §8.2
+says so outright:
+
+> "Because these tables cannot be found in the code of 'ORTHO EOP.F', the IERS Earth Orientation
+> Center has implemented them in the alternative software 'interp.f'. **The two routines agree at
+> the level of a few microarcseconds in polar motion and a few tenths of a microsecond in UT1.**"
+
+The specification demanded of one requirement what another forbade. The tolerance is now that
+published bound. `EOP-A-004`…`EOP-A-006` are unaffected: Tables 5.1a and 5.1b are implemented
+directly rather than re-derived, so those agree far more closely.
 
 **Coverage.** Every requirement and refusal in this spec is discharged by at least one row
 above, except the following, listed in full:
@@ -566,6 +610,7 @@ than dangling.
 
 | version | date | change |
 |---|---|---|
+| 1.3 | 2026-09-18 | **Amended after implementation.** `EOP-A-003`'s tolerance set to the bound TN36 §8.2 itself publishes, resolving a contradiction with `EOP-R-007` that versions 1.0–1.2 carried. §4.6 added — the prediction horizon and the leap-second horizon do not coincide — with `EOP-R-054`…`EOP-R-056` and `EOP-A-033`. §5's loaders take the leap table, which the query then does not need. |
 | 1.2 | 2026-09-18 | **Acceptance coverage completed.** Added `EOP-A-024` … `EOP-A-032` and the §8 *Coverage* table listing every requirement and refusal not discharged by a test, with the reason. v1.0–1.1 claimed the template's coverage rule without meeting it. **No requirement was added, removed or changed**; the adopted requirement set is exactly as at v1.1. |
 | 1.1 | 2026-09-18 | **Adopted.** Recorded the manager's decisions: `EOP-Q-004` resolved as plan rule R11 (`EOP-R-005` strengthened with the IERS archive fact; `EOP-R-006` and `EOP-R-009` added; `EOP-F-010`, `EOP-A-022`, `EOP-A-023` added); `EOP-Q-002` escalated to the owner. `EOP-S-006` (a SHOULD to warn on hash difference) **retired** and replaced by `EOP-R-006`, which makes the pinned case a refusal. |
 | 1.0 | 2026-09-18 | First draft, P1 tranche, for manager review. |

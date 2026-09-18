@@ -14,6 +14,7 @@
 
 using Catch::Matchers::WithinAbs;
 using namespace odl::eop;
+using odl::time::Epoch;
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;
@@ -333,4 +334,49 @@ TEST_CASE("EOP-A-020: two series coexist; there is no global EOP state", "[eop][
         REQUIRE(a.provenance().front().product == "EOP 20 C04");
         REQUIRE(b.provenance().front().product == "finals2000A");
     }
+}
+
+TEST_CASE("EOP-A-033: the prediction horizon and the leap-second horizon do not coincide",
+          "[eop][spec]") {
+    // SPEC-eop §4.6.  finals2000A.all predicts about a year ahead; the leap table
+    // expires before that; TIME-R-051 refuses UTC past the expiry.  Loading the
+    // real file must succeed, the excluded rows must be counted, and the refusal
+    // a caller meets must name the COVERAGE rather than surface a leap-table
+    // error from three layers down.
+    const auto& s = finals();
+    INFO("rows " << s.rows().size() << ", excluded past the leap horizon "
+         << s.rows_past_leap_expiry());
+    REQUIRE(s.rows_past_leap_expiry() > 0);
+    REQUIRE(s.rows().back().mjd <= leaps().expiry_mjd());
+
+    // The epoch is built inside the leap table's validity and then advanced past
+    // the horizon with add(), which is total and needs no table. That is the
+    // realistic path: the dynamics works in TT/TAI, so a query epoch arrives from
+    // a uniform scale rather than from a UTC calendar. Built as UTC it would be
+    // refused by TIME-F-004 before the EOP layer ever saw it — which is correct,
+    // and is why this test takes the other route.
+    const Epoch past = at_mjd(static_cast<double>(s.coverage().last_mjd - 1))
+                           .add(odl::time::Duration::from_parts(6 * 86400, 0.0));
+    const auto r = s.at(past, planning());
+    REQUIRE_FALSE(r.has_value());
+    REQUIRE(r.error().id == "EOP-F-007");                 // EOP-R-055
+    REQUIRE(r.error().message.find("coverage") != std::string::npos);
+    REQUIRE(r.error().message.find("TIME-F-004") == std::string::npos);
+}
+
+TEST_CASE("EOP-A-034: the leap table's single named override extends the EOP horizon too",
+          "[eop][spec]") {
+    // EOP-R-056.  One declared decision governs both modules, rather than two
+    // that can disagree about where the data ends.
+    odl::time::LeapTable relaxed = leaps();
+    relaxed.assume_no_further_leap_seconds(true);
+    auto extended = EopSeries::load_finals2000a(slurp(ODL_FINALS_FILE),
+                                                EopProvenance{"eop-finals2000a", "", "", ""},
+                                                relaxed);
+    REQUIRE(extended.has_value());
+    INFO("default horizon " << finals().rows().back().mjd
+         << ", with the override " << extended->rows().back().mjd);
+    REQUIRE(extended->rows_past_leap_expiry() == 0);
+    REQUIRE(extended->rows().back().mjd > finals().rows().back().mjd);
+    REQUIRE(extended->rows().back().mjd > leaps().expiry_mjd());
 }
