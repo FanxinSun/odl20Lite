@@ -628,14 +628,25 @@ the MVP needs.
 >
 > **The principle, which is what constraint 7 exists to protect: a layer's exit gate must be
 > satisfiable with what that layer and the layers below it have.** A gate that needs the layer
-> above is not a gate. The decomposition that restores it is the executor's to propose with
-> L4 step 1's report and the manager's to adopt — the `eop`-as-own-module split is the precedent
-> (§5 constraint 6). The shape the manager expects, stated so the proposal has something to
-> disagree with: the macromodel **schema** belongs to L4, because it is the contract the
-> box-wing, ERP and thrust models consume and freezing a contract before its consumers multiply
-> is L3 step 1's own argument; L5 keeps the **population** of that library; and the arc fit that
-> needs a populated library belongs to L5's exit gate, with L4's asking for each force's own
-> published case and an arc fit that a cannonball satisfies.
+> above is not a gate.
+>
+> **RESOLVED 2026-09-18**, proposed by the executor and adopted. The macromodel **schema** moves
+> to L4 as a step of its own; L5 keeps the **population**; the arc fit that needs a populated
+> library becomes L5's exit gate, and L4's asks for each force's own published case plus an arc
+> fit whose three parameters are **stated in the test**, not read from the library — which is
+> what stops the circularity returning in smaller form.
+>
+> *The refinement is the executor's and it corrects the manager's own argument.* Moving the
+> schema was justified by L3 step 1's *freeze the contract before its consumers multiply* — but
+> that argument has a second half the move would have dropped: the force surface was frozen
+> against a **trivial** force, deliberately, so that it was not shaped by its first client. A
+> schema landing in L4 and immediately consumed by box-wing is shaped by its first client, which
+> is the thing the argument exists to prevent. So the schema step comes **before** `srp-analytic`
+> and its gate is a **cannonball round-trip**. Note what that does and does not mean: the schema
+> is *designed* for the general case — N surfaces, each with a normal and optical coefficients,
+> mass and centre of mass — and *gated* on the degenerate one, because a cannonball round-trip
+> proves the schema does not **require** what a cannonball has not got. Freezing a schema that
+> only a cannonball fits would be the opposite error and is not what this says.
 
 1. **TODO** — `shadow`: conical shadow first, then the perspective-projection model with
    atmospheric refraction. Source: Li, Ziebart, Bhattarai et al. 2019. Gate: the paper's
@@ -1057,7 +1068,27 @@ governs. Three rules apply to all of them:
 
 1. **ERFA, not SOFA** — BSD; SOFA's rename clause is the reason.
 2. **IAU 2006/2000A**, CIO-based; not the equinox-based older chain.
-3. **No GPL/LGPL/AGPL** anywhere in what could ship.
+3. **No GPL/LGPL/AGPL** anywhere in what could ship — and **the licence gate's scope is what
+   this tree redistributes, which is code and data, not what it reads.** Adopted 2026-09-18 at
+   L4 step 1, because a commercially published paper is the first manifest entry that is neither.
+   A manifest entry of kind **`literature`** is pinned by URL and SHA-256 like everything else,
+   for the same reason — so that *"this was derived from that"* is checkable by a future reader
+   who fetches the same hash — and is **exempt from the permissive-licence gate**, because it is
+   a **provenance record, not a dependency**: nothing derived from it is a copy of it, and
+   copyright does not reach the mathematics a paper describes. `dop853.f` is not the same case
+   and stays dropped; it was code to be incorporated, and incorporation is what the gate exists
+   for.
+
+   **The exemption is earned by a checked property, never by the label.** Three conditions, all
+   mechanical: a `literature` entry is fetched to a path no build target and no test references;
+   a gate fails if any build input reads that path, **demonstrated by injecting one** (rule 5);
+   and the repository holds the URL and the hash, never the bytes, so this project redistributes
+   nothing. It also does **not** appear in `NOTICE` among the licences, because NOTICE's claim is
+   that every licence in it is permissive and an entry with no licence would make that claim need
+   an exception; it belongs in `PROVENANCE.md`'s source register, where a citation belongs.
+
+   Where a paper's terms cannot be established, **record the search rather than the conclusion**
+   (rule 4): the exemption rests on this tree not redistributing, not on a grant nobody found.
 4. **Refuse rather than approximate.** Out-of-range data, an unknown timescale, unparseable
    input: a diagnostic naming the request and the limit — never a silent fallback. The
    predecessor's most expensive defect class was not a crash but a plausible wrong number.
