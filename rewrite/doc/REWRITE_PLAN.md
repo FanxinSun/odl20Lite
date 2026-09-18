@@ -68,18 +68,34 @@ not the physics, so anything rebuilt from the papers and the public standards is
 The column headed "the spec lives in" is therefore not a reading list — it is the ownership
 argument, per layer.
 
-| # | layer | what it is | the spec lives in | own it? |
+| # | layer | what it is | the spec lives in | what must be shown |
 |---|---|---|---|---|
-| **L0** | `foundation` | repository, build, CI, the manifest data layer, provenance automation | nothing external — written here | yours outright |
-| **L1** | `time-frames` | timescales, Earth orientation, GCRS↔ITRS, TEME, RTN/DYB | IERS Conventions (TN36); ERFA | fully |
-| **L2** | `environment` | planetary ephemerides, geopotential, solid/ocean/pole tides, relativity, third bodies, atmosphere | IERS Conventions 2010; EGM2008/GOCO; JPL DE; NRLMSISE-00, DTM-2013, JB2008 | fully |
-| **L3** | `dynamics` | equations of motion, integrators, state transition, parameter sensitivities | Montenbruck & Gill; Vallado | fully |
-| **L4** | `forces-analytic` | shadow, analytic SRP, drag, Earth albedo/IR, antenna thrust, yaw attitude, ECOM | Li/Ziebart/Bhattarai 2019; Fliegel & Gallini; Rodríguez-Solano 2012; Knocke 1988; Steigenberger 2018; Kouba 2009; Montenbruck 2015; Arnold 2015 | fully |
-| **L5** | `spacecraft` | macromodel library — geometry and optical properties, as data | Fliegel & Gallini 1992/1996; ESA GSC Galileo metadata 2017; IAC; CSNO 2019; Cabinet Office; IGS metadata SINEX; CNES Jason macromodel (Cerri 2010) | fully **if built from these** — see L5's note on database right |
-| **L6** | `io-measurements` | SP3, RINEX, SINEX/ANTEX, CPF, ILRS normal points, TLE, Horizons; SGP4; measurement models | published format specifications (IGS, ILRS); Vallado/Hoots for SGP4 | fully |
-| **L7** | `estimation` | batch least squares, Levenberg–Marquardt, joint covariance | textbook | fully |
-| **L8** | `campaigns` | the real-data validation campaigns — **the MVP gate** | this tree's own harness | yours outright |
-| **L9** | `raytracer` | pixel-array ray tracing, thermal re-radiation, grid files — *optional, after L8* | Ziebart 2001/2004; Ziebart et al. 2005; Adhya; Bhattarai et al. 2022 | fully — the method is published in enough detail to reimplement |
+| **L0** | `foundation` | repository, build, CI, the manifest data layer, provenance automation | nothing external — written here | **nothing** — no antecedent; original work |
+| **L1** | `time-frames` | timescales, Earth orientation, GCRS↔ITRS, TEME, RTN/DYB | IERS Conventions (TN36); ERFA | the derivation trail |
+| **L2** | `environment` | planetary ephemerides, geopotential, solid/ocean/pole tides, relativity, third bodies, atmosphere | IERS Conventions 2010; EGM2008/GOCO; JPL DE; NRLMSISE-00, DTM-2013, JB2008 | the derivation trail |
+| **L3** | `dynamics` | equations of motion, integrators, state transition, parameter sensitivities | Montenbruck & Gill; Vallado | the derivation trail |
+| **L4** | `forces-analytic` | shadow, analytic SRP, drag, Earth albedo/IR, antenna thrust, yaw attitude, ECOM | Li/Ziebart/Bhattarai 2019; Fliegel & Gallini; Rodríguez-Solano 2012; Knocke 1988; Steigenberger 2018; Kouba 2009; Montenbruck 2015; Arnold 2015 | the derivation trail |
+| **L5** | `spacecraft` | macromodel library — geometry and optical properties, as data | Fliegel & Gallini 1992/1996; ESA GSC Galileo metadata 2017; IAC; CSNO 2019; Cabinet Office; IGS metadata SINEX; CNES Jason macromodel (Cerri 2010) | the derivation trail **and** per-value citations — see L5's note on database right |
+| **L6** | `io-measurements` | SP3, RINEX, SINEX/ANTEX, CPF, ILRS normal points, TLE, Horizons; SGP4; measurement models | published format specifications (IGS, ILRS); Vallado/Hoots for SGP4 | the derivation trail |
+| **L7** | `estimation` | batch least squares, Levenberg–Marquardt, joint covariance | textbook | the derivation trail |
+| **L8** | `campaigns` | the real-data validation campaigns — **the MVP gate** | this tree's own harness | **nothing** — original, but see the note below |
+| **L9** | `raytracer` | pixel-array ray tracing, thermal re-radiation, grid files — *optional, after L8* | Ziebart 2001/2004; Ziebart et al. 2005; Adhya; Bhattarai et al. 2022 | the derivation trail — the method is published in enough detail to reimplement |
+
+**Reading the last column.** It is not a grade of ownership — every layer here ends up owned.
+It says what you would have to produce if someone asked you to prove it.
+
+*Nothing* means there is no antecedent: the layer is original work, so derivation cannot arise
+and the commit is the whole answer. *The derivation trail* means UCL implemented the same
+physics, and the claim is that a fresh implementation from the sources named alongside is yours
+regardless — which is sound, but is a claim, and rests entirely on how the code was produced.
+Identical code by a different route gives a different answer. That is why those layers carry
+§3's spec-first step and the provenance ledger, and why L0 and L8 do not.
+
+**The note on L8.** Its campaign logic and the revival-era Python tooling come from the
+predecessor's tree (§6), and they are yours on a *different* argument from every other row:
+they are new files written in 2026, not modifications to UCL's, and UCL's rights attach to the
+2014–2020 work. Had they been edits to existing files they would be derivative and could not
+carry over. The distinction is load-bearing — keep new work in new files.
 
 Three things are **not** rebuildable from the literature and are therefore never taken: the
 predecessor's source text; its authored spacecraft surface models and generated grid files,
