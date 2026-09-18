@@ -996,6 +996,16 @@ governs. Three rules apply to all of them:
    visibly degenerate; noise *wearing the shape of an estimate* is responded to, looks plausible,
    and announces nothing. **Group so that a degenerate quantity comes out degenerate** — which is
    also better conditioned near the degeneracy, where the naive ordering loses most.
+
+   **And an agreement far better than the computation's own noise floor is a symptom, not a
+   success.** Twice now: `PERT-A-001`'s *worst residual zero*, which is what a transcription check
+   looks like when the expected value is also the input; and L4 step 1's resolution study
+   reporting agreement to 10⁻¹⁴ across four grids because it sampled deep in the umbra, where
+   both models return 0 — a converged agreement between two things that were not being compared,
+   found in the check written to prevent exactly that fault, and caught only because someone
+   looked at the magnitude and did not believe it. **A result too good for the method that
+   produced it is evidence that the method did not run.** Asserting what was compared is the fix;
+   disbelieving a good number is how you find out you need to.
 7. **A threshold is not chosen by whoever will be judged by it.** Three ways to satisfy that,
    in increasing strength, and this project has now used all three.
 

@@ -22,6 +22,33 @@
 //   the atmosphere       SELECTABLE       -- `Atmosphere::none` is LI19's PPM,
 //                                           `Atmosphere::linear_toa` its PPM_atm.
 //
+// TWO MORE CHOICES THAT ARE NOT IN THE PAPER'S FIVE, AND BOTH ARE LARGER THAN
+// ANY OF THEM.  Measured at LEO across a penumbra passage (SHDW-A-016), peak
+// effect on Fs:
+//
+//     the Sun's BRIGHTNESS PROFILE   1.97e-2   <- uniform disc vs limb darkened
+//     where the RATIO IS TAKEN       1.9e-4    <- flat sky vs perspective
+//     the Earth's FIGURE             1.9e-6    <- sphere vs WGS 84 ellipsoid
+//
+//   6. WHERE THE RATIO IS TAKEN.  The SECM takes the occulted-area ratio on the
+//      FLAT SKY, treating the angular radii as planar lengths; the PPM takes it
+//      in a perspective projection, which maps the occultation's straight lines
+//      to straight lines.  A STUDY THAT SWAPS SECM FOR PPM AND ATTRIBUTES THE
+//      WHOLE DIFFERENCE TO THE EARTH'S FIGURE IS WRONG BY TWO ORDERS OF
+//      MAGNITUDE AT LEO, and right to within a factor of two only at GEO.
+//
+//   7. THE SUN'S BRIGHTNESS PROFILE.  Fs as an occulted-AREA ratio assumes a
+//      UNIFORMLY BRIGHT disc.  BOTH MODELS HERE MAKE THAT ASSUMPTION, so it does
+//      not separate them -- but it is 1.97e-2 against a limb-darkened Sun, a
+//      hundred times the choice above.  Agreement with the uniform-disc
+//      definition is not accuracy, and neither model in this module claims it.
+//
+//      99.9% of it cancels ACROSS a full passage, because the error is
+//      antisymmetric about 50% occultation; it does NOT cancel WITHIN one, where
+//      the running integral swings to 376x the net.  Anything that samples
+//      inside a passage -- accelerometry, high-rate tracking -- sees the full
+//      1.97e-2.  SPEC-shadow §3.4.
+//
 // THE FRAME IS NOT INTERCHANGEABLE WITH `conical.hpp`'s, and that is why it is
 // in the type (plan §5 constraint 10).  A = diag(a^-2, a^-2, b^-2) is the Earth
 // ellipsoid ONLY in an Earth-fixed frame; in GCRS the same matrix is an

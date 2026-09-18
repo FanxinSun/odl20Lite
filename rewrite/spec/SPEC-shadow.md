@@ -141,7 +141,7 @@ between the satellite's position and the Sun–satellite line, while the termina
   because the two look alike in the source and are not alike at all: one is unreachable and
   exercised synthetically, the other carries every low orbit this plan will fly.
 
-### 3.3 The sixth choice, which `LI19` does not name
+### 3.3 The sixth choice, which `LI19` does not name: where the ratio is taken
 
 *F*ₛ is the fraction of the solar disc's **solid angle** that is not occulted. Both models
 approximate it and they do so by different routes, so neither is the other's oracle (plan §4
@@ -165,6 +165,45 @@ all (`SHDW-A-008`'s comparator):
   is adopted for.** A comparison that swaps SECM for PPM and attributes the whole difference to
   the Earth's figure is therefore wrong by two orders of magnitude at LEO, and right to within a
   factor of two only at GEO. The ratio is asserted, not narrated, by `SHDW-A-009`.
+- **SHDW-R-023a.** Both choices are stated **in the module headers**, beside the five, because
+  that is where a user of the module meets them; §3 alone reaches only a reader of this document.
+
+### 3.4 The seventh axis, which is larger than either: the Sun's brightness profile
+
+*F*ₛ as an occulted-**area** ratio assumes a **uniformly bright** solar disc. The Sun is limb
+darkened, and the law SRP wants is **bolometric** — the quantity is total radiant flux, not a
+visible band. Eddington's grey atmosphere gives the emergent intensity as
+
+> *I*(µ)/*I*(1) = (2 + 3µ)/5 = 1 − *u*(1 − µ),  ***u*** **= 3/5 exactly**,
+
+so *I*(limb)/*I*(centre) = 0.4. Measured at LEO across a penumbra passage (`SHDW-A-016`), peak
+effect on *F*ₛ:
+
+| axis | peak effect | ratio to the next |
+|---|---|---|
+| the Sun's **brightness profile** — uniform disc vs limb darkened | **1.97 × 10⁻²** | 83× |
+| **where the ratio is taken** — flat sky vs perspective (§3.3) | 2.4 × 10⁻⁴ | 126× |
+| the Earth's **figure** — sphere vs WGS 84 (the PPM's purpose) | 1.9 × 10⁻⁶ | — |
+
+- **SHDW-R-030.** **Both models in this module assume a uniform disc**, so this axis does not
+  separate them and does not touch §3.3's comparison. What it touches is the meaning of
+  `SHDW-A-008`'s figure: **agreement with the uniform-disc definition is not accuracy**, and
+  neither model here claims it. The figure is labelled as agreement throughout.
+- **SHDW-R-031.** **99.9 % of it cancels across a full passage and none of it within one.** The
+  error is antisymmetric about 50 % occultation — where a radially symmetric profile puts exactly
+  half its flux either side of a central chord — so the net time integral over a passage is
+  1.5 × 10⁻⁴ s of equivalent full sunlight against an absolute integral of 1.14 × 10⁻¹ s. But the
+  **running** integral swings to 5.7 × 10⁻² s mid-passage, **376 × the net**. So a consumer that
+  integrates whole passages barely sees it, and anything sampling *inside* a passage —
+  accelerometry, high-rate tracking — sees the full 1.97 × 10⁻². The cancellation is a property of
+  the passage, not of the model, and it is recorded so that it is not mistaken for accuracy.
+- **SHDW-R-032.** The Eddington law is a **model of the Sun and is stated as one**. Across
+  *u* ∈ [0.3, 0.9] the peak runs 8.8 × 10⁻³ … 3.4 × 10⁻², so the ordering above is not sensitive
+  to the coefficient: at every value in that range this axis still dominates the other two.
+
+**Nothing in this specification implements limb darkening.** It is measured, named, ordered and
+left out, because adding it changes the model and that is not this step's to change. Recorded as
+`SHDW-Q-005`.
 
 ---
 
@@ -286,12 +325,13 @@ degenerate. The generality belongs to the test, not to the caller.
 | `SHDW-A-006` | refusals `SHDW-F-001`, `-F-002`, fired **and shown not to fire** on the adjacent accepted input | the diagnostics | F-001, F-002 |
 
 | `SHDW-A-007` | constraint 4 and constraint 8, via `ci.sh` gate 9 | as stated | R-013 |
-| `SHDW-A-008` | **the PPM against the definition**, at nine penumbral geometries across LEO, GPS and GEO, with the **silhouette kind asserted** at each so that a run exercising only one branch cannot pass | worst \|PPM − definition\| < 1 × 10⁻⁵, with 3 hyperbolic and 6 elliptical asserted | R-022, R-024, R-025, R-026 |
+| `SHDW-A-008` | **the PPM against the definition**, at nine penumbral geometries across LEO, GPS and GEO, with the **silhouette kind asserted** at each so that a run exercising only one branch cannot pass | worst \|PPM − **uniform-disc definition**\| < 1 × 10⁻⁵ (agreement, **not accuracy** — see §3.4), with 3 hyperbolic and 6 elliptical asserted | R-022, R-024, R-025, R-026 |
 | `SHDW-A-009` | **§3.3's sixth choice, measured**: the SECM's and the PPM's departures from the definition and the oblateness effect, all at one reference point per orbit; the PPM nearer the definition than the SECM at every orbit; and the oblateness **strictly non-zero**, without which the case passes on a model that ignored *b* | ratio > 50 at LEO (measured 98.9) | R-023, R-021a |
 | `SHDW-A-010` | **γ cancels**: *F*ₛ over four image-plane distances spanning 10⁹ | spread < 1 × 10⁻¹² | R-027 |
 | `SHDW-A-011` | **oblateness has the right sign**: over the pole an oblate Earth presents a shorter limb than a sphere of equatorial radius, so it blocks less and *F*ₛ must come out higher | higher by more than 10⁻⁴ | R-021a |
 | `SHDW-A-012` | **the atmosphere only ever dims and widens the penumbra**, over 81 geometries, with the strictly-dimmed count and both penumbral counts asserted | dimmer > 0 and penumbral samples strictly more with it than without | R-028 |
 | `SHDW-A-014` | **the parabola refusal fired from the place it exists for**: the ellipse/hyperbola boundary is |cos ψ| = *R*ₑ/*r* for a sphere, so it is bisected onto rather than argued about, and both sides are required to resolve and to differ — a guard that fires on a neighbourhood is a wall, not a boundary | the boundary at 0.5156 rad = 29.5°, matching the closed form | F-005, R-022 |
+| `SHDW-A-016` | **the seventh axis measured and ordered** (§3.4): over 31 penumbral geometries at LEO, the peak effect of the brightness profile, of where the ratio is taken, and of the Earth's figure, each against the same comparator; plus the comparator's own self-check that the linear law's disc mean is 1 − *u*/3, a closed form owing nothing to the ray casting | brightness > 10⁻², and each axis > 50× the next (measured 83× and 126×) | R-030, R-031, R-032, R-023a |
 | `SHDW-A-015` | a non-positive ellipsoid radius or image-plane distance refused, **and shown not to fire** on the adjacent accepted input | the diagnostic | F-003 |
 | `SHDW-A-013` | refusals `SHDW-F-004` and `-F-009` fired, the latter over a window **wide enough to leave the straddle on both sides** so that sunlight and umbra are both still resolved | the diagnostics, and refusals < all | F-004, F-009, R-029 |
 
@@ -355,5 +395,6 @@ a property of the Sun being a disc, and no point-source implementation can produ
 |---|---|
 | `SHDW-Q-001` | **Table 2 costs an account, not a workaround.** The transit durations already cleared the geometry, so the only obstacle is registration at CelesTrak, GFZ, PODAAC or space-track. That is the owner's decision and not something to route around; recorded so it is not re-opened as a technical question. |
 | `SHDW-Q-002` | **Closed.** The perspective-projection half is implemented, gated by `SHDW-A-008`…`-A-013`, and §2's rule-8 claim is re-derived with the one delegation `LI19` makes discharged independently. |
-| `SHDW-Q-003` | **Above 1 983 km altitude `LI19`'s five atmospheric cases do not cover the geometry** (§8), and `SHDW-F-009` refuses there. The natural extension is one term — *F*ₛ = [0·*A*ₛ + ½(*f*(*h*_G₁) + *f*(*h*_G₂))·*A*_atm + 1·*A*_clear]/π*R*₀² — which reduces to all five printed cases. Adding it changes the **model**, so it is the manager's call and not the executor's. Until then PPM_atm is usable below 1 983 km and refuses above it. |
-| `SHDW-Q-004` | **§3.3's ratio is a result about the literature, not about this tree.** At LEO the unnamed flat-sky-versus-projection choice is 99× the oblateness effect. Whether that belongs in the discrepancy register, or is simply a property of two models neither of which claims to be the other, is a judgement this step does not take. |
+| `SHDW-Q-003` | **Ruled: refuse, and do not extend in this step.** There is no published case above 1 983 km to gate an extension against, precisely because the paper's five cases do not cover that geometry — so an extension built now would be **ungated**, which is worse than a refusal: a refusal tells a user at GNSS altitude the atmospheric variant is unavailable, where an ungated extension hands them a number with no published support. The natural extension stays written out below so the decision is cheap to reverse when a consumer needs it, and it will then be this tree's own derivation with its own provenance and gate, not "from `LI19`". **Above 1 983 km altitude `LI19`'s five atmospheric cases do not cover the geometry** (§8), and `SHDW-F-009` refuses there. The natural extension is one term — *F*ₛ = [0·*A*ₛ + ½(*f*(*h*_G₁) + *f*(*h*_G₂))·*A*_atm + 1·*A*_clear]/π*R*₀² — which reduces to all five printed cases. Adding it changes the **model**, so it is the manager's call and not the executor's. Until then PPM_atm is usable below 1 983 km and refuses above it. |
+| `SHDW-Q-004` | **Closed, ruled not a register entry.** It is a property of two models neither of which claims to be the other, and no defect is established — the paper does not claim the SECM-to-PPM difference *is* the oblateness. It is recorded instead as §3.3's **sixth family choice**, with the three-radius table and the explicit caution, in the module headers as well as here (`SHDW-R-023a`). A register entry asserts a fault; naming an unnamed choice and costing it is a contribution. |
+| `SHDW-Q-005` | **The seventh axis is measured and not implemented** (§3.4). Limb darkening is 1.97 × 10⁻² at LEO, 83× the sixth choice and 10 000× the Earth's figure, and **both models here assume a uniform disc**. Implementing it changes the model, so it is the manager's call. It would also want a bolometric law with a provenance of its own rather than Eddington's grey approximation, and a gate; neither exists yet, and an ungated brightness law would be the same mistake as an ungated sixth atmospheric case. |

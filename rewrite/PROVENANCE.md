@@ -2438,6 +2438,55 @@ internally self-consistent, because Table 2's published times are unavailable (�
 `SHDW-A-004` remains the strongest defence: the penumbra's angular width is a property of the Sun
 being a disc, and no point-source implementation can produce it.
 
+### 25.10 The reference definition was itself a family choice, and the largest one
+
+The manager challenged `SHDW-A-008`'s agreement figure at the point where it was about to become
+an accuracy figure: *F*ₛ measured as an occulted **area** ratio assumes a **uniformly bright**
+solar disc, and the Sun is limb darkened. The premise was stated from the visible band; **for SRP
+the quantity is bolometric**, and Eddington's grey atmosphere gives the emergent intensity as
+*I*(µ)/*I*(1) = (2 + 3µ)/5 — the linear law with ***u*** **= 3/5 exactly**, hence
+*I*(limb)/*I*(centre) = 0.4. The premise therefore holds, and for a better reason than the one
+offered.
+
+Measured at LEO across a penumbra passage, with the radial weight in closed form from
+∫√(*c*² − *k*²) d*c* and checked against its own disc mean 1 − *u*/3 (agreeing to 4 × 10⁻⁷, the
+residual being sphericity, since 1 − *u*/3 is the flat-disc limit):
+
+| axis | peak effect on *F*ₛ | ratio to the next |
+|---|---|---|
+| the Sun's **brightness profile** | **1.97 × 10⁻²** | 83× |
+| **where the ratio is taken** (§25.2) | 2.4 × 10⁻⁴ | 126× |
+| the Earth's **figure** — the PPM's purpose | 1.9 × 10⁻⁶ | — |
+
+The estimate offered was 6 × 10⁻³; the measurement is **1.97 × 10⁻², three times larger**. The
+predicted structure is exactly right: the error is **antisymmetric about 50 % occultation**,
+crossing zero there (measured −5.4 × 10⁻⁴ at 1 − *F*ₛ = 0.506) because a radially symmetric profile
+puts exactly half its flux either side of a central chord. Peak at 1 − *F*ₛ = 0.818. Stable to six
+figures over 1 000 … 8 000 azimuths.
+
+**And one thing the estimate did not predict: 99.9 % of it cancels across a full passage.** The
+net time integral is 1.5 × 10⁻⁴ s of equivalent full sunlight against an absolute integral of
+1.14 × 10⁻¹ s. But the **running** integral swings to 5.7 × 10⁻² s mid-passage — **376 × the net**
+— so it cancels *across* a passage and not *within* one. Anything sampling inside a passage sees
+the full 1.97 × 10⁻². That is a property of the passage, not of the model, and it is why an axis
+this large has been survivable.
+
+Neither model here is affected *relative to the other*, since both assume a uniform disc; what the
+axis changes is the meaning of the agreement figure. **Agreement with the uniform-disc definition
+is not accuracy**, and `SPEC-shadow` now says so wherever the figure appears. The ordering is
+insensitive to the coefficient: over *u* ∈ [0.3, 0.9] the peak runs 8.8 × 10⁻³ … 3.4 × 10⁻², and
+this axis dominates at every value.
+
+Nothing implements it. Recorded as `SHDW-Q-005`: adding a brightness law changes the model, wants
+a bolometric law with its own provenance rather than Eddington's approximation, and wants a gate —
+and an ungated brightness law would be the same mistake as an ungated sixth atmospheric case.
+
+**A fourth instance of §25.7's fault, in the check written to prevent it.** The resolution study
+for the peak first sampled a fixed fraction of the sweep window that landed **deep in the umbra**,
+where both models return 0, and reported differences of 10⁻¹⁴ across four grids — a converged
+agreement between two things that were not being compared. It now samples the recorded peak
+location. The fault survives being named; only asserting what was compared kills it.
+
 ---
 
 ## Changelog
@@ -2445,6 +2494,7 @@ being a disc, and no point-source implementation can produce it.
 | date | change |
 |---|---|
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
+| 2026-09-19 | §25.10 added: the reference definition was itself a family choice. Bolometric limb darkening is 1.97e-2 at LEO — 83x the projection choice and 10 000x the oblateness the PPM is adopted for — but 99.9 % cancels across a passage and none within one. Agreement with the uniform-disc definition is not accuracy. A fourth instance of the empty-comparison fault, in the resolution check written to prevent it. |
 | 2026-09-18 | §25 added: L4 step 1, both halves. The hyperbolic silhouette is the normal case at LEO — the opposite of the annular branch, and recorded beside it. An unnamed sixth family choice is worth 99× the oblateness the PPM is adopted for. LI19's five atmospheric cases do not cover the geometry above 1 983 km, which includes Galileo. Three faults found, all of them checks that examined nothing. |
 | 2026-09-18 | **Four specification amendments applied**, at the manager's verdict, all three module specs to v1.3: `EOP-A-003` to TN36 §8.2's published tolerance; `FRAME-R-030` corrected to require the kinematic equation-of-equinoxes terms and `FRAME-A-001` restated at 25 mm with the unexplained z-rotation left recorded; `TIME-R-021a` for `eraDtdb`'s UT1 argument; and the prediction/leap-horizon interaction as `SPEC-eop` §4.6 and `SPEC-time` §4.9. §1 and §12.5 corrected: the ITRF-path agreement is **not** "the same algorithm" but two different algorithms whose model difference cancels because each is corrected onto the observed pole, and the kinematic terms are 4 % of T-01 rather than its cause. |
 | 2026-09-18 | **L1 steps 1–4 executed and gated.** §12 added: what was built, the generated tidal tables with their agreement against the four IERS published test cases, the six errors the tests caught, the dependency capture, and the measurement showing plan §4 rule 1's required disagreement is absent on the ITRF↔GCRS path. §1 module register updated to *implemented* and gains `core`. §8.11 records the FetchContent capture. |

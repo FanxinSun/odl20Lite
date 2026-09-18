@@ -38,11 +38,33 @@ double terminator(double r) { return std::asin(kSphere / r); }
 /// ends found by bisection, the radial integral done in closed form as
 /// cos a1 - cos a2), discretised only in azimuth.  A cell count would converge
 /// like 1/n and could not tell the two models apart; this one can.
-double by_solid_angle(const Vec3& sun, const Vec3& r, double a, double b, int nphi = 8000) {
+/// The Sun's radial brightness, as the cumulative weight out to angle `a`.
+/// u = 0 is the UNIFORM disc -- solid angle, which is what both models assume.
+/// u = 3/5 is the Eddington grey atmosphere's BOLOMETRIC limb darkening,
+/// I(mu)/I(1) = (2 + 3 mu)/5, which is the law SRP actually wants: the quantity
+/// is total radiant flux, not a visible band.  Closed form, from
+/// INTEGRAL sqrt(c^2 - k^2) dc, and checked against its own disc mean 1 - u/3.
+struct Sky {
+    double a_s, S, k, u;
+    Sky(double as, double uu) : a_s(as), S(std::sin(as)), k(std::cos(as)), u(uu) {}
+    [[nodiscard]] double F(double c) const {
+        const double q = std::sqrt(std::max(0.0, (c - k) * (c + k)));   // factored: c^2 - k^2 cancels
+        return 0.5 * c * q - 0.5 * k * k * std::log(c + q);
+    }
+    [[nodiscard]] double W(double a) const {
+        const double c = std::cos(a);
+        if (u == 0.0) return 1.0 - c;
+        return (1.0 - u) * (1.0 - c) + (u / S) * (F(1.0) - F(c));
+    }
+};
+
+double by_solid_angle(const Vec3& sun, const Vec3& r, double a, double b, int nphi = 8000,
+                      double u = 0.0) {
     const Vec3 ts{sun.x - r.x, sun.y - r.y, sun.z - r.z};
     const double ds = ts.norm();
     const Vec3 c{ts.x / ds, ts.y / ds, ts.z / ds};
-    const double as = std::asin(kSunRadiusM / ds);
+    const Sky sky(std::asin(kSunRadiusM / ds), u);
+    const double as = sky.a_s;
     const Vec3 seed = (std::abs(c.x) <= std::abs(c.y) && std::abs(c.x) <= std::abs(c.z))
                           ? Vec3{1, 0, 0}
                           : (std::abs(c.y) <= std::abs(c.z) ? Vec3{0, 1, 0} : Vec3{0, 0, 1});
@@ -84,14 +106,14 @@ double by_solid_angle(const Vec3& sun, const Vec3& r, double a, double b, int np
         double acc = 0.0, a0 = 0.0;
         bool st = first;
         for (double ee : edge) {
-            if (st) acc += std::cos(a0) - std::cos(ee);
+            if (st) acc += sky.W(ee) - sky.W(a0);
             st = !st;
             a0 = ee;
         }
-        if (st) acc += std::cos(a0) - std::cos(as);
+        if (st) acc += sky.W(as) - sky.W(a0);
         blocked += acc;
     }
-    return 1.0 - (blocked / nphi) / (1.0 - std::cos(as));
+    return 1.0 - (blocked / nphi) / sky.W(as);
 }
 
 PerspectiveResult must_run(const Vec3& sun, const Vec3& sat, double a, double b,
@@ -365,4 +387,57 @@ TEST_CASE("SHDW-A-015  a non-positive ellipsoid radius or image plane is refused
     }
     // and it does NOT fire on the adjacent accepted input
     CHECK(detail::perspective_on(sun, sat, kSphere, kSphere, Atmosphere::none, 1.0).has_value());
+}
+
+TEST_CASE("SHDW-A-016  the seventh axis: the Sun's brightness profile dominates both the others",
+          "[shadow][gate]") {
+    // THE REFERENCE DEFINITION IS ITSELF A FAMILY CHOICE, and measuring it is the
+    // only way to know what `SHDW-A-008`'s agreement figure means. Fs as an
+    // occulted-AREA ratio assumes a UNIFORMLY BRIGHT solar disc; the Sun is limb
+    // darkened, and for SRP the law wanted is BOLOMETRIC -- Eddington's grey
+    // atmosphere gives I(mu)/I(1) = (2 + 3 mu)/5, the linear law with u = 3/5
+    // exactly. Both `conical` and `perspective` assume the uniform disc, so this
+    // affects NEITHER of them relative to the other; what it affects is the claim
+    // that either agrees with "the definition".
+    const double r = 7331.0e3;
+    const Vec3 sun = sun_at();
+
+    // the comparator's own self-check first: the disc-integrated mean intensity
+    // of the linear law is 1 - u/3 in the flat-disc limit, a closed form that
+    // owes nothing to the ray casting.
+    {
+        const Sky sky(std::asin(kSunRadiusM / kAu), 0.6);
+        const double mean = sky.W(sky.a_s) / (1.0 - std::cos(sky.a_s));
+        INFO("disc mean / centre = " << mean << ", closed form 1 - u/3 = " << 1.0 - 0.6 / 3.0);
+        CHECK_THAT(mean, Catch::Matchers::WithinAbs(1.0 - 0.6 / 3.0, 1.0e-5));
+    }
+
+    double peak_limb = 0.0, peak_proj = 0.0, peak_obl = 0.0;
+    int penumbral = 0;
+    for (int i = 0; i <= 40; ++i) {
+        const double g = terminator(r) - 0.006 + 0.012 * i / 40.0;
+        const Vec3 sat = sat_at(r, g);
+        const double uniform = by_solid_angle(sun, sat, kSphere, kSphere, 2000, 0.0);
+        if (!(uniform > 1e-9 && uniform < 1.0 - 1e-9)) continue;   // penumbra only
+        ++penumbral;
+        const double limb = by_solid_angle(sun, sat, kSphere, kSphere, 2000, 0.6);
+        const auto c = conical(frames::Position<frames::Frame::GCRS>{sun},
+                               frames::Position<frames::Frame::GCRS>{sat});
+        REQUIRE(c.has_value());
+        const auto sphere = must_run(sun, sat, kSphere, kSphere);
+        const auto wgs84 = must_run(sun, sat, kEarthEquatorialRadiusM, kEarthPolarRadiusM);
+        peak_limb = std::max(peak_limb, std::abs(limb - uniform));
+        peak_proj = std::max(peak_proj, std::abs(c->fraction - uniform));
+        peak_obl = std::max(peak_obl, std::abs(wgs84.fraction - sphere.fraction));
+    }
+    INFO("over " << penumbral << " penumbral geometries at LEO, peak effect on Fs:\n"
+         "    the Sun's brightness profile (u = 3/5, bolometric)   " << peak_limb << "\n"
+         "    where the ratio is taken (flat sky vs projection)    " << peak_proj << "\n"
+         "    the Earth's figure (sphere vs WGS 84)                " << peak_obl << "\n"
+         "  ratios: brightness / projection = " << peak_limb / peak_proj
+         << ", projection / figure = " << peak_proj / peak_obl);
+    CHECK(penumbral > 20);                       // the sweep examined a penumbra
+    CHECK(peak_limb > 1.0e-2);
+    CHECK(peak_limb / peak_proj > 50.0);         // brightness dominates projection
+    CHECK(peak_proj / peak_obl > 50.0);          // projection dominates figure
 }
