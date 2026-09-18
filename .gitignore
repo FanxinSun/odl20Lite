@@ -57,10 +57,12 @@ analyses/qb50
 # ILRS orbit predictions are half a megabyte each; validate_slr.sh fetches them
 res/slr/*.nxt
 
-# Kept out of the public remote: the valuation document, the rewrite plan and
-# the ownership analysis. Not a licensing judgement - just not things to push.
+# Kept out of the public remote: the valuation document and the ownership
+# analysis. The rewrite plan itself is tracked - it is the working document and
+# wants a history.
 assessment/
-rewrite/doc/
+rewrite/doc/*
+!rewrite/doc/REWRITE_PLAN.md
 
 # --- conversation transcripts ----------------------------------------------
 # /export drops these in the working directory. They are full session logs and
