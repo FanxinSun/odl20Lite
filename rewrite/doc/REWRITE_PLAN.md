@@ -1,7 +1,7 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
 **Status:** foundations specified and adopted (`time`, `eop`, `frames` at v1.2); repository
-live at `bdd80be`; oracle frozen (27 cases). **Implementation blocked on decision D1** (§7).
+live at `bdd80be`; oracle frozen (27 cases). **D1 decided 2026-09-18: C++20** (§7) — implementation is unblocked.
 **Canonical:** `/home/rog/odl-self_built/doc/REWRITE_PLAN.md` — this file, and there is no other
 copy or companion. It is the only plan document; the ground rules that earlier drafts held as a
 separate table are merged into the layer sequences of §3, where they are performed rather than
@@ -130,9 +130,8 @@ layer absorbed so nothing was quietly dropped.
 L8. Interfaces are validated bottom-up: the P1 specifications found six errors in this plan, and
 implementation will find the same class of error in the specifications, so the three adopted
 specs of L1 are *implemented* before further specs are written — writing another twelve on
-unvalidated interfaces banks twelve specs' worth of undetected error. **D1 is the only true
-blocker**; while it is open the sole forward work is the spec steps of L2, which are
-language-free, taken knowingly at interface-revision risk.
+unvalidated interfaces banks twelve specs' worth of undetected error. **D1 is settled (C++20),
+so nothing blocks L0**, and L0 steps 3–7 are the live work.
 
 *Effort, labelled judgement:* L0–L8 is roughly eleven M-class steps and a handful of S-class
 ones — order of **3–5 focused months** solo-with-assistant. L9 adds **1–2 months**. No more
@@ -196,7 +195,8 @@ still TODO, and the explanation says so. §3.11 says how any one step is execute
 
 ### 3.1 L0 `foundation` — 2 of 7 done
 
-**Entry:** none, this is the floor. **Blocked on:** D1 (language and toolchain) for steps 3–7.
+**Entry:** none, this is the floor. **Language: C++20** (D1, decided 2026-09-18) — steps 3–7
+are unblocked and are the live work of the tree.
 
 1. **DONE** — Repository created with the licence in the first commit (`bdd80be`), together
    with this plan, the provenance skeleton and the P1 specifications. The licence-first
@@ -206,11 +206,16 @@ still TODO, and the explanation says so. §3.11 says how any one step is execute
    anyone reading it again — the numbers are captured once and the tree is finished with.
 3. **TODO** — Manifest format and fetcher. Every external input declared with URL, SHA-256 and
    a licence note, fetched from origin into a cache. Nothing enters the tree undeclared, so
-   provenance becomes a build artefact rather than a habit.
+   provenance becomes a build artefact rather than a habit. This step also fixes the C++20
+   toolchain — build system, dependency acquisition, test framework — because every later step
+   depends on it and because the acquisition mechanism must be able to honour URL-plus-hash
+   pinning rather than resolving a version range. Each choice is recorded with its licence.
 4. **TODO** — CI running the gates offline from that cache, so a green build means the frozen
    numbers still hold and not that the network was up.
-5. **TODO** — Licence and NOTICE generation per D1 — generated from the dependency set, never
-   hand-maintained, because a hand-maintained NOTICE is wrong within two dependencies.
+5. **TODO** — Licence and NOTICE generation, driven from step 3's manifest and never
+   hand-maintained, because a hand-maintained NOTICE is wrong within two dependencies. D1
+   removed the `cargo license` route, so the tool is the Executor's choice and is recorded with
+   its licence like any other dependency.
 6. **TODO** — Spec-coverage checker, with its denominator pinned to OWN-PREFIX identifiers.
    Specs cross-cite by design and a naive count gave 128 against a true 121 in hand audit:
    small enough to look like rounding, and a script would have asserted it.
@@ -550,7 +555,7 @@ unstated → D4's own port on published vectors); png++ (no consumer); TIE-GCM t
 
 | # | Decision | State |
 |---|---|---|
-| D1 | **Core language** | **OPEN — the only blocker.** Recommendation: Rust (structural distance from the GNU-C++14 predecessor; `cargo license` automates the dependency register; memory safety in a long-lived estimator); C++20 acceptable if familiarity outweighs distance. Specs are language-free either way. |
+| D1 | **Core language** | **Decided 2026-09-18: C++20**, by the owner. Two consequences are recorded rather than quietly dropped. (a) The Rust recommendation rested partly on *structural distance* from the GNU-C++14 predecessor; C++20 does not supply that for free, so §2's "two designs, not one design twice" is now carried entirely by the architecture and is checked harder at Review — same language, same problem, so only the decomposition distinguishes them. (b) `cargo license` is unavailable, so the NOTICE generation of L0 step 5 needs a C++ equivalent driven from the manifest of L0 step 3. Specs remain language-free. |
 | D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN, validated on its packaged tests (L2 step 4). |
 | D3 | Ray tracer | Decided in plan: own implementation from the papers; `photonsXforce` as cross-oracle only (L9). Owner revisits after L8. |
 | D4 | SGP4 | Decided in plan: own port from STR#3 + Vallado 2006 on the published vectors (L6 step 3). |
