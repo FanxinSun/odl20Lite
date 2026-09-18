@@ -3,7 +3,7 @@
 
 add_executable(odl_toolchain_tests toolchain_smoke.cpp)
 target_link_libraries(odl_toolchain_tests PRIVATE Catch2::Catch2WithMain odl_warnings)
-catch_discover_tests(odl_toolchain_tests)
+catch_discover_tests(odl_toolchain_tests EXTRA_ARGS --warn NoAssertions)
 
 # The fetcher's own behaviour, including every refusal path.
 add_test(NAME fetcher.behaviour
@@ -51,3 +51,9 @@ add_test(NAME boundary.undeclared_dependency_refused
           -I "${CMAKE_CURRENT_SOURCE_DIR}/boundary/gamma/include"
           "${CMAKE_CURRENT_SOURCE_DIR}/boundary/violation.cpp")
 set_tests_properties(boundary.undeclared_dependency_refused PROPERTIES WILL_FAIL TRUE)
+
+# SPEC-perturbations PERT-A-009, the source half: the secular pole is DEFINED
+# once, in gravity, and consumed by the pole tide.  The runtime half is in the
+# tides tests.
+add_test(NAME tides.one_secular_pole
+         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_one_secular_pole.py)

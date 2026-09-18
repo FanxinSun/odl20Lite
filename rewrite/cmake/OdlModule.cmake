@@ -71,6 +71,12 @@ function(odl_add_module name)
     add_executable(odl_${name}_tests ${A_TEST_SOURCES})
     target_link_libraries(odl_${name}_tests
       PRIVATE odl::${name} Catch2::Catch2WithMain odl_warnings)
-    catch_discover_tests(odl_${name}_tests)
+    # --warn NoAssertions: a test case that executes no assertion at all FAILS
+    # rather than passing quietly.  It is a backstop for the class of defect
+    # EPH-A-007 was — a test that passed by not running — and explicitly not a
+    # substitute for plan §4 rule 3, which requires a data-driven test to assert
+    # and print how many cases it ran.  EPH-A-007 itself would NOT have been
+    # caught by this flag, because it asserted things outside its empty loop.
+    catch_discover_tests(odl_${name}_tests EXTRA_ARGS --warn NoAssertions)
   endif()
 endfunction()

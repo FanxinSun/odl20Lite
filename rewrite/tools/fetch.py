@@ -28,6 +28,7 @@ Exit codes are distinct because CI reads them:
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -139,6 +140,14 @@ def extract_path(root: Path, doc: dict, e: dict, m: dict) -> Path:
 def open_member(archive: Path, e: dict, member: str):
     """Read one member out of a pinned archive, whatever kind of archive it is."""
     kind = e.get("unpack")
+    if kind == "gzip":
+        # A bare .gz holds ONE member and does not name it, so the declared
+        # member name is this tree's name for the decompressed bytes rather
+        # than something read out of the container. It still carries its own
+        # hash, which is the point: the hash of a gzip stream depends on the
+        # compressor, and the hash of what comes out of it does not.
+        with gzip.open(archive, "rb") as f:
+            return f.read()
     if kind == "zip":
         with zipfile.ZipFile(archive) as zf:
             return zf.read(member)

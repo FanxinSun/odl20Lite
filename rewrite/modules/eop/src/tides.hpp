@@ -19,31 +19,14 @@
 // against ILRS normal points, so this tree follows the Conventions rather than
 // the routine, and says so (EOP-R-043).
 
+#include <odl/eop/fundamental_arguments.hpp>
 #include <odl/time/epoch.hpp>
 
 namespace odl::eop::tides {
 
-/// The six arguments of TN36 Tables 5.1 and 8.2/8.3, in radians.
-struct Arguments {
-    double gamma;   ///< GMST + pi
-    double l;       ///< Delaunay: mean anomaly of the Moon
-    double lp;      ///< mean anomaly of the Sun
-    double F;       ///< L − Omega
-    double D;       ///< mean elongation of the Moon from the Sun
-    double Om;      ///< mean longitude of the ascending node of the Moon
-};
-
-/// From a TT Julian date and a UT1 Julian date.  The Delaunay arguments are
-/// ERFA's eraFa*03, which are the IERS 2003/2010 expressions of TN36 eq. (5.43);
-/// gamma is eraGmst06 + pi, GMST being ERA plus precession in right ascension as
-/// the tables' own caption specifies.
-[[nodiscard]] Arguments arguments_at(double tt1, double tt2, double ut1_1, double ut1_2) noexcept;
-
-/// A convenience for the published test cases, which are specified by MJD alone.
-/// The choice of scale for that MJD moves the result by well under the tables'
-/// own rounding: the terms have periods near a day, so 40 s of scale ambiguity
-/// shifts a 25 µas term by under 0.1 µas.
-[[nodiscard]] Arguments arguments_at_mjd(double mjd) noexcept;
+// Arguments and arguments_at now live in the module's PUBLIC header, because
+// L2 step 3's solid Earth tide is indexed by the same six and there is one
+// definition of them.  See odl/eop/fundamental_arguments.hpp.
 
 struct Correction {
     double dxp = 0.0;    ///< radians

@@ -328,6 +328,7 @@ documented by the IERS itself in `updateC04.txt`:
 
 | date | change |
 |---|---|
+| 2026-09-18 | **L2 step 3 `perturbations` implemented as three link targets.** §16: the gate with both denominators (50 constituents exact; 14 of 48 rows constrain the internal relation); the three column orders of Tables 6.5a/b/c; **`PERT-A-025` checks the resonance structure and not δk, because TN36-6 defines δk as including an ocean-loading contribution (6.9) does not produce**; two statistics that were not what their names said — the ocean pole tide's variance (90.55% weighted against 75.8% raw) and the ocean tide's truncation criterion, which was self-referential and now measures **degree 89**; a parser that dropped 8 of 18 FES2004 waves on five-digit Doodson codes; `Ephemeris::state` typing a geocentric vector as barycentric (`PERT-Q-010`); and `--warn NoAssertions` proven by injection. `SPEC-perturbations` v1.2. **10 gates, 192 tests, 626 artefacts byte-identical.** |
 | 2026-09-18 | **`SPEC-perturbations` adopted at v1.1; three amendments and eight rulings applied.** §15.6: `PERT-A-001` was overclaimed as category 1 when the printed amplitudes are the module's own input — decomposed honestly, with `PERT-A-025` (the resonance formula as a test-only cross-check) added as the one thing that verifies δk without an H_f catalogue. §15.7: `de440t.bsp` substituted for `de440.bsp` after verifying both DAFs' segment summaries (14 shared, identical; one extra, the TT−TDB record); constraint 9 re-ran step 1's full sweep unchanged at 1.06296 mm; and **`EPH-A-007` now runs for the first time — 53 epochs, worst 26.027 ns against 100 ns** — where it had been passing by executing zero times since step 1. §15.8: `speccheck.py`'s components now partition its denominator and **found three stale Coverage rows, two in specs adopted at L1**; `fetch.py` sniffs HTML error pages and file magic **before** hashing. **10 gates, 165 tests.** |
 | 2026-09-18 | **L2 step 3 `perturbations` specification drafted.** §15: the sources including chapter 10's `tn36_c10.pdf` filename trap; the ocean pole tide chain **verified to every printed digit of TN36-6 (6.24) before being specified**; a THIRD kind of source defect — a document disagreeing with its own companion dataset, where §6.3.2 tells you to add Ω₁/Ω₂ that `FES2004-CS` already contains — and a fourth instance of the first kind, §6.4's cross-term ratio 0.0115 against the 0.011700 its own *k*₂ implies; the gate's two denominators; and a counting error of the author's that the manager corrected. Four manifest entries added, 22 in total. **10 gates, 165 tests.** |
 | 2026-09-18 | **Step 2 accepted; its three conditions discharged.** §14.11: the km/metre crossing named once in `odl/core/units.hpp` with `FRAME-R-062` binding `SPEC-dynamics` to state where it happens (`SPEC-frames` v1.6); archive member hashing generalised to every archive with a `consumes` declaration the fetcher enforces; and the 10⁻²⁸⁰ scale's **bottom** margin measured at 26.0 decades over 74 802 values, none subnormal, with the |P̄′| ≥ |P̄| bound that makes it structural (`SPEC-gravity` v1.3, `GRAV-A-029`). The crossing's own test caught a false exactness claim in its comment on first run. **10 gates, 165 tests.** |
@@ -1260,6 +1261,150 @@ supposed to be, because no input this tree declares is HTML; and the magic is ch
 declared extension where there is one (`%PDF`, gzip, zip, `DAF/SPK`). Nine cases in
 `tests/test_fetch.py`, six refusals and three acceptances plus one extension the check does not
 second-guess.
+
+## 16. L2 `environment` step 3 — `perturbations`: implemented
+
+Three link targets per the manager's `PERT-Q-001` ruling — `tides`, `relativity`, `thirdbody` —
+built and gated on 2026-09-18. **10 gates green offline, 192 tests, 0 failures, 626 artefacts
+byte-identical.** `SPEC-perturbations` is at **v1.2**; six corrections, all found by a test.
+
+### 16.1 The gate, with both of its denominators
+
+| | |
+|---|---|
+| `PERT-A-001`, Tables 6.5a and 6.5c at θ_f = 0 | **50 constituents, worst residual 0** — exact |
+| `PERT-A-003`, Table 6.5b through (6.8a) | 21 constituents |
+| `PERT-A-002`, the internal relation | **14 of 48** diurnal rows constrain it and 34 are lost to the printed precision; **18 of 21** zonal. Worst residual 0.83 and 0.79 of its rounding bound |
+| `PERT-A-005`, the solid Earth pole tide | −1.333 24 × 10⁻⁹ per arcsec against §6.4's printed −1.333 × 10⁻⁹ |
+| `PERT-A-006`, the ocean pole tide | −2.177 81 × 10⁻¹⁰ (*m*₁ − 0.017 24 *m*₂) and −1.723 16 × 10⁻¹⁰ (*m*₂ − 0.033 65 *m*₁) against (6.24), every printed digit |
+| `PERT-A-011`, relativity as precession | de Sitter **19.188 mas/yr**, independent of height to 10⁻¹²; Lense–Thirring **0.7548 mas/yr** at GEO and **181.7 mas/yr** at 6778 km, against `TN36-10`'s 0.8 and 180 |
+| `PERT-A-027`, the two argument conventions | all **71** constituents agree to 10⁻⁹ rad |
+| `PERT-A-028`, the GM file against `TN36-1` | the Sun's differs by **1.5505 × 10⁻⁸ = *L*_B to six digits** |
+
+**What the Conventions print no expected value for** is reported on every run beside the count
+that passed: step 1's time-domain evaluation at any epoch, the ocean tide sum at any epoch, the
+ocean pole tide above degree 2, the relativistic correction as a vector, third-body attraction —
+which the Conventions do not treat at all — and step 2's amplitudes as anything other than their
+own input.
+
+### 16.2 The tables, and three column orders
+
+Tables 6.5a, 6.5b and 6.5c were extracted from the hash-pinned chapter by
+`tools/tides_from_conventions.py --ch6` and committed as generated source (`PERT-R-014`).
+**They do not share a shape**, and the differences are not cosmetic:
+
+| | column order | δ*k* units |
+|---|---|---|
+| 6.5a, diurnal, 48 rows | … δ*k*^R δ*k*^I ip op | **10⁻⁵** |
+| 6.5b, zonal, 21 rows | … δ*k*^R **ip** δ*k*^I **op** — interleaved | absolute |
+| 6.5c, semidiurnal, 2 rows | … δ*k*^R ip — no imaginary column | absolute |
+
+A parser assuming one shape would read 6.5b's in-phase amplitude as an imaginary Love number and
+be wrong by five orders of magnitude **without failing**. The generator asserts each table's row
+count rather than reporting it, and the counts were read off the PDF rather than guessed: the
+first attempt expected 71 for Table 6.5a, which is the total across all three.
+
+Reconstructing *H*_f from the printed amplitudes gives 0.3687, −0.2620 and −0.1220 m for K1, O1
+and P1, within 0.1 % of their Cartwright–Tayler values. That is a diagnostic and **not a test**:
+`CT71`/`CE73` were not obtained, so those comparison values have no citable source in this tree,
+and `PERT-Q-004` stays open for exactly that reason.
+
+### 16.3 `PERT-A-025` checks less than the ruling that created it assumed
+
+The manager's `PERT-Q-003` ruling was that (6.9) with Table 6.4's parameters verifies the
+tabulated δ*k*_f column. It cannot, and the reason is in the Conventions' own definition: the
+text below (6.8e) defines δ*k*_f as *k*_f − *k*₂₁ **plus a contribution from ocean loading**, and
+§6.2.1 says the load-resonance corrections are *"incorporated through equivalent corrections to
+the body tide Love numbers … also included in the tables"*. Measured, (6.9) is **3.4 % low on the
+real part and wrong by a factor of two on the imaginary one**.
+
+What it does check is the **resonance structure**, and that is worth having. Because the loading
+contribution shares the same denominators, the ratio of printed to formula must be constant:
+
+| | |
+|---|---|
+| δ*k*_f's own range across the band | a factor of **2955** |
+| printed ÷ formula, real part | median **1.0344**, spread **2.98 %** |
+| the same with σ₂ moved from 1.002 318 1 to 1.003 000 0 | spread **654 %** |
+
+The near-constant 3.4 % offset *is* the ocean-loading contribution. The negative control is what
+makes the check a check.
+
+### 16.4 Two statistics that were not what their names said
+
+**The ocean pole tide's variance fraction.** `TN36-6` §6.5 says degree 2 provides *"approximately
+90 % of the variance of the ocean pole tide potential"* and degree 10 approximately 99 %. The
+first implementation reported the **raw coefficient** variance — 75.8 % and 92.7 % — under the
+same word. Weighted by *R*ₙ², which is what turns coefficients into potential, it is **90.55 %**
+and **99.79 %**, matching the Conventions. Both are now exposed with their formulas in their
+names, as `SPEC-template.md` §8 requires of a statistic.
+
+**The ocean tide truncation criterion.** The manager's `PERT-Q-007` ruling was *the truncation
+error is below the smallest term this module computes and keeps, at the same evaluation point*.
+Read as the smallest per-degree term among those **kept**, it is self-referential: keeping more
+degrees lowers the bar, and the criterion chased itself to degree 99 and said "keep everything".
+The fixed threshold is `TN36-6` §6.2.1's own cutoff for what the solid Earth tide includes,
+3 × 10⁻¹² in C̄₄ₘ — 8.552 × 10⁻¹¹ m s⁻² at 7331 km. With that:
+
+| radius | degree meeting the criterion |
+|---|---|
+| 7331 km | **36** |
+| 300 km altitude | **89** |
+| **the default, the larger of the two** | **89** |
+
+No number was in the specification before the measurement, which is what the ruling required.
+
+### 16.5 A parser that dropped eight of eighteen waves without failing
+
+FES2004's long-period waves carry **five-digit** Doodson codes — `55.565` where a diurnal wave is
+`165.555` — because their first multiplier is zero and the file does not print the leading digit.
+A parser demanding six digits silently dropped **7 952 of 59 462 rows and 8 of the 18 waves**,
+including every long-period constituent. Nothing failed: the sum was simply short. It was caught
+by the row count, which the loader reports and now refuses below a floor.
+
+### 16.6 What implementation found in two adopted specifications
+
+**`Ephemeris::state` returns `State<Frame::BCRS>` whatever centre is asked for.** Asked for the
+Moon about the Earth it returns a geocentric vector typed as barycentric. The *frame* is in the
+type, which `FRAME-R-004` requires, but the **origin** is a runtime argument the type does not
+carry, so the tag can say something false about the vector. `PERT-R-053` had assumed the
+barycentric route; `thirdbody` now asks for Earth-centred vectors in one call — which is also
+three digits more accurate than differencing two 1.5 × 10⁸ km vectors — and `PERT-Q-010` puts
+the type question to the manager rather than working around it silently.
+
+**The fundamental arguments lived in a private header.** `PERT-R-015` said they come from
+`frames`; the tree had them in `eop`'s `src/`, where Tables 5.1 and 8.2/8.3 already use them.
+They are promoted to `eop`'s public surface rather than copied, on the `GRAV-R-029` argument, and
+`PERT-A-027` checks the Doodson and Delaunay conventions against each other on all 71
+constituents of Tables 6.5a/b/c — which print both, so the conversion is checked against data
+rather than asserted from a textbook.
+
+### 16.7 What the three modules measure
+
+**Relativity.** Schwarzschild is 1.81 × 10⁻⁹ of the main acceleration at 7331 km and
+3.16 × 10⁻¹⁰ at geostationary; Lense–Thirring 2.63 × 10⁻¹¹ and 1.91 × 10⁻¹²; de Sitter
+4.57 × 10⁻¹² and 6.30 × 10⁻¹¹ — each inside the bands `TN36-10` §10.3 states, and with the
+crossover it describes: Lense–Thirring exceeds de Sitter below Lageos and not above.
+
+**Third body.** Dropping the indirect term makes the Moon's contribution **28.5×** too large and
+the Sun's **19 256×** too large. Battin's rearrangement, derived in the source rather than cited,
+is better than the written form by 7.5× at the Moon, 183× at the Sun and **1063× at Jupiter** —
+measured against the same expression in `long double`, so what it measures is the cancellation
+and nothing else.
+
+*And a claim of the author's that the test refused.* The first version asserted that Venus always
+contributes more than the static field's degree-90 truncation error. At JD 2458849.5 it
+contributes 5.3 × 10⁻¹³ m s⁻², below it; near closest approach it is about a hundred times larger
+and above it. A planetary term is a function of the configuration, and the test now measures
+rather than asserts a size.
+
+### 16.8 `--warn NoAssertions`, proven rather than added
+
+The manager's one CI item for this step. Every Catch2 binary now runs with it, so a test case
+that executes no assertion **fails** rather than passing quietly. Proven by injection: an empty
+test case exits 42 with *"No assertions in test case"*. It is a backstop and not a substitute for
+plan §4 rule 3 — it would **not** have caught `EPH-A-007`, which asserted things outside its
+empty loop.
 
 ---
 

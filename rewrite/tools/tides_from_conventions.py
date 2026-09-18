@@ -78,6 +78,131 @@ def table_rows(lines: list[str], start_marker: str, stop_markers: list[str]) -> 
     return rows
 
 
+# --------------------------------------------------------------------------- #
+# Chapter 6, Tables 6.5a/b/c — the solid Earth tide frequency corrections.
+#
+# THESE DO NOT SHARE A SHAPE, WITH EACH OTHER OR WITH CHAPTERS 5 AND 8, and the
+# differences are not cosmetic:
+#
+#   6.5a  Name deg/hr Doodson  <6 Doodson> <5 Delaunay>  dkR dkI  ip op
+#   6.5b  Name Doodson deg/hr  <6 Doodson> <5 Delaunay>  dkR ip   dkI op   <- interleaved
+#   6.5c  Name Doodson deg/hr  <6 Doodson> <5 Delaunay>  dkR ip             <- real part only
+#
+# and 6.5a's caption says "The entries for dkR and dkI are in units of 10^-5"
+# where 6.5b's and 6.5c's are absolute.  A parser that assumed one shape would
+# read 6.5b's in-phase amplitude as an imaginary Love number and be wrong by
+# five orders of magnitude without failing.  So each table carries its own
+# explicit tail, and the values are emitted AS PRINTED with the scale named
+# separately, so that the generated header can be diffed against the PDF.
+#
+# The Doodson number ("125,755") carries a comma and is not a NUMERIC token, so
+# it drops out of the token stream in all three.  That is relied on, and the
+# expected token count per table is asserted rather than inferred.
+CH6_TABLES = {
+    "kSolidTideDiurnal": {
+        "start": "Table 6.5a:", "stop": ["Table 6.5b:"],
+        "tail": ("dk_real", "dk_imag", "amp_ip", "amp_op"),
+        "dk_scale": 1e-5, "band": 1,
+        "what": "Table 6.5a - diurnal (m = 1) corrections for the frequency dependence of k21",
+    },
+    "kSolidTideZonal": {
+        "start": "Table 6.5b:", "stop": ["Table 6.5c:"],
+        "tail": ("dk_real", "amp_ip", "dk_imag", "amp_op"),
+        "dk_scale": 1.0, "band": 0,
+        "what": "Table 6.5b - zonal (m = 0) corrections for the frequency dependence of k20",
+    },
+    "kSolidTideSemidiurnal": {
+        "start": "Table 6.5c:", "stop": ["6.2.2"],
+        "tail": ("dk_real", "amp_ip"),
+        "dk_scale": 1.0, "band": 2,
+        "what": "Table 6.5c - semidiurnal (m = 2) corrections for k22; the real part only",
+    },
+}
+
+
+def ch6_rows(lines: list[str], spec: dict) -> list[dict]:
+    want = 1 + 6 + 5 + len(spec["tail"])          # deg/hr, Doodson multipliers, Delaunay, tail
+    try:
+        i = next(n for n, l in enumerate(lines) if l.strip().startswith(spec["start"]))
+    except StopIteration:
+        raise SystemExit(f"table {spec['start']!r} not found")
+    rows: list[dict] = []
+    for line in lines[i + 1:]:
+        s = line.strip()
+        if any(s.startswith(m) for m in spec["stop"]):
+            break
+        toks = [x for x in s.split() if NUMERIC.match(x)]
+        if len(toks) != want:
+            continue                              # a caption, a header, a page number
+        v = [float(x) for x in toks]
+        if not (0.0 < v[0] < 40.0):
+            continue                              # deg/hr for every tide in these bands
+        if any(abs(x) > 20 or x != int(x) for x in v[1:12]):
+            continue                              # the multipliers are small integers
+        row = {"deg_per_hour": v[0],
+               "doodson": [int(x) for x in v[1:7]],
+               "delaunay": [int(x) for x in v[7:12]]}
+        row.update(dict(zip(spec["tail"], v[12:])))
+        row.setdefault("dk_imag", 0.0)
+        row.setdefault("amp_op", 0.0)
+        rows.append(row)
+    return rows
+
+
+# The amplitudes are printed to one decimal in units of 1e-12, so a half-ulp of
+# 0.05 propagates into the relation as 0.05*(|dkI| + |dkR|).  The first version
+# of this check compared a bare ratio and reported "worst 1.000 relative",
+# which is what you get when a printed 0.0 meets a non-zero partner: an
+# artefact of the table's own precision, read as a disagreement.
+AMPLITUDE_HALF_ULP = 0.05
+
+
+def ch6_consistency(rows: list[dict], name: str) -> str:
+    """Amp(ip) * dkI == Amp(op) * dkR, because both amplitudes are the same
+    A_m H_f times their own part of dk.  It checks that the columns were read in
+    the right order and needs no H_f.
+
+    A row where the printed precision swamps both products constrains nothing —
+    it is satisfied by any column order — so those are COUNTED SEPARATELY rather
+    than folded into a pass."""
+    worst, worst_row = 0.0, None
+    constraining = applicable = 0
+    for r in rows:
+        if r["dk_imag"] == 0.0 and r["amp_op"] == 0.0:
+            continue                               # the table has no such column
+        applicable += 1
+        residual = r["amp_ip"] * r["dk_imag"] - r["amp_op"] * r["dk_real"]
+        bound = AMPLITUDE_HALF_ULP * (abs(r["dk_imag"]) + abs(r["dk_real"]))
+        terms = max(abs(r["amp_ip"] * r["dk_imag"]), abs(r["amp_op"] * r["dk_real"]))
+        if terms <= bound:
+            continue                               # constrains nothing
+        constraining += 1
+        d = abs(residual) / bound if bound else 0.0
+        if d > worst:
+            worst, worst_row = d, r
+    if applicable == 0:
+        return f"{name}: the table has no imaginary column; the relation does not apply"
+    return (f"{name}: {constraining} of {applicable} rows constrain it "
+            f"({applicable - constraining} lost to the printed precision), "
+            f"worst residual {worst:.2f} of its rounding bound"
+            + (f" at {worst_row['deg_per_hour']} deg/hr" if worst_row else ""))
+
+
+def emit_ch6(rows: list[dict], name: str, spec: dict) -> str:
+    out = [f"// {spec['what']}",
+           f"//   {len(rows)} constituents; dk as printed (scale {spec['dk_scale']:g}), "
+           f"amplitudes as printed (scale 1e-12)",
+           f"inline constexpr SolidTideTerm {name}[] = {{"]
+    for r in rows:
+        d = ", ".join(f"{x:3d}" for x in r["doodson"])
+        l = ", ".join(f"{x:3d}" for x in r["delaunay"])
+        out.append(f"    {{{r['deg_per_hour']:11.5f}, {{{d}}}, {{{l}}}, "
+                   f"{r['dk_real']:12.5f}, {r['dk_imag']:12.5f}, "
+                   f"{r['amp_ip']:8.1f}, {r['amp_op']:8.1f}}},")
+    out.append("};")
+    return "\n".join(out)
+
+
 def emit(rows: list[list[float]], name: str, unit: str, what: str) -> str:
     out = [f"// {what}  ({len(rows)} constituents, {unit})",
            f"inline constexpr TideTerm {name}[] = {{"]
@@ -89,13 +214,96 @@ def emit(rows: list[list[float]], name: str, unit: str, what: str) -> str:
     return "\n".join(out)
 
 
+def write_ch6(pdf: Path, out: Path) -> None:
+    lines = pdftotext(pdf)
+    tables = {name: ch6_rows(lines, spec) for name, spec in CH6_TABLES.items()}
+    for name, rows in tables.items():
+        print(f"extracted {name}: {len(rows)} constituents", file=sys.stderr)
+        print("  " + ch6_consistency(rows, name), file=sys.stderr)
+    # The counts are asserted, not reported: a shape change upstream that
+    # silently dropped half a table would otherwise pass as "extracted 35".
+    # Counted from the PDF, not guessed: 48 + 21 + 2 = 71 constituents in all.
+    expect = {"kSolidTideDiurnal": 48, "kSolidTideZonal": 21, "kSolidTideSemidiurnal": 2}
+    for name, n in expect.items():
+        if len(tables[name]) != n:
+            raise SystemExit(
+                f"{name}: extracted {len(tables[name])} constituents, expected {n}.\n"
+                f"  The table's shape in the PDF has changed, or pdftotext laid it out\n"
+                f"  differently. Re-read Tables 6.5a/b/c before touching this number:\n"
+                f"  the three have three different column orders and 6.5a's dk is in\n"
+                f"  units of 1e-5 where the other two are absolute.")
+
+    text = f"""#pragma once
+// solid_tide_tables.hpp — GENERATED.  Do not edit.
+//
+// Produced by tools/tides_from_conventions.py --ch6 from the hash-pinned IERS
+// Conventions (2010) chapter 6:  sha256 {sha256(pdf)}
+//
+// SPEC-perturbations PERT-R-014: Step 2's frequency-dependent corrections are
+// implemented from the tables PRINTED IN THE CONVENTIONS.  Several hundred
+// numbers is its own defect source by hand, and the IERS Fortran carries no
+// licence at all, so neither route is open.  Extraction is NOT part of the
+// build: pdftotext's layout varies with the poppler version and a build that
+// re-ran it would not be reproducible.
+//
+// VALUES ARE AS PRINTED so that this file can be diffed against the PDF.  The
+// scales are named below and applied once, in the module.
+//
+// The tail columns differ between the three tables and 6.5a's Love-number
+// corrections are in units of 1e-5 where 6.5b's and 6.5c's are absolute; see
+// CH6_TABLES in the generator.
+
+#include <array>
+
+namespace odl::tides::tables {{
+
+struct SolidTideTerm {{
+    double deg_per_hour;
+    std::array<int, 6> doodson;    // tau, s, h, p, N', ps
+    std::array<int, 5> delaunay;   // l, l', F, D, Omega
+    double dk_real;                // AS PRINTED
+    double dk_imag;                // AS PRINTED; zero where the table has no such column
+    double amp_ip;                 // AS PRINTED, units of 1e-12
+    double amp_op;                 // AS PRINTED, units of 1e-12; zero where absent
+}};
+
+/// TN36-6 Table 6.5a prints dk in units of 1e-5.  Tables 6.5b and 6.5c print it
+/// absolute.  One number per table, applied once, named here.
+inline constexpr double kDkScaleDiurnal = {CH6_TABLES['kSolidTideDiurnal']['dk_scale']:g};
+inline constexpr double kDkScaleZonal = {CH6_TABLES['kSolidTideZonal']['dk_scale']:g};
+inline constexpr double kDkScaleSemidiurnal = {CH6_TABLES['kSolidTideSemidiurnal']['dk_scale']:g};
+/// Every amplitude column in all three tables is in units of 1e-12.
+inline constexpr double kAmplitudeScale = 1e-12;
+
+{emit_ch6(tables["kSolidTideDiurnal"], "kSolidTideDiurnal", CH6_TABLES["kSolidTideDiurnal"])}
+
+{emit_ch6(tables["kSolidTideZonal"], "kSolidTideZonal", CH6_TABLES["kSolidTideZonal"])}
+
+{emit_ch6(tables["kSolidTideSemidiurnal"], "kSolidTideSemidiurnal", CH6_TABLES["kSolidTideSemidiurnal"])}
+
+}}  // namespace odl::tides::tables
+"""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(f"wrote {out} ({sum(len(v) for v in tables.values())} constituents)", file=sys.stderr)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(prog="tides_from_conventions.py", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ch5", type=Path, required=True)
     ap.add_argument("--ch8", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--ch6", type=Path, default=None,
+                    help="IERS Conventions chapter 6, for Tables 6.5a/b/c")
+    ap.add_argument("--out-ch6", type=Path, default=None,
+                    help="where to write the solid Earth tide tables")
     a = ap.parse_args()
+
+    if bool(a.ch6) != bool(a.out_ch6):
+        raise SystemExit("--ch6 and --out-ch6 go together")
+    if a.ch6:
+        write_ch6(a.ch6, a.out_ch6)
 
     c5, c8 = pdftotext(a.ch5), pdftotext(a.ch8)
 

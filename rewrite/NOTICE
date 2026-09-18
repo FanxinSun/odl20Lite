@@ -37,6 +37,7 @@ SUMMARY
   tn36-chapter10     2010         IERS-public      data
   fes2004-ocean-tide FES2004, February 2004 IERS-public      data
   desai-ocean-pole-tide Desai (2002), as distributed with the Conventions IERS-public      data
+  naif-gm-de440      DE440        NASA-public      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -331,6 +332,23 @@ DATA INPUTS
               declaration. Its (2,1) row reproduces TN36-6 (6.24)'s printed
               coefficients to every printed digit, which was checked before
               the specification cited it.
+
+  naif-gm-de440  DE440
+    role      NAIF gm_de440.tpc — the GM of every solar-system body consistent with DE440, for third-body attraction
+    licence   NASA-public
+    url       https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/gm_de440.tpc
+    sha256    924ddf4fb9ead9fe8a1aa55780bcabde40b09d00065d58226e24b68d8092f140
+    retrieved 2026-09-18
+    note      A DE440 SPK carries NO constants — getconstantcount returns
+              zero, which SPEC-ephemerides EPH-R-012 records — so the GMs a
+              third-body model needs are not in the kernel that supplies the
+              positions. This is NAIF's own text PCK carrying them, consistent
+              with DE440 by construction. Parsed by this tree rather than read
+              through CALCEPH, so that the parse is auditable and so that
+              loading it cannot change what Ephemeris reports about its own
+              kernels. Two of its values are cross-checked against TN36-1's
+              independently pinned constants: GM_sun directly, and GM_moon
+              through the Moon-Earth mass ratio.
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

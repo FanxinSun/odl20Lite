@@ -389,6 +389,30 @@
       "licence": "IERS-public",
       "licence_note": "Gzipped ASCII, 65 340 rows, columns n m A_Re B_Re A_Im B_Im, degrees 1 to 360. The loader decompresses it; it is a single file and not a multi-member archive, so it carries no `members` declaration. Its (2,1) row reproduces TN36-6 (6.24)'s printed coefficients to every printed digit, which was checked before the specification cited it.",
       "upstream_mutable": false,
+      "retrieved": "2026-09-18",
+      "unpack": "gzip",
+      "consumes": "declared-members",
+      "consumes_note": "A single-member gzip. The decompressed bytes carry their own SHA-256 because the container's hash depends on the compressor and what this tree reads does not.",
+      "members": [
+        {
+          "member": "desaiscopolecoef.txt",
+          "sha256": "2c3cba5bc9c79e2eef9d3cf4e1b8686dbb8f1102975e53d1464ece9bb082aedc",
+          "role": "the A_nm and B_nm of TN36-6 (6.23a), degrees 1 to 360",
+          "extract": true
+        }
+      ]
+    },
+    {
+      "id": "naif-gm-de440",
+      "kind": "data",
+      "role": "NAIF gm_de440.tpc — the GM of every solar-system body consistent with DE440, for third-body attraction",
+      "version": "DE440",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/gm_de440.tpc",
+      "filename": "gm_de440.tpc",
+      "sha256": "924ddf4fb9ead9fe8a1aa55780bcabde40b09d00065d58226e24b68d8092f140",
+      "licence": "NASA-public",
+      "licence_note": "A DE440 SPK carries NO constants — getconstantcount returns zero, which SPEC-ephemerides EPH-R-012 records — so the GMs a third-body model needs are not in the kernel that supplies the positions. This is NAIF's own text PCK carrying them, consistent with DE440 by construction. Parsed by this tree rather than read through CALCEPH, so that the parse is auditable and so that loading it cannot change what Ephemeris reports about its own kernels. Two of its values are cross-checked against TN36-1's independently pinned constants: GM_sun directly, and GM_moon through the Moon-Earth mass ratio.",
+      "upstream_mutable": false,
       "retrieved": "2026-09-18"
     }
   ]
