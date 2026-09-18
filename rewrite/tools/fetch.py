@@ -73,14 +73,27 @@ def load_manifest(path: Path) -> dict:
     seen = {}
     for i, e in enumerate(doc["entries"]):
         where = f"{path}: entry {i}"
-        for field in ("id", "kind", "licence"):
+        # `licence` is required of everything this tree REDISTRIBUTES. A
+        # `literature` entry is a provenance record and carries `terms` instead —
+        # the record of where its terms were SOUGHT, which is the honest field
+        # when they could not be established (plan §5 constraint 3, rule 4).
+        required = ("id", "kind", "terms") if e.get("kind") == "literature" \
+                   else ("id", "kind", "licence")
+        for field in required:
             if not e.get(field):
                 die(MALFORMED, f"{where}: missing required field {field!r}")
         if e["id"] in seen:
             die(MALFORMED, f"{where}: duplicate id {e['id']!r} (first seen at entry {seen[e['id']]})")
         seen[e["id"]] = i
-        if e["kind"] not in ("code", "data", "tool"):
-            die(MALFORMED, f"{where}: kind must be code, data or tool, not {e['kind']!r}")
+        if e["kind"] not in ("code", "data", "tool", "literature"):
+            die(MALFORMED,
+                f"{where}: kind must be code, data, tool or literature, not {e['kind']!r}")
+        if e.get("kind") == "literature" and e.get("licence"):
+            die(MALFORMED,
+                f"{where}: a literature entry must NOT carry a 'licence'. It is exempt from the "
+                "permissive gate because it is a provenance record rather than a dependency, and "
+                "a licence field on it would invite the exemption to be read as a grant. Put "
+                "what was found, or not found, in 'terms'.")
         if e.get("provided_by_host"):
             continue
         for field in ("url", "filename", "sha256"):
@@ -101,8 +114,20 @@ def cache_dir(root: Path, doc: dict) -> Path:
     return root / doc.get("cache", "data/cache")
 
 
+def literature_dir(root: Path, doc: dict) -> Path:
+    """Where `literature` entries land, and it is NOT the build cache.
+    Plan §5 constraint 3's first mechanical condition: a literature entry is
+    fetched to a path no build target and no test references."""
+    return root / doc.get("literature", "data/literature")
+
+
+def is_literature(e: dict) -> bool:
+    return e.get("kind") == "literature"
+
+
 def entry_path(root: Path, doc: dict, e: dict) -> Path:
-    return cache_dir(root, doc) / e["id"] / e["filename"]
+    base = literature_dir(root, doc) if is_literature(e) else cache_dir(root, doc)
+    return base / e["id"] / e["filename"]
 
 
 # --------------------------------------------------------------------------- #
@@ -627,9 +652,33 @@ PERMISSIVE_LICENCES = {
 
 
 def cmd_check_licences(root: Path, doc: dict, args) -> int:
-    """Plan §5 constraint 3: only known-permissive licences, by allowlist."""
-    bad = []
+    """Plan §5 constraint 3: only known-permissive licences, by allowlist.
+
+    THE GATE'S SCOPE IS WHAT THIS TREE REDISTRIBUTES, which is code and data,
+    not what it READS.  A `literature` entry is a provenance record rather than a
+    dependency: it is pinned by hash so that "this was derived from that" is
+    checkable by a future reader who fetches the same hash, and nothing derived
+    from it is a copy of it.  `dop853.f` is not the same case and stays dropped —
+    it was code to be incorporated, and incorporation is what this gate exists
+    for.
+
+    THE EXEMPTION IS EARNED BY CHECKED PROPERTIES AND NEVER BY THE LABEL.  A
+    literature entry must say where its terms were sought (`terms`), must live
+    outside the build cache (entry_path, above), and must be unreachable from any
+    build input — which `tools/literaturecheck.py` proves by injection.
+    """
+    bad, lit = [], []
     for e in doc["entries"]:
+        if is_literature(e):
+            lit.append(e)
+            if not e.get("terms"):
+                print(f"LITERATURE ENTRY WITHOUT A TERMS RECORD  {e['id']}\n"
+                      "  The exemption rests on this tree not redistributing, NOT on a grant\n"
+                      "  nobody found. Record the SEARCH rather than the conclusion (rule 4):\n"
+                      "  which routes were tried for the terms and what each returned.",
+                      file=sys.stderr)
+                return MALFORMED
+            continue
         if e["licence"].upper().strip() not in PERMISSIVE_LICENCES:
             bad.append(e)
     for e in bad:
@@ -646,7 +695,14 @@ def cmd_check_licences(root: Path, doc: dict, args) -> int:
         )
     if bad:
         return MALFORMED
-    print(f"ok       {len(doc['entries'])} entries, every licence on the permissive allowlist")
+    n_lit = len(lit)
+    print(f"ok       {len(doc['entries']) - n_lit} entries, every licence on the permissive "
+          f"allowlist")
+    if n_lit:
+        print(f"         {n_lit} literature entr{'y' if n_lit == 1 else 'ies'}, exempt by plan §5 "
+              "constraint 3 and each carrying a terms record:")
+        for e in lit:
+            print(f"           {e['id']:<24} {e.get('licence', '(none established)')}")
     return OK
 
 

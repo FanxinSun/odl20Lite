@@ -12,3 +12,7 @@
 
 # generator scratch (tools/msis_reference.py builds the Fortran oracle here)
 tools/.msisref/
+
+# Literature pinned by hash for provenance (plan §5 constraint 3). The repository
+# holds the URL and the hash and NEVER the bytes: this project redistributes nothing.
+data/literature/

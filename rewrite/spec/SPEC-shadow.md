@@ -1,0 +1,359 @@
+# SPEC-shadow — the eclipse shadow function
+
+| | |
+|---|---|
+| **Spec ID** | `SHDW` |
+| **Status** | **draft** 2026-09-18, for review (v1.1 adds §3.2–§3.3 and the PPM throughout) |
+| **Version** | 1.1 |
+| **Date** | 2026-09-18 |
+| **Layer** | L4 `forces-analytic`, step 1 (`doc/REWRITE_PLAN.md` §3.5) |
+| **Depends on** | `SPEC-ephemerides.md` (the Sun), `SPEC-frames.md`, `core` |
+| **Depended on by** | `srp-analytic` (step 2), `erp` (step 4), every SRP model at L9 |
+
+**Derivation declaration (plan R1).** Written from the documents in §2 and from no implementation
+of this module.
+
+**Predecessor access.** No file under the repository root's `src/`, `include/`, `res/`,
+`scripts/`, `analysis/`, `analyses/`, `REVIVAL.md` or `PROVENANCE.md` was opened, read, listed,
+searched or otherwise inspected during this specification's preparation.
+
+*Nothing about the predecessor reached the author during this specification's preparation.*
+
+---
+
+## 1. Purpose
+
+*F*ₛ, a unitless quantity in [0, 1] scaling the solar flux at a satellite during an eclipse. The
+conical model first; the perspective-projection model with atmospheric effect after.
+
+---
+
+## 2. Normative sources
+
+| key | what | obtained | role |
+|---|---|---|---|
+| `LI19` | Li, Ziebart, Bhattarai & Harrison (2019), *A shadow function model based on perspective projection and atmospheric effect for satellites in eclipse*, Adv. Space Res. **63**(3) 1347–1359, doi:10.1016/j.asr.2018.10.027 | **yes** — accepted manuscript, `li-ziebart-2019-shadow`, SHA-256 `b07c8b89…97bd` | **normative** |
+| `GEOMETRY` | The conical eclipse geometry itself — a sphere occulting a disc | — | **normative, and it is mathematics** |
+
+**`LI19` is a `literature` manifest entry** (plan §5 constraint 3): pinned by hash as a provenance
+record, exempt from the permissive-licence gate because nothing derived from it is a copy of it,
+and unreachable from any build input — which `ci.sh` gate 11 proves by injection. Its terms could
+not be established; the entry records the search rather than a conclusion.
+
+**Retrieval, recorded because it cost an hour** (rule 4 applied to a retrieval): the publisher's
+page and the UCL Discovery landing page both return **403**. The manuscript is reachable only at
+the path the open-access metadata names.
+
+**Plan rule 8's question is answered for both halves — but not by the sentence v1.0 used, and the
+whole statement is re-derived rather than one term patched.** v1.0 said `LI19` prints the *full*
+derivation of both models. It does not quite: equations 36–39 delegate the area of the "elliptical
+arch" *S*₁ and *S*₂ to **Hughes and Chraibi (2012)**, which this tree does not hold and did not
+seek. The conclusion survives, for a different reason than the one given — **the delegation is not
+load-bearing**. An ellipse is an affine image of a circle and a hyperbola of the unit hyperbola;
+an affine map scales every area by |det|, and Green's theorem gives ½∮(*x* d*y* − *y* d*x*) as
+½*AB* dψ on the one and ½σ*AB* dτ on the other. The arch is therefore elementary from the conic
+alone, and §4's `SHDW-R-026` derives it in one line. So an independent specification exists for
+the perspective half, and `LI19`'s own second reference is not needed to have one.
+
+`LI19` also publishes working code. Under rule 8 that code is an **oracle and not normative**,
+because the paper it implements is the specification; under the rule's converse, where an
+independent specification exists the artefact's legibility stops mattering. It was not sought, not
+retrieved and not read, and nothing here depends on it.
+
+---
+
+## 3. "Conical" is a family, not a model
+
+A named model that is really a family is how two correct implementations disagree by a factor
+nobody can find. `LI19`'s SECM — *Spherical Earth Conical Model* — makes five choices, and this
+specification takes all five, each recorded with the paper's own words:
+
+| choice | SECM's answer | the paper's words |
+|---|---|---|
+| the Earth's figure | **sphere** | the *S* in SECM; §1 notes "Earth is closer to an ellipsoid than a sphere", which is the PPM's entire purpose |
+| the Sun | **a disc**, of finite angular radius | it has a "whole solar disk" area; not a point source |
+| which states | **umbra, penumbra and annular** | Fig. 2: "it can describe all the possible eclipse states including annular umbra" — against the CYM, which "can only describe umbra" |
+| *F*ₛ inside the penumbra | **the true occulted-area ratio** | "the ratio of the unblocked solar disk area to the area of the whole solar disk" — *not* linear in the occulted fraction, *not* a smoothstep |
+| the atmosphere | **none** | SECM_atm is the separate variant; this step's conical half is the atmosphere-free model |
+
+- **SHDW-R-001.** All five are implemented as stated, and each is named in the source beside the
+  code that makes it, not only here.
+
+### 3.1 The annular branch is unreachable from any orbit in this plan
+
+An annular eclipse *of the Sun by the Earth* requires the satellite to be **beyond the umbra
+cone's apex**, where the umbra has closed to a point:
+
+  `SHDW-P-1` (§6) is that distance: 6378.137 km × 1.495978707 × 10⁸ km × 1.450749 × 10⁻⁶ km⁻¹
+  = **1.3842 × 10⁶ km**.
+
+Nothing this plan flies is remotely near it:
+
+| | radius | as a fraction of the apex | umbra radius there |
+|---|---|---|---|
+| GRACE-A | 6 858 km | 0.0050 | 6 346 km (99.50 % of *R*⊕) |
+| the sail / LEO | 7 331 km | 0.0053 | 6 344 km (99.47 %) |
+| GNSS | 26 560 km | **0.0192** | 6 256 km (98.08 %) |
+| the Moon | 384 400 km | 0.278 | — |
+
+At GNSS the umbra has narrowed by under 2 % and is still 6 256 km across; the apex is **52×**
+further out.
+
+- **SHDW-R-002.** The annular branch is **implemented** — it is in `LI19`'s model and omitting it
+  would be a different model — and its domain is stated **next to it**, and **its test is labelled
+  synthetic**, because no orbit in this plan can reach it.
+
+  This matters for a reason the branch itself cannot show: **a branch that passes because nothing
+  reaches it is the guard that cannot fire wearing a different hat**, and whoever later notices it
+  is never exercised must be able to tell that this is by design rather than by neglect.
+  `SHDW-A-005` exercises it from a synthetic geometry at 2 × 10⁶ km and says so in its name.
+
+### 3.2 The PPM is the other member, and it differs in every one of the five
+
+| choice | SECM | PPM | where it shows |
+|---|---|---|---|
+| the Earth's figure | sphere | **ellipsoid**, *x*ᵀ*A**x* = 1, *A* = diag(*a*⁻², *a*⁻², *b*⁻²) | the model's entire purpose |
+| the Sun | a disc of angular radius | **a sphere**, projecting to a circle of radius γ*R*ₛ/‖*r* − *r*ₛ‖ (eq 28) | eq 27–28 |
+| which states | umbra, penumbra, **annular** | umbra, penumbra — **no annular branch**; the states come out of areas, not out of comparing angular radii | §3.1 |
+| *F*ₛ in the penumbra | occulted-area ratio of two **circles** | occulted-area ratio of a **circle against a conic** | eq 22–24 |
+| the atmosphere | none | **selectable**: PPM, or PPM_atm by eq 40–46 | §2.6 |
+
+- **SHDW-R-021.** The PPM is stated in an **Earth-fixed** frame and the conical model in `GCRS`,
+  and the two interfaces differ in their position type so that the mistake cannot compile.
+  *A* = diag(*a*⁻², *a*⁻², *b*⁻²) is the Earth only in a frame that turns with it; in `GCRS` the
+  same matrix is an ellipsoid fixed in inertial space, which is not a body. A sphere is a sphere
+  in every frame, so the question never arises for the SECM — which is exactly why an
+  interchangeable signature would be a trap. Plan §5 constraint 10.
+
+**The silhouette is a hyperbola at LEO, and this is not an edge case.** `LI19` eq 24 sorts the
+projection by |*B*|, and the hyperbolic branch is `LI19`'s "partial image": the satellite sees
+only part of the Earth. For a sphere the condition reduces to |cos ψ| < *R*ₑ/*r*, with ψ the angle
+between the satellite's position and the Sun–satellite line, while the terminator sits at
+ψ = asin(*R*ₑ/*r*). The two windows overlap below about 8 400 km:
+
+| orbit | *r* | silhouette in the penumbra |
+|---|---|---|
+| ISS, LEO, Sun-synchronous | 6 778 – 7 500 km | **hyperbola** |
+| GPS, Galileo, GEO | 26 560 – 42 164 km | ellipse |
+
+- **SHDW-R-022.** Both branches are reachable from real orbits, so both are gated from real
+  geometries. **This is the opposite of §3.1's annular branch**, and the difference is recorded
+  because the two look alike in the source and are not alike at all: one is unreachable and
+  exercised synthetically, the other carries every low orbit this plan will fly.
+
+### 3.3 The sixth choice, which `LI19` does not name
+
+*F*ₛ is the fraction of the solar disc's **solid angle** that is not occulted. Both models
+approximate it and they do so by different routes, so neither is the other's oracle (plan §4
+rule 2). The choice neither §3 nor the paper names is **where the ratio is taken**:
+
+- the **SECM** takes it on the **flat sky**, using the angular radii *a*ₛ and *a*ₑ as if they were
+  planar lengths and overlapping two circles;
+- the **PPM** takes it in a **perspective projection**, which maps the straight lines of the
+  occultation to straight lines and is therefore exact up to the disc-area-to-solid-angle ratio.
+
+Measured at each orbit's terminator against the definition computed with no projection in it at
+all (`SHDW-A-008`'s comparator):
+
+| orbit | \|SECM − definition\| | \|PPM − definition\| | oblateness, \|PPM(WGS84) − PPM(sphere)\| |
+|---|---|---|---|
+| LEO, *r* = 7 331 km | **1.86 × 10⁻⁴** | 2.1 × 10⁻⁶ | **1.88 × 10⁻⁶** |
+| GPS, *r* = 26 560 km | 4.0 × 10⁻⁵ | 1.8 × 10⁻⁷ | 1.34 × 10⁻⁵ |
+| GEO, *r* = 42 164 km | 2.5 × 10⁻⁵ | 1.5 × 10⁻⁸ | 2.17 × 10⁻⁵ |
+
+- **SHDW-R-023.** **At LEO the unnamed flat-sky choice is 99 times the oblateness effect the PPM
+  is adopted for.** A comparison that swaps SECM for PPM and attributes the whole difference to
+  the Earth's figure is therefore wrong by two orders of magnitude at LEO, and right to within a
+  factor of two only at GEO. The ratio is asserted, not narrated, by `SHDW-A-009`.
+
+---
+
+## 4. Required behaviour
+
+- **SHDW-R-010.** *F*ₛ ∈ [0, 1] always; exactly 1 in full sunlight and exactly 0 in the umbra.
+- **SHDW-R-011.** *F*ₛ is **monotone non-increasing** as the satellite moves from sunlight through
+  the penumbra into the umbra along any straight path in the shadow's transverse plane.
+- **SHDW-R-012.** Continuity at both boundaries: *F*ₛ → 1 approaching the penumbral cone from
+  inside, and → 0 approaching the umbral cone from outside.
+- **SHDW-R-013.** `odl::Result` throughout; no monadic chaining; no global state.
+
+The PPM adds:
+
+- **SHDW-R-024.** A point of the image plane is blocked **iff** the ray from the satellite through
+  it, continued forwards, meets the ellipsoid. From eq 17 that is *g*ᵀ*M**g* ≥ 0 **and**
+  *g*ᵀ*A**r* < 0, exactly: the first factor is eq 18's discriminant, and the second selects the
+  forward nappe of the tangent cone, because the roots' product (*r*ᵀ*A**r* − 1)/*g*ᵀ*A**g* is
+  positive outside the Earth so they share the sign of −*g*ᵀ*A**r*. This replaces eq 15's
+  three-case distance test with the quantity the area computation needs anyway, and it is what
+  separates the two branches of a hyperbolic silhouette. It cannot cut a branch: on
+  *g*ᵀ*A**r* = 0 the form is −*g*ᵀ*A**g*(*r*ᵀ*A**r* − 1) < 0, so the half-plane's boundary never
+  touches the blocked set.
+- **SHDW-R-025.** The disc/silhouette intersections are found by parametrising the **circle by its
+  angle**, not by eq 32's η. The two are the same equation — eq 32 is the Weierstrass substitution
+  η = tan(θ/2) — but that substitution has a pole at θ = π, so the point (−*R*₀ + *t*ₓ/2, *t*ᵧ/2)
+  is **not the image of any finite η** and drops out of eq 33's root set. In θ the equation is a
+  trigonometric polynomial of degree two, hence at most the quartic's four roots, with none
+  missing and no Ferrari resolvent.
+- **SHDW-R-026.** The occulted area is assembled by **Green's theorem** over the blocked part of
+  the disc: ½∮(*x* d*y* − *y* d*x*) is ½[*R*²Δθ + *R*(*c*ₓΔsin θ − *c*ᵧΔcos θ)] on a circular arc,
+  ½*AB*Δψ on an elliptical one and ½σ*AB*Δτ on a hyperbolic one. This computes the same area as
+  eq 36–39 and collapses their four inside/outside × ellipse/hyperbola cases into one sum; see §2
+  for why it needs no second reference.
+- **SHDW-R-027.** γ, the image plane's distance, **cancels**, and is an argument only so that it
+  can be varied in a test.
+- **SHDW-R-028.** `Atmosphere::linear_toa` implements `LI19` eq 40–46 **as printed**, including
+  that eq 43 pins *f* at µ₂ = 1 and eq 45 at µ₁ = 0. A mean reduction of one half over the annulus
+  is *not* that: it agrees in the middle of a pass and disagrees at both ends, which is an error
+  that integrates along-track and cancels nowhere.
+- **SHDW-R-029.** Above the altitude at which `LI19`'s five atmospheric cases stop exhausting the
+  geometry (§8), `SHDW-F-009` **refuses** rather than invent a sixth case, because inventing one
+  is a change to the **model** and not to this implementation of it (plan §5 constraint 4). It is
+  recorded as `SHDW-Q-003` for the manager, with the natural extension written out so the decision
+  is a decision and not a rediscovery.
+- **SHDW-R-021a.** The **polar radius reaches the arithmetic**. A PPM that silently ignored *b*
+  would agree with the SECM to rounding and pass every other case here, so the oblateness effect
+  is asserted strictly non-zero, and its **sign** is checked where it is unambiguous: over the
+  pole an oblate Earth presents a shorter limb than a sphere of equatorial radius, blocks less,
+  and must give a *higher* *F*ₛ.
+
+---
+
+## 5. Interfaces, stated language-free
+
+`shadow_function(sun_position, satellite_position) -> Result<double>`, both `Position<GCRS>` in
+metres, returning *F*ₛ. The occulting body's radius is a stated constant of the model, not an
+argument, because a caller free to vary it is a caller free to make the model something else.
+
+`perspective(sun_position, satellite_position, atmosphere) -> Result<{Fs, state, silhouette}>`,
+both positions **Earth-fixed** (`SHDW-R-021`) and in metres. The ellipsoid's two radii are
+constants for the same reason the sphere's one is. The silhouette's kind is returned because it is
+not recoverable from *F*ₛ, and a run that never produced a hyperbola has not exercised half the
+code.
+
+The ellipsoid is nonetheless an **argument of an internal entry point**, and only so that the
+degeneracy at *a* = *b* can be *demonstrated* rather than asserted: designed general, exercised
+degenerate. The generality belongs to the test, not to the caller.
+
+---
+
+## 6. Precision
+
+| id | what | value | arithmetic |
+|---|---|---|---|
+| `SHDW-P-1` | the umbra cone's apex distance | **1.3842 × 10⁶ km** | 6378.137 km × 1.495978707 × 10⁸ km × 1.450749 × 10⁻⁶ km⁻¹ = **1.3842 × 10⁶ km** |
+
+- **SHDW-P-2.** The area-ratio integral is evaluated in closed form — two circular segments — and
+  is exact to rounding. There is no quadrature and therefore no quadrature tolerance.
+- **SHDW-P-3.** The PPM's area is likewise closed form; the only discretisation is the bracketing
+  of at most four roots of a degree-two trigonometric polynomial, refined by bisection.
+- **SHDW-P-4.** The **degeneracy test threshold is relative to the coefficients' own scale**.
+  *k*₀, *k*₁ and *k*₂ are quadratic forms of *A* = diag(*a*⁻², *a*⁻², *b*⁻²), so they run at
+  10⁻²⁷; a threshold anchored to 1 calls every geometry a parabola. It did: the first sweep
+  reported "worst difference 0.000 × 10⁰ over 41 geometries" while comparing none of them, which
+  is why the compared count is asserted wherever this is measured (`SHDW-A-008`, `-A-009`).
+- **SHDW-P-5.** The comparator of `SHDW-A-008` is **exact in the radial direction** — each blocked
+  interval's ends by bisection, the radial integral as cos *a*₁ − cos *a*₂ — and discretised only
+  in azimuth. A cell count converges like 1/*n* and, measured, could not separate the two models
+  at all; this one converged to ≈ 1 × 10⁻⁶ at 8 000 azimuths and can.
+
+---
+
+## 7. Failure behaviour
+
+| id | when | what it names |
+|---|---|---|
+| `SHDW-F-001` | a zero-length Sun or satellite position | which vector |
+| `SHDW-F-002` | a satellite inside the occulting body | the radius and the position |
+| `SHDW-F-003` | a non-positive ellipsoid radius or image-plane distance | which one |
+| `SHDW-F-004` | a satellite on or inside the Earth **ellipsoid**, where no silhouette exists | that there is none |
+| `SHDW-F-005` | the silhouette is a **parabola**, which `LI19` §2.3 sets aside as "an instantaneous state in the variation from an ellipse to a hyperbola" | the paper's own words |
+| `SHDW-F-006` | an odd number of disc/silhouette crossings | the count |
+| `SHDW-F-007` | the top-of-atmosphere silhouette could not be formed | the inner diagnostic |
+| `SHDW-F-008` | the depth into the atmosphere is not measurable along the line eq 40 defines it on | which line |
+| `SHDW-F-009` | **the solar disc meets the solid Earth, the atmosphere and the clear sky at once** — see §8's note | the geometry, and that it is the model's gap and not this implementation's |
+
+---
+
+## 8. Acceptance tests
+
+| id | what is checked | expected | discharges |
+|---|---|---|---|
+| `SHDW-A-001` | **the boundaries, in closed form**: *F*ₛ = 1 exactly outside the penumbral cone, 0 exactly inside the umbral cone, and strictly between on the boundary surfaces themselves | exact | R-010, R-012 |
+| `SHDW-A-002` | **monotone across a transverse traversal**: sampling a straight path from sunlight to umbra, *F*ₛ never increases, and the count of samples is asserted | monotone over a stated number of samples | R-011 |
+| `SHDW-A-003` | **the occulted-area ratio against the two-circle overlap**, computed independently: the lens area of two intersecting circles has a closed form, and *F*ₛ must equal 1 − (overlap / solar disc area) | agreement to rounding | R-001, P-2 |
+| `SHDW-A-004` | **the penumbra's angular width against the Sun's own angular radius**: the transition spans twice the solar angular radius, which is a property of a disc Sun and would be **zero** for a point source — so this is the test that a point-source implementation fails | the solar angular diameter | R-001 |
+| `SHDW-A-005` | **the annular branch, SYNTHETIC**: a geometry at 2 × 10⁶ km, beyond `SHDW-P-1`'s apex, where the Earth's disc is smaller than the Sun's. **No orbit in this plan reaches this** and the test name says so | 0 < *F*ₛ < 1 with the Earth wholly inside the solar disc | R-002 |
+| `SHDW-A-006` | refusals `SHDW-F-001`, `-F-002`, fired **and shown not to fire** on the adjacent accepted input | the diagnostics | F-001, F-002 |
+
+| `SHDW-A-007` | constraint 4 and constraint 8, via `ci.sh` gate 9 | as stated | R-013 |
+| `SHDW-A-008` | **the PPM against the definition**, at nine penumbral geometries across LEO, GPS and GEO, with the **silhouette kind asserted** at each so that a run exercising only one branch cannot pass | worst \|PPM − definition\| < 1 × 10⁻⁵, with 3 hyperbolic and 6 elliptical asserted | R-022, R-024, R-025, R-026 |
+| `SHDW-A-009` | **§3.3's sixth choice, measured**: the SECM's and the PPM's departures from the definition and the oblateness effect, all at one reference point per orbit; the PPM nearer the definition than the SECM at every orbit; and the oblateness **strictly non-zero**, without which the case passes on a model that ignored *b* | ratio > 50 at LEO (measured 98.9) | R-023, R-021a |
+| `SHDW-A-010` | **γ cancels**: *F*ₛ over four image-plane distances spanning 10⁹ | spread < 1 × 10⁻¹² | R-027 |
+| `SHDW-A-011` | **oblateness has the right sign**: over the pole an oblate Earth presents a shorter limb than a sphere of equatorial radius, so it blocks less and *F*ₛ must come out higher | higher by more than 10⁻⁴ | R-021a |
+| `SHDW-A-012` | **the atmosphere only ever dims and widens the penumbra**, over 81 geometries, with the strictly-dimmed count and both penumbral counts asserted | dimmer > 0 and penumbral samples strictly more with it than without | R-028 |
+| `SHDW-A-014` | **the parabola refusal fired from the place it exists for**: the ellipse/hyperbola boundary is |cos ψ| = *R*ₑ/*r* for a sphere, so it is bisected onto rather than argued about, and both sides are required to resolve and to differ — a guard that fires on a neighbourhood is a wall, not a boundary | the boundary at 0.5156 rad = 29.5°, matching the closed form | F-005, R-022 |
+| `SHDW-A-015` | a non-positive ellipsoid radius or image-plane distance refused, **and shown not to fire** on the adjacent accepted input | the diagnostic | F-003 |
+| `SHDW-A-013` | refusals `SHDW-F-004` and `-F-009` fired, the latter over a window **wide enough to leave the straddle on both sides** so that sunlight and umbra are both still resolved | the diagnostics, and refusals < all | F-004, F-009, R-029 |
+
+**Coverage.** Every requirement and refusal above is discharged by a row, except:
+
+| id | why no test |
+|---|---|
+| `SHDW-R-021` | Discharged by the **signature**, not by a run: the two models' position types do not overlap, so the mistake is a compile error. `perspective_tests.cpp` asserts it both ways with `static_assert` over a concept — the PPM accepts `ITRS` and rejects `GCRS`, `TIRS`, `TEME` and `BCRS`; the SECM accepts `GCRS` and rejects `ITRS` — because a concept false for every frame would satisfy the negative half alone. |
+| `SHDW-F-006`, `SHDW-F-007`, `SHDW-F-008` | Defensive, and **not reachable from any geometry this tree can construct**: an odd crossing count contradicts the degree-two trigonometric polynomial of `SHDW-R-025`; `-F-007` needs the top-of-atmosphere silhouette to fail where the solid one did not, the two differing only by 50 km of radius; `-F-008` needs the Earth's centre to project nowhere while its limb projects somewhere. Each is recorded here rather than given a test that would have to fake its own precondition. |
+| `SHDW-R-020` | A documentation obligation: `PROVENANCE.md` must record the retrieval route, the five family choices, the annular branch's domain, the Table 2 search with each route's result, and §3.3's measurement. Discharged by §9 and the entry a reviewer reads. |
+
+### `LI19`'s five atmospheric cases do not exhaust the geometry above ≈ 1 983 km
+
+`LI19` Fig. 8 gives five relative positions and §2.6 a formula for each. In each of them the solar
+disc meets **at most two** of {solid Earth's image, atmosphere's image, clear sky}: eq 45 in
+particular carries a term for the blocked area and one for the in-atmosphere area and **none for a
+fully lit one**. That is complete exactly while the atmosphere's image is at least as thick as the
+solar disc is wide,
+
+> asin((*R*ₑ + 50 km)/*r*) − asin(*R*ₑ/*r*)  ≥  2 asin(*R*ₛ/*d*)  =  9.301 × 10⁻³ rad,
+
+which holds to ***r*** **= 8 361 km (altitude 1 983 km)** and fails above it. GRACE, at 500 km, is
+inside the valid region; **Galileo, at 29 600 km, is not**, and `LI19` validates against both.
+
+**This is a gap in the printed specification, and it is stated as no more than that.** `LI19`
+publishes working code, which may well close it; that code was not sought or read (§2), so no
+claim is made about the paper's Galileo results. Plan §4 rule 4: the bar for the defect register
+is higher than the bar for flagging, and what is asserted here is only what `SHDW-A-013` measures.
+
+### What this gate can and cannot catch
+
+**`LI19`'s Table 2 is not attempted, and the reason is an account rather than the geometry.** It
+prints 16 eclipse events for GRACE-A on 2007-01-20 with penumbra entry/exit to the second — 30
+transitions, and the transit durations (27–33 s, 21 % spread) show that **all 30 are transverse
+crossings**, so all 30 would be reachable with an ephemeris good to about a kilometre. But every
+route to one requires an account or a request form: CelesTrak has no current elements for a
+satellite that deorbited in 2018 and archives behind `request.php`; GFZ ISDC, PODAAC and
+space-track all require registration — five endpoints in all, since CelesTrak's current and
+archived elements fail differently. The standing prohibition on contacting anybody covers all of
+them, and `PROVENANCE.md` §25.5 tabulates each with what it returned.
+
+**So this gate is closed-form geometry and not published times**, and what it therefore cannot
+catch is a consistent misreading of `LI19`'s *geometry* that is nonetheless internally
+self-consistent. `SHDW-A-004` is the strongest defence available: the penumbra's angular width is
+a property of the Sun being a disc, and no point-source implementation can produce it.
+
+---
+
+## 9. Provenance obligations
+
+- **SHDW-R-020.** `PROVENANCE.md` records the retrieval route, the five family choices, the
+  annular branch's domain, the Table 2 search with what each of the five routes returned, §3.3's
+  measurement of the sixth choice against oblateness, and the 36-vs-30 question's **resolution**
+  — which is not a discrepancy and is recorded so that it is not re-entered as one.
+
+---
+
+## 10. Open questions for the manager
+
+| id | question |
+|---|---|
+| `SHDW-Q-001` | **Table 2 costs an account, not a workaround.** The transit durations already cleared the geometry, so the only obstacle is registration at CelesTrak, GFZ, PODAAC or space-track. That is the owner's decision and not something to route around; recorded so it is not re-opened as a technical question. |
+| `SHDW-Q-002` | **Closed.** The perspective-projection half is implemented, gated by `SHDW-A-008`…`-A-013`, and §2's rule-8 claim is re-derived with the one delegation `LI19` makes discharged independently. |
+| `SHDW-Q-003` | **Above 1 983 km altitude `LI19`'s five atmospheric cases do not cover the geometry** (§8), and `SHDW-F-009` refuses there. The natural extension is one term — *F*ₛ = [0·*A*ₛ + ½(*f*(*h*_G₁) + *f*(*h*_G₂))·*A*_atm + 1·*A*_clear]/π*R*₀² — which reduces to all five printed cases. Adding it changes the **model**, so it is the manager's call and not the executor's. Until then PPM_atm is usable below 1 983 km and refuses above it. |
+| `SHDW-Q-004` | **§3.3's ratio is a result about the literature, not about this tree.** At LEO the unnamed flat-sky-versus-projection choice is 99× the oblateness effect. Whether that belongs in the discrepancy register, or is simply a property of two models neither of which claims to be the other, is a judgement this step does not take. |

@@ -2260,11 +2260,192 @@ equations are structurally immune** — A's blocks are s⁻² and s⁻¹, both i
 scaling that takes metres to kilometres, so A is the same matrix in either system and there is
 nothing there to convert. When the pair finally moves, it will not have been these.
 
+## 25. L4 step 1 — the shadow function, and a branch that is the opposite of the last one
+
+`SPEC-shadow.md` v1.1, Spec ID `SHDW`. Both halves of `LI19` are implemented: the SECM in
+`modules/shadow/src/conical.cpp` and the PPM in `perspective.cpp`, gated by `SHDW-A-001`…`-A-015`.
+
+### 25.1 Retrieval, and what the `literature` manifest kind is for
+
+`LI19` — Li, Ziebart, Bhattarai & Harrison (2019), *A shadow function model based on perspective
+projection and atmospheric effect for satellites in eclipse*, Adv. Space Res. **63**(3) 1347–1359,
+doi:10.1016/j.asr.2018.10.027. **The publisher's page and the UCL Discovery landing page both
+return 403**; the accepted manuscript is reachable only at the path the open-access metadata
+names. Pinned as `li-ziebart-2019-shadow`, SHA-256 `b07c8b89…97bd`.
+
+It is a `literature` manifest entry, which is a **provenance record and not a dependency**: exempt
+from the permissive-licence gate because nothing derived from it is a copy of it, excluded from
+`NOTICE`, and unreachable from any build input — which `ci.sh` gate 11 proves by injection over
+115 build inputs, 0 of which reach a literature entry. Its terms could not be established, and the
+entry records **the search rather than the conclusion** (plan §4 rule 4).
+
+`LI19` also publishes working code on GitHub. Under plan rule 8 that code is an **oracle and not
+normative**, because the paper it implements is the specification; under the rule's converse,
+where an independent specification exists the artefact's legibility stops mattering. It was not
+sought, not retrieved and not read.
+
+### 25.2 The five family choices, and a sixth the paper does not name
+
+"Conical shadow" is a family. `LI19`'s SECM makes five choices — spherical Earth, a **disc** Sun,
+umbra/penumbra/**annular**, *F*ₛ as the **true occulted-area ratio** (not linear, not a
+smoothstep), and **no atmosphere** — and all five are named in `conical.hpp` beside the code that
+makes them, so a reader who needs a different member sees which choice they are changing.
+
+The PPM differs in every one of the five. And measuring the two against the **definition** — the
+fraction of the solar disc's solid angle that is not occulted, computed with no projection in it
+at all — exposes a **sixth choice neither §3 nor the paper names**: *where the ratio is taken*.
+The SECM takes it on the **flat sky**, using angular radii as planar lengths; the PPM takes it in
+a **perspective projection**, which maps the straight lines of the occultation to straight lines.
+
+| at each orbit's terminator | \|SECM − definition\| | \|PPM − definition\| | oblateness |
+|---|---|---|---|
+| LEO, *r* = 7 331 km | **1.86 × 10⁻⁴** | 2.1 × 10⁻⁶ | **1.88 × 10⁻⁶** |
+| GPS, *r* = 26 560 km | 4.0 × 10⁻⁵ | 1.8 × 10⁻⁷ | 1.34 × 10⁻⁵ |
+| GEO, *r* = 42 164 km | 2.5 × 10⁻⁵ | 1.5 × 10⁻⁸ | 2.17 × 10⁻⁵ |
+
+**At LEO the unnamed choice is 99 times the oblateness effect the PPM is adopted for.** A study
+that swaps SECM for PPM and attributes the whole difference to the Earth's figure is wrong by two
+orders of magnitude at LEO, and right to within a factor of two only at GEO. `SHDW-A-009` asserts
+the ratio; `SHDW-Q-004` asks the manager whether it belongs in the discrepancy register, because
+it is a property of two models neither of which claims to be the other.
+
+### 25.3 Two branches that look alike in the source and are nothing alike
+
+- **The annular branch is unreachable.** An annular eclipse of the Sun by the Earth needs the
+  satellite beyond the umbra cone's apex, `SHDW-P-1` = *R*ₑ*d*/(*R*ₛ − *R*ₑ) = **1.3842 × 10⁶ km**.
+  GNSS at 26 560 km is at 1.9 % of it and the umbra there is still 6 256 km across; the apex is 52×
+  further out. The branch is implemented because it is in the model and exercised only from a
+  **synthetic** geometry, and `SHDW-A-005`'s name says so.
+- **The hyperbolic silhouette is the normal case at LEO.** `LI19` eq 24 sorts the projection by
+  |*B*|, and the hyperbola is the paper's "partial image". For a sphere the condition is
+  |cos ψ| < *R*ₑ/*r* while the terminator sits at ψ = asin(*R*ₑ/*r*); the windows overlap below
+  about 8 400 km. Measured by bisection onto the degenerate point, the boundary at *r* = 7 331 km
+  is at geocentric angle **0.5156 rad = 29.5°**, matching the closed form exactly.
+
+  So ISS, LEO and Sun-synchronous orbits are **hyperbolic** in the penumbra and GPS, Galileo and
+  GEO **elliptical**. Both branches carry real orbits, both are gated from real geometries, and
+  `SHDW-A-008` asserts 3 hyperbolic and 6 elliptical so that a run exercising one branch cannot
+  pass. This is recorded next to the annular branch precisely because the two look alike in the
+  source — a rarely-taken `if` — and are opposite in every way that matters.
+
+### 25.4 `LI19`'s five atmospheric cases do not exhaust the geometry above 1 983 km
+
+Fig. 8 gives five relative positions of the solar disc, the Earth's image and the atmosphere's
+image, and §2.6 a formula for each. In every one the disc meets **at most two** of {solid Earth,
+atmosphere, clear sky}: eq 45 carries a term for the blocked area and one for the in-atmosphere
+area and **none for a fully lit one**. That is complete exactly while
+
+> asin((*R*ₑ + 50 km)/*r*) − asin(*R*ₑ/*r*)  ≥  2 asin(*R*ₛ/*d*)  =  9.301 × 10⁻³ rad,
+
+which holds to ***r*** **= 8 361 km (altitude 1 983 km)** and fails above it. **GRACE, at 500 km,
+is inside the valid region; Galileo, at 29 600 km, is not** — and `LI19` validates against both.
+
+`SHDW-F-009` refuses there rather than invent a sixth case, because inventing one changes the
+**model** and not this implementation of it (plan §5 constraint 4). The natural extension is one
+term and is written out in `SHDW-Q-003` so the manager's decision is a decision and not a
+rediscovery. **This is stated as a gap in the printed specification and nothing more**: the
+published code may well close it, it was not read, and no claim is made about the paper's Galileo
+results. Plan §4 rule 4 — the bar for the register is higher than the bar for flagging.
+
+### 25.5 Table 2 was not attempted, and the obstacle is an account rather than the geometry
+
+`LI19` Table 2 prints 16 eclipse events for GRACE-A on 2007-01-20 with penumbra entry and exit to
+the second — **30 transitions**. The manager's premise that some were grazing was checked against
+the printed data and **does not hold**: the transit durations are 27–33 s with a 21 % spread and
+none is grazing, so all 30 are transverse crossings and all 30 would be reachable with an
+ephemeris good to about a kilometre. The geometry is therefore cleared; the obstacle is elsewhere.
+Five routes, each with what it returned:
+
+| route | result |
+|---|---|
+| CelesTrak, current elements | none: GRACE-A deorbited in 2018 |
+| CelesTrak, archived elements | behind `request.php` |
+| GFZ ISDC | registration required |
+| PODAAC | registration required |
+| space-track.org | registration required |
+
+All five need an account or a request form, and the standing prohibition on contacting anybody
+covers all of them. Recorded as `SHDW-Q-001` so that it is not re-opened as a technical question:
+it is the owner's decision, not a workaround.
+
+### 25.6 A flag retracted before it entered the register
+
+`LI19` Table 4 reports 36 where Table 3 reports 30, and this was raised as a discrepancy. **It was
+wrong and was withdrawn.** The two are different measurements: 30 is GRACE-A against its
+accelerometer (Table 3); 36 is Galileo E11 with PPM_atm as truth (Table 4) — different
+satellites, different epochs, different reference standards, all stated in the paper. Recorded
+here as a **resolution and not a discrepancy**, so that a later reader does not re-enter it. The
+manager made the asymmetry plan §4 rule 4: *a defect register is weakened by a false entry more
+than by a missing one, so the bar for entering it is higher than the bar for flagging.*
+
+### 25.7 Three faults this step found, all the same shape
+
+Every one is a check that passed, or would have passed, while never examining the thing it was
+meant to examine.
+
+1. **The comparator disagreed and refinement said why.** `SHDW-A-003` failed at 5.72 × 10⁻³
+   against a 2 × 10⁻³ bound. The obvious reading was comparator coarseness, and **refinement
+   disproved it**: grids of 1 000 … 16 000 gave 5.6723, 5.7029, 5.7184, 5.7236, 5.7264 × 10⁻³ —
+   stable, not shrinking. So it was a real disagreement, and it was in the **test**: the satellite
+   was placed by a *geocentric* angle and the model works in the angle *at the satellite* between
+   the Earth's centre and the Sun. At LEO the Earth subtends 1.055 rad and the two are nowhere
+   near equal. Corrected, the worst residual is 3.09 × 10⁻⁵. Had the tolerance been widened
+   instead, a correct implementation would have carried a permanently loosened gate to hide a
+   test's own error.
+2. **A scan that never reached what it measured.** `SHDW-A-004` reported a penumbra 1.02 rad wide
+   against a solar angular diameter of 9.3 × 10⁻³ rad. The scan ran over 0 … 0.02 rad while the
+   penumbra sits near 1.03 rad, so the lower edge was never found and the reported width was
+   `0.02 − (−1)` — the sentinel. Both corrected cases now **assert that the scan brackets the
+   transition**: `SHDW-A-004` counts umbra and sunlight samples on either side, because a window
+   lying wholly *inside* the penumbra would report the scan's own width and pass.
+3. **A degeneracy threshold anchored to 1.** The parabola test compared |*B*| against
+   `1e-18 * max(1.0, …)`. *k*₀, *k*₁, *k*₂ are quadratic forms of *A* = diag(*a*⁻², *a*⁻², *b*⁻²)
+   and run at 10⁻²⁷, so **every geometry was called a parabola** — and the sweep that found it
+   printed *"worst difference 0.000 × 10⁰ over 41 geometries"* while comparing none of them. The
+   threshold is now relative to the coefficients' own scale, and **the compared count is asserted**
+   wherever this is measured. It is the same unit error the crossing register of §21 exists to
+   catch, in a quantity that has no name in `core/units.hpp`.
+
+### 25.8 Three places the implementation departs from the printed derivation, and why
+
+| eq | printed | here | reason |
+|---|---|---|---|
+| 15 | three-case distance test on *d*, *d*_S1, *d*_S2 | *g*ᵀ*M**g* ≥ 0 **and** *g*ᵀ*A**r* < 0 | the same fact from the quantity the area needs anyway; the second factor selects the forward nappe, which is the whole difference between a hyperbola's two branches |
+| 32–33 | quartic in η, by Ferrari | the circle parametrised by its **angle** | eq 32 is the Weierstrass substitution η = tan(θ/2) and **has a pole at θ = π**, so (−*R*₀ + *t*ₓ/2, *t*ᵧ/2) is the image of no finite η and drops out of the root set. In θ it is a degree-two trigonometric polynomial — the same four roots, none missing, no resolvent |
+| 36–39 | four cases, the arch from Hughes & Chraibi (2012) | **Green's theorem** once | ½∮(*x* d*y* − *y* d*x*) is ½*AB*Δψ on an ellipse and ½σ*AB*Δτ on a hyperbola, because cos² + sin² = 1 and cosh² − sinh² = 1 do the same job. The four inside/outside × ellipse/hyperbola cases collapse to one sum |
+
+The third also settles a claim `SPEC-shadow` v1.0 made and v1.1 re-derives: v1.0 said `LI19` prints
+the **full** derivation of both models, and it does not — eq 36–39 delegate the arch to a second
+paper this tree does not hold. **The conclusion survives for a different reason than the one
+given**: the delegation is not load-bearing, because an affine map scales every area by |det| and
+the arch follows from the conic alone. Plan §4 rule 3 — a correction re-derives the whole
+statement rather than patching one term.
+
+### 25.9 What the PPM's gate rests on, and what it cannot catch
+
+The comparator is **the definition, not the other model** (plan §4 rule 2). *F*ₛ is the fraction of
+the solar disc's solid angle not occulted, and a direction is blocked iff *r* + *p**w* meets the
+ellipsoid at some *p* > 0 — no projection anywhere in it. It is **exact in the radial direction**
+(each blocked interval's ends by bisection, the radial integral as cos *a*₁ − cos *a*₂) and
+discretised only in azimuth. That mattered: a **cell count converges like 1/n and, measured, could
+not separate the two models at all** — at 150…2 400 cells both sat inside its own noise. The exact
+version converges to ≈ 1 × 10⁻⁶ at 8 000 azimuths, which is 20× tighter than the SECM's departure
+and so can tell them apart. `SHDW-A-008`'s 1 × 10⁻⁵ bound is that measured convergence, and the
+SECM would fail it.
+
+What the gate still cannot catch is a consistent misreading of `LI19`'s *geometry* that is
+internally self-consistent, because Table 2's published times are unavailable (§25.5).
+`SHDW-A-004` remains the strongest defence: the penumbra's angular width is a property of the Sun
+being a disc, and no point-source implementation can produce it.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
+| 2026-09-18 | §25 added: L4 step 1, both halves. The hyperbolic silhouette is the normal case at LEO — the opposite of the annular branch, and recorded beside it. An unnamed sixth family choice is worth 99× the oblateness the PPM is adopted for. LI19's five atmospheric cases do not cover the geometry above 1 983 km, which includes Galileo. Three faults found, all of them checks that examined nothing. |
 | 2026-09-18 | **Four specification amendments applied**, at the manager's verdict, all three module specs to v1.3: `EOP-A-003` to TN36 §8.2's published tolerance; `FRAME-R-030` corrected to require the kinematic equation-of-equinoxes terms and `FRAME-A-001` restated at 25 mm with the unexplained z-rotation left recorded; `TIME-R-021a` for `eraDtdb`'s UT1 argument; and the prediction/leap-horizon interaction as `SPEC-eop` §4.6 and `SPEC-time` §4.9. §1 and §12.5 corrected: the ITRF-path agreement is **not** "the same algorithm" but two different algorithms whose model difference cancels because each is corrected onto the observed pole, and the kinematic terms are 4 % of T-01 rather than its cause. |
 | 2026-09-18 | **L1 steps 1–4 executed and gated.** §12 added: what was built, the generated tidal tables with their agreement against the four IERS published test cases, the six errors the tests caught, the dependency capture, and the measurement showing plan §4 rule 1's required disagreement is absent on the ITRF↔GCRS path. §1 module register updated to *implemented* and gains `core`. §8.11 records the FetchContent capture. |
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |

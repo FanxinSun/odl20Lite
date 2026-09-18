@@ -97,7 +97,7 @@ def render(root: Path, doc: dict) -> str:
     a(rule())
     a("")
     a(f"  {'component':<18} {'version':<12} {'licence':<16} kind")
-    for e in doc["entries"]:
+    for e in [x for x in doc["entries"] if x.get("kind") != "literature"]:
         a(f"  {e['id']:<18} {str(e.get('version', '')):<12} {e['licence']:<16} {e['kind']}")
     a("")
     a("  Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,")
@@ -170,7 +170,8 @@ def render(root: Path, doc: dict) -> str:
                     a(line)
             a("")
 
-    quoted = [(e, licence_text(root, doc, e)) for e in doc["entries"]]
+    quoted = [(e, licence_text(root, doc, e)) for e in doc["entries"]
+               if e.get("kind") != "literature"]
     quoted = [(e, t) for e, t in quoted if t]
     if quoted:
         a(rule())

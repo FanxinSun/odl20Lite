@@ -611,7 +611,7 @@ reason the second clause of that sentence is a gate and not a description.
 
 ---
 
-### 3.5 L4 `forces-analytic` — 0 of 6 done; **the open layer**
+### 3.5 L4 `forces-analytic` — 1 of 7 done; **the open layer**
 
 Every non-gravitational force that can be written in closed form. The ray-traced treatment of
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
@@ -648,32 +648,62 @@ the MVP needs.
 > proves the schema does not **require** what a cannonball has not got. Freezing a schema that
 > only a cannonball fits would be the opposite error and is not what this says.
 
-1. **TODO** — `shadow`: conical shadow first, then the perspective-projection model with
-   atmospheric refraction. Source: Li, Ziebart, Bhattarai et al. 2019. Gate: the paper's
-   published eclipse geometry cases.
-2. **TODO** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
+1. **DONE** — `shadow`: the SECM (spherical Earth, conical) and the PPM (perspective
+   projection, ellipsoidal), from `LI19`, the first `literature` manifest entry. **The gate is
+   not the paper's Table 2**: those 16 events are GRACE-A on a named day and the paper does not
+   print the orbit that produces them, so it is L2 step 4's shape again — published outputs whose
+   inputs are not published. Every route to a GRACE-A ephemeris needs an account or a form, which
+   the standing prohibition forbids, and the search is recorded. The gate is the closed-form
+   geometry the paper prints in full.
+
+   *"Conical shadow" is a family, and `LI19`'s five choices are stated per choice with the
+   paper's own words beside them*: Earth a **sphere**, Sun a **disc**, states umbra **penumbra
+   and annular**, the penumbra value the **true occulted-area ratio** (not linear in the occulted
+   fraction, not a smoothstep), atmosphere **none**. A named model that is really a family is how
+   two correct implementations disagree by a factor nobody can find, and this layer has two such
+   models in its first two steps.
+
+   *Two branch domains, recorded together because the pair is the point.* The **annular** state
+   needs the satellite beyond the umbra's apex at ≈ 1.4 × 10⁶ km — the Moon at 384 000 km is well
+   inside — so no orbit in this plan reaches it and its test is synthetic and labelled so; a
+   branch that passes because nothing reaches it is the guard-that-cannot-fire wearing a hat.
+   The **hyperbolic silhouette** of eq 24 is the opposite case: |cos ψ| < R_e/r overlaps the
+   terminator below ≈ 8 400 km, so LEO is hyperbolic in the penumbra and GNSS elliptical, both
+   branches carry real orbits, and `SHDW-A-008` asserts **3 hyperbolic and 6 elliptical** so a run
+   that exercised one branch cannot pass. Two branches that read identically in the source and
+   are not alike at all.
+2. **TODO** — **Macromodel schema** (moved from L5 step 1 on the decomposition adopted above):
+   surfaces, areas, normals, optical coefficients, mass, centre of mass, each value carrying a
+   citation field; a value without a citation is a load error, not a warning. **Designed** for the
+   general case and **gated** on a **cannonball round-trip**, which proves the schema does not
+   *require* what a cannonball has not got — the trivial force's argument, one layer up. Frozen
+   before `srp-analytic` so that it is not shaped by its first client.
+3. **TODO** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
    Rodríguez-Solano et al. 2012. The coefficient convention is stated per model and tested — a
    sphere's (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρ_s, and conflating them is a factor of
    two in a recovered area. That is an acceptance test, not a comment.
-3. **TODO** — `drag`: the drag force over L2's atmosphere, with the drag coefficient a
+4. **TODO** — `drag`: the drag force over L2's atmosphere, with the drag coefficient a
    **registered parameter from the first commit**, never a constant. Gate: published ballistic
    coefficient cases, and the parameter's sensitivity column against finite differences.
-4. **TODO** — `erp`: Earth albedo and infrared radiation pressure. Sources: Knocke et al. 1988;
+5. **TODO** — `erp`: Earth albedo and infrared radiation pressure. Sources: Knocke et al. 1988;
    Rodríguez-Solano et al. 2012. Gate: the papers' published accelerations for a stated
    geometry.
-5. **TODO** — `thrust-yaw`: antenna thrust and the yaw-attitude laws. Sources: Steigenberger
+6. **TODO** — `thrust-yaw`: antenna thrust and the yaw-attitude laws. Sources: Steigenberger
    2018; Kouba 2009; Montenbruck et al. 2015; the official Galileo, GLONASS and BeiDou
    attitude-law documents. Gate: published yaw angles through noon and midnight turns, per
    constellation.
-6. **TODO** — `ecom`: the empirical SRP frame, D/Y/B. Source: Arnold et al. 2015. Gate: the
+7. **TODO** — `ecom`: the empirical SRP frame, D/Y/B. Source: Arnold et al. 2015. Gate: the
    published parameterisation reproduced on a GNSS arc.
 
-**Exit gate:** a GNSS arc fit with this layer's forces reaches its frozen residual, every force
-carrying its own published test case — the oracle ranks last (§4 rule 2).
+**Exit gate:** every force reproduces **its own published test case** — the oracle ranks last
+(§4 rule 2) — and an arc fit with this layer's forces reaches its frozen residual using
+**parameters stated in the test**, three numbers, no library read. The arc fit that reads a
+populated library is **L5's** exit gate, and that difference is what keeps each layer's gate
+satisfiable with what it and the layers below it have.
 
 ---
 
-### 3.6 L5 `spacecraft` — 0 of 5 done
+### 3.6 L5 `spacecraft` — 0 of 4 done
 
 The macromodel library as **data with per-value citations**, not as code.
 
@@ -682,15 +712,12 @@ The macromodel library as **data with per-value citations**, not as code.
 carried is sound and survives in the other direction: one consumer must exist to shape the
 schema, not all of them, so the schema goes to L4 and the population stays here.
 
-1. **TODO** — Schema: surfaces, areas, normals, optical coefficients, mass, centre of mass,
-   each value carrying a citation field. A value without a citation is a load error, not a
-   warning.
-2. **TODO** — GPS, from Fliegel & Gallini 1992/1996.
-3. **TODO** — Galileo, from the ESA GSC metadata published in 2017 — dimensions, mass, centre
+1. **TODO** — GPS, from Fliegel & Gallini 1992/1996.
+2. **TODO** — Galileo, from the ESA GSC metadata published in 2017 — dimensions, mass, centre
    of mass, optical coefficients and attitude law.
-4. **TODO** — GLONASS, BeiDou and QZSS, from the IAC metadata, CSNO 2019 and the Cabinet Office
+3. **TODO** — GLONASS, BeiDou and QZSS, from the IAC metadata, CSNO 2019 and the Cabinet Office
    release, consolidated through the IGS satellite metadata SINEX.
-5. **TODO** — Altimetry: Jason from the CNES box-wing macromodel (Cerri et al. 2010),
+4. **TODO** — Altimetry: Jason from the CNES box-wing macromodel (Cerri et al. 2010),
    Sentinel-6 from the ESA/EUMETSAT metadata.
 
 **The sharpest edge in the plan.** The predecessor's own surface models under `res/` and
@@ -700,8 +727,9 @@ where copyright in it is thin. Where a public source is coarser than the predece
 the answer is a model derived from published dimensions and imagery, which is this tree's own;
 not a transcription, which is not.
 
-**Exit gate:** every value resolves to a citation, and the library refuses to build if any does
-not.
+**Exit gate:** every value resolves to a citation, the library refuses to build if any does not,
+**and an arc fit whose spacecraft parameters are read from the library reaches its frozen
+residual** — the check L4's gate deliberately cannot make.
 
 ---
 

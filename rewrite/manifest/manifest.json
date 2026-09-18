@@ -2,6 +2,7 @@
   "schema": 1,
   "note": "The manifest of every external input to this tree, code and data alike. Nothing enters the tree undeclared (plan L0 step 3). Entries are pinned by URL and SHA-256, never by version range, because rule R11 applies to code for the same reason it applies to data: upstream is mutable and a resolver hides that. See MANIFEST.md for the format.\n\nARCHIVES DECLARE WHAT IS TAKEN OUT OF THEM. An archive's SHA-256 pins the container and says nothing about which of its members this tree reads. Every entry with `unpack` therefore carries `consumes` — `whole-tree` where the archive is compiled entire, `declared-members` where it is not — and a `members` list giving each individually-read member its own SHA-256: the licence text quoted verbatim into NOTICE, the file compared against a populated FetchContent tree, or a data member extracted into the cache because something outside Python needs a path to it. tools/fetch.py refuses an archive entry that declares neither. The rule was prompted by EGM2008, which ships seven members of which this tree reads two and deliberately does not open hsynth_WGS84.f, and it applies to every archive rather than to the one that revealed it.",
   "cache": "data/cache",
+  "literature": "data/literature",
   "entries": [
     {
       "id": "catch2",
@@ -568,6 +569,20 @@
       "licence_note": "NASA technical report, public domain.",
       "upstream_mutable": false,
       "verify_note": "THIS IS A 1968 SCAN AND ITS OCR IS UNUSABLE FOR THE MATHEMATICS. pdftotext renders Table X's beta block as '83_ = 841 = B_I = 8sl = B71 = Be1', and mangles even the contents page ('TABLE IN.' for III, 'SectionXVHI' for XVIII, '8O' for 80) -- the I/1 and O/0 confusions that matter most for digits. THE PAGE IMAGES ARE PERFECTLY LEGIBLE: rendered at 150 dpi, Table X (report p.65, PDF p.72) gives the coefficients as EXACT RATIONALS -- alpha = 0, 2/27, 1/9, 1/6, 5/12, 1/2, 5/6, 1/6, 2/3, 1/3, 1, 0, 1; c = 41/840, 34/105, 9/35, 9/280; TE = (41/840)(f0 + f10 - f11 - f12)h at (134). So the coefficients must be read from the IMAGES, not the text layer -- and, crucially, the transcription is then verified against the RUNGE-KUTTA ORDER CONDITIONS, which are exact algebraic identities independent of the scan. A misread digit fails them. The source's legibility is therefore not what the gate rests on.",
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "li-ziebart-2019-shadow",
+      "kind": "literature",
+      "role": "Li, Ziebart, Bhattarai & Harrison (2019), 'A shadow function model based on perspective projection and atmospheric effect for satellites in eclipse'. The derivation SPEC-shadow implements, and Table 2's 16 GRACE-A eclipse events. L4 step 1.",
+      "version": "Adv. Space Res. 63(3), 1347-1359, doi:10.1016/j.asr.2018.10.027; accepted manuscript, UCL Discovery eprint 10059978",
+      "url": "https://discovery.ucl.ac.uk/10059978/1/eclipse_model_revision3.pdf",
+      "filename": "eclipse_model_revision3.pdf",
+      "sha256": "b07c8b89333cb10e3ae0c7fd9e8be62e95680d6a2c3776b25b31840f870897fd",
+      "terms": "NOT ESTABLISHED. The search, recorded rather than its conclusion (plan rule 4): the accepted manuscript's own text contains zero occurrences of 'creative commons', 'CC BY', 'copyright', 'licence'/'license' or 'all rights reserved'. The publisher's page (sciencedirect.com/science/article/abs/pii/S0273117718307968) returns 403, and so does the UCL Discovery landing page (discovery.ucl.ac.uk/id/eprint/10059978/) to both curl and a browser-agent fetch -- which is where a green-OA deposit's terms would normally be stated. api.openalex.org reports is_oa true and oa_status green, so TERMS DO EXIST SOMEWHERE; this tree did not reach them. THE EXEMPTION THEREFORE RESTS ON THIS TREE NOT REDISTRIBUTING, not on a grant nobody found: the repository holds this URL and this hash and never the bytes, the file is fetched outside the build cache, and tools/literaturecheck.py fails if any build input can reach it.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY. Nothing derived from this paper is a copy of it and copyright does not reach the mathematics it describes. It is pinned for the reason everything else is: so that 'this was derived from that' is checkable by a future reader who fetches the same hash and gets the same bytes. Without the pin, a corrected version would silently change what SPEC-shadow claims to be derived from.",
+      "upstream_mutable": false,
+      "verify_note": "Both human-facing routes 403; the manuscript is reachable only through the path the open-access metadata names. It prints the FULL derivation of both models -- the SECM (spherical Earth conical model) and the new PPM -- as closed-form geometry, so an independent specification exists for both halves (plan rule 8). Table 2 gives 16 eclipse events for GRACE-A on 2007-01-20 with penumbra entry/exit in GPS time to the second; reproducing them needs GRACE-A's ephemeris for that day, which the paper does NOT print. Tables 3/4 take PPM_atm as the truth, so they measure model against model.",
       "retrieved": "2026-09-18"
     }
   ]

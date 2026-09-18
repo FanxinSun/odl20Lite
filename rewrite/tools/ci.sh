@@ -86,6 +86,9 @@ gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
 gate "RKF7(8)'s tableau satisfies the order conditions exactly (SPEC-integrators INTG-A-001)"
 "$PY" tools/rk_coefficients.py --check
 
+gate "no build input can reach a literature entry (plan §5 constraint 3)"
+"$PY" tools/literaturecheck.py --quiet
+
 gate "every factor of a thousand is accounted for (SPEC-dynamics DYN-R-040)"
 "$PY" tools/unitcheck.py --quiet
 
