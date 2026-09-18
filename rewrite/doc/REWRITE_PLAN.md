@@ -302,7 +302,7 @@ uniform scale, which is also the realistic path since the dynamics works in TT/T
 
 ---
 
-### 3.3 L2 `environment` — 0 of 4 done; **the open layer**
+### 3.3 L2 `environment` — 2 of 4 done; **the open layer**
 
 Everything the spacecraft moves through or is pulled by, with no reference to the spacecraft
 itself. A gravity field is the environment; a drag force is a spacecraft property and lives in
@@ -373,6 +373,16 @@ grid scan.
    `accel(t, state, params) -> (a, da/dstate, da/dparams)`. Defined and frozen **before any
    force exists**, because retrofitting it is how the predecessor ended up unable to estimate
    drag at all.
+
+   This step also discharges the half of L2 step 2's crossing condition that could not be
+   discharged there. `odl/core/units.hpp` names the km/metre crossing and tests it, but it has
+   no callers — nothing before L3 builds a field position from a state — so `FRAME-R-062`'s
+   *no other site performs it* is a requirement with nothing enforcing it. The plugin surface is
+   the first place a state in km meets an acceleration in m s⁻², and it is the site `SPEC-dynamics`
+   must name. *Gate:* the surface states where the crossing happens; a CI gate fails on a km↔m
+   scaling written anywhere outside `core/units.hpp`, and is demonstrated to fail by an injected
+   one. A gate that is green because no second site exists yet is worth having for exactly that
+   reason — it turns red on the day one is written, which is the day it matters.
 2. **TODO** — Integrators: RK4 and a DP8(7)- or RKF7/8-class variable-order scheme. Gate: the
    analytic two-body solution, with step-size insensitivity demonstrated rather than assumed.
 3. **TODO** — State transition matrix, integrated alongside the state. Gate: agreement with
