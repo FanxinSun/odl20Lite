@@ -1062,6 +1062,18 @@ governs. Three rules apply to all of them:
    is a correction to this plan and is recorded as one; a gate quietly satisfied by something
    else is not.
 
+   **And a defect register is weakened by a false entry more than by a missing one, so the bar
+   for entering it is higher than the bar for flagging.** L4 step 1: the executor flagged a
+   paper's "36 penumbra transitions" against another table's 30; the manager, instead of asking
+   whether it was established, told them to record it in `PROVENANCE.md`'s discrepancy register
+   and built an inference on top of it. The sentence that resolves it is **two lines from the
+   number** — two satellites, two epochs, two reference standards, all stated plainly, and the
+   different populations are the paper's design rather than its error. The register's whole value
+   is that a reader trusts what is in it, so a non-defect recorded there costs more than a defect
+   missed. **A finding of defect is recorded with the reading that established it, and the
+   adjacent sentences are part of that reading.** What goes in instead, when a flag resolves, is
+   the resolution — so the next reader who notices the same two numbers does not re-open it.
+
 ## 5. Design constraints, binding every layer
 
 *(Numbered stably — the adopted specifications cite these as "plan §5 constraint n".)*
