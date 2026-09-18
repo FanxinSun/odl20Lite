@@ -863,6 +863,15 @@ governs. Three rules apply to all of them:
    denominator and fails on a literal that is neither. A search converges on flagging nothing; a
    register converges on accounting for everything, and it makes the permitted set **legible as a
    set**, which is what lets a reader see that nothing is hiding in it.
+
+   **And an estimate that is exactly zero is safer than one that is rounding noise.** RKF7(8)'s
+   error estimate cancels identically on a quadrature problem — α₀ = α₁₁ and α₁₀ = α₁₂, and the
+   *y* argument is ignored, so the four evaluations are pairwise bit-identical. Written the way
+   `TR R-287` writes it, `(f0 + f10) - f11 - f12` **rounds before it subtracts** and returns
+   ≈ 1.1 × 10⁻¹⁶ instead of 0. An exactly-zero estimate is honestly blind and the controller is
+   visibly degenerate; noise *wearing the shape of an estimate* is responded to, looks plausible,
+   and announces nothing. **Group so that a degenerate quantity comes out degenerate** — which is
+   also better conditioned near the degeneracy, where the naive ordering loses most.
 6. **A reference implementation is an oracle when a specification exists that it implements, and
    is itself normative when none does — and the difference is a search, not a preference.** Rule
    2 ranks an oracle last because an independent description of the same computation exists to
