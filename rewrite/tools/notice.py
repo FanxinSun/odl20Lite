@@ -145,6 +145,29 @@ def render(root: Path, doc: dict) -> str:
                                           initial_indent="    note      ",
                                           subsequent_indent="              "):
                     a(line)
+            # A FILE'S LICENCE CAN DIFFER BY COLUMN, and the entry's own licence
+            # field states the licence of WHAT THIS TREE CONSUMES.  Anyone who
+            # fetches the file gets the rest of it, whether or not this tree
+            # reads it, so NOTICE has to say so: this is the licence document a
+            # downstream reader consults, and "CC-BY-4.0" alone would be true of
+            # our use and misleading about the file.
+            for lic, cols in (e.get("licence_excluded") or {}).items():
+                a(f"    EXCLUDED  {lic}: {', '.join(cols)}")
+                for line in textwrap.wrap(
+                        f"the file contains the above under {lic}, which is NOT the licence "
+                        f"named above and NOT on this tree's permissive allowlist. This tree "
+                        f"does not read it, and tools/fetch.py refuses a manifest entry that "
+                        f"declares any of those columns as consumed. A reader who fetches the "
+                        f"file for their own use is subject to {lic} for that part of it.",
+                        width=WIDTH, initial_indent="              ",
+                        subsequent_indent="              "):
+                    a(line)
+            cols = (e.get("columns") or {}).get("declared")
+            if cols:
+                for line in textwrap.wrap("consumed: " + ", ".join(cols), width=WIDTH,
+                                          initial_indent="    columns   ",
+                                          subsequent_indent="              "):
+                    a(line)
             a("")
 
     quoted = [(e, licence_text(root, doc, e)) for e in doc["entries"]]

@@ -10,6 +10,17 @@
 | **Depends on** | `SPEC-time.md` (the TDB argument), `core` |
 | **Depended on by** | third-body attraction (L2 step 3), radiation pressure (L4), light-time (L6) |
 
+**On `IAU2012-B2`'s locator, said here rather than left to §10.** The resolution is served by
+**SYRTE (Observatoire de Paris)**, not by the IAU. The IAU's own published location no longer
+answers: searched 2026-09-18, `https://www.iau.org/static/resolutions/IAU2012_English.pdf`
+returns 404 over both http and https, as do `.../IAU_2012_English.pdf`,
+`https://iau.org/administration/resolutions/`,
+`https://www.iau.org/administration/resolutions/general_assemblies/` and `.../ga2012/`. That
+bounds the search; it does not establish that the IAU publishes no copy anywhere. SYRTE hosts
+the IERS Conventions Centre and serves the individual resolution text, and what is pinned is
+that text — read, not merely fetched: recommendation 1 is the exact metre value and
+recommendation 2 the time-scale independence.
+
 **Derivation declaration (plan R1).** This specification was written from the documents
 listed in §2 and from no implementation of this module.
 
@@ -70,7 +81,7 @@ else in the layer either acts on a spacecraft or is a property of the Earth, and
 | `TESTPO` | JPL Solar System Dynamics | `testpo.440` — the published verification set for DE440 | DE440 | `https://ssd.jpl.nasa.gov/ftp/eph/planets/ascii/de440/testpo.440` (retrieved 2026-09-18) | **primary** | normative (acceptance values) |
 | `CALCEPH` | IMCCE / Observatoire de Paris | CALCEPH library, source, `LICENSE` and documentation | **4.0.5**, June 2025 | `https://www.imcce.fr/recherche/equipes/asd/calceph/` (retrieved 2026-09-18) | **primary** | interface — **triple-licensed; see §3.4** |
 | `TN36-1` | IERS | *IERS Conventions (2010)* TN 36 ch. 1, Table 1.1 — numerical standards | 2010 | held; see `SPEC-time.md` §2 | primary | normative |
-| `IAU2012-B2` | IAU | Resolution B2 (2012) — the astronomical unit is 149 597 870 700 m exactly | 2012 | cited **through** `PARK21` §2, which states the value and the adoption | **secondary** | normative for one constant — see `EPH-Q-005` |
+| `IAU2012-B2` | IAU | Resolution B2 (2012) — the astronomical unit is 149 597 870 700 m exactly, **and is used with all time scales** | adopted by the XXVIII General Assembly, Beijing, 30 August 2012 | `https://syrte.obspm.fr/IAU_resolutions/Res_IAU2012_B2.pdf`, retrieved 2026-09-18, SHA-256 `3489ebb1…c984`, 107 641 bytes. **Served by SYRTE, not by the IAU** — see below | primary | normative |
 
 ---
 
@@ -372,7 +383,7 @@ its place rather than being cargo.
 | `EPH-Q-002` | **Kernels are too large to pass as bytes.** `de440.bsp` is ~114 MB; `SPEC-eop.md` §5's "loaders take bytes" convention does not carry. | **RULED 2026-09-18: paths, for kernels specifically, and the exception is named here so it does not spread.** The loaders-take-bytes convention exists to keep loaders pure and testable; at 114 MB memory-mapped it costs more than it buys. The hash remains the fetcher's job **before** the path is handed over, and `provenance()` records it — so nothing is read that was not declared, which is the property the convention was protecting. **This exception is for kernels and for nothing else:** every other loader in this tree continues to take bytes. |
 | `EPH-Q-003` | **Which kernel?** `de440.bsp` is 114 MB and spans 1550–2650; `de440s.bsp` is ~32 MB and spans 1849–2150. `testpo.440` has cases outside the short kernel's span, so the short one would skip a large share of the gate. | **RULED 2026-09-18: pin both, and the full sweep must actually RUN at this step's gate** — not merely be possible. `de440s.bsp` for routine use, `de440.bsp` for the complete `EPH-A-001` sweep, and **the case count each exercises is recorded in `PROVENANCE.md`**. "Pinned both, CI uses the short one" decays into the full coverage being notional within two layers; the gate already reports its denominator, so saying this costs nothing. |
 | `EPH-Q-004` | **Is CALCEPH needed at all?** `SPK-RR` is a published format specification and the tree already reads two IERS formats itself. CALCEPH brings a French triple licence, an autotools build, and a dependency whose own build must be audited. | **RULED 2026-09-18: keep CALCEPH.** The plan decided it, it is well tested, and its `_unit` API removes the unit conversion from this tree's code entirely. Recorded because the reasons against are real and someone will ask. Re-examine only if the CeCILL-B choice is ever challenged. |
-| `EPH-Q-005` | **IAU 2012 Resolution B2 is cited through `PARK21`**, not obtained directly. The constant is not in doubt — `PARK21` states both value and adoption — but §2 carries a `secondary` row, which the template says must appear here. | Retrieve the resolution text before L2 closes. Nothing in §§4–8 depends on it beyond a constant that `EPH-A-003` checks against the kernel itself. |
+| `EPH-Q-005` | **IAU 2012 Resolution B2 was cited through `PARK21`**, not obtained directly. | **RESOLVED 2026-09-18, before L2 closes, as its disposition required.** The resolution is obtained and pinned (`iau2012-b2`), and §2's row is primary. Reading it rather than citing it added something the secondary route did not carry: recommendation 2 says the definition is **used with all time scales such as TCB, TDB, TCG, TT** — so the au carries *no* time-scale dependence, unlike the GM values of `PERT-A-028` where the TDB/TCB rate *L*_B is precisely what separates two published numbers. That is worth having stated by the resolution itself in a layer that has spent this much effort on *L*_B. |
 | `EPH-Q-006` | **`SPEC-template.md` has no post-merge derivation declaration.** Its block asserts the clean-room separation, which ended on 2026-09-18. Every spec from here cannot use it, and each author will improvise. | **RESOLVED 2026-09-18 at the template**, not per spec. `SPEC-template.md` §2 now carries a **Predecessor access** block which drops the impossibility claim and keeps a checkable one, and the manager extended the forbidden list beyond what this spec had proposed: `analysis/`, `analyses/`, `REVIVAL.md` and `PROVENANCE.md` describe the predecessor's internals as directly as its source does. This specification's front matter uses that block **verbatim**. |
 
 ---

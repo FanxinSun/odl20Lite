@@ -302,7 +302,7 @@ uniform scale, which is also the realistic path since the dynamics works in TT/T
 
 ---
 
-### 3.3 L2 `environment` — 3 of 4 done; **the open layer**
+### 3.3 L2 `environment` — **4 of 4 done; exit gate passed 2026-09-18**
 
 Everything the spacecraft moves through or is pulled by, with no reference to the spacecraft
 itself. A gravity field is the environment; a drag force is a spacecraft property and lives in
@@ -387,9 +387,14 @@ layer is open.
    is printed, against the Conventions' own words for it. ψ₁ is where it bites — its printed
    correction is 83.5% of its δ*k*^I where P₁'s is 1.3% — and it is the constituent whose
    imaginary residual is already flagged as anomalous.
-4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
-   space-weather ingestion with its own manifest entries. **There are no published reference
-   profiles.** Established by search, 2026-09-18, over all five files NRL distributes: the
+4. **DONE** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
+   space-weather ingestion with its own manifest entries. The port reproduces the reference to
+   **2.33 × 10⁻¹⁶ — about one ulp — over 1 238 material comparisons across 125 cases**, and the
+   single porting error was diagnosed by its own signature: every species below 72.5 km high by
+   *exactly the same factor*, which says the fault is in something they all multiply and turns
+   "wrong somewhere below 72.5 km" into three candidates.
+
+   **There are no published reference profiles.** Established by search, 2026-09-18, over all five files NRL distributes: the
    driver publishes 17 fully specified input cases and no expected output (0 occurrences each of
    OUTPUT, RESULT, SAMPLE, COMPARE, EXPECTED below line 2438); `datavsmodels.txt` and the
    companion `.doc` publish 27 tables of data-minus-model statistics, which are not model output
@@ -404,14 +409,54 @@ layer is open.
    the 17 cases carry F10.7 and Ap as literal constants: that layer is gated separately, on
    coverage, class and the recomputed centred mean.
 
-**Exit gate:** every model reproduces its published reference values **where they exist**, and
+   **Three findings from the step that outlive it.** The reference is **single precision
+   throughout** — no `DOUBLE PRECISION`, no `REAL*8`, no `.D0` — so the model's own value is
+   uncertain, and a sweep across every branch boundary put the worst single-vs-double difference
+   at 7.9 × 10⁻³, a thousand times the 17 cases' figure. Every large one is a quantity of order
+   10⁻³⁰ to 10⁻³⁷ approaching single's underflow: one phenomenon in three regimes, not a
+   tolerance with an exception bolted on. The class boundary is therefore **physical** — a
+   species contributing less than 10⁻¹⁵ of total density cannot affect drag — and it is stable
+   across three decades of threshold, with class A's worst remaining argon at 1000 km, which is
+   published case 3. Adding 1 056 comparisons left the bound where the 17 cases put it, which is
+   a stronger result than "the sweep passed". That boundary is a **drag** boundary and the API
+   says so: mass density always returns, and a number density the model does not resolve is a
+   refusal.
+
+   The coefficients are **stored under names the model never uses** — sixty-four 50-element
+   arrays in `BLOCK DATA`, the same 3 200 words declared as `pt(150)`, `pd(150,9)`, `ps(150)`
+   and the rest, with the boundaries not falling where the letters do. An extractor taking the
+   DATA names at face value produces nine arrays the model never indexes and they look
+   plausible. 2 020 of the 3 300 literals are **zero**, so a spot check lands on
+   zero-against-zero more often than not; all 3 300 are verified, 1 280 of them non-zero.
+
+   **Space weather is the first input in this tree that is not frozen**, and the answer needs no
+   special case: pin by hash, never fetch at run time, refuse outside usable coverage naming
+   *which quantity* ran out, recompute derived columns, carry the snapshot's identity into every
+   result, and let updating be a manifest change that §5 constraint 9 already makes re-run every
+   gate. GFZ is primary and DRAO the independent cross-check — **7 969 of 7 969 exact** over the
+   overlap, with 16 duplicate-timestamp dates settled first-wins by the 16 cases that
+   discriminate. CelesTrak is dropped: its own centred-81-day column is **wrong wherever it is
+   predicted** — 176 of 25 333 rows, all of them PRD or PRM and none OBS or INT, worst 30.07 sfu
+   — so it is exact for sixty-nine years of history and arbitrary for every forecast epoch, with
+   nothing in the file saying so.
+
+**Exit gate — PASSED 2026-09-18.** `tools/ci.sh` exits 0: 10 gates, 211 tests, 634 artefacts
+byte-identical, 29 manifest entries verifying, NOTICE regenerated from the manifest. `EPH-Q-005`
+resolved before the close as its disposition required — IAU 2012 Resolution B2 obtained and
+pinned rather than cited through a secondary, which turned out to carry something the citation
+did not: the au is used with **all** time scales, so unlike the GM values of `PERT-A-028` it has
+no TDB/TCB dependence. The criterion for a step being reported complete is now that exit code,
+not a list of individually passing tools — the one that fails is the one not on the list.
+
+*The gate as originally written:* every model reproduces its published reference values **where
+they exist**, and
 where they do not, the specification records the search that established their absence and names
 what stands in their place with the cost of the substitution stated (§4 rule 6); and every
 external table in the layer is manifest-declared with a hash.
 
 ---
 
-### 3.4 L3 `dynamics` — 0 of 4 done
+### 3.4 L3 `dynamics` — 0 of 4 done; **the open layer**
 
 Small in code and the hinge of the design: this is where the predecessor's fixed-width
 sensitivity block becomes a registry, which is what later gives a joint covariance instead of a

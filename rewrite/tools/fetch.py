@@ -383,6 +383,47 @@ def cmd_verify(root: Path, doc: dict, args) -> int:
               "  with their own SHA-256. An archive hash says nothing about what is taken out\n"
               "  of an archive.")
 
+    # A COLUMN LIST IS TO A TABLE WHAT A MEMBER LIST IS TO AN ARCHIVE.
+    #
+    # The archive guard above exists because an archive's hash says nothing about
+    # WHICH MEMBER this tree reads out of it.  The same hole opens in a plain
+    # table whose columns do not all carry the same licence: `gfz-kp-ap-f107` is
+    # CC BY 4.0 except its sunspot column, which is CC BY-NC 4.0.
+    #
+    # The first version of this guard asked the entry to declare the COMPOUND
+    # licence, and that was wrong: it would have put a non-commercial term on the
+    # allowlist, which is exactly what the allowlist exists to prevent.  An entry
+    # instead declares the licence OF WHAT THIS TREE CONSUMES, and names any
+    # other licence in the file under `licence_excluded` with the columns that
+    # carry it.  Then the allowlist keeps its meaning and the exclusion is
+    # checkable rather than asserted (SPEC-atmosphere ATMO-R-032, ATMO-F-016).
+    for e in fetchable(doc):
+        excluded = e.get("licence_excluded") or {}
+        if not excluded:
+            continue
+        declared = (e.get("columns") or {}).get("declared")
+        if not declared:
+            die(MALFORMED,
+                f"{e['id']} excludes licensed content but declares no columns.\n"
+                "  A file whose licence differs BY COLUMN is the case a headline-licence\n"
+                "  check cannot see. Declare 'columns': {'declared': [...], 'excluded': {...}}\n"
+                "  so the claim is checkable rather than asserted.")
+        for lic, cols in excluded.items():
+            overlap = sorted(set(cols) & set(declared))
+            if overlap:
+                die(MALFORMED,
+                    f"{e['id']} declares column(s) {', '.join(overlap)} as consumed, but they\n"
+                    f"  carry {lic}, which this entry excludes. Either the licence is wrong or\n"
+                    "  this tree is reading something it says it does not.")
+
+    badcols = [e for e in fetchable(doc)
+               if e.get("consumes") == "declared-columns"
+               and not (e.get("columns") or {}).get("declared")]
+    if badcols:
+        die(MALFORMED,
+            "an entry says it consumes declared columns but lists none: "
+            + ", ".join(e["id"] for e in badcols))
+
     for e in ok:
         print(f"ok       {e['id']:<16} {e['sha256'][:16]}…  {entry_path(root, doc, e)}")
         try:
@@ -396,6 +437,11 @@ def cmd_verify(root: Path, doc: dict, args) -> int:
             print(f"  member {m['member']:<30} {m['sha256'][:16]}…  verified {where}")
         if names:
             print(f"  consumes {e['consumes']}, {len(names)} member(s) read individually")
+        cols = (e.get("columns") or {}).get("declared")
+        if cols:
+            excl = (e.get("columns") or {}).get("excluded") or {}
+            print(f"  consumes {e['consumes']}, {len(cols)} column(s) declared, "
+                  f"{len(excl)} excluded by name")
     for e in fetchable(doc):
         if e in missing:
             print(f"MISSING  {e['id']:<16} {e['url']}", file=sys.stderr)
@@ -563,6 +609,17 @@ PERMISSIVE_LICENCES = {
                      "unrestricted use. Data, never linked.",
     "NASA-PUBLIC":   "not an SPDX identifier: NASA/JPL published data products (NAIF generic\n"
                      "                    kernels, JPL SSD test sets). Data, never linked.",
+    "CC-BY-4.0":     "Creative Commons Attribution 4.0; permissive with attribution. NOT\n"
+                     "                    CC-BY-NC-4.0 or CC-BY-SA-4.0, which are different licences that\n"
+                     "                    differ from it by one token in the identifier.",
+    "OGL-CANADA-2.0": "not an SPDX identifier: Open Government Licence - Canada 2.0, the\n"
+                     "                    default for Government of Canada data. Attribution only. Data, never linked.",
+    "IAU-PUBLIC":    "not an SPDX identifier: International Astronomical Union resolutions,\n"
+                     "                    published standards documents adopted by General Assembly vote.\n"
+                     "                    Text, never linked.",
+    "NRL-PUBLIC":    "not an SPDX identifier: US Naval Research Laboratory work released to\n"
+                     "                    the public domain and distributed without restriction. NRLMSISE-00 is\n"
+                     "                    compiled into the TEST SUITE only (ATMO-R-027), never the library.",
     "NGA-PUBLIC":    "not an SPDX identifier: NGA published geospatial standards and models\n"
                      "                    (EGM2008, WGS 84). Unrestricted use; the EGM2008 README asks for a\n"
                      "                    citation, which PROVENANCE.md §4 carries. Data, never linked.",

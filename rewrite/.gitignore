@@ -9,3 +9,6 @@
 # hash, recorded in the manifest and in run provenance — never the file in the
 # tree. Re-fetchable data is not version-controlled; its hash is.
 /data/cache/
+
+# generator scratch (tools/msis_reference.py builds the Fortran oracle here)
+tools/.msisref/

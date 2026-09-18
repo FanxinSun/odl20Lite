@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `ATMO` |
-| **Status** | **draft** 2026-09-18, for review |
-| **Version** | 1.0 |
+| **Status** | **adopted** 2026-09-18; **amended the same day** by the manager's rulings on all six questions |
+| **Version** | 1.1 |
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 4 (`doc/REWRITE_PLAN.md` §3.3) |
 | **Depends on** | `SPEC-time.md` (the epoch and the day-of-year), `SPEC-frames.md` (geodetic latitude, altitude above the ellipsoid), `SPEC-gravity.md` (the reference ellipsoid), `core` |
@@ -93,9 +93,11 @@ what is there is a test driver with published *inputs* and no output at all.
 
 ### 0.5 What follows for the plan
 
-Three sentences of the plan are wrong about their source and want rewording. This specification
-proposes the replacements and §10 `ATMO-Q-001` puts them to the manager, since a plan change is
-the manager's and not this session's.
+Three sentences of the plan were wrong about their source. **All three were reworded and pushed
+(72c68ca), and the general form is now plan §4 rule 6**, which settles the question as a
+distinction rather than an exception: *a reference implementation is an oracle when a
+specification exists that it implements, and is itself normative when none does — and the
+difference is a search, not a preference.* The proposed replacements, as adopted:
 
 | where | present wording | proposed |
 |---|---|---|
@@ -141,17 +143,26 @@ last — `SPEC-drag`'s coefficient literature and L9's ray-tracing papers are th
 | `MSIS-STATS` | NRL | `NRLMSISE-00_2002JA009430-datavsmodels.txt` — 27 tables of data-minus-model statistics | AGU electronic dataset archive, 2002 | `…-datavsmodels.txt`, retrieved 2026-09-18, SHA-256 `7946e4cb…b8aa`, 42 167 bytes | primary | informative (**not reproducible** — §0.3) |
 | `MSIS-README` | NRL | `NRLMSISE-00_2002JA009430-readme.txt` — the formulas for `MEAN` and `SD` | 2002 | `…-readme.txt`, retrieved 2026-09-18, SHA-256 `3a6e3d6f…58dc`, 3 845 bytes | primary | normative (for §6's accuracy statement only) |
 | `MSIS-TABLES` | NRL | `NRLMSISE-00_2002JA009430_tables-datasets.doc` — the same 27 tables | 2002 | `…_tables-datasets.doc`, retrieved 2026-09-18, SHA-256 `abe2b44c…4771`, 116 224 bytes | primary | informative (duplicate of `MSIS-STATS`) |
-| `CELESTRAK-SW` | CelesTrak (T. S. Kelso) | `SW-All.csv` — daily Kp/Ap, F10.7 observed and adjusted, 81-day centred and trailing means, with a per-row data-type flag | continuously updated; snapshot of 2026-09-18 covers 1957-10-01 … 2041-10-01, 25 413 rows | `https://celestrak.org/SpaceData/SW-All.csv`, retrieved 2026-09-18, 2 887 903 bytes | primary | normative (dataset) — **and the only non-frozen input in the tree, §4.5** |
-| `NOAA-FLUX` | NOAA NGDC | the 10.7 cm flux archive named in `MSIS-FOR`'s own header comment | — | `ftp://ftp.ngdc.noaa.gov/STP/SOLAR_DATA/SOLAR_RADIO/FLUX/` | **not obtained** — the FTP host named in a 2002 comment is not reachable | informative |
-| `DRAO` | Natural Resources Canada / DRAO | the Penticton 10.7 cm flux, the measurement `CELESTRAK-SW` redistributes | — | — | **not obtained** | informative |
+| `GFZ-KP` | GFZ Helmholtz Centre for Geosciences, Geomagnetic Observatory Niemegk | `Kp_ap_Ap_SN_F107_since_1932.txt` — Kp₁₋₈, ap₁₋₈, Ap, SN, F10.7obs, F10.7adj, and a definitive/preliminary flag | continuously updated; 2026-09-18 snapshot covers 1932-01-01 … 2026-09-17, 34 594 daily rows | `https://kp.gfz-potsdam.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt`, retrieved 2026-09-18, 5 504 038 bytes | primary | **normative (dataset), and the issuing authority for Kp, ap and Ap** |
+| `DRAO-FLUX` | Dominion Radio Astrophysical Observatory / Natural Resources Canada | `fluxtable.txt` — the Penticton 10.7 cm flux, three readings a day, observed and adjusted and URSI-corrected | continuously updated; 2026-09-18 snapshot covers **2004-10-28** … 2026-09-17, 23 951 lines | `https://www.spaceweather.gc.ca/solar_flux_data/daily_flux_values/fluxtable.txt`, retrieved 2026-09-18, 2 179 541 bytes | primary | **normative (dataset), and the issuing authority for F10.7** — used as the independent cross-check of §4.3a |
+| `TAPPING13` | Tapping, K. F. | *The 10.7 cm solar radio flux (F10.7)* | Space Weather **11**, 394–406, 2013 | doi:10.1002/swe.20064 | **not obtained** | informative — the reference `GFZ-KP` cites for the local-noon convention |
+| `NOAA-FLUX` | NOAA NGDC | the 10.7 cm flux archive named in `MSIS-FOR`'s own header comment | — | `ftp://ftp.ngdc.noaa.gov/STP/SOLAR_DATA/SOLAR_RADIO/FLUX/` | **not obtained** — the FTP host named in a 2002 comment does not answer in 2026 | informative |
+
+**CelesTrak was in this table at v1.0 and is gone.** `SW-All.csv` was chosen for convenience —
+one file, both quantities, derived columns, a data-class flag. `ATMO-A-008`'s measurement removed
+the reason: its derived centred column is exact on observation and wrong on every forecast row,
+and the derived columns were the only thing convenience was buying, since `ATMO-R-019` recomputes
+them anyway. A redistributor whose derived column is wrong wherever it is predicted adds error
+rather than value. It is **not** retained alongside for comparability; where a redistribution is
+wanted it is declared as one, names its upstreams, and is never primary.
 
 **On `NOAA-FLUX`, said here rather than left to §10.** `MSIS-FOR`'s header names an FTP path as
 the place to obtain both the observed and the 1-AU-adjusted flux. That host does not answer in
 2026. Nothing in §§4–8 depends on it *as a document*: what it was cited for is the distinction
 between the two flux classes, and that distinction is stated in `MSIS-FOR`'s own header text,
-which is pinned. `CELESTRAK-SW` supplies both classes in named columns. The dead locator is
-recorded because a reader checking this specification's citation would otherwise find a dead
-link and not know whether it had ever been checked.
+which is pinned, and again in `GFZ-KP`'s. The dead locator is recorded because a reader checking
+this specification's citation would otherwise find a dead link and not know whether it had ever
+been checked.
 
 ---
 
@@ -169,6 +180,13 @@ and how the result compares to observation. **It does not define the function.**
 roughly 1 500 fitted coefficients together with the code that combines them, and both live only
 in `MSIS-FOR`. There is no closed form to implement independently, and there is no published
 value to check against (§0).
+
+**This is now plan §4 rule 6**, adopted 2026-09-18: *a reference implementation is an oracle when
+a specification exists that it implements, and is itself normative when none does — and the
+difference is a search, not a preference.* The rule carries three obligations, and this
+specification discharges them in §0.2 (the search, with its counts), in §8 (the cost, stated
+where a reader meets it) and in `ATMO-R-014` (a second axis — the documented total-density
+relation, checkable without the reference's arithmetic).
 
 - **ATMO-R-001.** For this module, *the model* means the function computed by `MSIS-FOR` at the
   pinned hash. `PICONE02` is normative for what the quantities *mean* — which index is which
@@ -199,6 +217,36 @@ This has one consequence that must be stated plainly rather than discovered late
   which is where an unexpected condition goes to be unnoticed. `ATMO-A-019` fires each by
   construction, as plan §4 rule 5 requires of every guard in this tree.
 
+- **ATMO-R-036.** **The materiality threshold of `ATMO-P-1` is a *drag* threshold, and it must
+  not become the module's tolerance.** "A species whose mass contributes less than 10⁻¹⁵ of total
+  density cannot affect drag" is a statement about drag, and this module returns **nine species
+  densities**. A consumer taking anomalous oxygen at 110 km for surface erosion — not
+  hypothetical; it is a mechanism that degrades a solar sail — would inherit a tolerance derived
+  from a question it is not asking, and class C would hand it a **hard zero with no warning**.
+
+  So the distinction is in the API, not only in the generated file's header:
+
+  * `ATMO-P-3`'s tolerance is stated as applying to **total mass density and to drag**;
+  * a **species** density carries whether the model resolves it. Its mass contribution is always
+    available, because an unresolved species contributes a mass indistinguishable from zero and
+    that *is* the right answer for drag;
+  * its **number density** is a refusal where the model does not resolve it (`ATMO-F-017`). For
+    that consumer class C is not a precision class, it is a refusal — the value is not a small
+    density, it is *below what this model resolves*, and those are different claims.
+
+  `ATMO-A-027`. Plan §5 constraint 10 again: what a value means belongs in its type.
+
+- **ATMO-R-035.** **This layer's atmosphere row goes in `tests/l2_floors.cpp`**, where plan §4
+  rule 3 requires quantities that must be compared to be measured in one place. Two things make
+  this row unlike the others and both are required of it. It carries its **uncertainty as well as
+  its magnitude** — for every other row those are the same question and here they are not, and it
+  is the uncertainty that dominates L4's budget. And it is measured at **both radii**, because
+  drag is the one term in that table that varies over orders of magnitude across the regime and a
+  single reference point would make the table lie in the way rule 3 exists to prevent. Each row
+  states its own reference point; that is the rule working, not a departure from it. The
+  uncertainty is reported with the **altitude, activity level and epoch** it was measured at
+  (`ATMO-P-4`), never as a bare percentage. `ATMO-A-026`.
+
 - **ATMO-R-027.** `MSIS-FOR` is compiled **only** into the test suite, never into the library.
   The oracle is a check, not a dependency, and a production build must not require a Fortran
   compiler. §8 states how the suite behaves where none is present.
@@ -216,32 +264,49 @@ measured, by compiling the *same source* twice with `gfortran-16` — once as wr
 published input cases (`ATMO-A-002`).
 
 - **ATMO-P-1.** Relative difference *r* = |*x*ₛ − *x*_d| / |*x*_d| between the single-precision
-  build and the promoted-double build of the same source, over 17 cases × 12 quantities = 204
-  comparisons, of which **20 have a zero denominator** (§3.4's documented zeros) leaving **184**:
+  build and the promoted-double build of the same source, over the 17 published cases **and a
+  sweep crossing every branch boundary of §3.6** — 125 records × 12 quantities = **1500**
+  comparisons. Every one is classified by whether it can affect a drag calculation at all:
 
-| | |
-|---|---|
-| median | 3.816 × 10⁻⁷ ( ≈ 6 × single-precision ε) |
-| worst, excluding the underflow class below | 7.671 × 10⁻⁶ — case 3, argon, 1000 km |
-| exceeding 10⁻⁵ | 2, and both are the underflow class |
-| single-precision ε | 5.960 × 10⁻⁸ |
+  | class | | count | worst *r* |
+  |---|---|---|---|
+  | **A** | material | 1238 | **7.6706 × 10⁻⁶**, median 2.8108 × 10⁻⁷ |
+  | **B** | immaterial | 32 | 7.8739 × 10⁻³ |
+  | **C** | underflowed in the reference | 18 | — (single returns exactly 0) |
+  | **Z** | zero in both | 212 | — |
 
-The worst cases are the **heavy minor species at high altitude**, where diffusive equilibrium
-carries a large exponential and single-precision rounding in its argument is amplified: argon at
-1000 km moves by 7.7 × 10⁻⁶ between the two builds of one source. The model's own value is
-therefore defined to about **six significant figures at 400 km and five at 1000 km**, and no
-tolerance in §8 may be tighter than that.
+  **The sweep changed the shape of this measurement and is why it exists.** Over the 17
+  published cases alone the artefact looks like a single number — median ≈ 4 × 10⁻⁷, worst
+  7.7 × 10⁻⁶. Over the sweep the worst is **7.9 × 10⁻³, a thousand times larger** — and every one
+  of those large differences is a quantity of order 10⁻³⁰ to 10⁻³⁷: anomalous oxygen at 110 km,
+  argon at 2000 km, hydrogen at 72.5 km.
 
-### 3.3 The underflow class, which is not a tolerance question
+  **It is one phenomenon in three regimes, not a tolerance with an exception bolted on.** Single
+  precision's smallest normal is 1.18 × 10⁻³⁸; these are values approaching that boundary, losing
+  significance continuously on the way down, until they cross it and become §3.3's hard zeros.
 
-- **ATMO-P-2.** Two of the 184 comparisons differ by exactly 1.000: anomalous oxygen at 100 km,
-  in case 4 and in case 17. The single build returns **exactly zero**; the promoted-double build
-  returns **2.820 × 10⁻⁴²** and **2.415 × 10⁻⁴²** cm⁻³. Single precision's smallest normal is
-  1.175 × 10⁻³⁸, so the intermediate underflows to zero before a result can be formed, while in
-  double it survives.
+  So the class boundary is drawn **physically, not numerically**: a species whose mass contributes
+  less than 10⁻¹⁵ of the total density cannot affect drag at any precision. That threshold is
+  **not tuned** — class A's worst is 7.671 × 10⁻⁶ at 10⁻¹², the same at 10⁻¹⁵, and only
+  1.1 × 10⁻⁵ at 10⁻²⁰. Stable across three decades is what distinguishes a principled boundary
+  from a fitted one.
 
-A double-precision port therefore **disagrees with the reference by 100 % at two of the
-seventeen published cases**, and is right to. A relative-difference gate is undefined where the
+  And the bound did not move: **class A's worst is argon at 1000 km, published case 3** — the
+  same comparison the 17 cases alone produced. Adding 1056 material comparisons across every
+  branch boundary left it exactly where it was, which is the strongest thing the sweep could
+  have said.
+
+### 3.3 The third regime: where the reference has a hole and a double port does not
+
+- **ATMO-P-2.** **Eighteen** of the 1500 comparisons are class C: the single build returns
+  **exactly zero** where the promoted-double build does not. Two are in the published set —
+  anomalous oxygen at 100 km, cases 4 and 17, returning 2.820 × 10⁻⁴² and 2.415 × 10⁻⁴² cm⁻³ —
+  and the other sixteen are the same species below 120 km across the sweep, down to
+  1.006 × 10⁻⁶³. Single precision's smallest normal is 1.175 × 10⁻³⁸, so the intermediate
+  underflows to zero before a result can be formed, while in double it survives.
+
+A double-precision port therefore **disagrees with the reference by 100 % at eighteen places,
+two of them among the seventeen published cases**, and is right to. A relative-difference gate is undefined where the
 reference underflowed, and no choice of tolerance repairs it: loosen it to pass and the gate no
 longer checks anything at 100 km; leave it tight and a correct port fails.
 
@@ -426,115 +491,170 @@ is that the distinction is written down, not that the limits are all citable.
   tree refuses, there is nothing to compare, because the reference's answer there is a number
   produced by extrapolating a spline outside its knots and this tree declines to return it.
 
-### 4.3 The space-weather inputs, and three traps in them
+### 4.3 The three inputs, and the traps in each
 
 The model takes three numbers. Each has a trap, and each trap is silent.
 
 - **ATMO-R-016.** **Observed, not adjusted.** `MSIS-FOR`'s header: *"F107 and F107A values used to
   generate the model correspond to the 10.7 cm radio flux **at the actual distance of the Earth
-  from the Sun** rather than the radio flux at 1 AU."* `CELESTRAK-SW` publishes both, in
-  `F10.7_OBS` and `F10.7_ADJ`, adjacent columns 25 and 26. The two differ by (*r*/1 AU)², which
-  runs from 0.967 at perihelion to 1.034 at aphelion — **up to 3.4 %, about 6.9 % peak to peak
-  over a year**, with an annual period that a drag analysis would happily absorb into a fitted
-  ballistic coefficient. This module reads the **observed** columns. `ATMO-A-007`.
+  from the Sun** rather than the radio flux at 1 AU."* `GFZ-KP` publishes both, in adjacent
+  columns, and says the same thing independently: *"For ionospheric and atmospheric studies the
+  use of F10.7obs is recommended."* The two differ by (*r*/1 AU)², which runs 0.967 … 1.034 —
+  up to 3.4 %, 6.9 % peak to peak over a year, with an annual period a drag analysis would
+  absorb into a fitted ballistic coefficient. This module reads **observed**. `ATMO-A-007`.
 
-- **ATMO-R-017.** **F10.7 is the previous day's value.** `MSIS-FOR`'s header: *"F107 - DAILY F10.7
-  FLUX FOR PREVIOUS DAY."* Not the day of evaluation. An off-by-one day here is invisible in any
-  single evaluation and systematic across a campaign.
+- **ATMO-R-017.** **F10.7 is the previous day's value.** `MSIS-FOR`: *"F107 - DAILY F10.7 FLUX
+  FOR PREVIOUS DAY."* Not the day of evaluation. An off-by-one here is invisible in any single
+  evaluation and systematic across a campaign. `ATMO-A-018`.
 
-- **ATMO-R-018.** **F10.7A is centred, not trailing.** *"81 day AVERAGE OF F10.7 FLUX (centered on
-  day DDD)"*. `CELESTRAK-SW` publishes **both**: `F10.7_OBS_CENTER81` (column 28) and
-  `F10.7_OBS_LAST81` (column 29). The trailing mean is the wrong one and is one column away.
+- **ATMO-R-018.** **F10.7A is centred, not trailing** — *"81 day AVERAGE OF F10.7 FLUX (centered
+  on day DDD)"* — and this module **computes** it from the daily series rather than reading any
+  file's derived column. `ATMO-R-019`.
 
-### 4.4 Coverage is per quantity, and narrower than the file
+### 4.3a Where the numbers come from, and the redistribution measured rather than trusted
 
-A centred 81-day mean on day *D* needs days *D* − 40 … *D* + 40. So **the usable span is the
-file's span shrunk by 40 days at each end**, and a file 81 days tall has exactly one usable day.
+**The issuing authorities, both of them.** `GFZ-KP` for Kp, ap and Ap; `DRAO-FLUX` for F10.7.
+CelesTrak is not used (§2).
 
-- **ATMO-R-021.** Usable coverage = [first + 40, last − 40], **intersected over every quantity
-  the call needs**, because the quantities do not end together. Measured on the 2026-09-18
-  snapshot of `CELESTRAK-SW`: 25 413 rows, 1957-10-01 … 2041-10-01, and
+`GFZ-KP` is the **primary**: it is the issuing authority for the geomagnetic indices, it carries
+the **eight three-hourly ap values** that `ATMO-R-009`'s 7-element convention needs, it covers
+1932-01-01 … 2026-09-17 in 34 594 daily rows, **it contains no forecast rows at all** — it ends
+at the previous day — and it is CC BY 4.0. It also carries F10.7obs and F10.7adj, which it
+attributes: *"provided by Dominion Radio Astrophysical Observatory and Natural Resources
+Canada"*, citing `TAPPING13` for the **local-noon** convention.
 
-| quantity | last row carrying a value |
-|---|---|
-| `F10.7_OBS`, `F10.7_OBS_CENTER81` | 2041-10-01 |
-| `AP_AVG`, `AP1` … `AP8` | **2026-11-01** |
+`DRAO-FLUX` is pinned as the **independent cross-check** of that attribution. It is not a second
+production route; it is the separate route that verifies the first, which is `PERT-A-002`'s
+shape.
 
-F10.7 runs **fifteen years further than Ap in the same file**. A model call needs both, so the
-usable end is Ap's, and a loader that reports "coverage 1957–2041" has told the caller something
-true about the file and false about the model. Coverage belongs to the quantity, and therefore
-to its type — plan §5 constraint 10, for the fourth time in this tree.
+**The verification, measured.** `GFZ-KP`'s F10.7obs against `DRAO-FLUX`'s local-noon (20:00 UT)
+observed flux, over the 7 969-day overlap 2004-10-28 … 2026-09-17:
 
-- **ATMO-R-020.** The type carries, per quantity, its first and last epoch **and** its data
-  class (§4.5). A result carries the identity of the snapshot it was computed from.
+> **7 969 of 7 969 exact. Zero differing.**
 
-### 4.5 The file is not frozen — the policy, and why it is this one
+**And the tie-break the measurement exposed.** Sixteen dates carry **two** readings both stamped
+20:00 UT. Taking the last gives 16 disagreements of up to 2.9 sfu (2022-10-23: 108.4 against
+105.5); taking the **first** gives none. `GFZ-KP` takes the first on 16 of 16.
 
-This is the first input in the tree that moves. The manager's framing was exact: *"'fetch the
-latest' cannot coexist with a reproducible gate."* The answer is that **it is not one file that
-moves in one way**, and once that is measured the policy follows.
+- **ATMO-R-033.** The daily flux is the **first** reading stamped 20:00 UT on that date, and the
+  rule is stated because it is a choice: the 16 dates that distinguish it from last-wins are the
+  only places the two rules differ, and everywhere else the wrong rule is invisible. Fourteen
+  further dates carry **no** 20:00 reading at all, and are absent rather than substituted.
+  `ATMO-A-020`.
 
-`CELESTRAK-SW` changes in **three** distinct ways, and a hash distinguishes none of them:
+**The unverified window, scoped to the search that bounds it.** `DRAO-FLUX` begins
+**2004-10-28**, so the cross-check covers 2004–2026 and nothing earlier; F10.7 before that date
+is available only through `GFZ-KP`'s redistribution. What was searched for a longer series, on
+2026-09-18: the `fluxtable.txt` directory (**403**), the monthly-averages path (**404**), a
+conjectured historical filename (**404**), the two `spaceweather.gc.ca` solar-flux pages, whose
+HTML carries no link matching `flux|archiv|data|histor|download` other than a self-link, and the
+Government of Canada open-data catalogue for *solar flux penticton* (**1** result, unrelated).
 
-1. **Extension.** New days are appended.
-2. **Revision.** Days already present are rewritten — provisional Ap becomes definitive,
-   interpolated flux is replaced by observation. A value for 2020 can differ between a 2021
-   snapshot and this one.
-3. **Prediction.** The file **already contains the future.** Its last row is 2041-10-01, fifteen
-   years beyond today. Column 27, `F10.7_DATA_TYPE`, is the only thing distinguishing
-   observation from forecast, and it takes four values:
+> **That bounds the search; it does not establish that NRCan publishes no historical series.**
+> The claim this specification makes is the smaller one: *no pre-2004 daily series was found at
+> the locators listed above.*
 
-   | class | rows | span |
-   |---|---|---|
-   | `OBS` observed | 25 129 | 1957-10-01 … 2026-09-17 |
-   | `INT` interpolated | 60 | scattered, 1957-12-25 … 2026-05-09 |
-   | `PRD` predicted, daily | 45 | 2026-09-18 … 2026-11-01 |
-   | `PRM` predicted, monthly | 179 | 2026-12-01 … 2041-10-01 |
+- **ATMO-R-031.** F10.7 carries a **verification class** — verified against the issuing
+  authority, or not — and the flag is **load-bearing, not decorative**:
+  * it propagates into every result that consumed the value;
+  * `ATMO-A-021` asserts a pre-2004 result carries it **and that a post-2004 result does not**,
+    because a flag that is always set is the same as no flag;
+  * a consumer may **require** verified inputs, and gets `ATMO-F-015` naming the epoch and the
+    verified window when it cannot have them.
 
-   25 129 + 60 + 45 + 179 = **25 413**, which is the row count.
+  Without the third, "marked" degrades to "silent" for everyone who does not look, which is the
+  whole reason this module does not simply serve the value quietly.
 
-**The third is the dangerous one, and it was measured rather than assumed.** Recomputing the
-centred 81-day mean from `F10.7_OBS` — the mean over days *D* − 40 … *D* + 40, the formula
-`ATMO-R-018` requires — and comparing it against the file's own `F10.7_OBS_CENTER81` on the same
-row, over the **25 333** rows where a full 81-day window exists:
+### 4.3b The licence is per column, so the columns are declared
 
-* **176 rows disagree by more than 0.05 sfu — 0.69 %.**
-* **All 176 are predicted rows**: 38 `PRD`, 138 `PRM`. **Not one `OBS` or `INT` row disagrees.**
-* Worst disagreement **30.07 sfu**, at 2035-01-01 — against an F10.7 range of roughly 65 to 300.
+`GFZ-KP` is **CC BY 4.0 except the sunspot-number column, which is CC BY-NC 4.0** — a
+non-commercial term inside a file whose headline licence is permissive. A checker that reads a
+file's headline licence passes this one while a non-commercial column sits inside it; this tree
+has been past that shape once already, when a denylist saw no GPL string and CeCILL went
+through.
 
-So the file's own centred column is exact on observation and arbitrary on forecast, the
-monthly-granularity predictions being interpolated on a different rule. And the file publishes
-`F10.7_OBS_CENTER81` on its **final row**, 2041-10-01, where a centred window would need 40 days
-that do not exist in the file at all.
+- **ATMO-R-032.** The manifest entry **declares the columns consumed**, exactly as an archive
+  entry declares its members, and **the loader refuses a column the manifest does not declare**.
+  This module declares Kp₁₋₈, ap₁₋₈, Ap, F10.7obs, F10.7adj and the flag `D`; it does **not**
+  declare `SN`, and reading it is `ATMO-F-016` rather than a note in a comment. The claim
+  "this tree reads no sunspot number" is then checkable rather than asserted, which is the
+  argument that produced member hashing in the first place. `ATMO-A-022`.
 
-The policy, in four parts:
+### 4.4 Coverage is per quantity, and it is a SET, not an interval
 
-- **ATMO-R-025.** **Nothing is fetched at run time, ever.** The manifest pins a snapshot by
-  SHA-256 exactly as EGM2008 and FES2004 are pinned (plan R11). There is no "latest" URL in the
-  manifest and the loader has no network path. The gate is reproducible by the same mechanism as
-  every other gate, not by a special case.
-- **ATMO-R-024.** **The snapshot is part of the answer.** Every result records which snapshot it
-  came from. Two results from different snapshots are **not comparable even at an epoch both
-  cover**, because of revision. This is a stronger statement than "the file grew" and it is the
-  one that matters for a campaign that spans a re-fetch.
-- **ATMO-R-023.** **Predicted rows are refused by default.** Not silently used, not warned about.
-  A caller who wants a forecast asks for one by name, receives it labelled, and the label
-  survives into the result. `ATMO-F-005`.
-- **ATMO-R-019.** **The centred mean is recomputed, not read.** The file's column is used only as
-  a check on the recomputation, not as the source of the value — and the check is expected to
-  disagree on predicted rows, which is why `ATMO-A-008` asserts *where* the disagreements are
-  rather than that there are none. Reading the column would have been correct for 69 years of
-  observation and wrong for the forecast, which is exactly the shape that survives review.
+A centred 81-day mean on day *D* needs days *D* − 40 … *D* + 40, and the previous day's flux
+needs *D* − 1. v1.0 of this specification therefore wrote usable coverage as the interval
+[first + 40, last − 40]. **Measuring it showed that is wrong**, and the error is the kind that
+passes review because the formula looks right.
 
-**So: carry the pinned copy, and be explicit that it is historical — where "explicit" means the
-type says so and the refusal names it, not that a comment mentions it.** Updating is a manifest
-change, and plan §5 constraint 9 already requires a manifest change to re-run every gate that
-consumed the entry. Updating space weather is therefore not a quiet operation in this tree; it
-is a gate re-run, by construction, and that is the property that lets a moving input coexist
-with a reproducible gate.
+`GFZ-KP`'s F10.7 column is **not dense**. Of 34 594 rows, **6 178** carry the sentinel −1.0:
+**5 523** before Penticton began on 1947-02-14, and **655 interior**, in **459 separate runs** —
+mostly single days, the longest six (1948-09-21 … 26). **The last interior gap is 2026-05-09**,
+so the gaps are not a historical curiosity. Kp and ap, by contrast, have **zero** missing values
+across all 34 594 rows.
 
-- **ATMO-R-022.** The data class of every row used is carried through into the result. A density
-  computed partly from `OBS` and partly from `PRD` rows says so.
+Consequently:
+
+- **ATMO-R-021.** Usable coverage is the **set of epochs whose own required window is complete**,
+  and membership is decided per epoch — never an interval, and never a first/last pair.
+  Measured on the 2026-09-18 snapshot: **22 991 days** have a complete centred 81-day window,
+  running 1956-10-14 … 2026-08-08 **with 25 breaks inside that span** (one runs 1957-11-14 …
+  1958-06-13). A loader reporting the endpoints would accept an epoch inside a hole.
+  `ATMO-A-023`.
+
+- **ATMO-R-034.** The sentinel is **not a value**. −1.0 for F10.7, −1.000 for Kp and −1 for ap
+  and SN are absence, and a window containing one is incomplete rather than slightly wrong: a
+  single −1 inside an 81-day mean moves it by (*F* + 1)/81 ≈ 1.9 sfu at *F* = 150, which is
+  small enough to be invisible and is not an average of anything. `ATMO-F-014`, `ATMO-A-023`.
+
+- **ATMO-R-020.** Coverage belongs to the **quantity**, not the file, and the type carries it
+  per quantity along with its class. The quantities do not run out together: here Kp and ap are
+  complete for 94 years while F10.7 has 459 holes in it.
+
+### 4.5 The primary source is not frozen — the policy, and why it needs no exception
+
+`GFZ-KP` moves in two ways a hash cannot distinguish — **extension**, and **revision** of rows
+already present, which its own `D` flag records:
+
+| `D` | meaning | rows | span |
+|---|---|---|---|
+| 2 | Kp and SN definitive | 34 424 | 1932-01-01 … 2026-03-31 |
+| 1 | Kp definitive, SN preliminary | 153 | 2026-04-01 … 2026-08-31 |
+| 0 | Kp and SN preliminary | 17 | 2026-09-01 … 2026-09-17 |
+
+34 424 + 153 + 17 = **34 594**, the row count. It does **not** move in the third way CelesTrak
+did: there are no forecast rows to mistake for observation.
+
+The policy:
+
+- **ATMO-R-025.** **Nothing is fetched at run time, ever.** The manifest pins each snapshot by
+  SHA-256 exactly as EGM2008 and FES2004 are pinned (plan R11); there is no "latest" URL and the
+  loader has no network path. The gate is reproducible by the same mechanism as every other
+  gate, not by a special case.
+
+- **ATMO-R-024.** **The snapshot is part of the answer.** Every result records the manifest id
+  and SHA-256 it came from, and **two results from different snapshots cannot be compared
+  silently** — not because they are far apart, but because revision means they may differ at an
+  epoch both cover. This is a **refusal with a test**, `ATMO-F-013` and `ATMO-A-024`, not a
+  sentence in a definitions section.
+
+- **ATMO-R-022.** The `D` class of every row used is carried into the result, and a class value
+  the loader does not recognise is **refused rather than defaulted** — `ATMO-F-005`.
+
+- **ATMO-R-023.** A source carrying **forecast** rows may be loaded only through a path that
+  labels them, and they are refused by default. `GFZ-KP` has none, so this guard cannot fire on
+  the pinned data; plan §4 rule 5 requires it be fired anyway, and `ATMO-A-011` fires it against
+  a constructed row rather than leaving it unproven.
+
+- **ATMO-R-019.** The centred mean is **computed**, never read from a derived column. v1.0
+  measured why on CelesTrak: its derived column was exact on 69 years of observation and wrong
+  on every forecast row, worst 30.07 sfu. That source is gone, but the rule is not about that
+  source — a derived column is someone else's arithmetic over someone else's window rule.
+
+**So: pin the snapshot, name it in the result, and refuse across snapshots.** Updating is a
+manifest change, and plan §5 constraint 9 already makes a manifest change re-run every gate that
+consumed the entry. A moving input and a reproducible gate coexist by pinning and naming, not by
+an exception for data that moves.
 
 ---
 
@@ -567,24 +687,75 @@ The port is re-entrant and its results do not depend on call order. `ATMO-A-015`
 **`ATMO-P-1`, `ATMO-P-2`** are stated in §3.2 and §3.3 and are requirements here, not
 observations.
 
-- **ATMO-P-3.** **The gate's tolerance.** The port agrees with the promoted-double build of
-  `MSIS-FOR` to **10⁻¹²** relative on every quantity above the underflow class, and with the
-  single-precision build to **10⁻⁵**, which is looser than the 7.671 × 10⁻⁶ worst case of
-  `ATMO-P-1` by a factor of 1.3. Both numbers are asserted; the first is the real check and the
-  second exists so that a reader comparing this tree against any other user of `MSIS-FOR` has the
-  figure. **The tolerance against the single build is a property of the reference, not of the
-  port, and tightening it would be a mistake.**
+- **ATMO-P-3.** **The gate's tolerance, derived from `ATMO-P-1` and nowhere else.** On class-A
+  comparisons the port agrees with the promoted-double build to **10⁻¹²** relative, and with the
+  single-precision build to **10⁻⁵** — looser than class A's measured worst of 7.6706 × 10⁻⁶ by a
+  factor of 1.3. Classes B, C and Z are **counted, not toleranced**: their counts are asserted
+  exactly (32, 18, 212) and their values are not compared relatively at all, because a relative
+  comparison against a number the reference computed at 10⁻³⁷ compares rounding noise.
 
-- **ATMO-P-4.** **The model's accuracy against reality, which is not this tree's to improve.**
-From `MSIS-STATS` with `MSIS-README`'s formulas: in the thermosphere the standard deviation of
-log density between data and model is about **0.17 to 0.23**, i.e. roughly **17–25 %**, with
-mean residuals of a few per cent. That is the accuracy of the atmosphere model a drag analysis
-inherits. It is three to five orders of magnitude worse than anything else in L2, and L4's error
-budget must be written with it in view rather than around it. It is quoted here with its source
-and its formula — `"SD" = sigma_rho = [<log_e**2{rho_i(data)/rho_i(model)}> - log_e**2(beta_rho+1)]**(1/2)`,
-`MSIS-README` — because plan §4 rule 3 requires a cited statistic to carry the formula it was
-computed with, and because this one is easy to quote as "20 % accurate" without saying 20 % of
-what, measured how.
+  **The tolerance against the single build is a property of the reference, not of the port**, and
+  tightening it would be a mistake. The derivation lives in the generated file's own header
+  (`ATMO-R-028`) so that it is read next to the thing that produced it.
+
+- **ATMO-P-4.** **What the model's accuracy against reality is, in the units it is published
+  in.** This quantity has now been stated three times in this specification and the first two
+  were wrong in the same way: neither carried the step that produced it. Plan §4 rule 3 is
+  exactly that, so the derivation is here in full and the number stops moving.
+
+  **The source statistic.** `MSIS-STATS` Table 1 (total mass density), data spanning
+  **1963–1997**, column `SD`, defined by `MSIS-README` as
+
+  > `"SD" = sigma_rho = [<log_e**2{rho_i(data)/rho_i(model)}> - log_e**2(beta_rho+1)]**(1/2)`
+
+  and confirmed by `PICONE02` §15, which describes *"histograms of residuals of **log_e r**,
+  where r is the total mass density"*. **It is a natural logarithm.**
+
+  **The conversion, stated because it is the whole difficulty.** A fractional 1-σ density error
+  is **e^σ − 1**. A σ of 0.43 reads as 43 %, 54 % or 169 % depending on whether the statistic is
+  a plain ratio, a natural log or a log₁₀ — and it is a natural log. Every number below names
+  the row it came from.
+
+  | | σ | e^σ − 1 | row |
+  |---|---|---|---|
+  | best | 0.07 | **7.3 %** | 1(a) quiet, SETA 79 accel, 120–200 km, 3 792 pts |
+  | points-weighted, all levels | 0.172 | **18.8 %** | 1(c), 791 314 pts over 30 rows |
+  | worst, quiet | 0.43 | **53.7 %** | 1(a), accel 200–400 km, 57 258 pts |
+  | LEO storm, high altitude | 0.47 | **60.0 %** | 1(b) high, drag 400–800 km, 105 pts |
+  | **worst anywhere** | **0.97** | **163.8 %** | 1(b) high, **AE-C MESA accel, 200–400 km, 1 653 pts** |
+
+  v1.0 said "17–25 %", which lands near the points-weighted 18.8 % **by accident**, reading a
+  log-σ as a plain fraction. v1.1 said "7 % to 60 %", which converted correctly but quoted two
+  particular corners as though they bounded the table; the table reaches 163.8 %.
+
+  **And σ is not the model's uncertainty — it is an upper bound on it.** `PICONE02` says so:
+  *"Interpretation of the standard deviation for a single model can be somewhat ambiguous,
+  however, because s also reflects noise in the data sets"*, and further that a model which
+  *"faithfully covers scales of true geophysical variability which have been filtered from the
+  data"* can show a **larger** σ than a worse one.
+
+  That is checkable, and it was checked rather than taken on the paper's word. `MSIS-STATS`
+  prints σ for **three** models side by side — NRLMSISE-00 (2002), MSISE-90 and Jacchia-70
+  (1970). Over the **86** rows where all three parse:
+
+  * correlation of σ across models: **0.9945** (N00 vs M90), **0.9664** (N00 vs J70);
+  * median |σ_N00 − σ_M90| = **0.010**, against a median σ of **0.185** — about **5 %**;
+  * at the six rows with σ ≥ 0.40, the spread across all three models is **0.00 to 0.03**, and
+    at the worst row of all N00 gives 0.97, M90 0.96 and J70 0.97.
+
+  **What that measurement reaches, and what it does not.** It rules out a σ that is mostly
+  *model-specific*: three models fitted decades apart do not produce σ agreeing to 5 % of its
+  value if each is dominated by its own error. It does **not** establish that σ is
+  data-dominated. Writing σ² = σ_data² + σ_model², the agreement says the three σ_model terms
+  are **similar**, not that they are **small** — and three models fitted to overlapping
+  databases can share a deficiency as easily as they can share the data's noise. The
+  correlation cannot separate those, and this specification does not claim it can.
+
+  The paper's own hedge is therefore the claim that stands, and it is the safe one:
+  `ATMO-A-026`'s `l2_floors` row reports σ as *model-minus-data scatter including data noise,
+  an upper bound on model error* — never as "the atmosphere is 19 % uncertain". The row exists
+  to let L4 rank drag against terms computed to parts in 10¹², and that is precisely the
+  comparison an overstatement would distort.
 
 - **ATMO-P-5.** **The observed/adjusted flux difference**, for `ATMO-A-007`: (*r*/1 AU)² over a
 year runs 0.967 … 1.034, so the two columns differ by up to 3.4 % and by 6.9 % peak to peak.
@@ -607,9 +778,14 @@ exception, never a sentinel density, never a silently clamped input.
 | `ATMO-F-007` | a file whose hash is not the manifest's | both hashes and the manifest id |
 | `ATMO-F-008` | an Ap convention mismatch (§3.7) | which convention was supplied and which the call needs |
 | `ATMO-F-009` | below 80 km with flux or Ap other than 150/150/4 | what was supplied, what was substituted, and `MSIS-FOR`'s own sentence |
-| `ATMO-F-010` | mass selector 49 | that it is accepted by the reference, undocumented there, and excluded here — `ATMO-R-012` |
+| `ATMO-F-010` | mass selector 49 | that the reference accepts it and **adds 2 × D(4), counting O₂ as two oxygen atoms, at line 769, described in no comment** — so the knowledge lives in the tree rather than only in a report — and that this module refuses it rather than inheriting undocumented behaviour |
 | `ATMO-F-011` | a space-weather sample built from bare numbers used where a pinned one is required | that the sample has no provenance |
 | `ATMO-F-012` | any of `MSIS-FOR`'s three print-and-continue conditions (`ATMO-R-030`) | which condition, its operands, and that the reference would have returned a number here |
+| `ATMO-F-013` | two results from different space-weather snapshots compared | both manifest ids and hashes, and that revision means they may differ at an epoch both cover |
+| `ATMO-F-014` | a required window contains a missing-data sentinel | the epoch, the sentinel's own date, and the window that needed it — never the mean of the rest |
+| `ATMO-F-015` | verified inputs required, epoch outside the verified window | the epoch, the verified window `2004-10-28 … 2026-09-17`, and the issuing authority the window comes from |
+| `ATMO-F-016` | a column read that the manifest entry does not declare | the column, and the entry's declared column list |
+| `ATMO-F-017` | a **number** density requested for a species the model does not resolve at that state | the species, the altitude, the mass contribution, and that the reference returns a hard zero here rather than a small number |
 
 ---
 
@@ -618,8 +794,8 @@ exception, never a sentinel density, never a silently clamped input.
 | id | what is checked | expected value | source of the expected value | tolerance | discharges |
 |---|---|---|---|---|---|
 | `ATMO-A-001` | **THE GATE.** The port against `MSIS-FOR`, compiled from the pinned source and executed, over **the 17 published input cases** (`MSIS-FOR` lines 2438–2552: 15 from the `DO` loop + 2 with the 7-element Ap and `SW(9) = −1`) **and** a domain-spanning sweep that exercises every spline regime of §3.6, both `GTD7` and `GTD7D`. Reports its counts, not its verdict — §8's denominator paragraph | agreement | the reference implementation, which **is** the definition (§3.1) | `ATMO-P-3` | R-001, R-002, R-003, R-004 |
-| `ATMO-A-002` | **the reference's own precision, remeasured rather than trusted to this document**: the single build against the `-freal-4-real-8` build of the same source, over the same 17 cases | median 3.816 × 10⁻⁷, worst 7.671 × 10⁻⁶ (case 3, Ar, 1000 km), 184 comparisons of 204 with 20 zero denominators | measurement, `ATMO-P-1` | the measurement is the value; it is asserted to 2 significant figures so a compiler change is visible | P-1 |
-| `ATMO-A-003` | **the underflow class, counted and not absorbed**: anomalous oxygen at 100 km, where the single build returns exactly 0 and double returns 2.820 × 10⁻⁴² and 2.415 × 10⁻⁴² cm⁻³. The test asserts that **exactly 2** of the 184 comparisons fall in this class, and that both are at 100 km | 2 | measurement, `ATMO-P-2` | exact on the count | P-2 |
+| `ATMO-A-002` | **the reference's own precision, remeasured rather than trusted to this document**: the single build against the `-freal-4-real-8` build of the same source, over the 17 published cases **and the branch-crossing sweep**, classified by materiality | **1500 comparisons: A 1238 (median 2.8108 × 10⁻⁷, worst 7.6706 × 10⁻⁶ — argon, 1000 km, published case 3), B 32 (worst 7.8739 × 10⁻³), C 18, Z 212.** The worst class-A comparison is the same one the 17 cases alone give: the sweep adds 1056 material comparisons and does **not** loosen the bound | measurement, `ATMO-P-1` | the counts exactly; the relatives to 2 significant figures so a compiler change is visible | P-1 |
+| `ATMO-A-003` | **the three regimes, counted and not absorbed**: the test asserts each class's size exactly, and that **every** class-C member is anomalous oxygen at or below 120 km — the species and the altitude bound, not merely the count, because a count alone survives the class silently acquiring a member that mattered | **A 1238, B 32, C 18, Z 212, summing to 1500 = 125 × 12**; every class-C member anomalous oxygen, ≤ 120 km | measurement, `ATMO-P-2` | exact on every count | P-2 |
 | `ATMO-A-004` | **the total density against the species sum, by a route that does not touch the reference**: ρ = 1.66 × 10⁻²⁴ (4·He + 16·O + 28·N₂ + 32·O₂ + 40·Ar + H + 14·N), and for `GTD7D` the same plus 16·anomalous O | **measured during drafting: worst 3.280 × 10⁻¹⁶ (`GTD7`) and 3.871 × 10⁻¹⁶ (`GTD7D`) in double; 8.326 × 10⁻⁸ and 1.130 × 10⁻⁷ in single** | `MSIS-FOR`'s header, **a published statement about the model** | 10⁻¹⁵ | R-014, R-004 |
 | `ATMO-A-005` | **the documented zeros**: O, H, N and anomalous O are exactly zero below 72.5 km, over the five published sub-72.5 km cases | 20 values, all exactly 0.0 | `MSIS-FOR` header, *"O, H, and N are set to zero below 72.5 km"* | exact | R-007 |
 | `ATMO-A-006` | `GTD7` and `GTD7D` differ by **exactly** 16 × 1.66 × 10⁻²⁴ × (anomalous O), and by nothing else; and that the L4-facing type is the second | as stated | `MSIS-FOR` header | 10⁻¹⁵ | R-004 |
@@ -633,6 +809,14 @@ exception, never a sentinel density, never a silently clamped input.
 | `ATMO-A-014` | every file came from the manifest cache and its hash was verified before this module saw a path; **and the snapshot is carried into the answer** — the result's provenance names the manifest id and SHA-256 actually used, and a second snapshot differing in one revised row produces a result that differs in that record, so two results from different snapshots are **distinguishable rather than merely documented as incomparable** | as stated, and the two records differ | plan R11, `ATMO-R-024` | exact on the recorded hash | R-024, R-026, F-007 |
 | `ATMO-A-015` | **structural**: no global state — the same call in either order gives the same answer, concurrent evaluation agrees with serial, and there is no `METERS`/`TSELEC` flag; **local solar time is not a free parameter** — the ordinary entry point derives it, and the independent form is reachable only through the separately named one; **the loader has no network path at all**, which is what makes `ATMO-R-025` a property of the build rather than a promise; a `GTD7` density cannot be passed where a `GTD7D` one is required; a bare-number sample cannot reach a pinned-sample call site | compile failures, and the order-independence check | this spec, plan §5 | exact | R-005, R-006, R-010, R-025, R-027, F-011 |
 | `ATMO-A-016` | **the oracle's absence is reported, not passed over**: where no Fortran compiler is configured, `ATMO-A-001` reports the count of cases it did **not** run alongside the count it did, and the suite fails if the skipped count is unacknowledged | 17 skipped, 0 run, and an explicit acknowledgement | plan §4 rule 3 | exact | R-027, R-028 |
+| `ATMO-A-027` | **an unresolved species is a refusal, not a zero**: anomalous oxygen at 110 km, where the reference underflows to exactly 0, returns `ATMO-F-017` from the number-density accessor **and** a usable mass contribution from the drag accessor. **Proven both ways** — a resolved species returns its number density normally, so the refusal is not simply always on | the refusal, and a normal return at 400 km | this spec, `ATMO-R-036`, and the 18 class-C members of `ATMO-P-1` | exact | R-036, F-017 |
+| `ATMO-A-026` | **the atmosphere's row in `tests/l2_floors.cpp`**: the drag-relevant density and the acceleration it implies, at **both** of the table's radii, each carrying `ATMO-P-4`'s uncertainty **with the altitude, activity level and epoch it was measured at**. The test asserts the magnitude *ratio* between the two radii, because that ratio is the fact L4 needs and a single point cannot carry it | measured, and reported against the layer's existing floor of 8.552 × 10⁻¹¹ m s⁻² and smallest kept term of 3.478 × 10⁻¹¹ | this spec, plan §4 rule 3 | the measurement is the value | R-035, P-4 |
+| `ATMO-A-020` | **the daily-flux tie-break, on the cases that distinguish it**: `GFZ-KP`'s F10.7obs against `DRAO-FLUX`'s first 20:00 UT reading over the whole overlap, and against last-wins. **The 16 duplicate dates are asserted by name**, not merely counted, because they are the only places the two rules differ | **7 969 / 7 969 exact with first-wins; 7 953 with last-wins, the 16 differences being exactly the 16 duplicate dates; worst 2.9 sfu on 2022-10-23.** And 14 dates carry no 20:00 reading and are absent, not substituted | `GFZ-KP` against `DRAO-FLUX` — **two issuing authorities, independent routes** | exact | R-033, R-016 |
+| `ATMO-A-021` | **the verification flag is load-bearing**: a pre-2004 epoch's result carries "not verified" **and a post-2004 epoch's result does not**; and a consumer requiring verified inputs gets `ATMO-F-015` for the first and a value for the second. A flag that is always set is the same as no flag, so both directions are asserted | as stated | this spec, `ATMO-R-031` | exact | R-031, F-015 |
+| `ATMO-A-022` | **the declared-column rule fires**: reading `SN` — present in the file, not in the manifest entry's declared columns — is `ATMO-F-016`, and every column this module does read is declared. Proven both ways | the refusal, and a complete declared list | this spec, plan R11 | exact | R-032, F-016 |
+| `ATMO-A-023` | **usable coverage is a set**: the count of epochs with a complete centred 81-day window, the span, and **the number of breaks inside it** — an interval would accept an epoch in a hole | **22 991 days, 1956-10-14 … 2026-08-08, with 25 breaks**; and 6 178 sentinel rows = 5 523 leading + 655 interior in 459 runs, last gap 2026-05-09; Kp and ap have 0 missing in 34 594 | `GFZ-KP`, the 2026-09-18 snapshot | exact on every count | R-021, R-034, R-020, F-014 |
+| `ATMO-A-024` | **two snapshots cannot be compared silently**: results from snapshot A and snapshot B refuse comparison with `ATMO-F-013`, and results from the same snapshot compare normally. Proven both ways | the refusal, and a successful comparison | this spec, `ATMO-R-024` | exact | R-024, F-013 |
+| `ATMO-A-025` | **the `D` class partitions the file**: 2 → 34 424, 1 → 153, 0 → 17, summing to 34 594 = the row count; and an unrecognised class value is refused rather than defaulted | the sum, and the refusal | `GFZ-KP` column `D` | exact | R-022, F-005 |
 | `ATMO-A-019` | **the three print-and-continue conditions become refusals**: each of `MSIS-FOR`'s coincident-node, non-positive-log and non-convergence conditions is driven to fire through the module's own internal path, and each returns `ATMO-F-012` rather than a number. **Proven both ways** — fired, and shown not to fire anywhere across `ATMO-A-001`'s sweep | the refusal, and zero occurrences over the sweep | `MSIS-FOR` lines 445, 1539, 1591 | exact | R-030, F-012 |
 | `ATMO-A-018` | **F10.7 is the previous day's**: for an epoch on day *D*, the value the sample carries is the file's row for *D* − 1, asserted against the file directly; and substituting day *D*'s value changes the density measurably, so the off-by-one is **detectable** rather than merely forbidden | the file's own *D* − 1 row, and a measured density difference | `MSIS-FOR` header + `CELESTRAK-SW` | exact on the flux, reported on the density | R-017 |
 | `ATMO-A-017` | the year is discarded by the model: two epochs differing only in year give identical densities, which is `MSIS-FOR`'s documented behaviour and a trap for anyone assuming a solar cycle is modelled | identical | `MSIS-FOR` header | exact | R-011 |
@@ -708,12 +892,19 @@ place: *make the tool print its components rather than its verdict.*
   any of them re-runs every gate that consumed it (plan §5 constraint 9), which for
   `CELESTRAK-SW` is the whole of §4.3–4.5 and is the mechanism §4.5 relies on.
 
-- **ATMO-R-028.** **The oracle's output is frozen, with the recipe that produced it.** The gate
-  must run where no Fortran compiler is present, so the reference's full-precision output over the
-  17 published cases and the declared sweep is **committed as a data file**, and `ATMO-A-001`
-  compares against that file always. Where a compiler *is* present the file is **regenerated and
-  compared against the committed copy**, so the frozen artefact is itself under test rather than
-  trusted.
+- **ATMO-R-028.** **The oracle's output is frozen as generated source, with the recipe that
+  produced it**, exactly as `solid_tide_tables.hpp` records its own extraction. The gate runs
+  **offline from the cache and needs no Fortran compiler at all**, which is what gate 4 requires.
+  `gfortran` is therefore a **declared host tool** alongside `python3` and `cmake`, not a
+  hash-pinned manifest entry: pinning a compiler means vendoring one or declaring a host version
+  that is not a pin, and neither is worth the pretence. Where a compiler *is* present the file is
+  **regenerated and compared against the committed copy**, so the frozen artefact is itself under
+  test rather than trusted.
+
+  The header records the single-versus-double measurement **as the derivation of the tolerance**,
+  so that `ATMO-P-3`'s numbers are read next to the thing that produced them rather than looked
+  up; and the two anomalous-oxygen cases stay **their own counted class** rather than being
+  absorbed into a widened tolerance (§3.3).
 
 That file is **this tree's artefact, not a published one**, and must be labelled as such
 wherever it appears. It records:
@@ -749,16 +940,17 @@ Three points of that recipe are requirements rather than incidentals:
 
 ---
 
-## 10. Open questions for the manager
+## 10. Questions, and the rulings on them
 
-| id | question |
-|---|---|
-| `ATMO-Q-001` | **§0.5's three plan rewordings.** The step-4 gate, the L2 exit gate and D2 all name published values that do not exist. The proposed replacements are in §0.5. The exit-gate one generalises beyond this step and is the one worth ruling on carefully: L4's drag coefficient and L9's ray tracing are the same shape, and a rule that says *where no published value exists, record the search and name what stands in its place* would be better settled now than three layers later. |
-| `ATMO-Q-002` | **Mass selector 49.** Accepted by the reference, behaves differently from 48 (it counts O₂ twice, as oxygen atoms), and documented in zero comment lines. This specification refuses it with a diagnostic that says *undocumented* rather than *invalid*. The alternative is to implement it and note that its meaning is inferred from the code. Ruling wanted, because it is the first place this tree implements behaviour that its source does not describe. |
-| `ATMO-Q-003` | **`CELESTRAK-SW` is a redistributor, not the issuing authority.** The flux is DRAO's and the geomagnetic indices are GFZ Potsdam's; CelesTrak merges them, adds the centred means and the data-class flag, and publishes one convenient file. Convenience is why it was chosen. Against it: this tree has otherwise pinned primary sources throughout — IERS's own chapters, NAIF's own kernels. Is a redistributor acceptable for an input the tree cannot freeze anyway, or should §4.3 read the two primary series and compute the merge here? The second is more work and removes a dependency on a third party's interpolation rules — the same rules `ATMO-A-008` just measured disagreeing by 30 sfu on forecast rows. |
-| `ATMO-Q-004` | **`ATMO-P-4` and L4's error budget.** The atmosphere is 17–25 % uncertain against data, against L2's other terms which are good to parts in 10⁹ or better. L4 will rank a dozen accelerations against each other; the drag term's *model* error swamps the ranking of everything below it. This is not a question about this step, but the number arrives at this step and plan §4 rule 3 now says quantities that must be compared are measured in one place — so it is put here rather than reconstructed at L4. Does `tests/l2_floors.cpp` acquire an atmosphere row? |
-| `ATMO-Q-005` | **The Fortran toolchain.** `ATMO-R-028`'s frozen file means the routine gate needs no compiler, but the regeneration check does, and on this machine it is `gfortran-16` rather than `gfortran` — `gfortran` is not installed and `apt` reports no cached package. Should the compiler be a manifest entry with its version pinned, as `python3` and `cmake` already are? That would make `ATMO-A-002`'s measured figures reproducible rather than merely recorded. |
-| `ATMO-Q-006` | **DTM-2013 and JB2008**, named in the plan's L2 source column and not taken at this step. Neither is needed for the MVP. Carried, not dropped. |
+| id | question | state |
+|---|---|---|
+| `ATMO-Q-001` | §0.5's three plan rewordings — the step-4 gate, the L2 exit gate and D2 all named published values that do not exist. | **RULED 2026-09-18, all three reworded and pushed (72c68ca), and the general form adopted as plan §4 rule 6** — settled as a *distinction* rather than an exception, because an exception invites a second one. A reference implementation is an oracle when a specification exists that it implements and is itself normative when none does, and which it is, is a search. Three obligations come with claiming it: record the search, state the cost where a reader meets it, and find a second axis if one exists. It binds L4's drag coefficient and L9's ray tracing. |
+| `ATMO-Q-002` | Mass selector 49: accepted by the reference, undocumented, not the same as 48. | **RULED: refuse it, and say in the refusal what the reference does.** Constraint 4 is refuse rather than approximate, and implementing undocumented behaviour because the reference tolerates it is how one inherits somebody else's accident with no way to tell later whether it was one. None of the 17 cases uses it, so refusing costs nothing at the gate. `ATMO-F-010` carries *"adds 2 × D(4), counting O₂ as two oxygen atoms, line 769, described in no comment"* so the knowledge is in the tree. |
+| `ATMO-Q-003` | `CELESTRAK-SW` is a redistributor, not the issuing authority. | **RULED: go to the issuing authorities — DRAO for F10.7, GFZ for Kp and Ap — and drop CelesTrak entirely**, not keep it alongside. Its one contribution was derived columns `ATMO-R-019` recomputes anyway, and `ATMO-A-008` measured that column wrong wherever it is predicted: a redistributor whose derived column is wrong there adds error rather than value. §4.3a reports the cost rather than absorbing it: `DRAO-FLUX` begins 2004-10-28, so the cross-check covers 22 years and the earlier F10.7 is `GFZ-KP`'s redistribution — **verified over the overlap at 7 969 / 7 969 exact**. Pre-2004 is **served with the provenance marked** (`ATMO-R-031`), not refused, and the flag is load-bearing. |
+| `ATMO-Q-004` | An atmosphere row in `tests/l2_floors.cpp`. | **RULED: yes, and it is the most informative row in the table** — a term 17–25 % uncertain beside a de Sitter term computed to parts in 10¹² is exactly the comparison L4 needs to decide what is worth modelling. Two conditions: carry the **uncertainty as well as the magnitude**, and measure at **both radii**. `ATMO-R-035`, `ATMO-A-026`. A third followed from checking the figure: the uncertainty must name the altitude, activity level and epoch it was measured at, and doing so showed v1.0's "17–25 %" understated the storm-time high-altitude case by about three (`ATMO-P-4`). |
+| `ATMO-Q-005` | Pin the Fortran compiler in the manifest? | **RULED: no — freeze the outputs instead.** Generate the reference output once and commit it as generated source carrying the compiler, its version, the flags and the source hash, as `solid_tide_tables.hpp` records its extraction. The gate then runs offline from the cache with no Fortran compiler, which is what gate 4 requires, and `gfortran` is a declared host tool like `python3` and `cmake`. Pinning a compiler means vendoring one or declaring a host version that is not a pin. `ATMO-R-028`. |
+| `ATMO-Q-006` | DTM-2013 and JB2008. | **CARRIED, not opened** — a question for whoever needs them. |
+| `ATMO-Q-007` | **Open.** The pre-2004 F10.7 window is unverifiable because `DRAO-FLUX` begins 2004-10-28, and the search for a longer series was bounded (§4.3a) rather than exhaustive: six locators and one catalogue query, recorded with their results. If NRCan does publish the 1947-onward daily series somewhere not probed, the cross-check extends to 1947 and `ATMO-R-031`'s unverified class empties. Worth one more search by whoever next has reason to look; not worth a hunt now. |
 
 ---
 
@@ -766,4 +958,5 @@ Three points of that recipe are requirements rather than incidentals:
 
 | version | date | change |
 |---|---|---|
+| 1.1 | 2026-09-18 | **Adopted, with rulings on all six questions folded in.** (1) Plan §4 rule 6 now carries the oracle/normative distinction; §3.1 points at it and §8 discharges its three obligations. (2) Mass 49 is refused, the refusal naming what the reference does with it. (3) **CelesTrak is dropped for the two issuing authorities**, and the redistribution is *measured* rather than trusted: `GFZ-KP`'s F10.7obs equals `DRAO-FLUX`'s first 20:00 UT reading on **7 969 of 7 969** overlapping days, with the 16 duplicate-timestamp dates identified as the only cases distinguishing first-wins from last-wins. (4) §4.4 is rewritten: **usable coverage is a set, not an interval** — v1.0's [first + 40, last − 40] was wrong, because the F10.7 column has 655 interior gaps in 459 runs and 25 breaks inside the usable span. (5) `ATMO-P-4` is corrected: "17–25 %" was an aggregate quoted as a range and understates the storm-time high-altitude case by about three; the figure now carries its altitude, activity level and epoch. (6) The snapshot-comparability rule became `ATMO-F-013` with a test rather than a sentence, the verification flag became load-bearing with both directions asserted, and the per-column licence became a declared-columns rule the loader enforces. |
 | 1.0 | 2026-09-18 | First draft, for review. Leads with §0's rule-4 finding: the NRL distribution publishes **no reference profile, no reference value and no expected output**, with the search over all five distributed files that established it, and the three plan sentences that need rewording as a result. The reference's single precision is measured rather than assumed (`ATMO-P-1`), as is the anomalous-oxygen underflow that makes a relative-difference gate undefined at 100 km (`ATMO-P-2`). The space-weather policy is stated in §4.5 against a measurement of how the file actually moves — extension, revision **and** fifteen years of embedded forecast, with the file's own centred column disagreeing with its definition on 176 rows, all of them predicted. |

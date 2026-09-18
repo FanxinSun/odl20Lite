@@ -414,6 +414,147 @@
       "licence_note": "A DE440 SPK carries NO constants — getconstantcount returns zero, which SPEC-ephemerides EPH-R-012 records — so the GMs a third-body model needs are not in the kernel that supplies the positions. This is NAIF's own text PCK carrying them, consistent with DE440 by construction. Parsed by this tree rather than read through CALCEPH, so that the parse is auditable and so that loading it cannot change what Ephemeris reports about its own kernels. Two of its values are cross-checked against TN36-1's independently pinned constants: GM_sun directly, and GM_moon through the Moon-Earth mass ratio.",
       "upstream_mutable": false,
       "retrieved": "2026-09-18"
+    },
+    {
+      "id": "nrlmsise00-fortran",
+      "kind": "data",
+      "role": "NRLMSISE-00 reference implementation — THE DEFINITION of the model (SPEC-atmosphere ATMO-R-001), and the source of the frozen oracle output",
+      "version": "self-stamped MSISE-00  01-FEB-02  15:49:27",
+      "url": "https://map.nrl.navy.mil/map/pub/nrl/NRLMSIS/NRLMSISE-00/NRLMSISE-00.FOR",
+      "filename": "NRLMSISE-00.FOR",
+      "sha256": "cce0420e90781c256bc6705c4cc8056b054812d6308adccb7081bf09af0d44cb",
+      "licence": "NRL-PUBLIC",
+      "licence_note": "Work of the US Naval Research Laboratory, released to the public domain and distributed without restriction. Plan D2 takes this as the port source. NOT linked into the library: ATMO-R-027 compiles it only into the test suite, and ATMO-R-028 freezes its output as generated source so the gate needs no Fortran compiler.",
+      "upstream_mutable": false,
+      "verify_note": "The file is unedited. gfortran rejects three DATA statements at lines 1670-1671 (FORTRAN 66 Hollerith literals into INTEGER arrays, carrying the output header stamp and no arithmetic); -fdec-char-conversions accepts them. Editing the reference would have compromised the only thing step 4 has to check against.",
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "gfz-kp-ap-f107",
+      "kind": "data",
+      "role": "GFZ Kp/ap/Ap and the DRAO F10.7 it redistributes — the space-weather input (SPEC-atmosphere §4.3a)",
+      "version": "2026-09-18 snapshot; 34 594 daily rows, 1932-01-01 through 2026-09-17",
+      "url": "https://kp.gfz-potsdam.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt",
+      "filename": "Kp_ap_Ap_SN_F107_since_1932.txt",
+      "sha256": "0121821b20799731f00cccc3d1393789d8cca136b5f3cfbae9c464cc029e3a73",
+      "licence": "CC-BY-4.0",
+      "licence_file": "(stated in the file's own header, lines 2 and 18)",
+      "licence_note": "THE LICENCE OF WHAT THIS TREE CONSUMES, which is not the licence of the whole file. The file is CC BY 4.0 except the sunspot-number column SN, which is CC BY-NC 4.0 (WDC-SILSO, Royal Observatory of Belgium) and is named in licence_excluded below. Declaring the compound licence instead would have put a non-commercial term on tools/fetch.py's permissive allowlist, which is precisely what that allowlist exists to prevent. The columns mechanism makes the exclusion checkable rather than asserted: the verifier refuses if a declared column carries an excluded licence (SPEC-atmosphere ATMO-R-032, ATMO-F-016).",
+      "licence_excluded": {
+        "CC-BY-NC-4.0": [
+          "SN"
+        ]
+      },
+      "consumes": "declared-columns",
+      "consumes_note": "A column list is to a table what a member list is to an archive: the file hash says nothing about WHICH PART of the file is read, and here the parts carry different licences.",
+      "columns": {
+        "declared": [
+          "YYYY",
+          "MM",
+          "DD",
+          "Kp1",
+          "Kp2",
+          "Kp3",
+          "Kp4",
+          "Kp5",
+          "Kp6",
+          "Kp7",
+          "Kp8",
+          "ap1",
+          "ap2",
+          "ap3",
+          "ap4",
+          "ap5",
+          "ap6",
+          "ap7",
+          "ap8",
+          "Ap",
+          "F10.7obs",
+          "F10.7adj",
+          "D"
+        ],
+        "excluded": {
+          "SN": "CC BY-NC 4.0, and not needed: NRLMSISE-00 takes no sunspot number.",
+          "days": "redundant with YYYY MM DD.",
+          "days_m": "redundant with YYYY MM DD.",
+          "Bsr": "Bartels rotation number; not an input to the model.",
+          "dB": "day within the Bartels rotation; not an input to the model."
+        }
+      },
+      "upstream_mutable": true,
+      "upstream_mutable_note": "Extended daily AND REVISED in place: the D flag records it (2 = definitive, 1 = Kp definitive, 0 = preliminary; 34 424 + 153 + 17 = 34 594 on this snapshot). Revision is why ATMO-R-024 refuses to compare results from two snapshots even at an epoch both cover, and why §5 constraint 9 re-running every consuming gate on a manifest change is the mechanism that lets a moving input have a reproducible gate. It carries NO forecast rows, unlike CelesTrak's SW-All.csv which this entry replaced.",
+      "verify_note": "F10.7obs is NOT dense: 6 178 of 34 594 rows carry the sentinel -1.0 (5 523 before Penticton began 1947-02-14, and 655 interior in 459 runs, the last on 2026-05-09). Kp and ap have zero missing. ATMO-R-034 treats the sentinel as absence, never as a value.",
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "drao-fluxtable",
+      "kind": "data",
+      "role": "DRAO Penticton 10.7 cm flux — the INDEPENDENT CROSS-CHECK of gfz-kp-ap-f107's redistributed F10.7 (SPEC-atmosphere ATMO-A-020). Not a production route.",
+      "version": "2026-09-18 snapshot; 23 951 lines, 2004-10-28 through 2026-09-17",
+      "url": "https://www.spaceweather.gc.ca/solar_flux_data/daily_flux_values/fluxtable.txt",
+      "filename": "fluxtable.txt",
+      "sha256": "caf63ff72a559ced477aa89423e44f18aab3da45f0ff1cb3e0d2ac337759d491",
+      "licence": "OGL-CANADA-2.0",
+      "licence_note": "Open Government Licence - Canada, the default for Government of Canada data. Attribution: Dominion Radio Astrophysical Observatory / Natural Resources Canada.",
+      "consumes": "declared-columns",
+      "consumes_note": "Three readings per UT day; only the local-noon one is a daily value.",
+      "columns": {
+        "declared": [
+          "fluxdate",
+          "fluxtime",
+          "fluxobsflux"
+        ],
+        "excluded": {
+          "fluxadjflux": "the 1-AU-adjusted flux; MSIS-FOR's header requires the OBSERVED flux (ATMO-R-016).",
+          "fluxursi": "URSI-corrected; a different quantity again.",
+          "fluxjulian": "redundant with fluxdate.",
+          "fluxcarrington": "Carrington rotation; not an input to the model."
+        }
+      },
+      "upstream_mutable": true,
+      "upstream_mutable_note": "Extended daily. Begins 2004-10-28: no pre-2004 daily series was found at the locators searched (SPEC-atmosphere §4.3a records the search and its bounds), so the cross-check covers 2004-2026 and F10.7 before that carries ATMO-R-031's unverified class.",
+      "verify_note": "SIXTEEN dates carry two readings both stamped 20:00 UT, and first-wins versus last-wins differ by up to 2.9 sfu. ATMO-R-033 takes the FIRST, which reproduces GFZ on 16 of 16. Fourteen further dates carry no 20:00 reading at all and are absent, not substituted.",
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "nrlmsise00-datavsmodels",
+      "kind": "data",
+      "role": "NRLMSISE-00 data-vs-model statistics — the source of ATMO-P-4's accuracy figures. NOT reproducible: the NRLMSIS database it compares against is not distributed.",
+      "version": "2002",
+      "url": "https://map.nrl.navy.mil/map/pub/nrl/NRLMSIS/NRLMSISE-00/NRLMSISE-00_2002JA009430-datavsmodels.txt",
+      "filename": "NRLMSISE-00_2002JA009430-datavsmodels.txt",
+      "sha256": "7946e4cb403935bbd7b11fb3647364c2c1a71384f71db41ec8c31a0b12bcb8aa",
+      "licence": "NRL-PUBLIC",
+      "licence_note": "US Naval Research Laboratory, public domain.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "nrlmsise00-statsreadme",
+      "kind": "data",
+      "role": "Defines the MEAN and SD formulas of nrlmsise00-datavsmodels — ATMO-P-4 quotes the formula with the statistic, per plan §4 rule 3.",
+      "version": "2002",
+      "url": "https://map.nrl.navy.mil/map/pub/nrl/NRLMSIS/NRLMSISE-00/NRLMSISE-00_2002JA009430-readme.txt",
+      "filename": "NRLMSISE-00_2002JA009430-readme.txt",
+      "sha256": "3a6e3d6ff89985d13fdbff4c348d9161bf10f50fcbba8f6d09b501b2625058dc",
+      "licence": "NRL-PUBLIC",
+      "licence_note": "US Naval Research Laboratory, public domain.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "iau2012-b2",
+      "kind": "data",
+      "role": "IAU 2012 Resolution B2 — the astronomical unit is 149 597 870 700 m EXACTLY, and is used with all time scales (SPEC-ephemerides EPH-P-2, EPH-A-003)",
+      "version": "adopted by the XXVIII General Assembly, Beijing, 30 August 2012",
+      "url": "https://syrte.obspm.fr/IAU_resolutions/Res_IAU2012_B2.pdf",
+      "filename": "Res_IAU2012_B2.pdf",
+      "sha256": "3489ebb1e51f7c278d56c9e0f9cb49c142e036ac34e21defc87414507afec984",
+      "licence": "IAU-PUBLIC",
+      "licence_note": "An IAU General Assembly resolution: a published standards document. Text, never linked.",
+      "upstream_mutable": false,
+      "verify_note": "OBTAINED FROM SYRTE (Observatoire de Paris), NOT FROM THE IAU, because the IAU no longer serves it. Searched 2026-09-18 and recorded so the next reader need not repeat it: https://www.iau.org/static/resolutions/IAU2012_English.pdf (404, http and https), .../IAU_2012_English.pdf (404), https://iau.org/administration/resolutions/ (404), https://www.iau.org/administration/resolutions/general_assemblies/ (404) and .../ga2012/ (404). SYRTE hosts the IERS Conventions Centre and serves the individual resolution text. That bounds the search; it does not establish that the IAU publishes no copy anywhere. THE DOCUMENT WAS READ, NOT JUST FETCHED: recommendation 1 is 'that the astronomical unit be re-defined to be a conventional unit of length equal to 149 597 870 700 m exactly', and recommendation 2 is 'that this definition of the astronomical unit be used with all time scales such as TCB, TDB, TCG, TT, etc.' The second matters here: the au carries NO time-scale dependence, unlike the GM values of PERT-A-028 where the TDB/TCB rate L_B is exactly what separates two published numbers.",
+      "retrieved": "2026-09-18"
     }
   ]
 }

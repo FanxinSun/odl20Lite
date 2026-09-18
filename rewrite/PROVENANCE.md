@@ -1705,6 +1705,182 @@ document was written**, not transcribed from the working notes: 26 checks, 26 ag
 checkers pass — `speccheck.py` reports 0 uncovered for `ATMO`, `budgetcheck.py` 42 rows with 23
 carrying arithmetic, all evaluating to what they state.
 
+## 20. L2 step 4 — `atmosphere`: the port, and what building it found
+
+**Date.** 2026-09-18. **State.** The port reproduces the reference implementation to
+**2.33 × 10⁻¹⁶** — about one ulp — over **1238 material comparisons** across 125 cases
+(17 published + a 108-point sweep crossing every branch boundary). 203/203 tests pass.
+
+### 20.1 The two generated sources
+
+`msis_coefficients.hpp` — 3 300 coefficients extracted from the pinned FORTRAN, never
+transcribed. **The storage is COMMON aliasing**: `BLOCK DATA GTD7BK` fills sixty-four
+50-element arrays `PT1`…`PAA2`, and every subroutine reads that same 3 200-double block as
+`pt(150)`, `pd(150,9)`, `ps(150)`, `pdl(25,2)`, `ptl(100,4)`, `pma(100,10)`, `sam(100)`. The
+boundaries do not fall where the letters do — `pd` consumes letters A through I, so `ps` begins
+at `PJ1` — and an extractor trusting the DATA names would emit nine plausible arrays the model
+never indexes. Verified value by value: 3 300 compared, 1 280 non-zero, **zero mismatches**.
+
+`msis_reference_values.hpp` — the frozen oracle, with compiler, version, flags and source hash
+in its header, and the single-versus-double measurement as the **derivation of the tolerance**
+rather than a number asserted elsewhere. The gate runs offline with no Fortran compiler;
+`gfortran` is a host tool, not a manifest pin.
+
+### 20.2 What the sweep found, which the 17 published cases could not
+
+Over the published cases the reference's single-precision artefact looks like one number: median
+≈ 4 × 10⁻⁷, worst 7.7 × 10⁻⁶. Over the sweep the worst is **7.9 × 10⁻³** — a thousand times
+larger — and every one of those is a quantity of order 10⁻³⁰ to 10⁻³⁷ approaching single
+precision's smallest normal (1.18 × 10⁻³⁸).
+
+**It is one phenomenon in three regimes**, not a tolerance with an exception. The class boundary
+is therefore physical: a species whose mass contributes less than 10⁻¹⁵ of the total cannot
+affect drag. Over 1500 comparisons: **A 1238** (worst 7.6706 × 10⁻⁶), **B 32**, **C 18**,
+**Z 212**. The threshold is not tuned — class A's worst is unchanged from 10⁻¹² to 10⁻¹⁵ — and
+**class A's worst is argon at 1000 km, published case 3**: 1056 further material comparisons
+across every branch boundary left the bound exactly where the 17 cases put it.
+
+### 20.3 The one porting error, and the shape of it
+
+Every species below 72.5 km came out high by **exactly the same factor** — 3.472 × 10⁻² at
+0–50 km, 8.672 × 10⁻³ at 70 km. A single multiplicative error, therefore, in one shared term:
+`DM28`, the mixed N₂ density. The reference passes it through `COMMON/DMIX`, set inside `GTS7`
+early; the port recomputed it afterwards, by which time `DENSU` had written back into the
+temperature-node arrays (`TN1`, `TGN1`) that every later species' call had further modified.
+Captured at its source, the disagreement fell to 2.33 × 10⁻¹⁶.
+
+*The diagnostic was the uniformity.* Every species and the total sharing one factor says the
+error is in something they all multiply, which is a much smaller search than "the port is wrong
+somewhere below 72.5 km".
+
+### 20.4 Three guards this step changed, all in the same direction
+
+**The licence allowlist refused the first design, and was right.** `gfz-kp-ap-f107` is CC BY 4.0
+except its sunspot column, which is CC BY-NC 4.0. The first attempt declared the compound
+licence `CC-BY-4.0 AND CC-BY-NC-4.0` — which would have put a **non-commercial term on the
+permissive allowlist**, the exact thing that allowlist exists to prevent. An entry now declares
+the licence **of what this tree consumes**, and names any other licence in the file under
+`licence_excluded` with the columns carrying it. `tools/fetch.py` refuses an entry that excludes
+a licence without declaring its columns, and refuses one that declares a column carrying an
+excluded licence. Proven both ways.
+
+**`tests/test_one_secular_pole.py` failed on a false positive** — `msis_thermosphere.hpp` carries
+`55.0` as NRLMSISE-00's ZN2 mesospheric spline node, 55 km. The test substring-matched bare
+numbers, and its own comment already recorded this happening once before (`relativity_tests.cpp`,
+55.0 as an inclination); the fix then was to exclude the test directory, which was too narrow.
+TN36-7 (21) is two linear expressions in four constants and **no file can restate one with a
+single number**, so one of the four is a coincidence and **two or more together is the equation
+copied**. The test now reports which files carry which constants and flags only files carrying
+two or more. Proven both ways: exit 1 on a planted restatement naming all four it found.
+
+**Three print-and-continue conditions became refusals** (`ATMO-F-012`): the coincident spline
+node, the non-positive density ratio before a logarithm, and `GHP7`'s non-convergence. The
+reference prints to standard output and returns a number anyway.
+
+### 20.5 Measured, not assumed, while porting
+
+* **The reference mutates its own coefficient array** at line 1107 —
+  `IF(P(25).LT.1.E-4) P(25)=1.E-4` — which would change every later call. It is **dead for all
+  eleven arrays `GLOBE7` is called with**: 8.667840 × 10⁻² for `PT`, `PS` and seven `PD` columns
+  (867× the clamp, 2.938 decades), 8.310900 × 10⁻² for column 1 (831×), and **5.382050 × 10⁻²
+  for column 2 — 538×, 2.731 decades, which is the binding margin**. The coefficients are `const`
+  in the port because the worst column was checked, not a typical one.
+
+  *Both this session and the manager wrote "four decades" for that margin before either computed
+  it; 8.667840 × 10⁻² is 867 times 10⁻⁴, which is 2.94 decades, and the binding value is 2.73.
+  A decade count is arithmetic and §4 rule 3 applies to it like any other statistic.*
+* **`GLOB7S` reads `PLG` and never writes it**, so its result depends on `GLOBE7` having been
+  called first with the same latitude and nothing in its signature says so. The shared state is a
+  parameter here.
+* **`T2` and `T(2)` are different variables** in the anomalous-oxygen block. Reading one as the
+  other overwrites the temperature at altitude.
+* **The switches collapse.** With none exposed, `SW` is all +1 except `SW(9) = ±1` and `SWC` is
+  all 1 — exactly the two configurations the published cases exercise.
+
+### 20.6 The ingestion layer, and the row it feeds
+
+`SpaceWeatherTable` loads the GFZ table and verifies its redistributed F10.7 against DRAO's own.
+Measured by the suite, not asserted here: **7 969 of 7 969 overlapping days exact, zero
+differing**, with the **16** duplicate-timestamp dates resolved first-wins (`ATMO-R-033`).
+Usable coverage is a **set**: 22 991 days with **25 breaks** inside 1956-10-14 … 2026-08-08,
+because 6 178 rows carry the absence marker. The centred 81-day mean is recomputed and the test
+checks it by an **independent route** — civil-date arithmetic against the loader's index walk —
+rather than comparing the loader with itself.
+
+`tests/l2_floors.cpp` gains the atmosphere row, at **both** radii because drag is the only term
+in that table varying over orders of magnitude across the regime. Measured: ρ = 1.753 × 10⁻¹¹
+kg m⁻³ at 300 km and 2.125 × 10⁻¹⁵ at 953 km, a ratio of **8 248**; the drag acceleration at a
+stated C_D A/m = 0.01 m² kg⁻¹ is **61 175×** the ocean-tide floor at 300 km and **6.76×** it at
+953 km. The uncertainty travels with it, carrying its altitude, activity level and epoch, and
+labelled as an upper bound (§20.7).
+
+### 20.7 Four corrections from review, and what they have in common
+
+* **"Four decades" was wrong for every value.** The clamp margin on P(25) is 867× (2.938
+  decades) typically and **538× (2.731 decades) at the binding column**. Both this session and
+  the manager wrote "four decades" before either computed it. A decade count is arithmetic and
+  §4 rule 3 binds it like any other statistic — *and a margin is always the worst column's*,
+  which is the rule `SPEC-gravity` §3.6a already established.
+* **The secular-pole guard was being narrowed toward uselessness.** Twice it answered a false
+  positive by lowering its own sensitivity — first excluding the test directory, then requiring
+  two constants rather than one. Each step was locally right; the trend converges on a guard
+  that fires at nothing. **The discriminator was replaced rather than narrowed a third time**:
+  a copy of TN36-7 (21) puts an offset and its rate *adjacent*, a coincidence scatters them, so
+  the test now asks about proximity. Proven three ways — adjacent restatement fires, two
+  constants 60 lines apart do **not** (the previous rule would have), the tree passes.
+* **The licence allowlist refused its own author** (§20.4), which is the only real test of one.
+* **The three-model correlation supports the weaker claim.** σ_N00 agreeing with σ_M90 to 5 %
+  rules out a σ that is mostly *model-specific*; it does **not** show σ is data-dominated, since
+  σ² = σ_data² + σ_model² and similar σ_model terms need not be small. `ATMO-P-4` now states
+  what the measurement reaches and stops there.
+
+What the four share is the shape this project keeps meeting: **a number or a check that passes
+without examining what it claims about.** A decade count nobody divided; a guard that stopped
+looking; an allowlist that would have admitted the thing it exists to exclude; a correlation
+asked to carry a conclusion one step past its own algebra.
+
+### 20.8 The submission criterion, changed because it failed
+
+**`tools/ci.sh` exited 1 when this work was reported complete**, at gate 6: `NOTICE` had drifted
+from the manifest, because five new entries were added and `NOTICE` is generated from it. The
+individual checkers were green and the composed gate was red, and the report said "every
+checker green" — true of the checkers that were run, and the gate that composes them was not
+one of them.
+
+The irony is worth stating rather than passing over: plan §5 constraint 9 says changing a
+manifest entry re-runs every gate that consumed it; `NOTICE` consumes the manifest; **gate 6 did
+catch it.** Nothing enforced the constraint except running the gate, and the gate was the thing
+not run.
+
+**The criterion is now the composed one: green means `tools/ci.sh` exits 0**, and the report
+states that exit code. A list of individually-passing checkers is not a substitute, because the
+one that fails will be the one not on the list.
+
+Fixed in passing, and it was a real defect rather than a formality: `tools/notice.py` did not
+know about `licence_excluded` or `columns`, so `gfz-kp-ap-f107`'s note said its non-commercial
+column was "named in licence_excluded below" and **nothing was below**. A dangling
+cross-reference in the user-facing licence document, promising exactly the disclosure the
+mechanism exists to make. `NOTICE` now carries an `EXCLUDED` line naming CC BY-NC 4.0 and the
+`SN` column, a sentence saying a reader who fetches the file is subject to it whether or not
+this tree reads it, and the declared column list.
+
+### 20.9 `EPH-Q-005` resolved, and reading beat citing
+
+IAU 2012 Resolution B2 is obtained and pinned (`iau2012-b2`, SHA-256 `3489ebb1…c984`), and
+`SPEC-ephemerides` §2's row is **primary** rather than cited through `PARK21`. L2 can close.
+
+**It is served by SYRTE (Observatoire de Paris), not by the IAU**, whose own published location
+no longer answers — five locators probed on 2026-09-18, all 404, recorded in the manifest entry
+and in the specification so the next reader need not repeat the search. That bounds it; it does
+not establish that the IAU publishes no copy anywhere.
+
+Reading the resolution rather than citing it added something the secondary route did not carry.
+Recommendation 1 is the exact metre value, which `PARK21` already gave. **Recommendation 2 is
+that the definition "be used with all time scales such as TCB, TDB, TCG, TT, etc."** — the au
+carries *no* time-scale dependence. In a layer that has spent this much effort on *L*_B, and in
+which `PERT-A-028` turns on the TDB/TCB rate being exactly what separates two published GM
+values, having that stated by the resolution itself is worth the retrieval.
+
 ## Changelog
 
 | date | change |
@@ -1715,6 +1891,9 @@ carrying arithmetic, all evaluating to what they state.
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
 | 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
+| 2026-09-18 | §20.8-20.9 added: ci.sh exited 1 on NOTICE drift while the individual checkers were green — the submission criterion is now the composed gate's exit code. EPH-Q-005 resolved: IAU 2012 B2 obtained and pinned, and L2 can close. |
+| 2026-09-18 | §20.6-20.7 added: the ingestion layer verifies 7 969/7 969 against the issuing authority; l2_floors gains the atmosphere row at both radii; four review corrections, all of the same shape. |
+| 2026-09-18 | §20 added: the port reproduces the reference to one ulp; the sweep showed the precision measurement was the wrong shape; the licence allowlist refused a compound licence and was right to. |
 | 2026-09-18 | §19 added: L2 step 4's specification, and the finding that the gate the plan names does not exist — NRL publishes no reference value for NRLMSISE-00, with the search over all five distributed files. |
 | 2026-09-18 | §8.9 closed: the plan moved into this tree as the canonical and only copy, resolving the stale-copy hazard structurally. Verified its contents; its absence from the predecessor tree is taken on report, because verifying it is the thing this session may not do. |
 | 2026-09-18 | Manager audit of the v1.2 self-fix passed; denominator of 121 confirmed. Recorded the **R2 corollary** at §8.8 and flagged the stale local plan copy at §8.9. |
