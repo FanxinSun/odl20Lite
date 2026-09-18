@@ -711,6 +711,15 @@ governs. Three rules apply to all of them:
    counting, 128 vs 121; block separation, 20.8σ vs 14.1σ). L8's block gate names
    its definition for exactly this reason.
 
+   **A correction re-derives the whole statement; it does not patch one term of it.** Twice a
+   review here has fixed one part of a claim and carried the rest of it across unchecked: the
+   manager recorded "chapter 6 prints no worked examples" into this plan while writing the rule
+   against exactly that, and later corrected *which* coefficient binds a clamp margin while
+   repeating the executor's "four decades", which is 2.94 for the value quoted and 2.73 for the
+   one that binds. Patching inherits everything not patched, and the unpatched part arrives
+   carrying the authority of the correction. So a corrected number is recomputed from its inputs,
+   in full, and the recomputation is what gets written down.
+
    **Quantities that must be compared are measured in one place, at one reference point.** L2's
    three floors lived in three specifications — the ocean-tide truncation floor in
    `SPEC-perturbations`, the relativistic terms in the same document at a different radius, the
