@@ -77,6 +77,9 @@ gate "NOTICE regenerates and matches what is committed"
 gate "specification traceability (NOT a test-suite check — see the tool's output)"
 "$PY" tools/speccheck.py
 
+gate "budget-row arithmetic (specifications' only untested numbers)"
+"$PY" tools/budgetcheck.py --quiet
+
 gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
 "$PY" tools/constraint8.py
 

@@ -48,7 +48,7 @@ reads as an omission rather than a decision.
 | 3 | Definitions and conventions | Symbols, units, sign conventions, frames, the time argument of every time-dependent quantity |
 | 4 | Required behaviour | The mathematics, stated so an implementer who has seen no implementation can write one |
 | 5 | Interfaces | The module's public surface, language-free (§4 below) |
-| 6 | Precision and accuracy | Numbers, with the physical quantity each number is a budget for — **and the conversion written out**, not only its result. `SPEC-ephemerides`'s first draft stated 10⁻¹³ AU as "15 µm" where it is 14.96 mm; the arithmetic is one multiplication and writing it down is what makes a factor of a thousand visible. |
+| 6 | Precision and accuracy | Numbers, with the physical quantity each number is a budget for — **and the conversion written out in a form `tools/budgetcheck.py` can evaluate**, not only its result: `100 ns × 7.5 km s⁻¹ = **0.75 mm**`. The result goes in `**bold**`, every factor carries its units, and CI evaluates the left side and compares it. A row that looks like arithmetic and will not parse is a build failure, never a skip. `SPEC-ephemerides`'s first draft stated 10⁻¹³ AU as "15 µm" where it is 14.96 mm; the arithmetic is one multiplication and writing it down is what makes a factor of a thousand visible. |
 | 7 | Failure behaviour | The refusal catalogue (§5 below) |
 | 8 | Acceptance tests | Concrete, checkable, each naming the **source of its expected values** |
 | 9 | Provenance obligations | What the implementation must add to `PROVENANCE.md` when it lands |
@@ -225,6 +225,26 @@ way:
 
 (The UT1 row uses the Earth rotation rate 7.292 115 146 706 979 × 10⁻⁵ rad s⁻¹; the
 angular rows use 1 as = 4.848 137 × 10⁻⁶ rad.)
+
+**Acceleration has no row, and that is deliberate.** Every entry above is a rotation or a
+rate, where the consequence is a multiplication. An acceleration budget is not: what a
+given acceleration error does to a position depends on *how it is distributed in time*,
+and the obvious conversion is wrong by orders of magnitude for the case this tree cares
+about most.
+
+Worked, because it nearly became a gate. `SPEC-gravity`'s degree-90 truncation error for
+Starlette is 1.2174 × 10⁻¹⁰ m s⁻², and ½aT² over one revolution gives **2.37 mm** against
+IERS Table 6.1's stated "3-D orbit accuracy better than 0.5 mm" — apparently a failure by
+4.8×. It is not. Truncation error at degree *N* oscillates at about *N* cycles per
+revolution and does not accumulate secularly; treated as oscillatory its amplitude is
+a/(Nn)² ≈ **1.5 × 10⁻⁵ mm**, five orders of magnitude smaller and far inside the table. The
+model was right, the table was right, and a gate built from ½aT² would have failed a
+correct implementation.
+
+So an acceleration budget states the acceleration. If it also quotes a position
+consequence it MUST name the integration time **and the spectral character of the error** —
+secular, once-per-revolution, or high-frequency — and a spec that cannot say which states
+the acceleration alone and leaves the orbit-level claim to the layer that fits orbits.
 
 Stating the consequence is what lets a reviewer reject a tolerance as too loose or
 dismiss a term as negligible without re-deriving it.

@@ -19,6 +19,13 @@ add_test(NAME manifest.licences_permissive
 
 # Plan §5 constraint 8.  D7's one-line migration holds only while the tree stays
 # inside the interchangeable part of the expected API; this is what keeps it so.
+# The budget rows are the only class of number in this tree with no test behind
+# them, and four of twenty-three were wrong by 1000x or more on 2026-09-18.
+add_test(NAME budget.arithmetic
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/budgetcheck.py" --quiet)
+add_test(NAME budget.checker_catches_the_historical_errors
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_budgetcheck.py")
+
 add_test(NAME constraint8.result_only
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/constraint8.py")
 

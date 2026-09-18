@@ -328,6 +328,7 @@ documented by the IERS itself in `updateC04.txt`:
 
 | date | change |
 |---|---|
+| 2026-09-18 | **L2 step 2 `gravity` specification drafted; budget-row arithmetic made checkable.** §14 added: the sources obtained and the two that were not, the recursion derived from `TN36-6` (6.2b) and `DLMF-14` and **verified to 60 digits before being written down** because the Conventions print no recursion, the measured underflow of the classical form above 43.7° latitude at degree 2190, what the coefficient file's own structure is, the Table 6.1 conversion that fails and therefore gates nothing, and a claim about the figure-axis terms corrected during drafting. §8.13 records `tools/budgetcheck.py` — including its briefly acquiring the absolute-tolerance defect it was built to catch, found only by replaying the four historical errors. §9 gains two rows. |
 | 2025-06-05 | pole coordinates and rates for 2021-01-01 – 2024-02-24 replaced by ITRF2020-u2023 values. Series name and path unchanged. Previous solution archived at `eopc04_20_v2`. |
 | 2026-02-05 | pole coordinates and rates for 2021-01-01 – 2024-12-31 replaced by ITRF2020-u2024 values. Series name and path unchanged. Previous solution archived at `eopc04_20_v3`. |
 | 2026-03-09 | pole rates for 1984 recomputed after an error was reported. |
@@ -480,6 +481,39 @@ a deliberate act. Negative-tested against eleven refusals plus `CeCILL-B` passin
 each a true statement about a smaller thing, read as a statement about a larger one. The gate-7
 narrowing of the same day is a fourth: `speccheck.py` printed a claim about the test suite while
 reading only the specifications' own traceability.
+
+**8.13 Budget rows were the only class of number in this tree with no test behind them, and
+four of twenty-three were wrong** (adopted 2026-09-18, at the manager's proposal). The four
+were out by factors of 1000, 1000, 1000 and 10⁶; three were in `SPEC-time.md`, which had been
+adopted, and one in `SPEC-ephemerides.md`, which the manager had reviewed. `tests/toolchain_smoke.cpp`
+had the same arithmetic right the whole time — code gets tested and prose does not.
+
+`tools/budgetcheck.py` now evaluates the arithmetic of every `… = **result**` expression in
+every `-P-` row, with a small units engine over length, time and angle. `SPEC-template.md` §1
+row 6 requires the conversion to be *written out in a form the checker can evaluate*, not only
+its result. It is gate 8 of `tools/ci.sh` and two ctest cases.
+
+Three things it did on the way in, recorded because each is the point rather than a footnote:
+
+- **It classifies rather than skips.** `checked` / `no-arithmetic` / **UNPARSEABLE, which is a
+  build failure**. A checker that silently passed over rows it could not read would report
+  success on the rows it understood and say nothing about the rest — the same shape as §8.12's
+  fourth disguise, and the manager named it in advance as the thing that would make the tool
+  worse than none.
+- **It found a spec defect on its first run**: `EOP-P-5`'s conversion factor was written without
+  units, so it stated a result that could not be checked.
+- **It acquired, briefly, the exact defect it was built to catch.** Its first tolerance counted
+  decimal places rather than significant figures, which is an *absolute* tolerance: a row
+  stating `8 × 10⁻¹⁶ m` got a tolerance of 0.5 and an error of a factor of a thousand passed.
+  Nothing revealed this except replaying the four historical errors against it — three failed as
+  they should and the fourth did not. `tests/test_budgetcheck.py` keeps all four, plus four
+  malformed rows that must be refused rather than skipped, so the tolerance cannot regress
+  quietly.
+
+The row shape is not assumed by column index, because the tables differ between specifications
+— `SPEC-frames.md` has four columns where `SPEC-time.md` has five. Finding that out before
+writing the parser is why it does not trust one.
+
 ---
 
 ## 9. Checks
@@ -499,6 +533,8 @@ reading only the specifications' own traceability.
 | 2026-09-18 | L0 steps 3–7 passed their gates? | **yes** — 8 gates, run offline from the cache in 32 s; see §11 |
 | 2026-09-18 | Does any build step reach for the network? | **no** — proved, not assumed: `tools/ci.sh --prove-offline` re-runs every gate with all proxy variables pointed at a closed port |
 | 2026-09-18 | Is the build reproducible? | **yes** — 115 artefacts byte-identical across two build directories, and across two *source* trees at paths 27 and 95 characters long |
+| 2026-09-18 | Every budget row's arithmetic evaluated by a tool, not by a careful reader? | **yes** — 31 rows across five specifications: 16 carry arithmetic and all 16 evaluate; 15 carry none; **0 unparseable**, which is a build failure and not a skip. See §8.13 |
+| 2026-09-18 | `SPEC-gravity.md` drafted from primary sources, and its requirements traceable? | **yes** — 90 own-prefix identifiers, 47 requirements and refusals, 41 discharged by an acceptance row and 6 excused with a reason, 0 uncovered. **Awaiting manager review**; not adopted, not implemented. See §14 |
 | **open** | **Is the copyright holder named?** | **NO** — `LICENSE` carries the placeholder `Copyright (c) 2026 <OWNER — …>`. Everything else about title in this ledger is in order, and this one line is not. It is the first thing a counterparty will read and the only edit the file needs. **For the owner.** |
 
 ---
@@ -731,6 +767,144 @@ magnitude.
 ### 13.4 The licence denylist was a denylist
 
 Recorded at §8.12. Prompted by CALCEPH being triple-licensed, and it generalises past it.
+
+
+## 14. L2 `environment` step 2 — `gravity`: the specification
+
+`spec/SPEC-gravity.md` v1.0, drafted 2026-09-18, **awaiting manager review**. Nothing is
+implemented and nothing here is a gate yet. What this section records is the set of numbers the
+specification asserts, and where each came from, because most of them were **measured from the
+published sources during drafting** rather than quoted — and a measurement made while writing a
+specification is provenance in exactly the way a measurement made while implementing one is.
+
+### 14.1 Sources obtained, and the two that were not
+
+| key | what | obtained |
+|---|---|---|
+| `TN36-6` | IERS Conventions chapter 6, update of 2018-02-01, sha256 `abb3c0b0…4388` | primary |
+| `TN36-7` | IERS Conventions chapter 7 §7.1.4, the secular pole, sha256 `ffe8ffb1…043d` | primary |
+| `EGM08` | NGA `EGM2008_Spherical_Harmonics.zip`, 109 351 360 bytes, sha256 `65a9072f…0fbd` | primary |
+| `WGS84` | NGA.STND.0036_1.0.0_WGS84, sha256 `5edc1cf7…e512` | primary |
+| `DLMF-14` | NIST DLMF §14.6, §14.10 | primary |
+| `NASA-TP` | NASA/TP-2016-218604, sha256 `7aa56a42…87ef` | primary, informative |
+| `HF02` | Holmes & Featherstone 2002, J. Geodesy 76:279–299 | **not obtained** — paywalled |
+| `PAVLIS12` | Pavlis et al. 2012, JGR 117 B04406 | **not obtained** |
+
+`HF02` is the standard citation for evaluating normalised Legendre functions at ultra-high
+degree and it could not be read. Nothing in the specification rests on it: §4.4's recursion is
+derived from `TN36-6` (6.2b) with `DLMF-14`, and the property that makes the ultra-high-degree
+treatment necessary is measured here (§14.3) instead of cited.
+
+### 14.2 The Conventions print no recursion
+
+The step's scope says "recursions taken from the tables printed in the Conventions rather than
+from anyone's code". **Chapter 6 prints no recursion.** It gives the expansion (6.1) and the
+normalisation (6.2b); the words "recursion" and "recurrence" do not occur in it, nor in the
+other chapters held in this tree. The instruction cannot be followed as worded, and
+`GRAV-Q-003` asks for the substitute to be ratified.
+
+What was done instead: the fully normalised forward-column recursion was **derived** from
+`TN36-6` (6.2b) together with `DLMF-14` (14.6.1) and (14.10.3), and then **verified before being
+written down**, in exact rational arithmetic carried to 60 significant digits, over
+0 ≤ m < 40, m+2 ≤ n < 60 for the general step and m ≤ 60 for the seeds.
+
+| step | worst relative disagreement with the definition |
+|---|---|
+| general step, P̄′ₙₘ = aₙₘ u P̄′ₙ₋₁,ₘ − bₙₘ P̄′ₙ₋₂,ₘ | 9.895 × 10⁻⁵⁸ |
+| sectorial seed, m ≥ 2 | 9.597 × 10⁻⁶⁰ |
+| first step, n = m+1 | 9.471 × 10⁻⁶⁰ |
+
+All three are the 60-digit arithmetic's own rounding. The same run also established the trap
+that `GRAV-R-033` exists for: the general sectorial seed is **wrong at m = 1** by exactly √2,
+because (2 − δ₀ₘ) changes between m = 0 and m = 1. √3 = 1.732050807568877 is correct;
+√(3/2) = 1.224744871391589 is what the general seed gives.
+
+`DLMF-14` (14.6.1) carries the Condon–Shortley phase (−1)ᵐ and the geodesy convention does not.
+Recorded because it is a sign flip on every odd order, and because a reference implementation
+borrowed for a test will have one convention or the other and will not announce which.
+
+### 14.3 Why the classical form cannot be used at degree 2190 — measured
+
+Evaluating the seed product to m = 2190: the **factored** function P̄′ₘₘ = P̄ₘₘ/cosᵐφ is
+bounded by **10.277 577** over the whole model. The **unfactored** one underflows the smallest
+normal double (2.225 × 10⁻³⁰⁸) above latitude **82.0°** at m = 360 and above **43.7°** at
+m = 2190 — more than half the Earth's surface by area, at the model's full order. The term is
+lost rather than small, which is the whole reason `GRAV-R-030` mandates the factored recursion
+and `GRAV-A-007` tests that doing it the other way is measurably worse.
+
+`NASA-TP` §4.5 reaches a compatible conclusion from the singularity side — that the stability of
+each of the three singularity-free algorithms it studies is set by the Legendre generator inside
+it, and that normalisation *amplifies* whatever instability the generator has. Its own trend
+study stops at degree 150, below where this difficulty begins.
+
+### 14.4 What was measured from `EGM2008_to2190_TideFree` itself
+
+| measured | value |
+|---|---|
+| records | 2 401 333 — the full triangle to (2190, 2190) less the three absent records of degrees 0 and 1 |
+| degrees 0 and 1 | **absent from the file**; GM carries degree 0 and degree 1 vanishes for a geocentric origin |
+| last record | (2190, 2190), and it is **zero** — the file is padded to a full triangle |
+| highest order with a non-zero coefficient | 2159 at **odd** degrees above 2159, **2158** at even ones — the parity coupling of the ellipsoidal-to-spherical conversion behind EGM2008 |
+| C̄₂₀ in the file (tide free) | −4.841 651 437 908 15 × 10⁻⁴ |
+| conventional C̄₂₀ (zero tide), `TN36-6` Table 6.2 | −0.484 169 48 × 10⁻³ |
+| conventional tide-free, from §6.2.2's −4.1736 × 10⁻⁹ | −0.484 165 306 4 × 10⁻³, reproducing the −0.484 165 31 × 10⁻³ the Conventions print |
+| **conventional tide-free minus the file's** | **−1.6261 × 10⁻¹⁰**, which is 8× the 2 × 10⁻¹¹ uncertainty `TN36-6` §6.1 states |
+
+The last row is why `GRAV-R-020`'s substitution is mandatory: the two values come from seventeen
+years of SLR and four years of GRACE respectively, and a field that keeps the file's value is
+not the conventional model.
+
+The truncation errors of `GRAV-P-1` to `GRAV-P-3` were computed from the file's own degree
+amplitudes by the exact identity of `GRAV-R-041`: **1.2174 × 10⁻¹⁰**, **9.9122 × 10⁻¹²** and
+**2.3018 × 10⁻¹⁴ m s⁻²** at the three rows of `TN36-6` Table 6.1.
+
+### 14.5 Table 6.1 is a statement about an orbit, and no gate here is set from it
+
+Table 6.1 says its truncations give "3-dimensional orbit accuracy of better than 0.5 mm". The
+obvious move is to turn that into an acceleration tolerance. Carried out — treating the
+truncation error as a constant acceleration acting for one revolution — it gives **2.3753 mm**
+for Starlette and **0.90677 mm** for Lageos against Table 6.1's 0.5 mm, and only GPS's
+**0.021454 mm** comes in under. The conversion is what is wrong, not the model or the table:
+truncation error at degree N oscillates at N cycles per revolution and does not accumulate
+secularly.
+
+So the specification sets **no gate from Table 6.1** and prints the gap instead. This is the
+same class of mistake as §8.12's four disguises, running the other way: a true statement about a
+larger thing — a fitted orbit — read as a statement about a smaller one. It cost nothing only
+because the arithmetic was done before the gate was written.
+
+### 14.6 A claim corrected during drafting
+
+§3.7 of the draft first said the conventional C̄₂₁ is "of order 10⁻⁹, several times the value
+the file carries". Computed, it is not: at J2000.0 it is −2.264 385 × 10⁻¹⁰ against the file's
+−2.066 155 × 10⁻¹⁰ — a 10 % difference, not a factor of several. The statement was replaced by
+the measured table and by the argument that actually holds, which is **epoch dependence**: the
+file's values are fixed and the conventional ones move with the secular pole, so by 2026.0 the
+differences reach 1.9822 × 10⁻¹⁰ and 2.8020 × 10⁻¹⁰, a degree-2 amplitude of 3.4322 × 10⁻¹⁰,
+worth an RMS acceleration of 7.4627 × 10⁻⁹ m s⁻² at 7331 km — **sixty-one times** the degree-90
+truncation error the same field accepts.
+
+### 14.7 The gate rests on a closed form, because no published accelerations exist
+
+No published table of geopotential accelerations was found: searched NGA's EGM2008 distribution,
+ICGEM, `PAVLIS12`, `NASA-TP` (whose appendix B publishes *error magnitudes*, for the Moon) and
+the harmonic-synthesis literature. `GRAV-A-001` is therefore a **category-2** test in
+`SPEC-template.md` §8's ordering — a closed-form identity — and not a category-1 one, and §8 of
+the specification says so plainly. `GRAV-Q-001` asks whether anyone knows of a published set.
+
+One published point-wise reference does exist and was **not** adopted: `EGM08` contains
+`INPUT.DAT` and `OUTPUT1.DAT`, six latitude/longitude pairs and their EGM2008 **geoid
+undulations** to the millimetre, at both poles and at full degree 2190. Consuming it would need
+the WGS 84 normal potential and Somigliana normal gravity in closed form, a second pinned 142 MB
+expansion, and Pavlis's option conventions matched to 4 × 10⁻⁵ relative. `GRAV-Q-002` puts the
+trade to the manager.
+
+`hsynth_WGS84.f`, the FORTRAN harmonic-synthesis program in the same archive, **was not opened**.
+It is exactly what the step's scope says not to take recursions from, and its presence in a
+manifest-declared archive is recorded in the specification's front matter so that the declaration
+is checkable rather than merely asserted.
+
+---
 
 ---
 

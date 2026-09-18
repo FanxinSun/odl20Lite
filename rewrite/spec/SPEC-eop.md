@@ -462,7 +462,7 @@ Notes for the manager's review:
 | `EOP-P-2` | interpolation at a tabulated node reproduces the node | exact (to f64) | — | Lagrange property |
 | `EOP-P-3` | interpolation between nodes | ≤ 10 µas in pole, ≤ 1 µs in ΔUT1 | 10 µas × 0.034 mm/µas = **0.34 mm**; 1 µs × 0.51 mm/µs = **0.51 mm** at 7000 km | the scheme `INTERP` uses; dominated by the true sub-daily signal, which §4.4 restores separately |
 | `EOP-P-4` | sub-daily corrections vs their published test cases | agreement to the last published digit | — | §8 |
-| `EOP-P-5` | the EOP's own uncertainty, C04 era | ≈ 30–100 µas in pole, ≈ 5–20 µs in ΔUT1 | 30–100 µas × 0.034 = **1.0–3.4 mm**; 5–20 µs × 0.51 = **2.6–10.2 mm** at 7000 km | the formal errors carried in the C04 file itself |
+| `EOP-P-5` | the EOP's own uncertainty, C04 era | ≈ 30–100 µas in pole, ≈ 5–20 µs in ΔUT1 | 30–100 µas × 0.034 mm/µas = **1.0–3.4 mm**; 5–20 µs × 0.51 mm/µs = **2.6–10.2 mm** at 7000 km | the formal errors carried in the C04 file itself |
 
 `EOP-P-5` is the honest floor on everything above this module: the frame transformation of
 `SPEC-frames.md` is specified to 10 µas (`FRAME-P-3`) but is *delivered* to the accuracy of
