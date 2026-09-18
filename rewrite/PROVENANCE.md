@@ -1881,6 +1881,107 @@ carries *no* time-scale dependence. In a layer that has spent this much effort o
 which `PERT-A-028` turns on the TDB/TCB rate being exactly what separates two published GM
 values, having that stated by the resolution itself is worth the retrieval.
 
+## 21. L3 step 1 — the force plugin surface, and a gate that would have caught nothing
+
+**Date.** 2026-09-18. **State.** `tools/ci.sh` exits 0: **11 gates, 221 tests**.
+`SPEC-dynamics.md` v1.1, Spec ID `DYN`: 50 own-prefix identifiers, 26 requirements and refusals,
+24 discharged by a test, 2 excused, 0 uncovered.
+
+### 21.1 The gate the plan asked for would have fired fourteen times and caught nothing
+
+Plan §3.4 step 1 asked for a CI gate that *"fails on a km↔m scaling written anywhere outside
+`core/units.hpp`"*. The wording names a check whose feasibility is a measurement, so it was
+measured before being specified. **Every literal whose value is 1000 or 1/1000** in the tree's
+production sources — 62 at the time, tests excluded:
+
+> **15 occurrences in 7 files. One is the crossing. Fourteen are not.**
+
+g/cm³ → kg/m³; `fmod(yrd, 1000.0)` extracting a day-of-year from `YYDDD`; two `−1000.0` "no
+longitude" sentinels; eight milliarcsecond and millisecond conversions in `eop`; a mas → rad
+constant in `gravity`; a row-count threshold in `tides`. **Fourteen false positives to one true
+positive, and the true positive is `kMetresPerKilometre` — the definition the gate must permit.**
+
+The enumeration was then **confirmed by a second, independent method**: first by matching the
+spellings of the 1e3 family, then by parsing every numeric literal and keeping those whose
+*value* is 1000 or 1/1000. Both return the same 15. A register's worth is its completeness, and
+one enumeration checking itself is not evidence of that.
+
+### 21.2 Why it was replaced rather than narrowed
+
+Excluding `eop`, or requiring proximity to a position-like identifier, or searching only inside
+`dynamics`, would each have worked that day. This tree had just watched that approach fail
+twice in one layer, and the trend — not either instance — was the defect. The plan now carries
+the general form at §4 rule 5 with all three instances: **a licence denylist that passed CeCILL
+because it contained no forbidden substring; `test_one_secular_pole.py` narrowed twice; and
+this.** *A search converges on flagging nothing; a register converges on accounting for
+everything.*
+
+`DYN-R-040`: every such literal is either in `core/units.hpp` or carries a marker on its own
+line or the line above. `tools/unitcheck.py` prints the whole register and fails on one that is
+neither — the **licence allowlist's shape**, where adding an entry is a deliberate act with a
+reason attached. It is `ci.sh` **gate 10**.
+
+### 21.3 Two things the work found that the specification had not
+
+**The register needed two markers, not one**, and that came out of re-deriving the fourteen from
+what each line does rather than from the enumeration that produced them. **Four of the fourteen
+convert nothing at all** — a date radix, two sentinels and a row count — and labelling those as
+conversions would have made the register say something false. A reader's use of it is to scan
+and see that no km↔m crossing hides among the entries; *one wrong label turns "fourteen
+unexamined literals" into "fourteen literals someone said were fine", which is worse than no
+register.*
+
+**An annotation is not a permit** (`DYN-R-041`). The first version of the gate passed an injected
+km↔m scaling that was *honestly annotated* `// UNIT-CROSSING: km -> m`, because it only checked
+that a marker was present. That is the arm that matters most, and it was found by proving the
+gate in all four states rather than only the two the plan asked for. No conversion outside
+`core/units.hpp` may name kilometres: if kilometres are involved it **is** the crossing, and the
+crossing has one site.
+
+**The re-derivation also traced one literal to a real asymmetry between two products.**
+`eop/src/series.cpp:103` scales a limit, not a value: `SPEC-eop` §3.5 records that EOP 20 C04
+publishes δ*X*/δ*Y* in **arcsec** where `finals2000A` publishes them in **milliarcsec**, so the
+C04 parser converts `kCipMas`'s 100 mas into arcsec while the `finals2000A` parser compares the
+same limit unscaled.
+
+### 21.4 The arithmetic offered for the Jacobian split, re-derived rather than patched
+
+`DYN-Q-002` asked whether ∂a/∂state should be one 3×6 or two named 3×3 blocks. The ruling was to
+split it, supported by an argument that SRP's velocity dependence — aberration, ∂a/∂v ≈ a_SRP/*c*
+— is the same order as drag's on the high-area-to-mass object this project is aimed at.
+
+**The figures reproduce exactly and compare two different vehicles.** The SRP number uses
+*A·C*_R/*m* = 3.36 m² kg⁻¹, a sail; the drag number, 5.78 × 10⁻¹⁰ m s⁻², comes from
+`tests/l2_floors.cpp`, which states *C*_D·*A*/*m* = **0.01** m² kg⁻¹ — a compact satellite, ~340×
+smaller in area to mass. Like for like, one object, **drag's velocity derivative at 953 km
+exceeds SRP's by 1078×**, not 0.33×.
+
+**And the measurement gives a better argument than the one it displaces.** "Same order at 953 km"
+would have been a coincidence of two vehicles. What is true is a *regime*: SRP's term is
+altitude-independent and drag's decays, so they cross, and **at GNSS altitude SRP's velocity
+derivative is five times drag's** — exactly where L4 is aimed. `DYN-P-3` and `DYN-P-4` carry the
+arithmetic, and gate 8 evaluates it.
+
+**Gate 8 refused the rows before it accepted them**, twice and correctly: first for unknown units
+(`N`, `kg` — `budgetcheck.py` had no mass dimension, and one was added rather than rewriting the
+specification around the checker's vocabulary), then on dimensions, because *"per unit A/m"* was
+carrying a factor the expression did not show. The normalisation is now written into the
+arithmetic.
+
+### 21.5 The surface
+
+`modules/dynamics`. A parameter's identity is issued by a registry and **cannot be made from an
+integer or a string**; `ParameterSet` has no `operator[]` and no `data()`; both are
+**compile-time** assertions, because a runtime refusal would mean the expression existed. The
+absences are asserted through concepts and **the same concepts are asserted positively on
+`std::vector`**, so the assertions are known to be testing something.
+
+∂a/∂state is two named 3×3 blocks, and a force declaring no velocity dependence supplies the
+**bound** on what it neglects, which the set sums into the caller's budget. The km↔m crossing
+happens at exactly **two sites**, both in `dynamics.cpp`, both naming `core/units.hpp` — and the
+register confirms it structurally: adding the module took the search from 62 production sources
+to 66 with **still 15 literals**, because the first caller of the crossing introduced none.
+
 ## Changelog
 
 | date | change |
@@ -1891,6 +1992,7 @@ values, having that stated by the resolution itself is worth the retrieval.
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
 | 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
+| 2026-09-18 | §21 added: L3 step 1. The crossing gate the plan asked for would have fired 14 times and caught nothing; replaced by a register, which is ci.sh gate 10. An annotation is not a permit. The SRP-versus-drag figure compared two vehicles. |
 | 2026-09-18 | §20.8-20.9 added: ci.sh exited 1 on NOTICE drift while the individual checkers were green — the submission criterion is now the composed gate's exit code. EPH-Q-005 resolved: IAU 2012 B2 obtained and pinned, and L2 can close. |
 | 2026-09-18 | §20.6-20.7 added: the ingestion layer verifies 7 969/7 969 against the issuing authority; l2_floors gains the atmosphere row at both radii; four review corrections, all of the same shape. |
 | 2026-09-18 | §20 added: the port reproduces the reference to one ulp; the sweep showed the precision measurement was the wrong shape; the licence allowlist refused a compound licence and was right to. |

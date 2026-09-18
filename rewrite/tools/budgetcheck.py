@@ -43,20 +43,31 @@ OK, WRONG, UNPARSEABLE = 0, 1, 2
 
 ARCSEC = math.pi / (180.0 * 3600.0)
 
-# symbol -> (SI scale, dimension as (length, time, angle))
-UNITS: dict[str, tuple[float, tuple[int, int, int]]] = {
-    "m":   (1.0, (1, 0, 0)),      "km": (1e3, (1, 0, 0)),
-    "mm":  (1e-3, (1, 0, 0)),     "um": (1e-6, (1, 0, 0)),
-    "nm":  (1e-9, (1, 0, 0)),     "pm": (1e-12, (1, 0, 0)),
-    "fm":  (1e-15, (1, 0, 0)),
-    "AU":  (1.495978707e11, (1, 0, 0)),
-    "s":   (1.0, (0, 1, 0)),      "ms": (1e-3, (0, 1, 0)),
-    "us":  (1e-6, (0, 1, 0)),     "ns": (1e-9, (0, 1, 0)),
-    "ps":  (1e-12, (0, 1, 0)),    "fs": (1e-15, (0, 1, 0)),
-    "rad": (1.0, (0, 0, 1)),
-    "as":  (ARCSEC, (0, 0, 1)),   "mas": (ARCSEC * 1e-3, (0, 0, 1)),
-    "uas": (ARCSEC * 1e-6, (0, 0, 1)),
-    "":    (1.0, (0, 0, 0)),      "1": (1.0, (0, 0, 0)),
+# symbol -> (SI scale, dimension as (length, time, angle, MASS))
+#
+# MASS WAS ADDED AT L3 STEP 1.  SPEC-dynamics DYN-P-3 and DYN-P-4 compare solar
+# radiation pressure's velocity derivative against drag's, and those are written
+# in N m^-2 and kg m^-3.  The checker REFUSED them rather than guessing --
+# "unknown unit 'N'" -- which is the behaviour this tool exists for, and the
+# repair is to teach it the units this tree's physics actually uses rather than
+# to rewrite the specification around the checker's vocabulary.  L4 will be full
+# of newtons.
+UNITS: dict[str, tuple[float, tuple[int, int, int, int]]] = {
+    "m":   (1.0, (1, 0, 0, 0)),      "km": (1e3, (1, 0, 0, 0)),
+    "mm":  (1e-3, (1, 0, 0, 0)),     "um": (1e-6, (1, 0, 0, 0)),
+    "nm":  (1e-9, (1, 0, 0, 0)),     "pm": (1e-12, (1, 0, 0, 0)),
+    "fm":  (1e-15, (1, 0, 0, 0)),
+    "AU":  (1.495978707e11, (1, 0, 0, 0)),
+    "s":   (1.0, (0, 1, 0, 0)),      "ms": (1e-3, (0, 1, 0, 0)),
+    "us":  (1e-6, (0, 1, 0, 0)),     "ns": (1e-9, (0, 1, 0, 0)),
+    "ps":  (1e-12, (0, 1, 0, 0)),    "fs": (1e-15, (0, 1, 0, 0)),
+    "rad": (1.0, (0, 0, 1, 0)),
+    "as":  (ARCSEC, (0, 0, 1, 0)),   "mas": (ARCSEC * 1e-3, (0, 0, 1, 0)),
+    "uas": (ARCSEC * 1e-6, (0, 0, 1, 0)),
+    "":    (1.0, (0, 0, 0, 0)),      "1": (1.0, (0, 0, 0, 0)),
+    "kg":  (1.0, (0, 0, 0, 1)),   "g":  (1e-3, (0, 0, 0, 1)),
+    "N":   (1.0, (1, -2, 0, 1)),  # kg m s^-2
+    "J":   (1.0, (2, -2, 0, 1)),  "W": (1.0, (2, -3, 0, 1)),
 }
 
 SUPERSCRIPT = str.maketrans("⁻⁰¹²³⁴⁵⁶⁷⁸⁹", "-0123456789")
@@ -89,7 +100,7 @@ def normalise(text: str) -> str:
 class Quantity:
     __slots__ = ("value", "dim")
 
-    def __init__(self, value: float, dim: tuple[int, int, int]):
+    def __init__(self, value: float, dim: tuple[int, int, int, int]):
         self.value, self.dim = value, dim
 
     def __mul__(self, o: "Quantity") -> "Quantity":
@@ -104,9 +115,9 @@ def parse_unit(u: str) -> Quantity:
     """`km s^-1`, `mm/uas`, `m/AU`, `mm`, ``."""
     u = u.strip()
     if not u:
-        return Quantity(1.0, (0, 0, 0))
+        return Quantity(1.0, (0, 0, 0, 0))
     num, _, den = u.partition("/")
-    q = Quantity(1.0, (0, 0, 0))
+    q = Quantity(1.0, (0, 0, 0, 0))
     for part, sign in ((num, 1), (den, -1)):
         for tok in part.split():
             sym, _, exp = tok.partition("^")
@@ -209,9 +220,9 @@ def check_row(rid: str, row: str, quiet: bool) -> tuple[str, list[str]]:
             n = max(len(v) for v, _ in factors)
             lefts = []
             for i in range(n):
-                q = Quantity(1.0, (0, 0, 0))
+                q = Quantity(1.0, (0, 0, 0, 0))
                 for vals, unit in factors:
-                    q = q * Quantity(vals[i if len(vals) > 1 else 0], (0, 0, 0)) * unit
+                    q = q * Quantity(vals[i if len(vals) > 1 else 0], (0, 0, 0, 0)) * unit
                 lefts.append(q)
             rvals, runit = parse_term(rhs)
         except (ParseError, ValueError, IndexError) as exc:
@@ -223,7 +234,7 @@ def check_row(rid: str, row: str, quiet: bool) -> tuple[str, list[str]]:
             continue
         for left, rv in zip(lefts, rvals):
             tol = significant_tolerance(rhs, rv)
-            right = Quantity(rv, (0, 0, 0)) * runit
+            right = Quantity(rv, (0, 0, 0, 0)) * runit
             if left.dim != right.dim:
                 problems.append(f"{rid}: dimensions differ — left {left.dim}, right {right.dim}"
                                 f"  ({lhs} = {rhs})")

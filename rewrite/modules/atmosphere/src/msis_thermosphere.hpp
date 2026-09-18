@@ -67,7 +67,8 @@ inline void gts7(double yrd, double sec, double alt, double glat, double glong, 
     constexpr std::array<double, 8> altl{200.0, 300.0, 160.0, 250.0, 240.0, 450.0, 320.0, 450.0};
     constexpr std::size_t mn1 = 5;
 
-    const double day = std::fmod(yrd, 1000.0);
+    // NOT-A-UNIT-CROSSING: extracts DDD from the reference's packed YYDDD date.
+    const double day = std::fmod(yrd, 1000.0);   // NOT-A-UNIT-CROSSING: YYDDD radix
     st.za = kPDL[1][15];            // PDL(16,2): the joining altitude is a COEFFICIENT, not 120
     m.zn1[0] = st.za;
     d.fill(0.0);

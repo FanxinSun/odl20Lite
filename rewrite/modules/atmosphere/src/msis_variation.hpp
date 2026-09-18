@@ -189,7 +189,7 @@ inline double globe7(double day, double sec, double lat_deg, double long_deg, do
                  * std::cos(kHourToRad * (tloc - p[131])));
     }
 
-    if (long_deg > -1000.0) {
+    if (long_deg > -1000.0) {   // NOT-A-UNIT-CROSSING: MSIS-FOR's 'no longitude' sentinel
         // longitudinal
         t[10] = (1.0 + p[80] * dfa)
               * ((p[64] * g[1][2] + p[65] * g[1][4] + p[66] * g[1][6]
@@ -269,7 +269,7 @@ inline double glob7s(const double* p, const Shared& sh) noexcept {
     if (sh.apt1 != 0.0) t[8] = p[50] * sh.apt1 + p[96] * g[0][2] * sh.apt1;
     else                t[8] = sh.apdf * (p[32] + p[45] * g[0][2]);
 
-    if (sh.longitude > -1000.0) {
+    if (sh.longitude > -1000.0) {   // NOT-A-UNIT-CROSSING: MSIS-FOR's 'no longitude' sentinel
         t[10] = (1.0 + g[0][1] * (p[80] * std::cos(kDayToRad * (day - p[81]))
                                 + p[85] * std::cos(2.0 * kDayToRad * (day - p[86])))
                  + p[83] * std::cos(kDayToRad * (day - p[84]))

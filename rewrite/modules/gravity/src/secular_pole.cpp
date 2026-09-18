@@ -12,7 +12,8 @@ namespace {
 // TN36-6 (6.5) wants radians; the conversion appears once, here, because this
 // module's whole reason for exporting the pole is that it be defined once
 // (GRAV-R-029).
-constexpr double kMasToRad = 3.14159265358979323846 / (180.0 * 3600.0 * 1000.0);
+// UNIT-CROSSING: mas -> arcsec, inside mas -> rad (1000 mas per arcsec).
+constexpr double kMasToRad = 3.14159265358979323846 / (180.0 * 3600.0 * 1000.0);   // UNIT-CROSSING: mas -> arcsec
 constexpr double kJ2000Jd  = 2451545.0;
 }  // namespace
 

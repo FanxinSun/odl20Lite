@@ -17,7 +17,7 @@ using odl::time::LeapTable;
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kArcsecToRad = kPi / (180.0 * 3600.0);
-constexpr double kMasToRad    = kArcsecToRad * 1.0e-3;
+constexpr double kMasToRad    = kArcsecToRad * 1.0e-3;   // UNIT-CROSSING: mas -> arcsec
 constexpr double kDay         = 86400.0;
 
 /// EOP-R-011.  Ranges for the historical era, checked BEFORE conversion, so that
@@ -100,6 +100,9 @@ odl::Result<EopSeries, EopError> EopSeries::load_c04(std::string_view text,
         const auto mjd_i = static_cast<std::int64_t>(std::llround(mjd));
 
         if (std::abs(x) > Limits::kPoleArcsec || std::abs(y) > Limits::kPoleArcsec ||
+            // kCipMas is EOP-R-011's 100 mas, and this parser reads C04, whose dX/dY are
+            // in ARCSEC (SPEC-eop §3.5); the finals2000A parser compares the same limit to
+            // UNIT-CROSSING: the LIMIT, mas -> arcsec (twice); dx_mas needs no scaling there
             std::abs(dx) > Limits::kCipMas * 1.0e-3 || std::abs(dy) > Limits::kCipMas * 1.0e-3 ||
             std::abs(lod) > Limits::kLodSeconds) {
             return odl::err(EopError{"EOP-F-004",
@@ -249,7 +252,7 @@ odl::Result<EopSeries, EopError> EopSeries::load_finals2000a(std::string_view te
         r.value.xp = x * kArcsecToRad;
         r.value.yp = y * kArcsecToRad;
         r.value.dut1 = dut1;
-        r.value.lod = has_lod ? lod * 1.0e-3 : 0.0;    // EOP-R-025: ms -> s, blank is 0 LOD
+        r.value.lod = has_lod ? lod * 1.0e-3 : 0.0;    // UNIT-CROSSING: ms -> s (EOP-R-025; finals2000A LOD is ms, C04's is s)
         r.value.dx = dx_mas * kMasToRad;
         r.value.dy = dy_mas * kMasToRad;
         r.value.quality = q;
@@ -307,10 +310,10 @@ odl::Result<EopSeries, EopError> EopSeries::splice(const EopSeries& final_series
                     "splice discontinuity at MJD " + std::to_string(boundary) + " between " +
                     final_series.provenance_.front().source_id + " and " +
                     rapid_series.provenance_.front().source_id + ": pole " +
-                    std::to_string(dpole / (kArcsecToRad * 1.0e-3)) + " mas, UT1 " +
-                    std::to_string(dut1 * 1.0e3) + " ms, thresholds " +
-                    std::to_string(policy.splice_pole_limit_rad / (kArcsecToRad * 1.0e-3)) +
-                    " mas and " + std::to_string(policy.splice_ut1_limit_s * 1.0e3) +
+                    std::to_string(dpole / (kArcsecToRad * 1.0e-3)) + " mas, UT1 " +   // UNIT-CROSSING: rad -> mas
+                    std::to_string(dut1 * 1.0e3) + " ms, thresholds " +   // UNIT-CROSSING: s -> ms
+                    std::to_string(policy.splice_pole_limit_rad / (kArcsecToRad * 1.0e-3)) +   // UNIT-CROSSING: rad -> mas
+                    " mas and " + std::to_string(policy.splice_ut1_limit_s * 1.0e3) +   // UNIT-CROSSING: s -> ms
                     " ms. At this size the two products are not the same realisation — a C04 "
                     "from before a retroactive revision spliced against a current "
                     "finals2000A will do it."});

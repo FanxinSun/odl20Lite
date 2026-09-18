@@ -18,7 +18,7 @@ namespace {
 using detail::Fault;
 
 constexpr double kCm3ToM3 = 1.0e6;        ///< cm^-3 -> m^-3
-constexpr double kGcm3ToKgm3 = 1.0e3;     ///< g cm^-3 -> kg m^-3
+constexpr double kGcm3ToKgm3 = 1.0e3;     // UNIT-CROSSING: g/cm^3 -> kg/m^3
 constexpr double kAmuGrams = 1.66e-24;    ///< the reference's own value
 
 /// The species masses, in the reference's index order.

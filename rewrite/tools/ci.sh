@@ -83,6 +83,9 @@ gate "budget-row arithmetic (specifications' only untested numbers)"
 gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
 "$PY" tools/constraint8.py
 
+gate "every factor of a thousand is accounted for (SPEC-dynamics DYN-R-040)"
+"$PY" tools/unitcheck.py --quiet
+
 gate "build is reproducible"
 "$PY" tools/reprocheck.py --build-dir "$BUILD"
 

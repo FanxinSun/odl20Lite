@@ -91,7 +91,7 @@ OceanPoleTide::load(const std::string& path, const std::string& cache_root) {
         out.rows_data_.push_back(r);
     }
     out.rows_ = out.rows_data_.size();
-    if (out.rows_ < 1000 || out.file_max_degree_ != 360) {
+    if (out.rows_ < 1000 || out.file_max_degree_ != 360) {   // NOT-A-UNIT-CROSSING: minimum plausible row count
         std::ostringstream m;
         m << "the ocean pole tide file is not shaped as TN36-6 §6.5 describes: " << out.rows_
           << " rows to degree " << out.file_max_degree_
