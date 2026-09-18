@@ -666,6 +666,16 @@ governs. Three rules apply to all of them:
    unstated denominators produced defensible-looking wrong numbers within two days (identifier
    counting, 128 vs 121; block separation, 20.8σ vs 14.1σ). L8's block gate names
    its definition for exactly this reason.
+
+   **The same rule binds a test's own case count.** A test driven by data — rows of a file,
+   segments of a kernel, constituents of a table — MUST assert how many cases it ran before it
+   trusts that they passed, and print the number. `EPH-A-007` is why: it compared two TT−TDB
+   routes over a year, the short kernel carried no such record, its loop ran **zero times**, and
+   it warned and passed inside a gate that was accepted. A count of passed cases with no
+   denominator hid 868 ephemeris cases at step 1 and an entire test at the same step; it is one
+   failure, in a statistic and then in a suite. Audited across all 165 tests on 2026-09-18:
+   `EPH-A-007` was the only instance — every other loop is over a compile-time array, or is
+   already guarded the way `EOP-A-014` guards its 19 000 rows.
 4. **A gate's wording names what this plan wanted; the source prints what it prints.** Three
    times now the two have differed, and each time the executor found it while specifying rather
    than while testing: rule 1 above described a disagreement on a path that cannot carry one;
