@@ -247,31 +247,33 @@ of what Rust's crate boundaries would have given free, and it is why no §2 amen
 
 ---
 
-### 3.2 L1 `time-frames` — 0 of 3 done; **the open layer** — all three specs adopted
+### 3.2 L1 `time-frames` — 0 of 4 done; **the open layer** — all three specs adopted
 
 **Entry:** L0 exit gate — **passed 2026-09-18**, so this layer is open.
 
-**Blocked on a D1 consequence.** All three specs make `Result<T,E>` the universal contract
-and it appears in every Interfaces section; it is the mechanism behind §5 constraint 4 and
-R-ERR-1. **`std::expected` is C++23, not C++20** — verified on this machine, GCC 15.2
-rejects `<expected>` under `-std=c++20` with `__cpp_lib_expected` undefined and accepts it
-under `-std=c++23`. Exceptions are not an alternative: a refusal that unwinds is not a
-diagnostic the caller must consume, which is the whole of constraint 4. Resolution is the
-owner's, recorded as D7 in §7 before implementation starts.
+**D7 decided:** `odl::Result` over vendored `tl::expected`, C++20 unchanged (§7, §5 constraint 8).
+Step 1 below is that decision made real; steps 2–4 are the three adopted specifications
+implemented in dependency order.
 
-1. **TODO** — `time`: TT/TAI/UTC/UT1/GPS/TDB. *Specification adopted v1.2* from IERS
+1. **TODO** — `odl::Result`. Declare `tl::expected` in the manifest with URL and SHA-256 like
+   any other input, define `odl::Result<T,E>` and `odl::Err`, regenerate NOTICE. Tooling, not
+   science, so §3.11 points 1–2 do not apply — there is no published source to specify from.
+   Gate: the alias compiles under `-std=c++20`, a refusal round-trips through it in a test, the
+   manifest hash verifies, and NOTICE lists the new entry with its CC0-1.0 text quoted from the
+   pinned archive.
+2. **TODO** — `time`: TT/TAI/UTC/UT1/GPS/TDB. *Specification adopted v1.2* from IERS
    Conventions TN36 ch. 10, the IERS leap-second table and the ERFA documentation, carrying two
    decisions worth keeping: the representation is i64 seconds plus f64 fraction in TAI from
    1958, because a bare f64 Julian Date quantises at ≈ 40 µs ≈ 0.30 m at LEO and is disqualified
    by arithmetic; and the leap-second table has an enforced expiry with exactly one named,
    logged escape hatch. **Implementation and gate remain.** Gate: the Conventions' published
    worked examples, every timescale pair.
-2. **TODO** — `eop`: EOP 20 C04 and `finals2000A.all` ingestion, splice, interpolation, tidal
+3. **TODO** — `eop`: EOP 20 C04 and `finals2000A.all` ingestion, splice, interpolation, tidal
    terms. *Specification adopted v1.2.* It is its own module rather than part of `time` — it
    reads files and holds a coverage policy — and that boundary was argued by the spec author
    and adopted, not assumed. **Implementation and gate remain.** Gate: published IERS values at
    sampled epochs, plus refusal outside coverage with the escape hatch exercised and logged.
-3. **TODO** — `frames`: GCRS↔ITRS by IAU 2006/2000A through ERFA, TEME↔GCRS, RTN and DYB.
+4. **TODO** — `frames`: GCRS↔ITRS by IAU 2006/2000A through ERFA, TEME↔GCRS, RTN and DYB.
    *Specification adopted v1.2.* **Implementation and gate remain.** Gate: round-trip closure,
    **and** the required-disagreement test against oracle case T-01 — the predecessor computes
    IAU-76/1980 and this tree computes IAU 2006/2000A, so a ≈ 0.064″ ≈ 2.17 m separation at
@@ -575,6 +577,11 @@ governs. Three rules apply to all of them:
    split is the precedent: proposed by the spec author with reasons, adopted, plan amended).
 7. **One layer, one sequence** (§1). One step open at a time; a layer does not open until the
    layer below has passed its exit gate; nothing is worked on in two layers.
+8. **Every signature names `odl::Result`, never the underlying type**, and **monadic chaining
+   is not used** — no `and_then`, `or_else`, `transform` or `transform_error`. D7 vendors
+   `tl::expected` under C++20, and construction, checking and unwrapping are where it and
+   `std::expected` are interchangeable; the monadic operations are where they diverge. The
+   one-line migration D7 was chosen for holds exactly as long as this constraint does.
 
 ## 6. What carries over, what is dropped
 
@@ -596,7 +603,7 @@ unstated → D4's own port on published vectors); png++ (no consumer); TIE-GCM t
 | D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN, validated on its packaged tests (L2 step 4). |
 | D3 | Ray tracer | Decided in plan: own implementation from the papers; `photonsXforce` as cross-oracle only (L9). Owner revisits after L8. |
 | D4 | SGP4 | Decided in plan: own port from STR#3 + Vallado 2006 on the published vectors (L6 step 3). |
-| D7 | `Result<T,E>` under C++20 | **OPEN, blocks L1.** `std::expected` is C++23; D1 chose C++20. Either vendor `tl::expected` (CC0-1.0, header-only, API-compatible, so the later move is a `using` declaration) behind a tree-local `odl::Result`, or move D1 to C++23 and use the standard type directly. Exceptions are excluded — they would gut §5 constraint 4. |
+| D7 | `Result<T,E>` under C++20 | **Decided 2026-09-18: stay C++20, vendor `tl::expected`** (CC0-1.0, header-only) behind a tree-local `odl::Result`. Chosen on reversibility: C++20 → C++23 later is two CMake lines and deleting the shim, while C++23 → C++20 means hunting every C++23 feature that crept in over months. The migration is near-free *here specifically* because the specs use `Result` only as a plain return type — no monadic chaining anywhere — which §5 constraint 8 now keeps true. Exceptions were excluded: a refusal that unwinds is not a diagnostic the caller must consume, which is the whole of constraint 4. |
 | D5 | Licence | **Done** 2026-09-18: no grant, as the owner chose — implemented as posture, not text; `LICENSE` says why the predecessor's reason must not be copied. |
 | D6 | Name | **Done** 2026-09-18: `odl/self_built`, directory `odl-self_built`. Overrides the earlier no-echo naming guidance deliberately; recorded in `LICENSE` §4. |
 | — | **Copyright holder name** | **OPEN, owner-only, thirty seconds:** `LICENSE` line 4 is a marked placeholder — the single open title item, and the first thing a counterparty reads. |
