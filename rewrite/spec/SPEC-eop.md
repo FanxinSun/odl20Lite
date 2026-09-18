@@ -556,7 +556,7 @@ above, except the following, listed in full:
 | id | why no test |
 |---|---|
 | `EOP-R-047` | "Do not differentiate the interpolant across a node boundary" is a prohibition on the *callers*. Discharged by review of the variational-equation and partial-derivative code when it exists, and structurally by `SPEC-frames.md` taking rate quantities from LOD and the tabulated pole rates instead. |
-| `EOP-R-009` (third bullet only) | "No code path may update a recorded baseline hash automatically" is a negative structural property, discharged by review of the manifest and baseline tooling. `EOP-A-023` checks its observable half. |
+| `EOP-R-009` (partial: third bullet only) | "No code path may update a recorded baseline hash automatically" is a negative structural property, discharged by review of the manifest and baseline tooling. `EOP-A-023` checks its observable half. |
 | `EOP-F-008` | **Delegated** to `SPEC-time.md` `TIME-F-002` and tested there (`TIME-A-013`, `TIME-A-026`). This spec's obligation is to propagate it unchanged. |
 | `EOP-F-009` | Not a runtime refusal but a **build** failure: it *is* the failure mode of `EOP-A-003`…`EOP-A-006`, the transcription checks, per `EOP-R-008`. |
 

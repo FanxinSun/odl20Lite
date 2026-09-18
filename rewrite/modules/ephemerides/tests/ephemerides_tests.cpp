@@ -169,10 +169,10 @@ TEST_CASE("EPH-A-001: THE FULL SWEEP — the long kernel, which must actually RU
     // sweep must be run at this step's gate and its case count recorded, because
     // "pinned both, CI uses the short one" decays into the full coverage being
     // notional within two layers.
-    const Ephemeris eph = open_or_fail(ODL_DE440_BSP, "de440-spk");
+    const Ephemeris eph = open_or_fail(ODL_DE440T_BSP, "de440t-spk");
     const double au = eph.astronomical_unit().km;
     const Sweep s = run_sweep(eph, au);
-    INFO("de440 (full): " << s.checked << " of " << testpo().size() << " checked; "
+    INFO("de440t (full): " << s.checked << " of " << testpo().size() << " checked; "
          << s.not_a_body << " not a body; " << s.outside_coverage << " outside coverage");
     INFO("worst residual " << s.worst_au << " AU = " << s.worst_au * au * 1000.0 << " m, at "
          << s.worst_what);
@@ -215,7 +215,12 @@ TEST_CASE("EPH-A-007: TDB-TT from the kernel agrees with SPEC-time, in that sens
     // EPH-R-004. The kernel's own body 16 is TT-TDB; this tree returns TDB-TT.
     // A sign error would show as these two disagreeing by EXACTLY TWICE the
     // value, which reads like a factor-of-two bug rather than a naming one.
-    const Ephemeris eph = open_or_fail(ODL_DE440S_BSP, "de440s-spk");
+    // de440t, NOT de440s.  This test could not run at all until L2 step 3
+    // substituted de440t.bsp for de440.bsp: the short kernel carries no TT-TDB
+    // record, so `n` stayed 0 and the test warned and passed.  A test that
+    // passes by not running is the shape this tree keeps designing out, and the
+    // substitution exists to end this one.
+    const Ephemeris eph = open_or_fail(ODL_DE440T_BSP, "de440t-spk");
     double worst_ns = 0.0;
     int n = 0;
     for (int day = 0; day < 365; day += 7) {
@@ -228,12 +233,15 @@ TEST_CASE("EPH-A-007: TDB-TT from the kernel agrees with SPEC-time, in that sens
         REQUIRE(from_kernel->to_seconds() * from_erfa > 0.0);
         ++n;
     }
-    if (n == 0) {
-        WARN("de440s carries no TT-TDB record; EPH-A-007 needs a *t kernel (see the report)");
-    } else {
-        INFO(n << " epochs; worst difference " << worst_ns << " ns");
-        REQUIRE(worst_ns < 100.0);
-    }
+    // No escape hatch any more.  The kernel is required to carry the record and
+    // the comparison is required to happen, because the whole reason de440t was
+    // substituted is that tdb_minus_tt has no other independent check in this
+    // tree.
+    INFO(n << " epochs; worst difference " << worst_ns << " ns");
+    REQUIRE(n > 50);
+    WARN("EPH-A-007: " << n << " epochs over a year, worst |kernel - series| = " << worst_ns
+         << " ns, against a 100 ns budget");
+    REQUIRE(worst_ns < 100.0);
 }
 
 TEST_CASE("EPH-A-009/014: refusals", "[eph][refusal]") {
@@ -258,7 +266,7 @@ TEST_CASE("EPH-A-009/014: refusals", "[eph][refusal]") {
 
 TEST_CASE("EPH-A-012: two Ephemeris instances coexist", "[eph][spec]") {
     const Ephemeris a = open_or_fail(ODL_DE440S_BSP, "de440s-spk");
-    const Ephemeris b = open_or_fail(ODL_DE440_BSP, "de440-spk");
+    const Ephemeris b = open_or_fail(ODL_DE440T_BSP, "de440t-spk");
     for (int i = 0; i < 3; ++i) {
         const auto ca = a.coverage(Body::Sun);
         const auto cb = b.coverage(Body::Sun);

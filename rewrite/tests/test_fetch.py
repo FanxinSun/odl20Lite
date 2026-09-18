@@ -153,11 +153,55 @@ def main() -> int:
         r = run(root, m3, "path", "nonexistent")
         check("path refuses an unknown id", r.returncode, USAGE, r.stderr)
 
+    sniff_checks()
+
     if failures:
         print(f"\n{len(failures)} check(s) failed: {', '.join(failures)}", file=sys.stderr)
         return 1
     print("\nall fetcher checks passed")
     return 0
+
+
+
+def sniff_checks() -> None:
+    """An HTML 404 hashes perfectly well, and on a FIRST fetch the hash has
+    nothing to disagree with — so the bytes are sniffed BEFORE they are hashed.
+
+    The case that prompted it: `content/chapter10/icc10.pdf` is a 404, because
+    every other IERS chapter is `iccN.pdf` and chapter 10 is `tn36_c10.pdf`.
+    curl saved the error page with exit status 0 and pdftotext then reported
+    sixty syntax errors rather than a wrong file."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import fetch as F
+
+    page = b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">\n<html><head>\n<title>404'
+    for name, payload, fname in [
+        ("an HTML error page named .pdf", page, "icc10.pdf"),
+        ("an HTML error page named .bsp", page, "de440.bsp"),
+        ("an HTML error page with no known extension", page, "eopc04.1962-now"),
+        ("a text file named .pdf", b"not a pdf at all, just text", "icc6.pdf"),
+        ("a text file named .gz", b"plain text", "desai.txt.gz"),
+        ("a text file named .zip", b"plain text", "egm.zip"),
+    ]:
+        try:
+            F.sniff(payload, {"id": "probe", "url": "https://example.invalid/x", "filename": fname})
+        except SystemExit as exc:
+            check(f"REFUSES {name}", exc.code, F.MALFORMED)
+        else:
+            check(f"REFUSES {name}", "accepted", "refused")
+
+    for name, payload, fname in [
+        ("a real PDF", b"%PDF-1.6\n%\xe2\xe3\xcf\xd3", "icc6.pdf"),
+        ("a real gzip stream", b"\x1f\x8b\x08\x00", "desai.txt.gz"),
+        ("a real zip", b"PK\x03\x04\x14", "egm.zip"),
+        ("a real SPK kernel", b"DAF/SPK ", "de440.bsp"),
+        ("an extension with no declared magic", b"anything at all", "eopc04.1962-now"),
+    ]:
+        try:
+            F.sniff(payload, {"id": "probe", "url": "u", "filename": fname})
+            check(f"accepts {name}", True, True)
+        except SystemExit:
+            check(f"accepts {name}", "refused", "accepted")
 
 
 if __name__ == "__main__":

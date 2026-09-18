@@ -221,6 +221,50 @@ def extract_members(root: Path, doc: dict, e: dict) -> list[tuple[str, str]]:
     return out
 
 
+# WHAT A FILE HAS TO LOOK LIKE BEFORE IT IS WORTH HASHING.
+#
+# `content/chapter10/icc10.pdf` is a 404 — every other chapter of the IERS
+# Conventions is `iccN.pdf` and chapter 10 is `tn36_c10.pdf` — and curl saves the
+# error page with exit status 0.  The SHA-256 then catches it, but only on the
+# SECOND fetch: the first fetch is the one that computes the hash you write into
+# the manifest, and that is the fetch that matters.  An HTML error page hashes
+# perfectly well.
+#
+# So the bytes are sniffed before they are hashed.  Two rules, and the first is
+# the one that earns its place: anything that begins as an HTML document is
+# refused whatever it was supposed to be, because no input this tree declares is
+# HTML.  The second checks the magic against the declared extension where there
+# is one to check.
+HTML_STARTS = (b"<!doctype", b"<html", b"<?xml")
+MAGIC = {
+    ".pdf":  (b"%PDF",            "a PDF"),
+    ".gz":   (b"\x1f\x8b",        "a gzip stream"),
+    ".tgz":  (b"\x1f\x8b",        "a gzip stream"),
+    ".zip":  (b"PK\x03\x04",      "a zip archive"),
+    ".bsp":  (b"DAF/SPK",         "a DAF/SPK kernel"),
+}
+
+
+def sniff(head: bytes, e: dict) -> None:
+    """Refuse an error page, or a file that is not what its name says."""
+    low = head.lstrip()[:16].lower()
+    if any(low.startswith(h) for h in HTML_STARTS):
+        die(MALFORMED,
+            f"{e['id']}: the server returned an HTML document, not a data file.\n"
+            f"  url    {e['url']}\n"
+            f"  begins {head[:48]!r}\n"
+            "\n"
+            "  This is almost always a 404 page saved with exit status 0. It would hash\n"
+            "  perfectly well, and the manifest would then pin the error page.")
+    want = MAGIC.get(Path(e["filename"]).suffix.lower())
+    if want and not head.startswith(want[0]):
+        die(MALFORMED,
+            f"{e['id']}: {e['filename']} does not begin like {want[1]}.\n"
+            f"  url    {e['url']}\n"
+            f"  begins {head[:48]!r}\n"
+            f"  expected the first bytes to be {want[0]!r}")
+
+
 def sha256_file(p: Path) -> str:
     h = hashlib.sha256()
     with p.open("rb") as fh:
@@ -229,20 +273,28 @@ def sha256_file(p: Path) -> str:
     return h.hexdigest()
 
 
-def download(url: str, dest: Path) -> str:
+def download(url: str, dest: Path, e: dict) -> str:
     """Download to a .part file, return its hash.  The caller renames only after
     the hash has been checked, so a failed or truncated download can never leave
-    something behind that a later `verify` would accept."""
+    something behind that a later `verify` would accept.
+
+    The FIRST block is sniffed before anything is hashed (see `sniff`): an HTML
+    error page hashes perfectly well, and on a first fetch — the one whose hash
+    goes into the manifest — the hash has nothing to disagree with."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_suffix(dest.suffix + ".part")
     h = hashlib.sha256()
     req = urllib.request.Request(url, headers={"User-Agent": "odl-self_built-fetch/1"})
+    first = True
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp, part.open("wb") as out:
             while True:
                 block = resp.read(CHUNK)
                 if not block:
                     break
+                if first:
+                    sniff(block, e)
+                    first = False
                 h.update(block)
                 out.write(block)
     except (urllib.error.URLError, urllib.error.HTTPError, OSError, TimeoutError) as exc:
@@ -368,7 +420,7 @@ def cmd_fetch(root: Path, doc: dict, args) -> int:
 
         print(f"fetching {e['id']:<16} {e['url']}")
         part = p.with_suffix(p.suffix + ".part")
-        got = download(e["url"], p)
+        got = download(e["url"], p, e)
         if got != e["sha256"].lower():
             if args.refresh and p.exists():
                 part.unlink(missing_ok=True)

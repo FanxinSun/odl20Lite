@@ -114,9 +114,36 @@ def check_spec(path: Path, quiet: bool) -> tuple[bool, dict]:
                 if cand in defined:
                     discharged.add(cand)
 
-    excused = {f"{prefix}-{l}-{n}" for l, n in re.findall(rf"`{prefix}-([RFS])-(\d+)", coverage)}
+    # EXCUSED IS THE FIRST CELL OF A COVERAGE ROW, NOT ANY MENTION IN ONE.
+    # The first version matched every identifier anywhere in the Coverage region,
+    # so an excuse that read "discharged by PERT-A-016" excused whatever it
+    # named in passing.  That inflated the excused count without changing the
+    # verdict, which is why it survived: UNCOVERED stayed 0 and nobody adds up
+    # the components of a passing gate.  A row's first cell may name several
+    # identifiers — "R-023, R-024" is one excuse for two — so the cell is parsed
+    # rather than the row.
+    # A row marked "(partial" — optionally qualified, "(partial: third bullet
+    # only)" — excuses PART of a requirement whose other parts a
+    # test does cover.  It counts as tested, not excused, and is reported
+    # separately: a requirement with three clauses of which one is structural is
+    # a real thing, and the alternative — leaving it to look like a
+    # contradiction, or dropping the explanation — is worse than a marker.
+    excused: set[str] = set()
+    partial: set[str] = set()
+    for row in re.findall(r"^\|(.*?)\|", coverage, re.M):
+        target = partial if "(partial" in row else excused
+        for l, n in re.findall(rf"`{prefix}-([RFS])-(\d+[a-z]?)`", row):
+            target.add(f"{prefix}-{l}-{n}")
 
     uncovered = sorted(reqs - discharged - excused)
+    # An identifier that is BOTH excused and discharged is a contradiction: the
+    # Coverage table's column heading is "why no test", so a row for something a
+    # test does discharge is stale.  It is reported, never netted off.
+    contradictory = sorted((reqs & discharged) & excused)
+    partial_ok = sorted(reqs & discharged & partial)
+    # A "(partial)" marker on something no test discharges is not a partial
+    # excuse, it is an excuse with a misleading label.
+    contradictory += sorted((reqs & partial) - discharged)
 
     # Every identifier mentioned anywhere, so dangling references are caught.
     all_ids = {f"{p}-{k}-{n}" for p, k, n in ID_RE.findall(text)}
@@ -130,9 +157,17 @@ def check_spec(path: Path, quiet: bool) -> tuple[bool, dict]:
         "defined": len(defined), "reqs": len(reqs),
         "tested": len(reqs & discharged), "excused": len(reqs & excused),
         "uncovered": uncovered, "dangling": dangling, "duplicates": dup,
+        "contradictory": contradictory, "partial": partial_ok,
     }
+    # The three printed components must PARTITION the denominator.  They are laid
+    # out as though they do, so they are made to, and the check is here rather
+    # than in a reader's head.
+    assert (stat["tested"] + stat["excused"] - len(contradictory) + len(uncovered)
+            == stat["reqs"]), (
+        f"{path}: {stat['tested']} tested + {stat['excused']} excused "
+        f"- {len(contradictory)} both + {len(uncovered)} uncovered != {stat['reqs']}")
 
-    ok = not (uncovered or dangling or dup)
+    ok = not (uncovered or dangling or dup or contradictory)
 
     if not quiet:
         print(f"\n{path.name}  [Spec ID: {prefix}]")
@@ -143,6 +178,14 @@ def check_spec(path: Path, quiet: bool) -> tuple[bool, dict]:
         print(f"  requirements + refusals  {stat['reqs']:>4}")
         print(f"    discharged by a test   {stat['tested']:>4}")
         print(f"    excused in §8 Coverage {stat['excused']:>4}")
+        if stat["partial"]:
+            print(f"    partially excused      {len(stat['partial']):>4}"
+                  f"   {', '.join(stat['partial'])}"
+                  "   <- counted as tested; one clause is structural")
+        if stat["contradictory"]:
+            print(f"    BOTH tested and excused{len(stat['contradictory']):>4}"
+                  f"   {', '.join(stat['contradictory'])}"
+                  "   <- the Coverage row is stale; its column says \"why no test\"")
         print(f"    UNCOVERED              {len(uncovered):>4}"
               + (f"   {', '.join(uncovered)}" if uncovered else ""))
         if dangling:

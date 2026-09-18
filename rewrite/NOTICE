@@ -27,12 +27,16 @@ SUMMARY
   tn36-chapter5      2010         IERS-public      data
   tn36-chapter8      2010         IERS-public      data
   de440s-spk         DE440        NASA-public      data
-  de440-spk          DE440        NASA-public      data
+  de440t-spk         DE440        NASA-public      data
   de440-testpo       DE440        NASA-public      data
   tn36-chapter6      2010, update of 2018-02-01 IERS-public      data
   tn36-chapter7      2010, update of 2018-02-01 IERS-public      data
   egm2008-coefficients EGM2008, file dated 2008-03-28 NGA-public       data
   wgs84-standard     1.0.0        NGA-public       data
+  tn36-chapter1      2010, update of 2017-11-06 IERS-public      data
+  tn36-chapter10     2010         IERS-public      data
+  fes2004-ocean-tide FES2004, February 2004 IERS-public      data
+  desai-ocean-pole-tide Desai (2002), as distributed with the Conventions IERS-public      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -182,17 +186,33 @@ DATA INPUTS
     note      NASA/JPL NAIF generic kernel, published for unrestricted use.
               Not redistributed: the pin is NAIF's own URL.
 
-  de440-spk  DE440
-    role      JPL DE440, full span (1550–2650) — the complete testpo.440 sweep, which EPH-A-001 must RUN
+  de440t-spk  DE440
+    role      JPL DE440 planetary and lunar ephemeris, WITH the TT-TDB time ephemeris — the full-span kernel, and the only independent check of tdb_minus_tt in this tree
     licence   NASA-public
-    url       https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440.bsp
-    sha256    a4ce9bf9b3282becc9f4b2ac3cebe03a2ae7599981aabd7265fd8482fff7c4b5
+    url       https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de440t.bsp
+    sha256    4f003b4437a8b479aaca262716a779e3683413200adfd6353c4901aab5de800e
     retrieved 2026-09-18
-    note      As de440s. Pinned as well as the short kernel because EPH-Q-003
-              was ruled that the full sweep must actually be run at the step's
-              gate and its case count recorded, not merely be possible —
-              'pinned both, CI uses the short one' decays into the full
-              coverage being notional.
+    note      SUBSTITUTED FOR de440.bsp on 2026-09-18, not added alongside it,
+              and the substitution was verified rather than assumed: reading
+              both DAFs' segment summaries directly, de440t.bsp carries
+              de440.bsp's 14 segments with IDENTICAL frame, type and span,
+              plus ONE more — target 1000000001 about centre 1000000000, the
+              TT-TDB time ephemeris. Nothing that consumed de440.bsp loses
+              anything. WHY: accuracy is not the argument. At 1 microsecond of
+              TDB-TT error, ten times any error credibly attributed to the
+              analytic series, the Sun's geocentric position moves 30 mm and
+              the third-body acceleration by about 3.5e-15 m/s^2, which
+              nothing in this tree can see. The argument is that tdb_minus_tt
+              otherwise has NO independent check anywhere, and the failure it
+              is exposed to is not a 100 ns failure but a wrapping, unit or
+              sign failure: 1 ms puts the Sun 30 m out and the Moon 1 m out,
+              and that is visible everywhere. NOTE THE HOST: de440t.bsp is
+              published by JPL SSD, not by NAIF. NAIF's
+              generic_kernels/spk/planets/ carries de440, de440s, de441 and
+              de442 and NO de440t, and the obvious URL there is a 404. Plan §5
+              constraint 9: changing this entry re-ran step 1's FULL
+              testpo.440 sweep against the substituted kernel, in the step
+              that changed it.
 
   de440-testpo  DE440
     role      JPL's published verification set for DE440 — the gate (EPH-A-001)
@@ -259,6 +279,58 @@ DATA INPUTS
               GRAV-F-005 refuses is taking both constants from here, since
               this document's semi-major axis is 6378137.0 m against EGM2008's
               reference radius of 6378136.3 m.
+
+  tn36-chapter1  2010, update of 2017-11-06
+    role      IERS Conventions (2010) TN36 chapter 1 — the numerical standards table
+    licence   IERS-public
+    url       https://iers-conventions.obspm.fr/content/chapter1/icc1.pdf
+    sha256    a1ed81de4b60fc7f6a4aa812ee8ac2aa26aa487387587f6c475b4bae9f265c9f
+    retrieved 2026-09-18
+    note      G, GM_earth, a_E, g_E and the Earth rotation rate that the tide
+              formulae of chapter 6 are written in. Pinned separately from
+              EGM2008's scaling pair because they are NOT the same numbers —
+              a_E = 6378136.6 m here against 6378136.3 m there, and the TCG-
+              compatible GM against the TT-compatible one — and SPEC-
+              perturbations PERT-F-002 refuses a mixed pair.
+
+  tn36-chapter10  2010
+    role      IERS Conventions (2010) TN36 chapter 10 §10.3 — the relativistic correction to the acceleration, equation (10.12)
+    licence   IERS-public
+    url       https://iers-conventions.obspm.fr/content/chapter10/tn36_c10.pdf
+    sha256    8be36ed5cdf8407e66fbdf106e30695ee0dbcf835809f3a9fa4dc9b6f073de54
+    retrieved 2026-09-18
+    note      Cited by SPEC-time since L1 for the TDB definition and now
+              normative for SPEC-perturbations §4.5. NOTE THE FILENAME:
+              chapter 10 is tn36_c10.pdf where every other chapter is
+              iccN.pdf, and content/chapter10/icc10.pdf is a 404.
+
+  fes2004-ocean-tide  FES2004, February 2004
+    role      FES2004 geopotential harmonic amplitudes for TN36-6 equation (6.15) — the ocean tide model
+    licence   IERS-public
+    url       https://iers-conventions.obspm.fr/content/chapter6/additional_info/tidemodels/fes2004_Cnm-Snm.dat
+    sha256    620dc48fd4d97baa14f532287b19788bd55dc2056e0b478ab0f928b951c194cf
+    retrieved 2026-09-18
+    note      THE FILE'S OWN HEADER IS THE AUTHORITY ON WHAT IT CONTAINS, AND
+              IT DOES NOT MATCH CHAPTER 6'S DESCRIPTION OF IT. Unit 10^-11;
+              degree and order (100,100); the LONG PERIOD band is from FES2002
+              to (50,50), not FES2004; the equilibrium Om1/Om2 waves are
+              ALREADY INCLUDED, so applying §6.3.2's equilibrium equation as
+              the chapter describes would double them; the atmospheric tide is
+              NOT included. SPEC-perturbations PERT-R-020a requires the header
+              to be read and PERT-F-011 refuses a file whose header differs.
+
+  desai-ocean-pole-tide  Desai (2002), as distributed with the Conventions
+    role      Desai self-consistent equilibrium ocean pole tide coefficients A_nm, B_nm to degree and order 360, for TN36-6 equation (6.23a)
+    licence   IERS-public
+    url       https://iers-conventions.obspm.fr/content/chapter6/additional_info/desaiscopolecoef.txt.gz
+    sha256    075efd2ecbf2cd9137ffcbff8a60a75cd9d64a6a10cf271ddd57075257c9d3dc
+    retrieved 2026-09-18
+    note      Gzipped ASCII, 65 340 rows, columns n m A_Re B_Re A_Im B_Im,
+              degrees 1 to 360. The loader decompresses it; it is a single
+              file and not a multi-member archive, so it carries no `members`
+              declaration. Its (2,1) row reproduces TN36-6 (6.24)'s printed
+              coefficients to every printed digit, which was checked before
+              the specification cited it.
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

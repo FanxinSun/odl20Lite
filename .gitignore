@@ -69,3 +69,7 @@ rewrite/doc/*
 # contain working notes that were never meant for a public remote.
 chat.md
 log.md
+
+# Python bytecode: version-specific, regenerated on every run, never an input.
+__pycache__/
+*.pyc

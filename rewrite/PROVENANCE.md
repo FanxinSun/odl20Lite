@@ -328,6 +328,8 @@ documented by the IERS itself in `updateC04.txt`:
 
 | date | change |
 |---|---|
+| 2026-09-18 | **`SPEC-perturbations` adopted at v1.1; three amendments and eight rulings applied.** §15.6: `PERT-A-001` was overclaimed as category 1 when the printed amplitudes are the module's own input — decomposed honestly, with `PERT-A-025` (the resonance formula as a test-only cross-check) added as the one thing that verifies δk without an H_f catalogue. §15.7: `de440t.bsp` substituted for `de440.bsp` after verifying both DAFs' segment summaries (14 shared, identical; one extra, the TT−TDB record); constraint 9 re-ran step 1's full sweep unchanged at 1.06296 mm; and **`EPH-A-007` now runs for the first time — 53 epochs, worst 26.027 ns against 100 ns** — where it had been passing by executing zero times since step 1. §15.8: `speccheck.py`'s components now partition its denominator and **found three stale Coverage rows, two in specs adopted at L1**; `fetch.py` sniffs HTML error pages and file magic **before** hashing. **10 gates, 165 tests.** |
+| 2026-09-18 | **L2 step 3 `perturbations` specification drafted.** §15: the sources including chapter 10's `tn36_c10.pdf` filename trap; the ocean pole tide chain **verified to every printed digit of TN36-6 (6.24) before being specified**; a THIRD kind of source defect — a document disagreeing with its own companion dataset, where §6.3.2 tells you to add Ω₁/Ω₂ that `FES2004-CS` already contains — and a fourth instance of the first kind, §6.4's cross-term ratio 0.0115 against the 0.011700 its own *k*₂ implies; the gate's two denominators; and a counting error of the author's that the manager corrected. Four manifest entries added, 22 in total. **10 gates, 165 tests.** |
 | 2026-09-18 | **Step 2 accepted; its three conditions discharged.** §14.11: the km/metre crossing named once in `odl/core/units.hpp` with `FRAME-R-062` binding `SPEC-dynamics` to state where it happens (`SPEC-frames` v1.6); archive member hashing generalised to every archive with a `consumes` declaration the fetcher enforces; and the 10⁻²⁸⁰ scale's **bottom** margin measured at 26.0 decades over 74 802 values, none subnormal, with the |P̄′| ≥ |P̄| bound that makes it structural (`SPEC-gravity` v1.3, `GRAV-A-029`). The crossing's own test caught a false exactness claim in its comment on first run. **10 gates, 165 tests.** |
 | 2026-09-18 | **L2 step 2 `gravity` implemented and gated.** §14.8–14.10 added: the six specification corrections implementation forced — the factored recursion overflows by 10¹⁵⁰ and then yields NaN, so both representations fail and the 10⁻²⁸⁰ scale with a Horner nest is required; C̄₀₀ = 1; the recursion's achievable accuracy is 6.1 × 10⁻¹¹ at degree 2190 and not 10⁻¹³; `GRAV-A-008` claimed coverage that does not exist; WGS 84's GM cannot be refused by value; and an off-by-one in `truncation_rms` caught only because its expected values came from an independent route. §14.9 records what the gate measured, including the two defects in the gate's own design. `SPEC-gravity` v1.2, `SPEC-frames` v1.5 with `Position<F>`/`Acceleration<F>`. `tools/fetch.py` extracts declared archive members by their own hash, so "`hsynth_WGS84.f` was not used" is checkable. **10 gates, 163 tests, 611 artefacts byte-identical.** |
 | 2026-09-18 | **L2 step 2 `gravity` specification drafted; budget-row arithmetic made checkable.** §14 added: the sources obtained and the two that were not, the recursion derived from `TN36-6` (6.2b) and `DLMF-14` and **verified to 60 digits before being written down** because the Conventions print no recursion, the measured underflow of the classical form above 43.7° latitude at degree 2190, what the coefficient file's own structure is, the Table 6.1 conversion that fails and therefore gates nothing, and a claim about the figure-axis terms corrected during drafting. §8.13 records `tools/budgetcheck.py` — including its briefly acquiring the absolute-tolerance defect it was built to catch, found only by replaying the four historical errors. §9 gains two rows. |
@@ -1056,6 +1058,208 @@ And the bound that makes 26 decades enough rather than merely observed: P̄′*�
 cos φ ≤ 1, so |P̄′| ≥ |P̄| everywhere. The scaled value can be subnormal only where P̄ itself is
 below 10⁻²⁸, and a term that small sits beside terms of order 1 to 66 in the same degree's sum —
 already below that sum's own rounding.
+
+## 15. L2 `environment` step 3 — `perturbations`: the specification
+
+`spec/SPEC-perturbations.md` v1.0, drafted 2026-09-18, **awaiting manager review**. Nothing is
+implemented. 99 own-prefix identifiers; 57 requirements and refusals, 42 discharged by an
+acceptance row and 15 excused with a reason, 0 uncovered. Four new manifest entries, 22 in total.
+
+### 15.1 Sources, and one filename that is not what the pattern says
+
+| key | what | obtained |
+|---|---|---|
+| `TN36-6` | chapter 6 §§6.2–6.6 and Tables 6.3–6.8 | primary, already pinned |
+| `TN36-7` | chapter 7 §7.1.4 (25), the wobble variables | primary, already pinned |
+| `TN36-10` | chapter 10 §10.3 (10.12), the relativistic correction | primary, **newly pinned** |
+| `TN36-1` | chapter 1, the numerical standards | primary, **newly pinned** |
+| `FES2004-CS` | `fes2004_Cnm-Snm.dat`, 3 686 988 bytes | primary, **newly pinned** |
+| `DESAI-CO` | `desaiscopolecoef.txt.gz`, 2 452 565 bytes, 65 340 rows to degree 360 | primary, **newly pinned** |
+| `LYARD06`, `DESAI02`, `CT71`, `CE73`, `MATHEWS02` | the papers behind the models and the amplitude convention | **not obtained** — five of them |
+
+**Chapter 10 is `tn36_c10.pdf`, not `icc10.pdf`.** Every other chapter of the Conventions is
+`content/chapterN/iccN.pdf`; `content/chapter10/icc10.pdf` returns a 404 page, which `curl`
+saves happily and `pdftotext` then reports as sixty syntax errors rather than as a wrong file.
+`SPEC-time.md` had recorded the correct URL at L1 and looking there was faster than guessing.
+The manifest entry now says so, because the next person will guess the same way.
+
+`CT71` and `CE73` define the amplitude convention *H*_f that (6.8) is written in and neither was
+obtained. Nothing in the specification depends on them as documents: every *H*_f the module needs
+appears inside the Conventions' own printed products (*A*ₘ δ*k*_f *H*_f), so the convention never
+has to be applied independently, and `PERT-F-006` refuses a constituent outside the tables rather
+than guessing one.
+
+### 15.2 The ocean pole tide chain, verified before it was specified
+
+`TN36-6` (6.24) prints the degree-2 ocean pole tide coefficients. Computing them from
+`TN36-1`'s constants, γ = 1 + *k*₂ − *h*₂ from §6.5, and `DESAI-CO`'s own (2, 1) row
+(Ā₂₁ = −0.243 253 305 + 0.005 468 074 *i*, B̄₂₁ = 0.005 468 074 − 0.192 521 112 *i*):
+
+| | computed here | `TN36-6` (6.24) prints |
+|---|---|---|
+| ΔC̄₂₁ | −2.177 813 × 10⁻¹⁰ (*m*₁ − 0.017 24 *m*₂) | −2.1778 × 10⁻¹⁰ (*m*₁ − 0.01724 *m*₂) |
+| ΔS̄₂₁ | −1.723 155 × 10⁻¹⁰ (*m*₂ − 0.033 65 *m*₁) | −1.7232 × 10⁻¹⁰ (*m*₂ − 0.03365 *m*₁) |
+
+Every printed digit, both coefficients and both cross terms. *R*₂ = 2.687 689 × 10⁻⁴. The gate
+`PERT-A-006` is therefore known to be satisfiable before implementation rather than after, which
+is a different thing from hoping it is.
+
+### 15.3 A third kind of defect in a normative source
+
+This project has logged two: `PROVENANCE.md` §8.2, a data product contradicting itself about its
+own precession-nutation model, and §8.3, a reference routine omitting a correction the
+Conventions require. Step 3's drafting found a third kind, and then a fourth instance of the
+first kind.
+
+**A document disagreeing with its own companion dataset about what the dataset contains.**
+`TN36-6` §6.3.2 describes how to model the very long period waves Ω₁ (18.6 yr) and Ω₂ (9.3 yr)
+as equilibrium waves and gives the equation. The first three lines of `FES2004-CS` say they are
+**already in the file**. Reading the chapter alone — which is what a specification written from
+the chapter alone would do — one implements the equation and doubles those waves. The same header
+says two further things §6.3.2 does not: the **long-period band is from FES2002 to (50, 50)**,
+not FES2004, and the **atmospheric tide is not included**. `PERT-R-020a` now requires the header
+to be read, `PERT-F-011` refuses a file whose header differs from what the specification was
+written against, and `PERT-R-025` forbids applying the equilibrium equation at all.
+
+The §6.3.2 note that *there is an ongoing discussion on whether the phase change to π/2 …is
+justified*, dated 2011-10-14 and still unresolved in the 2018 edition, therefore does not bind
+this module — because the module never applies that equation.
+
+**And a document disagreeing with itself, in one paragraph.** `TN36-6` §6.4 gives the solid Earth
+pole tide as ΔC̄₂₁ = −1.333 × 10⁻⁹ (*m*₁ + 0.0115 *m*₂) with *k*₂ = 0.3077 + 0.0036 *i*. The
+cross-term ratio is Im(*k*₂)/Re(*k*₂):
+
+| | |
+|---|---|
+| from the printed *k*₂ | 0.0036 / 0.3077 = **0.011 700** |
+| printed in §6.4 | **0.0115** |
+| Im(*k*₂) the printed ratio implies | 0.003 539, against the printed 0.0036 |
+| the difference, on ΔC̄₂₁ | **0.02 %** |
+
+The leading coefficient itself reproduces: Ω² *a*_E³ *k*₂^R/(GM⊕√15) × 1″ = **1.333 237 × 10⁻⁹**
+against the printed 1.333 × 10⁻⁹, which is what tells us the derivation is right and the
+discrepancy is in the ratio rather than in the reading. `PERT-R-031` follows *k*₂ — the constant
+is the input, the ratio is a convenience derived from it — and `PERT-A-005` **reports both**
+rather than silently choosing.
+
+### 15.4 The gate carries two denominators
+
+The manager's condition on step 3, given when step 2 was accepted: *a count of passed terms with
+no denominator is the failure mode that hid 868 cases last time.* `PERT-A-001` therefore reports
+**the terms it checked and the terms of this module the Conventions print no expected value
+for**, and §8 states the second list explicitly: Step 1's time-domain evaluation at any epoch,
+the ocean tide sum at any epoch, the ocean pole tide above degree 2, the relativistic correction
+as a vector rather than as the magnitudes and precession rates `TN36-10` states, and third-body
+attraction, which the Conventions do not treat at all.
+
+What the Conventions **do** print per term is the whole of Step 2: every constituent of Tables
+6.5a, 6.5b and 6.5c, in-phase and out-of-phase. Evaluating one constituent at θ_f = 0 makes
+(6.8b) with η₁ = −*i* return exactly the two printed amplitudes, so the gate is category 1 and
+term by term without needing an *H*_f the Conventions do not print.
+
+### 15.5 A counting error of the author's, corrected by the manager
+
+The step 2 report and §14.11 both said *seven members across five archives* and then enumerated
+four licence texts, three files compared against populated trees, and two extracted — which is
+nine, and nine is what the manifest has. The enumeration was right and only the total was wrong.
+The manager corrected §14.11. Recorded because gate 8 catches exactly this in a specification
+table and cannot catch it in prose, and the rule that follows is worth more than the correction:
+**when a count is written next to its own breakdown, add the breakdown.**
+
+### 15.6 The amendment the review turned on, and it was an overclaim of the author's
+
+`SPEC-perturbations` v1.0 §8 called `PERT-A-001` **category 1**, *most of the gate*, and *a
+stronger position than either of the preceding steps had*. All three were wrong, in this
+project's usual shape.
+
+`PERT-R-014` extracts Tables 6.5a/b/c as generated source, so the **printed amplitudes are the
+module's input**. `PERT-A-001` then compares the module's output against those same amplitudes
+and therefore **cannot fail on a wrong amplitude**. The statement that was true of the smaller
+thing — the numbers are published — was written as true of the larger one: that the gate checks
+the module against them.
+
+Compare the two preceding steps. `GRAV-A-001` checks the field against a closed-form identity the
+synthesis does not use; `EPH-A-001` checks against JPL's own published residuals. Both are
+expected values produced by a route the module does not take. Step 2's frequency corrections are
+not, which makes this a **weaker** position than either, not a stronger one.
+
+v1.1 decomposes it honestly, and the decomposition is not a weak result:
+
+| test | fails on | cannot fail on |
+|---|---|---|
+| `PERT-A-002`, Amp(ip)·δ*k*^I = Amp(op)·δ*k*^R | everything independent the tables contain — *H*_f is recoverable from either amplitude column and this is the check that the two agree about it | a transcription error preserving the ratio |
+| `PERT-A-025`, (6.9) against the tabulated δ*k*_f | **the δ*k*_f column itself**, by an independent route the production path does not use | the *H*_f implicit in the amplitudes |
+| `PERT-A-001`, the θ_f = 0 evaluation | the wiring: swapped columns, wrong η_m, a sign, a mis-parse, a dropped constituent | a wrong amplitude |
+
+`PERT-A-025` is the manager's ruling on `PERT-Q-003` and is a better answer than the one the
+specification proposed: the resonance formula (6.9) with Table 6.4's parameters, **as a test-only
+cross-check**, is the only thing that turns δ*k*_f from a transcription into a verified quantity
+without an *H*_f catalogue this tree does not have.
+
+The other two amendments were smaller and both were found by the manager reproducing the numbers
+rather than reading the prose: (6.23a) is written for the wobble in **radians** and §6.5's printed
+result for the wobble in **arcseconds**, two equations on one page with 206 264.8 between them;
+and §8's denominator list was missing its own most important entry.
+
+### 15.7 `de440t` substituted, verified, and the test it exists for now runs
+
+Ruled at `PERT-Q-002`: substitute rather than add, **provided** de440t carries the same planetary
+segments over the same span. Verified by reading both DAFs' segment summaries directly rather
+than by trusting a filename:
+
+| | |
+|---|---|
+| `de440.bsp` | 14 segments |
+| `de440t.bsp` | 15 segments |
+| in `de440.bsp` only | **none** |
+| in `de440t.bsp` only | target 1000000001 about centre 1000000000 — the TT−TDB record |
+| shared segments differing in frame, type or span | **0 of 14** |
+
+**Note the host.** `de440t.bsp` is published by **JPL SSD**, not by NAIF: NAIF's
+`generic_kernels/spk/planets/` carries de440, de440s, de441 and de442 and no de440t at all, and
+the obvious URL there is a 404. The manifest entry says so.
+
+**Plan §5 constraint 9** — changing a manifest entry re-runs every gate that consumed it, in the
+step that changes it — so step 1's full sweep re-ran against the substituted kernel:
+**11 354 of 13 201 checked, 1 847 not a body, 0 outside coverage, worst residual
+7.105 43 × 10⁻¹⁵ AU = 1.062 96 mm.** Identical to de440.bsp's, digit for digit.
+
+And the thing the substitution was for: **`EPH-A-007` now runs.** It could not before — the short
+kernel carries no TT−TDB record, so its loop executed zero times, warned, and passed. *A test that
+passes by not running* is the shape this tree keeps designing out, and this one had been sitting
+there since step 1. On de440t: **53 epochs over a year, worst |kernel − series| = 26.027 ns
+against a 100 ns budget.** The escape hatch is gone; the test now requires the comparison to
+happen.
+
+### 15.8 Two tools improved, and the first found three stale rows in adopted specifications
+
+**`tools/speccheck.py` printed three numbers that read as a partition and were not.** Following
+the manager's rule from §15.5 — *when a count is written next to its own breakdown, add the
+breakdown* — the components were added up and did not reach the denominator. Two causes:
+
+- `excused` matched **any** identifier mentioned anywhere in the §8 Coverage region, so an excuse
+  reading *"discharged by `PERT-A-016`"* excused whatever it named in passing. It is now the
+  **first cell of a Coverage row** only.
+- An identifier can legitimately be **partly** excused — a requirement with three clauses of
+  which one is structural. That is now an explicit `(partial)` marker, counted as tested and
+  reported separately, rather than looking like a contradiction.
+
+The checker now asserts `tested + excused − both + uncovered == requirements`, so the components
+cannot drift from the total again. **On its first run it found three contradictions**, in three
+different specifications and two of them adopted at L1: `EOP-R-009` and `TIME-R-010` were genuine
+partial excuses now marked as such, and `PERT-R-022` was a stale Coverage row for something
+`PERT-A-026` had started testing an hour earlier. None changed a verdict, which is exactly why
+they survived: nobody adds up the components of a passing gate.
+
+**`tools/fetch.py` sniffs before it hashes.** `content/chapter10/icc10.pdf` is a 404 — chapter 10
+is `tn36_c10.pdf` where every other chapter is `iccN.pdf` — and `curl` saves the error page with
+exit status 0. The SHA-256 catches that on the **second** fetch and not the first, and the first
+fetch is the one whose hash goes into the manifest. The first block of every download is now
+checked against two rules: anything beginning as an HTML document is refused whatever it was
+supposed to be, because no input this tree declares is HTML; and the magic is checked against the
+declared extension where there is one (`%PDF`, gzip, zip, `DAF/SPK`). Nine cases in
+`tests/test_fetch.py`, six refusals and three acceptances plus one extension the check does not
+second-guess.
 
 ---
 

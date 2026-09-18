@@ -558,7 +558,7 @@ an oversight:
 
 | id | why no test |
 |---|---|
-| `TIME-R-010` | "storage is TAI" is not observable from outside the module; it is discharged through its consequences, which `TIME-A-003`, `-A-005` and `-A-008` test. |
+| `TIME-R-010` (partial) | "storage is TAI" is not observable from outside the module. `TIME-A-003` discharges it through its consequences and names it; this row records WHY a direct test is impossible, which the acceptance row cannot say in its own width. |
 | `TIME-R-024` | An interface fact about ERFA (it declares no GPS routines), not a behaviour of this module. Discharged by the dependency register in `PROVENANCE.md` §3. |
 | `TIME-R-053` | A design constraint — "do not call `eraDat`, do not use the global leap-table setters". Discharged by review of the dependency register, and by `TIME-A-019`, which fails if any global table is in play. |
 | `TIME-R-055` | A negative property of the interface. The corresponding positive check is `SPEC-eop.md` `EOP-A-011`. |
