@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `EOP` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.3 |
+| **Version** | 1.4 |
 | **Date** | 2026-09-18 |
 | **Layer** | `time` / `io` boundary (`doc/REWRITE_PLAN.md` §2) |
 | **Feature** | F3 (plan §3), F12's EOP readers |
@@ -460,9 +460,9 @@ Notes for the manager's review:
 |---|---|---|---|---|
 | `EOP-P-1` | parse fidelity | exact to the last digit printed | — | both products are decimal text; nothing is lost |
 | `EOP-P-2` | interpolation at a tabulated node reproduces the node | exact (to f64) | — | Lagrange property |
-| `EOP-P-3` | interpolation between nodes | ≤ 10 µas in pole, ≤ 1 µs in ΔUT1 | 0.34 mm, 0.51 mm at 7000 km | the scheme `INTERP` uses; dominated by the true sub-daily signal, which §4.4 restores separately |
+| `EOP-P-3` | interpolation between nodes | ≤ 10 µas in pole, ≤ 1 µs in ΔUT1 | 10 µas × 0.034 mm/µas = **0.34 mm**; 1 µs × 0.51 mm/µs = **0.51 mm** at 7000 km | the scheme `INTERP` uses; dominated by the true sub-daily signal, which §4.4 restores separately |
 | `EOP-P-4` | sub-daily corrections vs their published test cases | agreement to the last published digit | — | §8 |
-| `EOP-P-5` | the EOP's own uncertainty, C04 era | ≈ 30–100 µas in pole, ≈ 5–20 µs in ΔUT1 | ≈ 1–3 mm, 3–10 mm at 7000 km | the formal errors carried in the C04 file itself |
+| `EOP-P-5` | the EOP's own uncertainty, C04 era | ≈ 30–100 µas in pole, ≈ 5–20 µs in ΔUT1 | 30–100 µas × 0.034 = **1.0–3.4 mm**; 5–20 µs × 0.51 = **2.6–10.2 mm** at 7000 km | the formal errors carried in the C04 file itself |
 
 `EOP-P-5` is the honest floor on everything above this module: the frame transformation of
 `SPEC-frames.md` is specified to 10 µas (`FRAME-P-3`) but is *delivered* to the accuracy of
@@ -610,6 +610,7 @@ than dangling.
 
 | version | date | change |
 |---|---|---|
+| 1.4 | 2026-09-18 | §6's rows carry their multiplication, per `SPEC-template.md` §1. Both were audited and were already correct; the form changed, not the numbers. |
 | 1.3 | 2026-09-18 | **Amended after implementation.** `EOP-A-003`'s tolerance set to the bound TN36 §8.2 itself publishes, resolving a contradiction with `EOP-R-007` that versions 1.0–1.2 carried. §4.6 added — the prediction horizon and the leap-second horizon do not coincide — with `EOP-R-054`…`EOP-R-056` and `EOP-A-033`. §5's loaders take the leap table, which the query then does not need. |
 | 1.2 | 2026-09-18 | **Acceptance coverage completed.** Added `EOP-A-024` … `EOP-A-032` and the §8 *Coverage* table listing every requirement and refusal not discharged by a test, with the reason. v1.0–1.1 claimed the template's coverage rule without meeting it. **No requirement was added, removed or changed**; the adopted requirement set is exactly as at v1.1. |
 | 1.1 | 2026-09-18 | **Adopted.** Recorded the manager's decisions: `EOP-Q-004` resolved as plan rule R11 (`EOP-R-005` strengthened with the IERS archive fact; `EOP-R-006` and `EOP-R-009` added; `EOP-F-010`, `EOP-A-022`, `EOP-A-023` added); `EOP-Q-002` escalated to the owner. `EOP-S-006` (a SHOULD to warn on hash difference) **retired** and replaced by `EOP-R-006`, which makes the pinned case a refusal. |

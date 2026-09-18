@@ -3,24 +3,32 @@
 | | |
 |---|---|
 | **Spec ID** | `EPH` |
-| **Status** | **draft, for manager review** — implementation follows a reviewed spec (plan §3.11 point 2) |
-| **Version** | 1.0 |
+| **Status** | **adopted** 2026-09-18, conditional on three corrections, which v1.1 applies |
+| **Version** | 1.2 |
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 1 (`doc/REWRITE_PLAN.md` §3.3) |
 | **Depends on** | `SPEC-time.md` (the TDB argument), `core` |
 | **Depended on by** | third-body attraction (L2 step 3), radiation pressure (L4), light-time (L6) |
 
-**Derivation declaration.** This specification was written from the documents listed in §2. No
-file under the repository's `src/`, `include/`, `res/` or `scripts/` — the predecessor's code —
-was opened, listed, searched or otherwise inspected during its preparation.
+**Derivation declaration (plan R1).** This specification was written from the documents
+listed in §2 and from no implementation of this module.
 
-> **This is deliberately weaker than the declaration the P1 specifications carry, and the
-> difference is not cosmetic.** Those were written while the predecessor lived in a separate tree
-> and the separation was a property of the process. The trees were merged on 2026-09-18 at the
-> owner's instruction, so that separation no longer exists and cannot be claimed. What is claimed
-> above is what is true and checkable: the predecessor's source was not read. `SPEC-template.md`
-> §2's declaration block is written for the clean-room era and has no post-merge variant; see
-> `EPH-Q-006`.
+**Predecessor access.** The predecessor shares this repository as of 2026-09-18, so the
+claim earlier specifications could make — that it lived in a separate tree and was not
+reachable — is no longer available to any specification written after that date, and must
+not be implied. What is claimed instead, and what is checkable: no file under the
+repository root's `src/`, `include/`, `res/`, `scripts/`, `analysis/`, `analyses/`,
+`REVIVAL.md` or `PROVENANCE.md` was opened, read, listed, searched or otherwise inspected
+during this specification's preparation. Anything about the predecessor that did reach the
+author is listed below with its route, and repeated in the exposure register at
+`PROVENANCE.md` §0.2.
+
+Numeric acceptance targets carried from prior measurement campaigns are behavioural
+observations against public data (plan R4) and are marked as such where they appear.
+
+*Nothing about the predecessor reached the author during this specification's preparation.
+The revival's units defect, cited in §3.2 as the reason for that section, came through the
+manager's handover as a described failure mode, not as anything from the tree.*
 
 ---
 
@@ -115,13 +123,40 @@ The facts:
 - **EPH-R-011.** No unit conversion MAY be written in this tree's own code. Asking the library
   for km and seconds removes the factor of 1.5 × 10⁸ from our source entirely, which is better
   than writing it correctly.
-- **EPH-R-012.** The astronomical unit MUST be read **from the loaded kernel's own constants**
-  and MUST be checked against 149 597 870.700 km — the IAU 2012 value, which `PARK21` §2 states
-  DE440 adopts. A kernel whose AU differs MUST be refused (`EPH-F-004`). This is what stops
-  `EPH-A-002`'s conversion check from cancelling against a wrong constant.
+- **EPH-R-012.** *(Amended at v1.2, by implementation.)* **An SPK kernel carries no constants at
+  all** — measured: `calceph_getconstantcount` on `de440s.bsp` returns **zero**, and
+  `getconstant("AU")` fails. So v1.0–1.1's "read the AU from the loaded kernel's own constants"
+  is **not satisfiable on the SPK route the plan mandates**; the AU lives in the DE ascii header
+  or a text PCK, not in a `.bsp`.
+  
+  The resolution is better than the requirement it replaces: since **IAU 2012 Resolution B2 the
+  astronomical unit is a DEFINING constant**, exactly 149 597 870 700 m. Reading a defined
+  constant out of a file was never more authoritative than the definition. Therefore:
+  - The defining value is used, and whether it came from a kernel MUST be recorded in run
+    provenance (`astronomical_unit().from_kernel`).
+  - Where a loaded kernel **does** supply an AU — DE ascii and binary files do — it MUST be
+    **checked against** the defining value and a mismatch refused (`EPH-F-004`).
+  
+  The non-cancellation argument is unaffected: the constant is fixed and asserted by `EPH-A-003`,
+  and `EPH-A-004` perturbs it and requires the km comparison to fail.
 - **EPH-R-013.** Position is returned in **km** and velocity in **km s⁻¹**, and the returned
   type MUST carry its frame in the type system exactly as `odl::frames::State` does. A bare
   `double[6]` MUST NOT cross this module's boundary.
+
+### 3.2a Sign convention for time-scale differences
+
+**One direction, everywhere: `tdb_minus_tt`.** v1.0 of this specification declared
+`tt_minus_tdb` in §5 while `EPH-R-044` and `SPEC-time.md` said `tdb_minus_tt` — opposite signs,
+named in adjacent sentences, inside the single check built to catch defects by comparing two
+routes to one quantity.
+
+- **EPH-R-004.** Every time-scale difference in this module MUST be named and returned in the
+  sense **later minus earlier-named**, i.e. `tdb_minus_tt` is TDB − TT, and the opposite spelling
+  MUST NOT appear. `SPEC-time.md` already uses that sense; this module follows it rather than
+  inventing a second.
+
+A sign error here would present as `EPH-A-007`'s two routes disagreeing by **exactly twice** the
+value, which reads like a factor-of-two bug and sends the reader looking for one.
 
 ### 3.3 Body identity — the second trap, and it is quieter
 
@@ -180,8 +215,11 @@ a plausible vector for the wrong planet, which no magnitude check catches.
 
 - **EPH-R-040.** Every kernel MUST be a manifest entry with URL, SHA-256 and a licence note, and
   MUST be loaded from the cache (plan L0 step 3, rule R11).
-- **EPH-R-041.** A kernel's **coverage interval** MUST be read from the kernel and exposed, and a
-  request outside it MUST be refused (`EPH-F-002`) naming the requested epoch and the interval.
+- **EPH-R-041.** Coverage is **per body per kernel**, not per kernel: a single kernel covers
+  different bodies over different spans, and `de440s` does. It MUST be read from the kernel for
+  the body asked about and exposed that way — which is what `coverage(Ephemeris, Body)` already
+  is — and a request outside it MUST be refused (`EPH-F-002`) naming the requested epoch, the
+  body, and that body's interval.
   There is no extrapolation, for the reason `SPEC-eop.md` §4.5 gives at length: a Chebyshev
   polynomial evaluated outside its interval does not degrade, it diverges, and it does so
   smoothly enough to look like an orbit.
@@ -194,7 +232,7 @@ a plausible vector for the wrong planet, which no magnitude check catches.
 
 - **EPH-R-043.** The primary operation returns the state of a `Body` relative to a `Body`, at an
   `Epoch`, in km and km s⁻¹.
-- **EPH-R-044.** TT−TDB MUST be obtainable where the kernel provides it, and MUST be compared
+- **EPH-R-044.** TDB−TT MUST be obtainable where the kernel provides it, and MUST be compared
   against `SPEC-time.md`'s `tdb_minus_tt` in the acceptance suite. Two independent routes to the
   same quantity, disagreeing, is the check that caught the most instructive defect of L1.
 - **EPH-S-045.** Acceleration (the second derivative) SHOULD be available through
@@ -215,7 +253,7 @@ Body        := Sun | Mercury | Venus | Earth | Mars | Jupiter | Saturn | Uranus
 Ephemeris   := opaque, immutable
 Coverage    := { first: Epoch, last: Epoch }
 
-open(bytes_or_paths, provenance)        -> Result<Ephemeris, EphError>
+open(cache_paths, provenance)           -> Result<Ephemeris, EphError>  -- paths, see below
 coverage(Ephemeris, Body)               -> Result<Coverage, EphError>
 constant(Ephemeris, name)               -> Result<double, EphError>   -- "AU", "EMRAT", "GM*"
 provenance(Ephemeris)                   -> [ { url, sha256, kernel_id, naifid_mode } ]
@@ -224,7 +262,7 @@ state(Ephemeris, Body target, Body centre, Epoch)
                                         -> Result<State<Frame::BCRS>, EphError>
 acceleration(Ephemeris, Body, Body, Epoch)
                                         -> Result<Vec3, EphError>     -- km/s^2
-tt_minus_tdb(Ephemeris, Epoch)          -> Result<Duration, EphError>
+tdb_minus_tt(Ephemeris, Epoch)          -> Result<Duration, EphError>   -- TDB − TT (EPH-R-004)
 ```
 
 Notes for the manager's review:
@@ -233,10 +271,13 @@ Notes for the manager's review:
   change to an adopted spec. It is the honest shape: a barycentric vector is not a GCRS vector,
   they differ by the Earth's barycentric position of order 1.5 × 10⁸ km, and L1's whole argument
   was that a frame confusion must be unrepresentable. See `EPH-Q-001`.
-- **`open` takes bytes or paths.** SPK kernels are large — `de440.bsp` is about 114 MB — and
-  CALCEPH memory-maps or streams them. This is the first input in the tree too large to hand
-  around as a `string_view`, and it is the one place the "loaders take bytes" convention of
-  `SPEC-eop.md` §5 does not carry over. See `EPH-Q-002`.
+- **`open` takes cache PATHS, and this is the tree's one exception to "loaders take bytes"**
+  (`EPH-Q-002`, ruled). SPK kernels are large — `de440.bsp` is about 114 MB — and CALCEPH
+  memory-maps them; handing that around as a `string_view` costs more than the purity buys. The
+  exception is **for kernels and nothing else**. The hash is verified by the fetcher *before* a
+  path is handed over and `provenance()` records it, so the property the convention protected —
+  nothing is read that was not declared — is preserved by a different mechanism rather than
+  given up.
 - **No global state.** CALCEPH's handle is owned by `Ephemeris`; two instances must coexist, as
   `EOP-A-020` and `TIME-A-019` require of their layers.
 
@@ -246,10 +287,16 @@ Notes for the manager's review:
 
 | id | quantity | budget | physical consequence | basis |
 |---|---|---|---|---|
-| `EPH-P-1` | agreement with `TESTPO` | **< 10⁻¹³ AU** | 15 µm | the tolerance JPL states for its own test set |
+| `EPH-P-1` | agreement with `TESTPO` | **< 10⁻¹³ AU** | 10⁻¹³ AU × 1.495 978 707 × 10¹¹ m/AU = **15 mm** | the tolerance JPL states for its own test set |
 | `EPH-P-2` | AU constant read from the kernel | exactly 149 597 870.700 km | — | `PARK21` §2, IAU 2012 |
-| `EPH-P-3` | TT−TDB against `SPEC-time.md` | ≤ 100 ns | 0.75 mm at LEO | two independent routes; the difference is the check |
+| `EPH-P-3` | TDB−TT against `SPEC-time.md` | ≤ 100 ns | 100 ns × 7.5 km s⁻¹ = **0.75 mm** at LEO | two independent routes; the difference is the check |
 | `EPH-P-4` | interpolation from a two-part epoch vs a collapsed one | the collapsed form MUST be measurably worse | — | `EPH-R-002`; the test demonstrates the reason for the split |
+
+**`EPH-P-1` said "15 µm" until v1.1, where it is 15 mm** — a factor of a thousand, in a budget
+column, where a reader takes it for the precision the module achieves and sizes every later
+tolerance against it. Every row now carries its multiplication (`SPEC-template.md` §1). Auditing
+the other twenty-two budget rows in this tree afterwards found three more of the same class, all
+in `SPEC-time.md` §6 and all in the sub-microsecond rows; they are corrected at its v1.4.
 
 `EPH-P-4` is unusual and deliberate, in the shape of `FRAME-A-009`: it asserts that doing the
 wrong thing gives a **worse** answer, which is the only way to show that a precaution is earning
@@ -261,7 +308,7 @@ its place rather than being cargo.
 
 | id | condition | diagnostic must name | never instead |
 |---|---|---|---|
-| `EPH-F-002` | request outside a kernel's coverage | requested epoch, the kernel's interval, the kernel's identity | extrapolate the Chebyshev polynomial; clamp to the end |
+| `EPH-F-002` | request outside the coverage **of that body in that kernel** | requested epoch, the body, that body's interval, the kernel's identity | extrapolate the Chebyshev polynomial; clamp to the end |
 | `EPH-F-003` | body not present in any loaded kernel | the body, and which kernels were searched | return a zero vector |
 | `EPH-F-004` | the kernel's AU constant differs from 149 597 870.700 km | both values and the kernel | use it anyway; use the built-in constant |
 | `EPH-F-005` | two kernels both cover the body and the epoch | both kernels and the interval | apply a priority rule silently |
@@ -276,11 +323,11 @@ its place rather than being cargo.
 |---|---|---|---|---|---|
 | `EPH-A-001` | **THE GATE.** Every case in `testpo.440` that falls inside the loaded kernel's coverage, requested in **AU and AU/day**. The count exercised MUST be reported, so "the gate passed" carries its denominator. | the published value in column 7 | `TESTPO` — **JPL's own published verification set**, ~13 200 cases | < 1 × 10⁻¹³ AU | R-001, R-002, R-041, R-043, P-1 |
 | `EPH-A-002` | **THE UNITS GATE.** The same cases requested in **km and km s⁻¹**, compared against the published AU value scaled by the AU read from the kernel | agreement | `TESTPO` + `EPH-R-012` | < 1 × 10⁻¹³ AU equivalent | R-010, R-011, R-013 |
-| `EPH-A-003` | the AU constant read from the kernel | 149 597 870.700 km exactly | `PARK21` §2 / IAU 2012 | exact | R-012, P-2 |
+| `EPH-A-003` | the astronomical unit in force, **and that an SPK supplies none** | 149 597 870.700 km exactly, `from_kernel` false, and `constant("AU")` refusing | `PARK21` §2 / IAU 2012 Res. B2 | exact | R-012, P-2 |
 | `EPH-A-004` | `EPH-A-002` cannot pass if the AU constant is wrong: substitute a kernel constant differing by 1 part in 10⁶ and confirm `EPH-A-002` fails | failure | this spec | — | R-012 |
 | `EPH-A-005` | body identity: `Body::Earth` and `Body::EarthMoonBarycentre` differ by 4 600–4 700 km | as stated | `PARK21`; EMRAT from the kernel | 10 % | R-020, R-022 |
 | `EPH-A-006` | the classic-to-NAIF mapping, exercised by running `EPH-A-001` — whose cases are in the classic scheme — through the enumeration | agreement | `TESTPO` | as `EPH-A-001` | R-021 |
-| `EPH-A-007` | TT−TDB from the kernel against `SPEC-time.md`'s `tdb_minus_tt` over a year | agree | two independent routes | ≤ 100 ns | R-044, P-3 |
+| `EPH-A-007` | **TDB−TT** from the kernel against `SPEC-time.md`'s `tdb_minus_tt` over a year, in that sense | agree | two independent routes | ≤ 100 ns | R-004, R-044, P-3 |
 | `EPH-A-008` | **the two-part epoch earns its place**: the same state computed with `(JD, 0)` instead of `(integral, fraction)` is measurably worse against `TESTPO` | the collapsed form is worse by ≳ 10⁻¹² AU | `TESTPO` | — | R-002, P-4 |
 | `EPH-A-009` | refusal: an epoch one day outside coverage | `EPH-F-002` naming the epoch and the interval | this spec | — | F-002, R-041 |
 | `EPH-A-010` | refusal: a kernel whose AU constant is altered | `EPH-F-004` naming both values | this spec | — | F-004 |
@@ -318,14 +365,14 @@ its place rather than being cargo.
 
 ## 10. Open questions for the manager
 
-| id | question | recommendation |
+| id | question | **resolution** |
 |---|---|---|
-| `EPH-Q-001` | **`Frame::BCRS` is an addition to an adopted spec.** `SPEC-frames.md`'s `Frame` enumeration is GCRS/CIRS/TIRS/ITRS/TEME. A barycentric vector belongs in the type system on exactly the argument L1 made. | Add it, amending `SPEC-frames.md` to v1.4. The alternative — returning a bare `Vec3` — reintroduces the class of confusion L1 spent a whole layer making unrepresentable, and the difference here is 1.5 × 10⁸ km. |
-| `EPH-Q-002` | **Kernels are too large to pass as bytes.** `de440.bsp` is ~114 MB; `SPEC-eop.md` §5's "loaders take bytes" convention does not carry. | Let `open` take cache **paths**, and keep the manifest as the only source of those paths so nothing is read that was not declared. Worth deciding explicitly because it is the first departure from a convention adopted one layer down. |
-| `EPH-Q-003` | **Which kernel?** `de440.bsp` is 114 MB and spans 1550–2650; `de440s.bsp` is ~32 MB and spans 1849–2150. `testpo.440` has cases outside the short kernel's span, so the short one would skip a large share of the gate. | Pin **both**: `de440s.bsp` for routine use and CI, `de440.bsp` for the full `EPH-A-001` sweep. Record how many `TESTPO` cases each exercises, so "the gate passed" carries its own denominator — the habit plan §4 rule 3 asks for. |
-| `EPH-Q-004` | **Is CALCEPH needed at all?** `SPK-RR` is a published format specification and the tree already reads two IERS formats itself. CALCEPH brings a French triple licence, an autotools build, and a dependency whose own build must be audited. | Keep CALCEPH — the plan decided it, it is well tested, and its `_unit` API removes the unit conversion from our code. Recorded because the reasons against are real and someone will ask. Re-examine only if the licence choice is ever challenged. |
+| `EPH-Q-001` | **`Frame::BCRS` is an addition to an adopted spec.** `SPEC-frames.md`'s `Frame` enumeration is GCRS/CIRS/TIRS/ITRS/TEME. A barycentric vector belongs in the type system on exactly the argument L1 made. | **RULED 2026-09-18: add it, and amend `SPEC-frames.md` rather than declaring it here** — the frame enumeration belongs to that specification, and a second spec extending it silently is how enumerations drift. Done at `SPEC-frames.md` v1.4 §3.5, which carries the two conditions attached to the ruling: BCRS↔GCRS is a **translation**, so it must not be given a function shaped like the rotations (`FRAME-R-027`/`-028`), and BCRS is TDB-based where GCRS is TT-based, so the timescale must be stated (`FRAME-R-029`). |
+| `EPH-Q-002` | **Kernels are too large to pass as bytes.** `de440.bsp` is ~114 MB; `SPEC-eop.md` §5's "loaders take bytes" convention does not carry. | **RULED 2026-09-18: paths, for kernels specifically, and the exception is named here so it does not spread.** The loaders-take-bytes convention exists to keep loaders pure and testable; at 114 MB memory-mapped it costs more than it buys. The hash remains the fetcher's job **before** the path is handed over, and `provenance()` records it — so nothing is read that was not declared, which is the property the convention was protecting. **This exception is for kernels and for nothing else:** every other loader in this tree continues to take bytes. |
+| `EPH-Q-003` | **Which kernel?** `de440.bsp` is 114 MB and spans 1550–2650; `de440s.bsp` is ~32 MB and spans 1849–2150. `testpo.440` has cases outside the short kernel's span, so the short one would skip a large share of the gate. | **RULED 2026-09-18: pin both, and the full sweep must actually RUN at this step's gate** — not merely be possible. `de440s.bsp` for routine use, `de440.bsp` for the complete `EPH-A-001` sweep, and **the case count each exercises is recorded in `PROVENANCE.md`**. "Pinned both, CI uses the short one" decays into the full coverage being notional within two layers; the gate already reports its denominator, so saying this costs nothing. |
+| `EPH-Q-004` | **Is CALCEPH needed at all?** `SPK-RR` is a published format specification and the tree already reads two IERS formats itself. CALCEPH brings a French triple licence, an autotools build, and a dependency whose own build must be audited. | **RULED 2026-09-18: keep CALCEPH.** The plan decided it, it is well tested, and its `_unit` API removes the unit conversion from this tree's code entirely. Recorded because the reasons against are real and someone will ask. Re-examine only if the CeCILL-B choice is ever challenged. |
 | `EPH-Q-005` | **IAU 2012 Resolution B2 is cited through `PARK21`**, not obtained directly. The constant is not in doubt — `PARK21` states both value and adoption — but §2 carries a `secondary` row, which the template says must appear here. | Retrieve the resolution text before L2 closes. Nothing in §§4–8 depends on it beyond a constant that `EPH-A-003` checks against the kernel itself. |
-| `EPH-Q-006` | **`SPEC-template.md` has no post-merge derivation declaration.** Its block asserts the clean-room separation, which ended on 2026-09-18. Every spec from here cannot use it, and each author will improvise. | Add a second block to the template — what this document's front matter uses — so the weaker claim is *standard* rather than invented per spec. An improvised declaration is exactly the thing a ledger cannot rely on. |
+| `EPH-Q-006` | **`SPEC-template.md` has no post-merge derivation declaration.** Its block asserts the clean-room separation, which ended on 2026-09-18. Every spec from here cannot use it, and each author will improvise. | **RESOLVED 2026-09-18 at the template**, not per spec. `SPEC-template.md` §2 now carries a **Predecessor access** block which drops the impossibility claim and keeps a checkable one, and the manager extended the forbidden list beyond what this spec had proposed: `analysis/`, `analyses/`, `REVIVAL.md` and `PROVENANCE.md` describe the predecessor's internals as directly as its source does. This specification's front matter uses that block **verbatim**. |
 
 ---
 
@@ -333,4 +380,6 @@ its place rather than being cargo.
 
 | version | date | change |
 |---|---|---|
+| 1.2 | 2026-09-18 | **Amended by implementation.** `EPH-R-012` corrected: an SPK kernel carries **no constants**, so "read the AU from the kernel" was unsatisfiable on the mandated route. Replaced by the IAU 2012 defining value, with a kernel-supplied AU *checked against* it where one exists, and `from_kernel` recorded either way. `EPH-A-003` now asserts the absence as well as the value. |
+| 1.1 | 2026-09-18 | **Adopted, with the three corrections the adoption was conditional on.** `EPH-P-1` corrected from 15 µm to **15 mm** and every §6 row given its multiplication. §3.2a added: one sign convention, `tdb_minus_tt`, replacing v1.0's `tt_minus_tdb` in §5 — opposite signs in adjacent sentences inside the very check built to catch that class. `EPH-R-041` and `EPH-F-002` restated as **per body per kernel**. Four questions ruled: `Frame::BCRS` added at `SPEC-frames.md` v1.4 with its two conditions; kernels take **paths**, named as this tree's one exception; **both** DE kernels pinned with the full sweep required to RUN at the gate and its case count recorded; CALCEPH kept. The derivation declaration now uses the template's **Predecessor access** block verbatim. |
 | 1.0 | 2026-09-18 | First draft, L2 step 1, for manager review. |

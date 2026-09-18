@@ -28,6 +28,15 @@
 namespace odl::frames {
 
 enum class Frame {
+    BCRS,   ///< Barycentric Celestial Reference System: ICRS axes, solar-system
+            ///< barycentre origin. The frame of the planetary ephemerides.
+            ///<
+            ///< NOT just another member. BCRS <-> GCRS is a TRANSLATION, not a
+            ///< rotation — every other transformation here is an orthogonal
+            ///< matrix and an angular velocity — and BCRS is TDB-based where
+            ///< GCRS is TT-based. SPEC-frames §3.5, FRAME-R-027..029: there is
+            ///< deliberately NO `to_gcrs(State<BCRS>, eop, leaps)`, because a
+            ///< function shaped like its neighbours gets used like them.
     GCRS,   ///< Geocentric Celestial Reference System. The inertial frame of the dynamics.
     CIRS,   ///< Celestial Intermediate Reference System: CIP as z, CIO as x.
     TIRS,   ///< Terrestrial Intermediate Reference System: CIP as z, TIO as x.
@@ -37,6 +46,7 @@ enum class Frame {
 
 [[nodiscard]] constexpr std::string_view name_of(Frame f) noexcept {
     switch (f) {
+        case Frame::BCRS: return "BCRS";
         case Frame::GCRS: return "GCRS";
         case Frame::CIRS: return "CIRS";
         case Frame::TIRS: return "TIRS";
@@ -67,12 +77,32 @@ public:
         return F == Frame::TEME ? 3.0 : 0.0;
     }
 
+    /// FRAME-R-028.  The BCRS <-> GCRS step is a translation and says so: it
+    /// takes the Earth's barycentric state as an EXPLICIT argument, so a caller
+    /// must have obtained it from `ephemerides` and cannot get a silent zero.
+    /// Deliberately not named `to_gcrs`, and deliberately not taking an EOP
+    /// record — nothing about it resembles the rotations.
+    ///
+    /// FRAME-R-029: the epoch is unchanged and is NOT rescaled. The TDB/TT
+    /// relativistic scaling between the two systems, L_B = 1.55e-8 (2.3 m on an
+    /// astronomical unit), is not applied here; a consumer needing
+    /// TDB-compatible lengths must say so. See FRAME-Q-006.
+    template <Frame G = F>
+    [[nodiscard]] auto translated_by(const State<Frame::BCRS>& earth_in_bcrs) const noexcept
+        -> State<Frame::GCRS>
+        requires (G == Frame::BCRS)
+    {
+        return State<Frame::GCRS>{epoch_, r_ - earth_in_bcrs.position(),
+                                  v_ - earth_in_bcrs.velocity()};
+    }
+
 private:
     odl::time::Epoch epoch_;
     Vec3 r_;
     Vec3 v_;
 };
 
+using BcrsState = State<Frame::BCRS>;
 using GcrsState = State<Frame::GCRS>;
 using ItrsState = State<Frame::ITRS>;
 using TemeState = State<Frame::TEME>;

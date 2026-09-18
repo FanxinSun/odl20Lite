@@ -355,6 +355,8 @@ PERMISSIVE_LICENCES = {
     "ZLIB":          "permissive",
     "IERS-PUBLIC":   "not an SPDX identifier: IERS public data products, published for "
                      "unrestricted use. Data, never linked.",
+    "NASA-PUBLIC":   "not an SPDX identifier: NASA/JPL published data products (NAIF generic\n"
+                     "                    kernels, JPL SSD test sets). Data, never linked.",
 }
 
 

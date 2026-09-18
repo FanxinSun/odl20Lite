@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `FRAME` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.3 |
+| **Version** | 1.4 |
 | **Date** | 2026-09-18 |
 | **Layer** | `frames` (`doc/REWRITE_PLAN.md` §2) |
 | **Feature** | F3 (plan §3) |
@@ -90,6 +90,7 @@ invert by transposition, never by numerical inversion (`FRAME-R-004`).
 
 | frame | z-axis | x-axis | origin | note |
 |---|---|---|---|---|
+| **BCRS** | — | — | **solar-system barycentre** | Barycentric Celestial Reference System, axes aligned with the ICRS. The frame of the planetary ephemerides; see §3.5. |
 | **GCRS** | — | — | geocentre | Geocentric Celestial Reference System; kinematically non-rotating, aligned with the ICRS. The inertial frame of this tree's dynamics. Colloquially "GCRF"/"J2000-ish"; **it is not the mean equator and equinox of J2000** — the two differ by the frame bias (§4.4), ≈ 23 mas ≈ 0.8 m at 7000 km. |
 | **CIRS** | CIP | CIO | geocentre | Celestial Intermediate Reference System [`TN36-5` §5.4] |
 | **TIRS** | CIP | TIO | geocentre | Terrestrial Intermediate Reference System [`TN36-5` §5.4] |
@@ -161,6 +162,36 @@ them would have set it twenty-five times too small.
 
 `FRAME-R-004` is the structural answer to the frame trap. A convention ("we always store
 GCRS") is a comment; a type is a compiler error.
+
+### 3.5 BCRS, and why it is not just another member of the enumeration
+
+`Frame::BCRS` is added at L2's request (`SPEC-ephemerides.md` `EPH-Q-001`): a barycentric vector
+is not a geocentric one, they differ by the Earth's barycentric position of order 1.5 × 10⁸ km,
+and that is the largest-magnitude frame confusion available anywhere in this system. Leaving
+ephemeris output as a bare `Vec3` would give up precisely the invariant §3.4 exists to establish.
+
+But adding the tag is the easy half, and two things make BCRS unlike every other member:
+
+- **BCRS ↔ GCRS is a TRANSLATION, not a rotation.** Every other transformation here is an
+  orthogonal matrix and an angular velocity; this one is a vector subtraction whose magnitude
+  comes from an ephemeris.
+- **BCRS is TDB-based where GCRS is TT-based.** The rotations never raise a timescale question —
+  they take an `Epoch` and render whatever they need. This one does: the two systems differ in
+  the rate of their time coordinates as well as in their origin.
+
+Hence:
+
+- **FRAME-R-027.** There MUST NOT be a BCRS ↔ GCRS transform **shaped like the rotations** —
+  nothing named `to_gcrs`/`to_bcrs` taking only an epoch and an EOP record. A function that looks
+  like its neighbours will be used like them, and this one is not like them.
+- **FRAME-R-028.** The translation MUST be expressed as an operation **taking the Earth's
+  barycentric state as an explicit argument**, so the caller must have obtained it from
+  `ephemerides` and cannot get a silent zero. Its name MUST say translation, not transform.
+- **FRAME-R-029.** A `State<Frame::BCRS>`'s epoch MUST be rendered to **TDB** when used with the
+  ephemerides and to **TT** when used with the geocentric chain, and any operation crossing
+  between them MUST state which it used. The relativistic scaling between TDB- and TT-compatible
+  quantities, *L*_B = 1.55 × 10⁻⁸ — 2.3 m on an astronomical unit — is **not** applied by this
+  module; a consumer needing TDB-compatible lengths must say so. See `FRAME-Q-006`.
 
 ---
 
@@ -525,8 +556,8 @@ Notes for the manager's review:
 |---|---|---|---|---|
 | `FRAME-P-1` | ITRS → GCRS → ITRS round trip, LEO state | < 1 × 10⁻⁶ km = **1 mm** | — | plan §4; a self-consistency bound, achievable far tighter given `FRAME-R-020` |
 | `FRAME-P-2` | agreement with ERFA's published test values for the chain components | bit-comparable | — | plan/handover §4 |
-| `FRAME-P-3` | GCRS ↔ ITRS orientation accuracy vs the IAU 2006/2000A model | ≤ 10 µas ⇒ **0.34 mm** at 7000 km | the model's own realisation | `TN36-5`; limited by the EOP, not by this module |
-| `FRAME-P-3b` | frame bias, if omitted | 23 mas ⇒ **0.78 m** at 7000 km | — | §4.4; stated so omission is recognisable by its size |
+| `FRAME-P-3` | GCRS ↔ ITRS orientation accuracy vs the IAU 2006/2000A model | 10 µas × 0.034 mm/µas = **0.34 mm** at 7000 km | the model's own realisation | `TN36-5`; limited by the EOP, not by this module |
+| `FRAME-P-3b` | frame bias, if omitted | 23 mas × 34 mm/mas = **0.78 m** at 7000 km | — | §4.4; stated so omission is recognisable by its size |
 | `FRAME-P-4` | ITRS velocity | ≈ 0.1 mm s⁻¹ | — | §4.2, `FRAME-R-022`; dominated by the neglected Q̇ term |
 | `FRAME-P-5` | TEME → GCRS, definitional floor | ≈ 3 m at 7000 km | — | §4.5, `FRAME-R-033`; irreducible |
 | `FRAME-P-5b` | agreement with `VAL06`'s published ITRS↔TEME example | **25 mm**, of which 13.3 mm is measured and characterised as a pure z-rotation | — | `FRAME-A-001`'s note |
@@ -576,7 +607,8 @@ catches a large class of implementation errors cheaply, and because the predeces
 | `FRAME-A-015` | refusals `FRAME-F-001`, `-F-004`, `-F-005`, `-F-007` each fire with the specified content | as tabulated in §7 | this spec | — | F-001, F-004, F-005, F-007, R-044, R-052 |
 | `FRAME-A-016` | δ*X*, δ*Y* omission changes the result by the expected order | ≈ 10 mm at 7000 km for δ*X*, δ*Y* ≈ 0.3 mas | `TN36-5` §5.5.4 magnitudes | order of magnitude | R-012 |
 | `FRAME-A-017` | SGP4 TEME state vs a JPL Horizons table, same object, 5-hour arc. **A convention-matching test, not an accuracy measurement** — the Horizons ephemeris forward of the TLE epoch is that TLE (§4.5). | **< 20 m**, with the residual expected at `FRAME-P-5`'s ≈ 3 m floor and **flat in propagation time** | JPL Horizons — public data; the table's own time scale must be established, not assumed (`SPEC-time.md` `TIME-R-004`) | 20 m; **and the residual MUST NOT grow with propagation time** — growth indicates a propagation or timescale error, not a convention difference | P-6 |
-| `FRAME-A-018` | type-level: a TEME state cannot be passed where GCRS is required | compilation failure, or a boundary refusal | this spec | — | R-003, R-004, R-005, R-034, R-041 |
+| `FRAME-A-018` | type-level: a TEME state cannot be passed where GCRS is required, and neither can a BCRS state | compilation failure, or a boundary refusal | this spec | — | R-003, R-004, R-005, R-034, R-041 |
+| `FRAME-A-023` | structural: no BCRS↔GCRS function exists taking only an epoch and an EOP record; the translation's signature demands the Earth's barycentric state, and its name says translation | compilation failure for the rotation-shaped call | this spec | — | R-027, R-028 |
 | `FRAME-A-019` | **structural:** the ITRS frame type admits a realisation tag without a breaking change — demonstrated by a branch that adds an ITRF2014/ITRF2020 tag and compiles every caller unchanged | as stated | this spec, `FRAME-R-026` | — | R-026 |
 | `FRAME-A-020` | a state produced by TEME → GCRS carries a non-zero uncertainty floor of the order stated in `FRAME-P-5` | ≈ 3 m at 7000 km, present in the state, not in a comment | this spec, `FRAME-R-033` | order of magnitude | R-033 |
 | `FRAME-A-021` | fault injection: an ERFA routine made to return a non-zero status | refusal `FRAME-F-008` naming routine, status and epoch; **the returned value is not used** | this spec | — | F-008 |
@@ -611,6 +643,7 @@ above, except the following, listed in full:
 |---|---|
 | `FRAME-R-002` | Provenance emission. Discharged by review of the run-output format and by `PROVENANCE.md` §1's model declaration. |
 | `FRAME-R-022`, `FRAME-R-043` | Documentation requirements — that the neglected velocity terms and the frozen-basis caveat are stated with their magnitudes. Discharged by review of the module's output documentation. |
+| `FRAME-R-029` | The timescale basis of a BCRS state, and the un-applied *L*_B scaling, are statements the module makes about itself. Discharged by review of the translation operation's documentation and by `FRAME-Q-006` remaining open; there is nothing to assert while the scaling is deliberately not applied. |
 | `FRAME-R-023`, `FRAME-R-024` | Properties of the calling layers (integrate in GCRS; partials reuse the state's matrices). Discharged by review there, and they belong to F1's spec when it is written. |
 | `FRAME-F-002`, `FRAME-F-003`, `FRAME-F-006` | **Delegated refusals**, tested where they are raised: `SPEC-eop.md` `EOP-A-015`/`-A-016` (coverage), `EOP-A-021` (sub-daily not applied) and `SPEC-time.md` `TIME-A-015` (leap-table expiry). This spec's obligation is to propagate them unchanged, which those tests observe from the caller's side. |
 
@@ -644,6 +677,7 @@ cases rather than runtime ones.
 | `FRAME-Q-002` | **`BEU94` and `ARN15`, the primary sources for the DYB frame, could not be obtained** — the 1994 paper is in a journal with no accessible archive, and the 2015 paper is paywalled at Springer (abstract only). §4.7's definition is stated from first principles and is internally unambiguous, but the **sign of ê_D** and the **construction of ê_Y** (geocentric radial vs modelled body axis) are conventions I fixed rather than inherited. | Obtain `ARN15` before P4 (the phase that implements ECOM). Until then the definition stands as written, and `FRAME-R-050`/`-051` require it to be restated at every reporting point so that a later correction is a one-line change rather than a hunt. If ECOM coefficients are ever compared against published CODE values, the conventions must be confirmed first — a sign disagreement in ê_D is invisible in a fit and visible only in the sign of the reported parameter. |
 | `FRAME-Q-003` | **Is `frames` right to take EOP as a passed-in record rather than a queried service?** It makes the module pure and trivially testable, at the cost of every caller threading an `EopAt` through. | **CONFIRMED 2026-09-18, as specified.** The alternative puts a cache and a file dependency in the module that the variational equations call thousands of times per arc, and it makes the "which EOP did this run use" question un-answerable from the state alone. |
 | `FRAME-Q-004` | **Velocity accuracy.** §4.2 neglects Q̇ (54 µm s⁻¹ at LEO) while applying a LOD correction of similar size. Including Q̇ is not hard — it is a numerical differentiation of Q over a few seconds, or the analytic CIP rate. | Leave it neglected for P1 and state the 0.1 mm s⁻¹ figure honestly. Revisit only if a measurement model in F11 turns out to need ITRS velocity better than that; none of the P1–P6 campaigns does. Recorded here so the decision is visible rather than accidental. |
+| `FRAME-Q-006` | **The TDB/TT scaling between BCRS and GCRS quantities is not applied** (`FRAME-R-029`). IAU 2006 Resolution B3 makes TDB a linear transform of TCB, and lengths compatible with one differ from the other by *L*_B = 1.55 × 10⁻⁸ — 2.3 m on an astronomical unit, well above anything this tree measures. | Leave it unapplied at L2 and state it, as `FRAME-R-029` does: the ephemerides are TDB-compatible by construction and the geocentric chain never sees an astronomical unit, so nothing in L1–L4 crosses the boundary where it would matter. Revisit before L6, where a light-time solution spans both. Recorded so that if a metre-level discrepancy appears on a barycentric path, this is the first place to look. |
 | `FRAME-Q-005` | **ITRF realisation.** The EOP series in use is consistent with ITRF2020 (`SPEC-eop.md` §2), and station coordinate sets (SLRF2020, IGS products) have their own realisations. Nothing in this spec pins them together. | **DECIDED 2026-09-18: shape now, tag before P6** — specified at `FRAME-R-026`. Sharper than first written: correction §3.1 of `SPEC-eop.md` makes this a live hazard rather than a hypothetical one, because EOP 20 C04 is ITRF2020 where the superseded 14 C04 was ITRF2014, so data of the two eras really is in two realisations. |
 
 ---
@@ -652,6 +686,7 @@ cases rather than runtime ones.
 
 | version | date | change |
 |---|---|---|
+| 1.4 | 2026-09-18 | **`Frame::BCRS` added** at L2's request. Amended here rather than declared in `SPEC-ephemerides.md`, because the frame enumeration belongs to this specification and a second spec extending it silently is how enumerations drift. §3.5 carries the two things that make BCRS unlike the other members — the transformation is a **translation** and the timescale basis differs — as `FRAME-R-027`…`FRAME-R-029`, with `FRAME-A-023` and `FRAME-Q-006`. §6's rows carry their multiplication. |
 | 1.3 | 2026-09-18 | **Amended after implementation.** `FRAME-R-030` corrected: the kinematic equation-of-equinoxes terms are **required**, not forbidden — v1.2 conflated them with the equinox-based TOD route, whose ambiguities are all in the geometric nutation terms this chain never uses. `FRAME-A-001`'s tolerance restated at 25 mm with a pure-rotation assertion and the residual 3.45 × 10⁻⁴ arcsec z-rotation recorded as unexplained. §3.3 gains the mechanism: the celestial-pole offset series cancel the model difference on the ITRF path by construction (measured, 1.56 mm), and TEME has no such series, which is why the difference appears there undiluted. `FRAME-Q-001` corrected from "convention" to "model difference". `FRAME-P-5b` added. |
 | 1.2 | 2026-09-18 | **Acceptance coverage completed.** Added `FRAME-A-019` … `FRAME-A-022` and the §8 *Coverage* table listing every requirement and refusal not discharged by a test, with the reason. v1.0–1.1 claimed the template's coverage rule without meeting it. **No requirement was added, removed or changed**; the adopted requirement set is exactly as at v1.1. |
 | 1.1 | 2026-09-18 | **Adopted.** Recorded the manager's decisions: `FRAME-Q-001` resolved — the Horizons comparison ephemeris is the TLE, so the test is convention-matching, "expect < 1 m" struck, `FRAME-A-001` promoted to primary frames gate, `FRAME-A-017` re-documented with a flatness condition, `FRAME-R-033` given the measured corroboration. `FRAME-Q-005` decided — `FRAME-R-026` added. `FRAME-Q-003` confirmed. Corrected a stale frame-bias figure in §4.4 (17 mas → 23 mas) left over from the v1.0 drafting. |

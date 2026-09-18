@@ -311,10 +311,20 @@ L4.
 **Entry:** L1 exit gate — **passed 2026-09-18**, amendments applied the same day, so this
 layer is open.
 
-1. **TODO** — `ephemerides`: planetary and lunar positions, SPK through CALCEPH. Sources: the
-   JPL DE documentation and the SPK format specification. Gate: published DE test values, with
-   the revival's units trap — a routine whose comment claims AU while it returns km — as a
-   named acceptance test rather than a comment.
+1. **DONE** — `ephemerides`: planetary and lunar positions, SPK through CALCEPH, CeCILL-B taken
+   and recorded. Gate passed on the **full** `testpo.440` sweep: 11 354 of 13 201 cases checked
+   on `de440.bsp`, 0 outside coverage, 1 847 not body-position cases, worst residual
+   7.105 × 10⁻¹⁵ AU = **1.06 mm** against JPL's own 10⁻¹³ AU = 14.96 mm. The units trap was
+   designed out rather than tested for: CALCEPH is asked for km at every call site so no
+   conversion factor appears in this tree's source at all, and a negative test perturbing the AU
+   by one part in 10⁶ requires the comparison to fail.
+   Two findings worth carrying. An SPK kernel carries **no constants** — `getconstantcount`
+   returns zero — so EPH-R-012's "read the AU from the kernel" was unsatisfiable on the mandated
+   route; since IAU 2012 Resolution B2 the au is a *defining* constant, so the definition is the
+   authority and a kernel supplying one is checked against it. And the solar-system barycentre is
+   the **root** of an SPK's body tree — the centre of every record and the target of none — so
+   scanning for it as a target found nothing and 868 cases were being silently counted as
+   outside coverage. The gate reporting its denominator is what exposed that.
 2. **TODO** — `gravity`: the geopotential to full degree and order, recursions taken from the
    tables printed in the Conventions rather than from anyone's code. Gate: published
    coefficients' acceleration at sampled points, with truncation behaviour stated and tested.
@@ -554,7 +564,13 @@ eight, and §1's last column says which is which.
    was visible only by accident (v2 puts its CMake helpers in `contrib/`, v3 in `extras/`; a
    substitution *within* a major version would have built cleanly). Every dependency is checked
    for what its own build declares, and the populated tree is verified against the hash-pinned
-   archive at configure time, not trusted.
+   archive at configure time, not trusted. **Read it for what it gets wrong, too.** Three
+   dependencies in a row carried a build-system surprise: ERFA ships no CMake at all,
+   `tl::expected` captured our Catch2 as above, and CALCEPH's `src/CMakeLists.txt` declares
+   `target_include_directories(calceph PUBLIC $<BUILD_INTERFACE:>)` — empty — so its generated
+   config header is unreachable as a subproject and every translation unit fails. Repaired from
+   our side with the pinned bytes untouched, which is the only acceptable shape: patch the
+   consumer, never the hashed archive.
 5. **Implement** — in the §2 module, to the adopted spec, under the §5 constraints. Every
    refusal ships with exactly one named, logged escape hatch, set explicitly per run and
    recorded in run provenance with the relevant table's hash. The default refuses, and the

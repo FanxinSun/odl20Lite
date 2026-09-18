@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `TIME` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.3 |
+| **Version** | 1.4 |
 | **Date** | 2026-09-18 |
 | **Layer** | `time` (`doc/REWRITE_PLAN.md` §2) |
 | **Feature** | F3's foundation (plan §3) |
@@ -473,14 +473,23 @@ Notes on the shapes, for the manager's review:
 
 | id | quantity | budget | physical consequence | basis |
 |---|---|---|---|---|
-| `TIME-P-1` | representation resolution | ≤ 1 ns, achieved 0.11 fs | 7.5 pm at LEO; 8 × 10⁻¹⁶ m achieved | §4.2 |
-| `TIME-P-2` | round trip external → internal → external | ≤ 1 ns | 7.5 nm at LEO | the budget that makes file I/O lossless |
+| `TIME-P-1` | representation resolution | ≤ 1 ns, achieved 2⁻⁵³ s = 0.111 fs | 1 ns × 7.5 km s⁻¹ = **7.5 µm**; achieved 1.11 × 10⁻¹⁶ s × 7.5 km s⁻¹ = **8.3 × 10⁻¹³ m** | §4.2 |
+| `TIME-P-2` | round trip external → internal → external | ≤ 1 ns | 1 ns × 7.5 km s⁻¹ = **7.5 µm** at LEO | the budget that makes file I/O lossless |
 | `TIME-P-3` | TT ↔ TAI | exact | — | additive integer + 0.184 s |
 | `TIME-P-4` | UTC ↔ TAI | exact, including the leap second itself | — | table lookup, integral |
-| `TIME-P-5` | TDB − TT | ≤ 10 ns | 75 µm at LEO | `eraDtdb`'s own accuracy for 1980–2050 |
-| `TIME-P-6` | pipeline-level epoch fidelity over a multi-decade span | ≈ 1 µs | 7.5 mm at LEO | the requirement this spec was given |
+| `TIME-P-5` | TDB − TT | ≤ 10 ns | 10 ns × 7.5 km s⁻¹ = **75 µm** at LEO | `eraDtdb`'s own accuracy for 1980–2050 |
+| `TIME-P-6` | pipeline-level epoch fidelity over a multi-decade span | ≈ 1 µs | 1 µs × 7.5 km s⁻¹ = **7.5 mm** at LEO | the requirement this spec was given |
 
-`TIME-P-6` is the stated pipeline requirement; `TIME-P-1` exceeds it by ten orders of
+**Three of these rows were wrong until v1.4, all in the sub-microsecond range and all by a
+factor of 1000 or more**: `TIME-P-1`'s 1 ns was given as 7.5 pm where it is 7.5 µm, its achieved
+figure as 8 × 10⁻¹⁶ m where it is 8.3 × 10⁻¹³ m, and `TIME-P-2`'s as 7.5 nm where it is 7.5 µm.
+The cause was scaling down from "7.5 mm per µs" and losing the prefix chain, in exactly the rows
+whose numbers are small enough that nobody sanity-checks them. Every row now carries its
+multiplication, per `SPEC-template.md` §1's rule for §6, because that is what makes such an error
+visible. Note that `tests/toolchain_smoke.cpp` had the arithmetic right the whole time — the
+defect was in the prose, where there was no test.
+
+`TIME-P-6` is the stated pipeline requirement; `TIME-P-1` exceeds it by six orders of
 magnitude, deliberately, because the cost of doing so is one `i64` and because the budget must
 survive being spent by every layer above without this one contributing to it.
 
@@ -591,6 +600,7 @@ When this module is implemented, the following are added to `PROVENANCE.md`:
 
 | version | date | change |
 |---|---|---|
+| 1.4 | 2026-09-18 | **Precision audit.** `TIME-P-1` (twice) and `TIME-P-2` corrected — each was wrong by 1000× or more in the sub-microsecond rows. Every row in §6 now carries its multiplication rather than only its result. Found by auditing all twenty-three budget rows across the four specifications after one error was caught in `SPEC-ephemerides`. |
 | 1.3 | 2026-09-18 | **Amended after implementation.** `TIME-R-021a` added: `eraDtdb` needs UT1, which §5's signature does not supply, and UTC's day fraction stands in for it at a cost of under 0.2 ns. §4.9 added — the expiry horizon binds the layers above, since rapid-service products routinely predict past it — with `TIME-R-056` and `TIME-R-057`, discharged in `SPEC-eop.md` where they bind. |
 | 1.2 | 2026-09-18 | **Acceptance coverage completed.** Added `TIME-A-021` … `TIME-A-027` and the §8 *Coverage* table listing every requirement and refusal not discharged by a test, with the reason. v1.0–1.1 claimed the template's coverage rule without meeting it. **No requirement was added, removed or changed**; the adopted requirement set is exactly as at v1.1. |
 | 1.1 | 2026-09-18 | **Adopted.** All six design decisions of the tranche adopted unchanged. `TIME-R-052`'s named-and-logged override shape generalised to plan rule **R12**, binding every refusal in the tree. `TIME-Q-001` (pre-1972 refusal) and `TIME-Q-005` (representation origin) confirmed; `TIME-Q-002`, `-003`, `-004`, `-006` remain open. |

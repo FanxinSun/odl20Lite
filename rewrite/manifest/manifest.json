@@ -59,6 +59,23 @@
       "retrieved": "2026-09-18"
     },
     {
+      "id": "calceph",
+      "kind": "code",
+      "role": "reads SPK kernels; the ephemeris interpolation (SPEC-ephemerides \u00a73.4)",
+      "version": "4.0.5",
+      "url": "https://www.imcce.fr/content/medias/recherche/equipes/asd/calceph/calceph-4.0.5.tar.gz",
+      "filename": "calceph-4.0.5.tar.gz",
+      "sha256": "3460d8a3e10a86e7fe0228d5d9abcda589713b8ed3ee007ce061ae01f8c2e1ea",
+      "unpack": "tar.gz",
+      "unpacked_root": "calceph-4.0.5",
+      "licence": "CeCILL-B",
+      "licence_file": "COPYING_CECILL_B.LIB",
+      "licence_note": "TRIPLE-LICENSED, AND THE CHOICE IS RECORDED HERE BECAUSE IT HAS TO BE MADE. CALCEPH's own LICENSE: \"The library is 'triple-licensed' (CeCILL-C, CeCILL-B or CeCILL), you have to choose one of the three licenses below to apply on the library.\" This tree chooses CeCILL-B, the BSD-like option. It is the ONLY one of the three compatible with plan \u00a75 constraint 3: CeCILL-C is close to the GNU LGPL and CeCILL v2.1 is GPL-compatible, and tools/fetch.py's allowlist refuses both by name. Note that neither contains the string 'GPL', so the denylist this project used until 2026-09-18 would have passed them. OBLIGATIONS, heavier than BSD's and binding a FUTURE distribution rather than this tree today: CeCILL-B \u00a75.3.4 CREDITS requires a distributor of MODIFIED software to state that it is based on CALCEPH, reproduce the intellectual-property notice, make that notice reachable from the software's interface, and mention it on a freely accessible website for as long as it is distributed. This tree links CALCEPH unmodified. The predecessor links it statically and records no choice at all, which is the situation this entry exists not to inherit.",
+      "verify_path": "CMakeLists.txt",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
       "id": "python3",
       "kind": "tool",
       "role": "runs tools/fetch.py, tools/notice.py and tools/speccheck.py at build time",
@@ -153,6 +170,45 @@
       "sha256": "8314a59c3f89536bcd081afe57ab49efaf9ebf1191d23109fa65b15cb4d56669",
       "licence": "IERS-public",
       "licence_note": "As chapter 5 above: the normative document the coefficient tables come from.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "de440s-spk",
+      "kind": "data",
+      "role": "JPL DE440 planetary/lunar ephemeris, short span (1849\u20132150) \u2014 routine use and CI",
+      "version": "DE440",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp",
+      "filename": "de440s.bsp",
+      "sha256": "c1c7feeab882263fc493a9d5a5b2ddd71b54826cdf65d8d17a76126b260a49f2",
+      "licence": "NASA-public",
+      "licence_note": "NASA/JPL NAIF generic kernel, published for unrestricted use. Not redistributed: the pin is NAIF's own URL.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "de440-spk",
+      "kind": "data",
+      "role": "JPL DE440, full span (1550\u20132650) \u2014 the complete testpo.440 sweep, which EPH-A-001 must RUN",
+      "version": "DE440",
+      "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440.bsp",
+      "filename": "de440.bsp",
+      "sha256": "a4ce9bf9b3282becc9f4b2ac3cebe03a2ae7599981aabd7265fd8482fff7c4b5",
+      "licence": "NASA-public",
+      "licence_note": "As de440s. Pinned as well as the short kernel because EPH-Q-003 was ruled that the full sweep must actually be run at the step's gate and its case count recorded, not merely be possible \u2014 'pinned both, CI uses the short one' decays into the full coverage being notional.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "de440-testpo",
+      "kind": "data",
+      "role": "JPL's published verification set for DE440 \u2014 the gate (EPH-A-001)",
+      "version": "DE440",
+      "url": "https://ssd.jpl.nasa.gov/ftp/eph/planets/ascii/de440/testpo.440",
+      "filename": "testpo.440",
+      "sha256": "45084a7f406b8e41032e7d99dd8042d4df97a9f752a68c06d1a27af16693429f",
+      "licence": "NASA-public",
+      "licence_note": "JPL Solar System Dynamics published test set. Values in AU and AU/day.",
       "upstream_mutable": false,
       "retrieved": "2026-09-18"
     }

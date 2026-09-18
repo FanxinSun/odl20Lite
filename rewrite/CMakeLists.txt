@@ -92,6 +92,31 @@ FetchContent_MakeAvailable(erfa)
 odl_verify_populated(erfa)
 include(BuildErfa)
 
+# CALCEPH.  Its own CMake project builds the C library; everything else it can
+# build is turned off.  §3.11 point 4, checked before adding it: CALCEPH declares
+# and fetches nothing of its own.
+set(ENABLE_FORTRAN    OFF CACHE BOOL "" FORCE)
+set(ENABLE_PYTHON     OFF CACHE BOOL "" FORCE)
+set(ENABLE_MEX_OCTAVE OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(calceph)
+odl_verify_populated(calceph)
+
+# CALCEPH generates calcephconfig.h into its own binary directory and then
+# declares
+#     target_include_directories(calceph PUBLIC $<BUILD_INTERFACE:>)
+# — an EMPTY build interface.  Standalone that works, because the generated
+# header lands in the directory the compiler is invoked from; as a subproject
+# under Ninja it does not, and every translation unit fails on
+# "calcephconfig.h: No such file or directory".  Repaired here rather than by
+# patching the dependency, so the pinned bytes stay the pinned bytes.
+#
+# Third dependency in this tree whose own build system held a surprise: ERFA
+# ships no CMake at all, tl::expected captured our pinned Catch2, and this.
+# Plan §3.11 point 4 asks what a dependency's build system DECLARES; it is worth
+# reading for what it gets wrong as well.
+target_include_directories(calceph PUBLIC $<BUILD_INTERFACE:${calceph_BINARY_DIR}/src>)
+
 include(CTest)
 if(BUILD_TESTING)
   FetchContent_MakeAvailable(catch2)
@@ -115,6 +140,7 @@ add_subdirectory(modules/core)
 add_subdirectory(modules/time)
 add_subdirectory(modules/eop)
 add_subdirectory(modules/frames)
+add_subdirectory(modules/ephemerides)
 
 # --------------------------------------------------------------------------- #
 
