@@ -1586,6 +1586,125 @@ reconstructed rather than read.
 
 ---
 
+## 19. L2 `environment` step 4 — `atmosphere`: the specification, and a gate that does not exist
+
+**Date.** 2026-09-18. **Artefact.** `spec/SPEC-atmosphere.md` v1.0, draft for review.
+Spec ID `ATMO`; 71 own-prefix identifiers; 41 requirements and refusals, 40 discharged by an
+acceptance row and 1 excused; 0 uncovered.
+
+### 19.1 The finding of absence, with the search that established it
+
+Plan §3.3 step 4 gates this step on *"the model's published reference profiles"*; the L2 exit
+gate on *"every model reproduces its published reference values"*; plan D2 on validation
+*"on its packaged tests"*. Applying plan §4 rule 4 before designing anything:
+
+**NRL publishes no reference profile, no reference value, and no expected output of any kind
+for NRLMSISE-00.** The search, recorded here because rule 4 requires a finding of absence to
+carry the search that established it:
+
+`https://map.nrl.navy.mil/map/pub/nrl/NRLMSIS/NRLMSISE-00/` (HTTP 200, 2026-09-18) offers five
+files. **All five were downloaded and all five were read**:
+
+| file | bytes | SHA-256 | what it is |
+|---|---|---|---|
+| `NRLMSISE-00.FOR` | 114 981 | `cce0420e90781c256bc6705c4cc8056b054812d6308adccb7081bf09af0d44cb` | the model, 2437 lines, plus a test driver at 2438–2552 |
+| `…-datavsmodels.txt` | 42 167 | `7946e4cb403935bbd7b11fb3647364c2c1a71384f71db41ec8c31a0b12bcb8aa` | 27 tables of data-minus-model statistics |
+| `…-readme.txt` | 3 845 | `3a6e3d6ff89985d13fdbff4c348d9161bf10f50fcbba8f6d09b501b2625058dc` | the formulas for those statistics |
+| `…_tables-datasets.doc` | 116 224 | `abe2b44c25706d3ab35acf82793a4b08851317e3894083664103b8df11124771` | the same 27 tables, Tables 1(a)…9(c) |
+| `…_jgra16630.pdf` | 425 444 | `2ef966682587436ea5fba46180c82ab163bd92c18a864f1aa1dc6881b3839b38` | Picone et al. (2002) |
+
+Counts in `NRLMSISE-00.FOR`, whole file: `PROGRAM` 0, `SUBROUTINE` 22, `GTD7` 19, `TEST` 10,
+`EXPECTED` 0, `RANGE` 0, `LIMIT` 0, `PRINT` 0. Counts **after line 2438**, the driver's first
+line: `OUTPUT` 0, `RESULT` 0, `SAMPLE` 0, `COMPARE` 0, `EXPECTED` 0, and scientific-notation
+literals `E+1[0-9]` 0 — the driver's only numeric literals are its input `DATA` statements and
+its `FORMAT` widths. In the paper (827 lines of extracted text): `Table [0-9]` 2, both referring
+to the archive statistics; `reference profile` 0, `test case` 0, `sample output` 0,
+`electronic supplement` 0, `auxiliary material` 0, `TINF` 0; `Figure` 26.
+
+**The shape of it:** *the distribution publishes inputs without outputs (a driver with 17 fully
+specified input cases and no expected output) and outputs without inputs (27 tables of
+statistics against a database NRL does not distribute). Neither is a check, and no third thing
+exists.* The manager's own guess — "a test driver with its own expected output" — was half
+right and the wrong half; the answer to "which of the two do you have" is neither.
+
+Three plan sentences are therefore wrong about their source. `SPEC-atmosphere.md` §0.5 proposes
+replacements and `ATMO-Q-001` puts them to the manager, a plan change not being the executor's.
+
+### 19.2 What stands in their place, and what that costs
+
+NRLMSISE-00 is not defined by a published theory: `PICONE02` describes the fit and does not
+define the function, which is ~1500 coefficients plus the code that combines them, both living
+only in `NRLMSISE-00.FOR`. The reference implementation therefore **is** the model, as EGM2008's
+coefficient file is the field, and comparing against it is comparing against the definition —
+not the oracle comparison plan §4 rule 2 ranks last. `SPEC-atmosphere.md` §8 argues that reading
+and states its cost: **this tree cannot check that the FORTRAN computes what the paper
+describes**, and an error in the reference would be reproduced here and by every other user of
+the model, consistently and invisibly.
+
+### 19.3 Measurements taken during drafting
+
+The reference was compiled (`gfortran-16` 16.0.1, `-std=legacy -fdec-char-conversions -O0`;
+**unedited** — the flag exists because three `DATA` statements at lines 1670–1671 use the
+FORTRAN 66 Hollerith idiom for the output header stamp `MSISE-00  01-FEB-02  15:49:27`, which
+touches no arithmetic) and run over its own 17 published input cases (15 from the `DO` loop + 2
+with the 7-element Ap and `SW(9) = −1`; 17 blocks confirmed in the run).
+
+* **The reference is single precision throughout** — `DOUBLE PRECISION` 0, `REAL*8` 0,
+  `IMPLICIT` 0, `.D0` 0. Its own value is therefore uncertain, and by how much was measured
+  rather than guessed: the same source built again with `-freal-4-real-8`, compared over
+  17 × 12 = 204 quantities, of which 20 have a zero denominator, leaving **184**. Median
+  relative difference **3.816 × 10⁻⁷**, worst **7.671 × 10⁻⁶** (argon, 1000 km).
+* **Anomalous oxygen at 100 km underflows in the reference and not in a double port**: single
+  returns exactly 0, double returns 2.820 × 10⁻⁴² and 2.415 × 10⁻⁴² cm⁻³ (cases 4 and 17),
+  against a smallest single normal of 1.175 × 10⁻³⁸. **2 of the 184 comparisons.** A correct
+  double-precision port disagrees with the reference by 100 % at two published cases and is
+  right to. This is the third appearance in this tree of *a quantity that exists in one
+  precision and not another* — after `SPEC-gravity` §3.6a and the step-3 gate statistic — and
+  the defence is again to count the classes rather than to widen a tolerance across them.
+* **The documented zeros hold**: O, H, N and anomalous O are exactly zero below 72.5 km,
+  5 cases × 4 quantities = **20 values** — which are exactly the 20 zero denominators above.
+* **The documented total-density relation holds and is an independent check**: ρ computed from
+  the species rather than copied from the reference's expression agrees to **3.280 × 10⁻¹⁶**
+  (`GTD7`) and **3.871 × 10⁻¹⁶** (`GTD7D`) in double.
+* **Mass selector 49 is accepted by the reference, behaves differently from 48 (it counts O₂
+  twice, as oxygen atoms, at line 769) and is documented in zero comment lines.** `ATMO-Q-002`.
+* **Three of the model's six `WRITE` statements print a diagnostic and continue** — a coincident
+  spline node (1539), a non-positive density ratio before a logarithm (1591), and `GHP7`'s
+  convergence trace (445). The caller gets a number computed after a condition the model itself
+  called an error. `ATMO-R-030` makes each a refusal.
+
+### 19.4 Space weather: measured, then policed
+
+`CELESTRAK-SW` (`SW-All.csv`, 2 887 903 bytes, 2026-09-18 snapshot) is the tree's first
+non-frozen input. It moves in three ways a hash cannot distinguish — extension, **revision** of
+days already present, and **fifteen years of embedded forecast**: 25 413 rows to 2041-10-01,
+classed `OBS` 25 129 + `INT` 60 + `PRD` 45 + `PRM` 179 = 25 413.
+
+Recomputing the centred 81-day mean from `F10.7_OBS` and comparing against the file's own
+`F10.7_OBS_CENTER81`, over the 25 333 rows with a full ±40-day window: **176 rows disagree by
+more than 0.05 sfu (0.69 %), of which `PRD` 38 and `PRM` 138 and `OBS`/`INT` zero**; worst
+**30.07 sfu** at 2035-01-01. The file's own column is exact on observation and arbitrary on
+forecast, and nothing in the file says so.
+
+Coverage is also **per quantity**: F10.7 runs to 2041-10-01 and Ap only to 2026-11-01 — fifteen
+years apart in one file — so the usable end is Ap's, shrunk by 40 days for the centred mean:
+**2026-09-22**.
+
+The policy (`SPEC-atmosphere.md` §4.5): pin the snapshot by hash like every other input, never
+fetch at run time, refuse outside usable coverage naming the quantity that ran out, refuse
+predicted rows unless asked for by name, recompute the centred mean rather than read it, and
+carry the snapshot's identity into every result — because revision means two results from
+different snapshots are not comparable *even at an epoch both cover*. Updating is a manifest
+change, and plan §5 constraint 9 already makes a manifest change re-run every gate that consumed
+the entry. That is what lets a moving input coexist with a reproducible gate.
+
+### 19.5 Verification of this entry
+
+Every measured number above and in `SPEC-atmosphere.md` was **re-derived from the data after the
+document was written**, not transcribed from the working notes: 26 checks, 26 agreeing. The
+checkers pass — `speccheck.py` reports 0 uncovered for `ATMO`, `budgetcheck.py` 42 rows with 23
+carrying arithmetic, all evaluating to what they state.
+
 ## Changelog
 
 | date | change |
@@ -1596,6 +1715,7 @@ reconstructed rather than read.
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
 | 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
+| 2026-09-18 | §19 added: L2 step 4's specification, and the finding that the gate the plan names does not exist — NRL publishes no reference value for NRLMSISE-00, with the search over all five distributed files. |
 | 2026-09-18 | §8.9 closed: the plan moved into this tree as the canonical and only copy, resolving the stale-copy hazard structurally. Verified its contents; its absence from the predecessor tree is taken on report, because verifying it is the thing this session may not do. |
 | 2026-09-18 | Manager audit of the v1.2 self-fix passed; denominator of 121 confirmed. Recorded the **R2 corollary** at §8.8 and flagged the stale local plan copy at §8.9. |
 | 2026-09-18 | Acceptance coverage completed at spec v1.2 — twenty tests added, complete §8 coverage tables, no requirement changed. |

@@ -388,11 +388,26 @@ layer is open.
    correction is 83.5% of its δ*k*^I where P₁'s is 1.3% — and it is the constituent whose
    imaginary residual is already flagged as anomalous.
 4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
-   space-weather ingestion with its own manifest entries. Gate: the model's published reference
-   profiles; out-of-range input refused with a diagnostic naming the request and the limit.
+   space-weather ingestion with its own manifest entries. **There are no published reference
+   profiles.** Established by search, 2026-09-18, over all five files NRL distributes: the
+   driver publishes 17 fully specified input cases and no expected output (0 occurrences each of
+   OUTPUT, RESULT, SAMPLE, COMPARE, EXPECTED below line 2438); `datavsmodels.txt` and the
+   companion `.doc` publish 27 tables of data-minus-model statistics, which are not model output
+   and cannot be recomputed without the NRLMSIS database NRL does not ship; the paper's two
+   numbered tables point at those same statistics, and its model output is in figures. *Gate:*
+   the reference implementation's own output on its 17 published cases, frozen as generated
+   source with the compiler, flags and source hash recorded — see §4 rule 6 for why that ranks
+   as a published value here and not as an oracle — plus the header's documented total-density
+   relation, which is checkable **without** the reference's arithmetic and is therefore a second
+   axis rather than a second look. Out-of-range input refused with a diagnostic naming the
+   request and the limit. The model gate exercises **none** of the space-weather layer, because
+   the 17 cases carry F10.7 and Ap as literal constants: that layer is gated separately, on
+   coverage, class and the recomputed centred mean.
 
-**Exit gate:** every model reproduces its published reference values and every external table in
-the layer is manifest-declared with a hash.
+**Exit gate:** every model reproduces its published reference values **where they exist**, and
+where they do not, the specification records the search that established their absence and names
+what stands in their place with the cost of the substitution stated (§4 rule 6); and every
+external table in the layer is manifest-declared with a hash.
 
 ---
 
@@ -725,6 +740,28 @@ governs. Three rules apply to all of them:
    is running `ctest` or one binary against an old build directory, and that happens outside CI
    by definition. Every guard in this tree is demonstrated **both ways** before it counts:
    passing when it should, and failing when the thing it guards against is injected.
+6. **A reference implementation is an oracle when a specification exists that it implements, and
+   is itself normative when none does — and the difference is a search, not a preference.** Rule
+   2 ranks an oracle last because an independent description of the same computation exists to
+   check it against: ERFA is an oracle precisely because the Conventions define what it computes.
+   NRLMSISE-00 is not. Its ~1500 fitted coefficients and the code combining them exist **only**
+   in the FORTRAN; the paper describes how the fit was made and does not define the function. So
+   the reference *is* the model, exactly as EGM2008's coefficient file *is* the field, and its
+   output on its own published inputs is a category-1 acceptance value rather than a
+   last-ranked oracle comparison.
+
+   Three obligations come with claiming this, and a gate that claims it without them is claiming
+   a stronger position than it holds. **The search is recorded** — the terms and the counts, per
+   rule 4 — because "no independent specification exists" is the whole of the argument.
+   **The cost is stated where a reader will meet it**: where the reference is normative, nothing
+   in this tree can check that it computes what its paper describes, and an error in it is
+   reproduced here consistently and invisibly, as it is by every other user of the model. **A
+   second axis is found if one exists** — a documented relation among the outputs, a conservation
+   law, a limit — because a relation the source states about its own results is checkable without
+   the source's arithmetic and is not a second look at the same thing.
+
+   This binds **L4's drag coefficient** and **L9's ray tracing**, which are the same shape, and
+   it is settled here rather than three layers later for that reason.
 4. **A gate's wording names what this plan wanted; the source prints what it prints — and a
    claim that it prints nothing is a claim, not an observation.** Twice the plan asked for
    something the source does not carry: rule 1 above described a disagreement on a path that
@@ -800,7 +837,7 @@ unstated → D4's own port on published vectors); png++ (no consumer); TIE-GCM t
 | # | Decision | State |
 |---|---|---|
 | D1 | **Core language** | **Decided 2026-09-18: C++20**, by the owner. Two consequences are recorded rather than quietly dropped. (a) The Rust recommendation rested partly on *structural distance* from the GNU-C++14 predecessor; C++20 does not supply that for free, so §2's "two designs, not one design twice" is now carried entirely by the architecture and is checked harder at Review — same language, same problem, so only the decomposition distinguishes them. (b) `cargo license` is unavailable, so the NOTICE generation of L0 step 5 needs a C++ equivalent driven from the manifest of L0 step 3. Specs remain language-free. |
-| D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN, validated on its packaged tests (L2 step 4). |
+| D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN (L2 step 4). **"Validated on its packaged tests" was wrong — there are no packaged tests**, only 17 input cases with no expected output; established by search 2026-09-18 and corrected in §3.3 step 4. Validation is against the reference's own output on those cases, frozen with its toolchain, per §4 rule 6. |
 | D3 | Ray tracer | Decided in plan: own implementation from the papers; `photonsXforce` as cross-oracle only (L9). Owner revisits after L8. |
 | D4 | SGP4 | Decided in plan: own port from STR#3 + Vallado 2006 on the published vectors (L6 step 3). |
 | D7 | `Result<T,E>` under C++20 | **Decided 2026-09-18: stay C++20, vendor `tl::expected`** (CC0-1.0, header-only) behind a tree-local `odl::Result`. Chosen on reversibility: C++20 → C++23 later is two CMake lines and deleting the shim, while C++23 → C++20 means hunting every C++23 feature that crept in over months. The migration is near-free *here specifically* because the specs use `Result` only as a plain return type — no monadic chaining anywhere — which §5 constraint 8 now keeps true. Exceptions were excluded: a refusal that unwinds is not a diagnostic the caller must consume, which is the whole of constraint 4. |
