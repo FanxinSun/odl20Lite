@@ -55,10 +55,53 @@ public:
     /// A constant from the kernel's own header — "AU", "EMRAT", "GM*".
     [[nodiscard]] odl::Result<double, EphError> constant(const std::string& name) const;
 
-    /// Position in km and velocity in km s⁻¹, in the BCRS (EPH-R-013).
+    /// A state about an arbitrary centre.  IT CARRIES NO FRAME TAG, and that is
+    /// the point.
+    ///
+    /// Until 2026-09-18 this returned `State<Frame::BCRS>` whatever centre was
+    /// asked for, so a geocentric vector came back typed as barycentric: the
+    /// frame was in the type as FRAME-R-004 requires, but the ORIGIN was a
+    /// runtime argument the type did not carry, and a tag that can say something
+    /// false about the value it labels is worse than no tag.  Plan §5 constraint
+    /// 10 now states the rule that was being broken: *what a value means belongs
+    /// in its type, never in the argument that produced it.*
+    ///
+    /// The two centres this tree integrates in have their own accessors, below,
+    /// with their own return types.  Everything else — `testpo.440`'s sweep over
+    /// every (target, centre) pair, for instance — comes back untagged.
+    struct RelativeState {
+        Body target;
+        Body centre;
+        odl::time::Epoch epoch;
+        Vec3 position_km;
+        Vec3 velocity_km_s;
+    };
+
+    [[nodiscard]] odl::Result<RelativeState, EphError>
+    relative_state(Body target, Body centre, const odl::time::Epoch& when,
+                   const odl::time::LeapTable& leaps) const;
+
+    /// Solar-system-barycentre-centred, ICRS axes: a BCRS state, and the type
+    /// says so because the centre is not a parameter.
     [[nodiscard]] odl::Result<odl::frames::State<odl::frames::Frame::BCRS>, EphError>
-    state(Body target, Body centre, const odl::time::Epoch& when,
-          const odl::time::LeapTable& leaps) const;
+    barycentric_state(Body target, const odl::time::Epoch& when,
+                      const odl::time::LeapTable& leaps) const;
+
+    /// Earth-centred.  **This call IS `SPEC-frames.md` FRAME-R-028's
+    /// BCRS-to-GCRS translation for an ephemeris body**, not a bypass of it: the
+    /// kernel performs the same difference, exactly, and without subtracting two
+    /// 1.5e8 km vectors to obtain a 3.8e5 km one.
+    ///
+    /// WHAT IT DOES NOT INCLUDE, stated because SPEC-perturbations PERT-Q-010's
+    /// ruling required it stated rather than assumed: the difference of two SPK
+    /// coordinates is a coordinate difference in TDB-compatible barycentric
+    /// coordinates, and a GCRS vector is not exactly that. The scaling between
+    /// them is L_B = 1.550519768e-8 (EPH-P-5). No Lorentz contraction, no
+    /// aberration and no light-time correction is applied; a consumer needing
+    /// any of those asks for them explicitly at L6.
+    [[nodiscard]] odl::Result<odl::frames::State<odl::frames::Frame::GCRS>, EphError>
+    geocentric_state(Body target, const odl::time::Epoch& when,
+                     const odl::time::LeapTable& leaps) const;
 
     /// **TDB − TT**, in that sense (EPH-R-004). The kernel's own body 16 is
     /// TT−TDB, the opposite, so this negates it — which is exactly the sign the

@@ -328,6 +328,7 @@ documented by the IERS itself in `updateC04.txt`:
 
 | date | change |
 |---|---|
+| 2026-09-18 | **Step 3 reopened: chapter 6 prints a worked example and this tree said it did not.** §17: `PERT-A-029` uses TN36-6 §6.2.1's K1 example — non-circular, and **the only check that exercises the theta dependence**, which theta_f = 0 cannot touch. The Conventions' words about the ocean-tide term check at 0.906 and 0.598. **psi1 is rank 28 of 48 in the chosen statistic** — the median did not absorb it; the real-part ratio never looked at the imaginary part, so the statistic was blind rather than tolerant. The truncation's cost (3.94x) and its asymmetry stated. `PERT-Q-010` ruled and implemented as three accessors with three return types; doing its arithmetic found **`FRAME-Q-006`'s L_B figure wrong by a factor of a thousand — 2.32 km, not 2.3 m — in prose since v1.0**, now `FRAME-P-7` so gate 8 reaches it. And a stale-configure guard that could never fire, now a test proven both ways. **10 gates, 195 tests.** |
 | 2026-09-18 | **L2 step 3 `perturbations` implemented as three link targets.** §16: the gate with both denominators (50 constituents exact; 14 of 48 rows constrain the internal relation); the three column orders of Tables 6.5a/b/c; **`PERT-A-025` checks the resonance structure and not δk, because TN36-6 defines δk as including an ocean-loading contribution (6.9) does not produce**; two statistics that were not what their names said — the ocean pole tide's variance (90.55% weighted against 75.8% raw) and the ocean tide's truncation criterion, which was self-referential and now measures **degree 89**; a parser that dropped 8 of 18 FES2004 waves on five-digit Doodson codes; `Ephemeris::state` typing a geocentric vector as barycentric (`PERT-Q-010`); and `--warn NoAssertions` proven by injection. `SPEC-perturbations` v1.2. **10 gates, 192 tests, 626 artefacts byte-identical.** |
 | 2026-09-18 | **`SPEC-perturbations` adopted at v1.1; three amendments and eight rulings applied.** §15.6: `PERT-A-001` was overclaimed as category 1 when the printed amplitudes are the module's own input — decomposed honestly, with `PERT-A-025` (the resonance formula as a test-only cross-check) added as the one thing that verifies δk without an H_f catalogue. §15.7: `de440t.bsp` substituted for `de440.bsp` after verifying both DAFs' segment summaries (14 shared, identical; one extra, the TT−TDB record); constraint 9 re-ran step 1's full sweep unchanged at 1.06296 mm; and **`EPH-A-007` now runs for the first time — 53 epochs, worst 26.027 ns against 100 ns** — where it had been passing by executing zero times since step 1. §15.8: `speccheck.py`'s components now partition its denominator and **found three stale Coverage rows, two in specs adopted at L1**; `fetch.py` sniffs HTML error pages and file magic **before** hashing. **10 gates, 165 tests.** |
 | 2026-09-18 | **L2 step 3 `perturbations` specification drafted.** §15: the sources including chapter 10's `tn36_c10.pdf` filename trap; the ocean pole tide chain **verified to every printed digit of TN36-6 (6.24) before being specified**; a THIRD kind of source defect — a document disagreeing with its own companion dataset, where §6.3.2 tells you to add Ω₁/Ω₂ that `FES2004-CS` already contains — and a fourth instance of the first kind, §6.4's cross-term ratio 0.0115 against the 0.011700 its own *k*₂ implies; the gate's two denominators; and a counting error of the author's that the manager corrected. Four manifest entries added, 22 in total. **10 gates, 165 tests.** |
@@ -1405,6 +1406,121 @@ that executes no assertion **fails** rather than passing quietly. Proven by inje
 test case exits 42 with *"No assertions in test case"*. It is a backstop and not a substitute for
 plan §4 rule 3 — it would **not** have caught `EPH-A-007`, which asserted things outside its
 empty loop.
+
+## 17. L2 step 3 reopened — an absence asserted without a search
+
+**10 gates green, 195 tests, 0 failures, 626 artefacts byte-identical.**
+`SPEC-perturbations` v1.3, `SPEC-frames` v1.7, `SPEC-ephemerides` v1.3.
+
+### 17.1 Chapter 6 prints a worked example, and this tree said it did not
+
+`SPEC-perturbations` v1.0–v1.2 stated, in §8 and in `PERT-Q-008`, that **chapter 6 prints no
+worked examples**, and that *H*_f is *"an `H`_f the Conventions never print"*. Both are false.
+§6.2.1 prints a **worked example for K1** fifteen lines below the definition of δ*k*_f that this
+specification quoted — *A*₁ = −3.1274 × 10⁻⁸, *H*_f = 0.36870, θ_f = θ_g + π,
+*k*₂₁⁽⁰⁾ = 0.257 46 + 0.001 18 *i*, the nominal subtracted to give δ*k*_f = −0.040 84 +
+0.002 62 *i*, and the two expressions (6.8b) yields.
+
+The error is not that the claim was wrong; it is that **an absence was asserted without a
+search**, in a document whose §2 exists to record what was and was not obtained. `PROVENANCE.md`
+§15.4 repeated it. The manager's plan rule 4 now requires a finding of absence to carry the
+search that established it — the terms and the count — exactly as rule 3 requires a statistic to
+carry its formula. *"The source does not print X"* earns the same scrutiny as *"the source prints
+X = 1.333 × 10⁻⁹"*.
+
+**`PERT-A-029` now uses it, and it is the most valuable row in §8.** Two halves:
+
+| | |
+|---|---|
+| from the published inputs alone, using nothing from the module's own table | *A*₁ δ*k*_f *H*_f = (470.915, −30.2105) × 10⁻¹², landing on Table 6.5a's printed (470.9, −30.2) |
+| the printed expressions at **eight values of θ_g**, and θ_f for K1 | worst residual **5.2 × 10⁻²⁶**; θ_f = θ_g + π exactly |
+
+It is **non-circular**, and it is **the only check anywhere that exercises the θ dependence**.
+`PERT-A-001` evaluates at θ_f = 0, where a wrong sign on θ_g, a missing π or fundamental
+arguments off by a constant all survive untouched.
+
+### 17.2 The Conventions predicted the ocean-tide offset, in words, and the prediction checks
+
+§6.2.1, below Table 6.5a's defining equation: *"Roughly half the value of the imaginary part
+comes from the ocean tide term, and the real part contribution from this term is of about the
+same magnitude."* Over the 24 constituents away from the FCN resonance:
+
+| | measured | the source says |
+|---|---|---|
+| \|resid_R\| / \|resid_I\| | **0.906** | "about the same magnitude" |
+| resid_I / δ*k*^I | **0.598** | "roughly half the value of the imaginary part" |
+
+So the identification of the 3.4 % offset as δ*k*^OT stops being an inference and becomes a
+measurement the source predicted.
+
+### 17.3 ψ1, and a statistic that was blind rather than tolerant
+
+The manager asked whether the median absorbed ψ1 — the constituent §6.2.1 singles out with a
+resonance-formula correction of (244, 299) in units of 10⁻⁵, two orders above every other,
+because it sits on the free core nutation resonance.
+
+**It did not, and the truth is worse.** ψ1's real-part ratio is **1.0347 against a median of
+1.0344 — rank 28 of 48**, 0.04 % away. It is not an outlier in that statistic at all. What the
+real-part ratio did was **never look at the imaginary part**, where ψ1's residual is −252 against
+a prediction of about +180: |resid_R|/|resid_I| = 3.03 where everything else is near 0.9, and
+resid_I/δ*k*^I = −0.70 where the Conventions' "roughly half" predicts +0.5.
+
+A robust statistic that absorbs an outlier is one failure; a statistic that never examines the
+dimension the outlier lives in is a different one, and the second is harder to notice because the
+first at least leaves a tail. Both directions are now asserted so neither can be forgotten.
+
+**And `PERT-A-025` cannot be tightened to the printed corrections** (`PERT-Q-011`): §6.2.1 prints
+their **magnitudes and not their signs**, and does not tabulate δ*k*^OT separately, so
+"formula + printed correction = table" is not evaluable. Recorded rather than attempted.
+
+### 17.4 The truncation's cost and its asymmetry
+
+The ruling asked for both. Measured: **0.137 ms per evaluation at degree 36 and 0.541 ms at
+degree 89, a factor of 3.94** — less than the quadratic estimate because `FES2004-CS` is sparse at
+high degree. And the asymmetry, stated rather than left to be found: this floor is
+8.552 × 10⁻¹¹ m s⁻², and this layer keeps relativistic terms three orders below it. Cheap
+closed-form terms kept below a floor at which an expensive quadratic-cost series is truncated is
+defensible engineering and indefensible if discovered later.
+
+### 17.5 `PERT-Q-010` ruled, and *L*_B was wrong by a factor of a thousand
+
+The ruling: the centre stops being a runtime argument on a frame-tagged return.
+`barycentric_state` returns `State<Frame::BCRS>`, `geocentric_state` returns
+`State<Frame::GCRS>` **and is** `FRAME-R-028`'s translation for an ephemeris body, and
+`relative_state` returns an **untagged** `RelativeState` for any other centre. Option (c) —
+redefining the tag to mean axes and not origin — was rejected explicitly, because *a tag that can
+say something false about the value it labels is worse than no tag*. Plan §5 constraint 10.
+
+The ruling also required the translation's omissions stated **with their arithmetic** rather than
+asserted from memory, and doing that found something:
+
+| | |
+|---|---|
+| `SPEC-frames.md` §3.5 and `FRAME-Q-006`, v1.0 to v1.6 | *L*_B is "2.3 m on an astronomical unit" |
+| the arithmetic | 1.550 519 768 × 10⁻⁸ × 1.495 978 707 × 10¹¹ m = **2 319.5 m = 2.32 km** |
+
+**A factor of a thousand, in an adopted specification, from v1.0.** It is the fifth instance of
+the family that prompted `tools/budgetcheck.py` and **the first found outside a budget row** — it
+sat in prose, where gate 8 does not reach. It is now `FRAME-P-7`, a budget row, so that the
+checker evaluates it; that is the repair, and correcting the number alone would not have been.
+
+And the answer the ruling wanted: on a geocentric vector the unapplied scaling is **5.960 m** at
+the Moon's distance and **5.070 × 10⁻¹⁴ m s⁻²** as a third-body acceleration —
+**5.9 × 10⁻⁴ of the smallest term L2 step 3 keeps**. It does not land above that floor, and
+`EPH-P-5` now carries the arithmetic.
+
+### 17.6 A guard that could not fire
+
+The manager's stale-configure finding — their first check reported "165 of 165" from a build
+directory that predated three modules — became a check in `tools/ci.sh`, placed just before
+ctest. **It could never fire**: `ci.sh` configures at gate 3 and tests at gate 5, so by the time
+the check ran the build system was always newer than the CMakeLists. Dead code that reads like
+protection, and it passed its own first run, which is how it nearly stayed.
+
+It is a **test** now, `build.configure_is_current`, because the failure mode is somebody running
+`ctest` or a single binary against an old build directory and the only place to catch that is
+inside the suite. Proven both ways: it passes after a configure and fails after touching a
+`CMakeLists.txt`.
 
 ---
 

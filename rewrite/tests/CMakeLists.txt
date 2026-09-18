@@ -57,3 +57,9 @@ set_tests_properties(boundary.undeclared_dependency_refused PROPERTIES WILL_FAIL
 # tides tests.
 add_test(NAME tides.one_secular_pole
          COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_one_secular_pole.py)
+
+# A stale configure tests a subset and reports 100%. See the script's header for
+# why this is a test rather than a line in tools/ci.sh.
+add_test(NAME build.configure_is_current
+         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_configure_is_current.py
+                 ${CMAKE_BINARY_DIR})

@@ -157,8 +157,9 @@ odl::Result<Coverage, EphError> Ephemeris::coverage(Body b) const {
     return cov;
 }
 
-odl::Result<odl::frames::State<odl::frames::Frame::BCRS>, EphError>
-Ephemeris::state(Body target, Body centre, const Epoch& when, const LeapTable& leaps) const {
+odl::Result<Ephemeris::RelativeState, EphError>
+Ephemeris::relative_state(Body target, Body centre, const Epoch& when,
+                          const LeapTable& leaps) const {
     // EPH-R-001/002: TDB, as a two-part Julian date, passed through as two
     // arguments. CALCEPH's own documentation says the split is what gives the
     // interpolation its precision; collapsing it reintroduces the 40 µs
@@ -186,8 +187,28 @@ Ephemeris::state(Body target, Body centre, const Epoch& when, const LeapTable& l
             "calceph_compute_unit refused " + std::string(name_of(target)) + " relative to " +
             std::string(name_of(centre)) + " at JD(TDB) " + std::to_string(t)});
     }
-    return odl::frames::State<odl::frames::Frame::BCRS>{
-        when, odl::Vec3{pv[0], pv[1], pv[2]}, odl::Vec3{pv[3], pv[4], pv[5]}};
+    return RelativeState{target, centre, when, odl::Vec3{pv[0], pv[1], pv[2]},
+                         odl::Vec3{pv[3], pv[4], pv[5]}};
+}
+
+odl::Result<odl::frames::State<odl::frames::Frame::BCRS>, EphError>
+Ephemeris::barycentric_state(Body target, const Epoch& when, const LeapTable& leaps) const {
+    auto r = relative_state(target, Body::SolarSystemBarycentre, when, leaps);
+    if (!r.has_value()) return odl::err(r.error());
+    return odl::frames::State<odl::frames::Frame::BCRS>{when, r->position_km, r->velocity_km_s};
+}
+
+odl::Result<odl::frames::State<odl::frames::Frame::GCRS>, EphError>
+Ephemeris::geocentric_state(Body target, const Epoch& when, const LeapTable& leaps) const {
+    if (target == Body::Earth) {
+        return odl::err(EphError{"EPH-F-008",
+            "the Earth's geocentric state is identically zero and asking for it is almost always "
+            "a mistake about which body was wanted. Ask for a body other than the Earth, or use "
+            "relative_state if a zero vector really is intended."});
+    }
+    auto r = relative_state(target, Body::Earth, when, leaps);
+    if (!r.has_value()) return odl::err(r.error());
+    return odl::frames::State<odl::frames::Frame::GCRS>{when, r->position_km, r->velocity_km_s};
 }
 
 odl::Result<odl::time::Duration, EphError>

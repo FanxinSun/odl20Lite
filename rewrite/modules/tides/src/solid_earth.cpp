@@ -105,6 +105,12 @@ AB body_sum(const Vec3& body_m, double gm_ratio, int n, int m,
 
 std::size_t SolidEarthTide::constituents(int band) noexcept { return band_of(band).count; }
 
+double SolidEarthTide::theta_f(int band, std::size_t row,
+                               const eop::tides::Arguments& args) noexcept {
+    const Band b = band_of(band);
+    return row < b.count ? theta_of(b.rows[row], args) : 0.0;
+}
+
 double SolidEarthTide::permanent_c20(LoveNumbers love) noexcept {
     return kA0 * kH0 * love_set(love).k_real[0][0];
 }

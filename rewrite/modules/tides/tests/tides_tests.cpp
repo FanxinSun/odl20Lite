@@ -376,6 +376,82 @@ TEST_CASE("PERT-A-025: the dk column's RESONANCE STRUCTURE against (6.9)", "[tid
     CHECK(span > 1000.0);
     CHECK(relative_spread < 0.05);
 
+    // THE CONVENTIONS PREDICT THE OFFSET, IN WORDS, AND THE PREDICTION IS
+    // CHECKABLE.  §6.2.1, immediately below Table 6.5a's defining equation:
+    // "Roughly half the value of the imaginary part comes from the ocean tide
+    // term, and the real part contribution from this term is of about the same
+    // magnitude."  So the residual dk - formula, which is dk^OT by the equation
+    // dk_f = (k21(sigma) - k21) + dk21^OT(sigma), must satisfy
+    //     |resid_R| ~ |resid_I|   and   resid_I ~ half of dk^I.
+    // That turns the identification of the offset as the loading term from an
+    // inference into a measurement the source predicted.
+    {
+        std::vector<double> magnitude_ratio, half_of_imag;
+        int away = 0;
+        for (std::size_t i = 0; i < SolidEarthTide::constituents(1); ++i) {
+            const Printed p = printed_row(1, i);
+            // Away from the FCN resonance, which is at sigma = 1.0023 cpsd, or
+            // about 15.076 deg/hr — the Conventions name the constituents there
+            // separately and this is where an approximate formula must fail.
+            if (p.deg_per_hour > 15.05 || std::abs(p.dk_r) <= 40.0) continue;
+            const C f = formula(p.deg_per_hour, sigma);
+            const double rR = p.dk_r - f.real(), rI = p.dk_i - f.imag();
+            if (rI == 0.0 || p.dk_i == 0.0) continue;
+            magnitude_ratio.push_back(std::abs(rR) / std::abs(rI));
+            half_of_imag.push_back(rI / p.dk_i);
+            ++away;
+        }
+        std::sort(magnitude_ratio.begin(), magnitude_ratio.end());
+        std::sort(half_of_imag.begin(), half_of_imag.end());
+        const double m1 = magnitude_ratio[magnitude_ratio.size() / 2];
+        const double m2 = half_of_imag[half_of_imag.size() / 2];
+        WARN("PERT-A-025: the residual IS the ocean tide term, as §6.2.1 says in words. Over "
+             << away << " constituents away from the FCN resonance: |resid_R|/|resid_I| median "
+             << m1 << " (\"about the same magnitude\") and resid_I/dk_I median " << m2
+             << " (\"roughly half the value of the imaginary part\").");
+        CHECK_THAT(m1, WithinAbs(1.0, 0.25));
+        CHECK_THAT(m2, WithinAbs(0.5, 0.15));
+        CHECK(away > 15);
+    }
+
+    // PSI1, BY NAME, BECAUSE THE SOURCE SINGLES IT OUT.  §6.2.1 lists the
+    // constituents whose resonance-formula corrections are non-negligible, in
+    // units of 1e-5: (1,1) for Q1, (1,1) for O1 and its 145,545 companion,
+    // (1,0) for No1, (0,-1) for P1, (244,299) FOR PSI1, (12,12) for phi1,
+    // (3,2) for J1, (2,1) for Oo1 and its 185,565 companion.  psi1's is two
+    // orders of magnitude above every other, because psi1 sits on the free core
+    // nutation resonance.
+    //
+    // AND THE ANSWER TO "DID THE MEDIAN ABSORB IT" IS NO, AND WORSE.  psi1's
+    // real-part ratio is 1.0347 against a median of 1.0344 — rank 28 of 48,
+    // 0.04% away — so the robust statistic did not hide it. The real-part ratio
+    // NEVER LOOKED at the imaginary part, which is where psi1 is a 3x outlier.
+    // The statistic was blind, not tolerant, which is a different defect and
+    // the more dangerous one.
+    {
+        std::size_t psi = SolidEarthTide::constituents(1);
+        for (std::size_t i = 0; i < SolidEarthTide::constituents(1); ++i) {
+            if (std::abs(printed_row(1, i).deg_per_hour - 15.08214) < 1e-6
+                && printed_row(1, i).dk_r > 22790.0) psi = i;
+        }
+        REQUIRE(psi < SolidEarthTide::constituents(1));
+        const Printed p = printed_row(1, psi);
+        const C f = formula(p.deg_per_hour, sigma);
+        const double rR = p.dk_r - f.real(), rI = p.dk_i - f.imag();
+        WARN("PERT-A-025 psi1 (" << p.deg_per_hour << " deg/hr): printed dk = (" << p.dk_r
+             << ", " << p.dk_i << "), formula (" << f.real() << ", " << f.imag()
+             << "), residual (" << rR << ", " << rI << "). |resid_R|/|resid_I| = "
+             << std::abs(rR) / std::abs(rI) << " against the median " << median
+             << " elsewhere, and resid_I/dk_I = " << rI / p.dk_i
+             << " where the Conventions' 'roughly half' predicts +0.5. psi1's own printed "
+                "correction is (244, 299) in units of 1e-5, two orders above every other "
+                "constituent's, because it sits on the free core nutation resonance.");
+        // It IS an outlier in the imaginary part, and it is NOT one in the real
+        // part — both halves asserted, so neither can be quietly forgotten.
+        CHECK(std::abs(rI / p.dk_i - 0.5) > 1.0);
+        CHECK(std::abs(p.dk_r / f.real() - median) / median < 0.01);
+    }
+
     // NEGATIVE CONTROL.  Move the retrograde FCN resonance by 7e-4 cpsd — less
     // than a part in a thousand — and the ratio stops being a ratio.
     std::array<C, 3> wrong = sigma;
@@ -548,8 +624,37 @@ TEST_CASE("PERT-A-026: the truncation default, measured against its stated crite
         CHECK(d >= 2);
         CHECK(d <= 100);
     }
-    WARN("PERT-A-026: the default is the LARGER of the two, degree " << worst_degree
-         << ". No number was written into the specification before this measurement.");
+    // THE COST, which the ruling asked for as well as the degree, because L4
+    // has to decide whether a conservative default survives contact with a
+    // propagator.
+    const auto args = eop::tides::arguments_at_mjd(58849.0);
+    double cost[2] = {0.0, 0.0};
+    const int degrees[2] = {36, 89};
+    for (int k = 0; k < 2; ++k) {
+        const auto t0 = std::chrono::steady_clock::now();
+        for (int rep = 0; rep < 20; ++rep) {
+            auto r = o.increments(args, degrees[k], degrees[k]);
+            REQUIRE(r.has_value());
+        }
+        cost[k] = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count()
+                / 20.0 * 1e3;
+    }
+    WARN("PERT-A-026 cost: degree " << degrees[0] << " takes " << cost[0] << " ms per evaluation, "
+         "degree " << degrees[1] << " takes " << cost[1] << " ms — a factor of "
+         << cost[1] / cost[0] << ". The default is the LARGER degree, " << worst_degree
+         << ", and no number was in the specification before this measurement.");
+
+    // AND THE ASYMMETRY, stated rather than discovered later.  This module keeps
+    // relativistic terms at about 1e-13 m/s^2 — de Sitter at geostationary is
+    // 6.3e-11 of a 0.22 m/s^2 acceleration — while truncating an expensive
+    // quadratic-cost series at 8.552e-11 m/s^2.  Cheap closed-form terms kept
+    // below a floor that an expensive series is truncated at is defensible
+    // engineering; it is indefensible if someone finds it rather than reads it.
+    WARN("PERT-A-026 asymmetry: the ocean tide is truncated at "
+         << o.smallest_kept_rms(7331e3, 0) << " m/s^2 at 7331 km, while the relativistic terms "
+         "this layer keeps are of order 1e-13 to 1e-11 m/s^2. The floor applies to the series "
+         "whose cost is quadratic in degree, not to the closed-form terms, and that is a "
+         "deliberate asymmetry rather than an oversight.");
     // The truncation error must fall as the degree rises, at both radii.
     for (double r_m : {7331e3, 6378.1363e3 + 300e3}) {
         double previous = 1e30;
@@ -576,4 +681,78 @@ TEST_CASE("PERT-F-005 / F-011: ocean tide refusals", "[tides]") {
     auto outside = OceanTide::load("/etc/hostname", ODL_MANIFEST_CACHE_ROOT);
     REQUIRE_FALSE(outside.has_value());
     CHECK(outside.error().id == "PERT-F-010");
+}
+
+TEST_CASE("PERT-A-029: the Conventions' own worked example, for K1", "[tides]") {
+    // TN36-6 §6.2.1 PRINTS A WORKED EXAMPLE, fifteen lines below the definition
+    // of dk_f, and SPEC-perturbations v1.0-v1.2 said chapter 6 prints none.  It
+    // does, and it is the most valuable test in this module, for three reasons:
+    //
+    //   * it is NON-CIRCULAR — inputs published, outputs published, and the
+    //     module's own extracted table is not involved in the first half;
+    //   * it is the ONLY check that exercises the THETA DEPENDENCE.  PERT-A-001
+    //     evaluates at theta_f = 0, where a wrong sign on theta_g, a missing pi
+    //     or fundamental arguments off by a constant all survive untouched;
+    //   * it breaks, for one constituent, the circularity §8 has to admit for
+    //     the other 70.
+    //
+    // "Given that A_m = A_1 = -3.1274e-8, and that H_f = 0.36870, theta_f =
+    //  (theta_g + pi), and k21(0) = (0.25746 + 0.00118 i) for this tide, one
+    //  finds on subtracting the nominal value (0.29830 - 0.00144 i) that
+    //  dk_f = (-0.04084 + 0.00262 i).  Equation (6.8b) then yields:
+    //     (dC21)_K1 = 470.9e-12 sin(theta_g + pi) - 30.2e-12 cos(theta_g + pi)
+    //     (dS21)_K1 = 470.9e-12 cos(theta_g + pi) + 30.2e-12 sin(theta_g + pi)"
+    constexpr double kA1 = -3.1274e-8;
+    constexpr double kHf = 0.36870;
+    const std::complex<double> k21_at_K1{0.25746, 0.00118};
+    const std::complex<double> nominal{0.29830, -0.00144};
+
+    // HALF ONE, from the published inputs alone.  Nothing here comes from the
+    // module's table, so landing on the table's amplitudes is a statement about
+    // the table and not merely about arithmetic.
+    const std::complex<double> dk = k21_at_K1 - nominal;
+    CHECK_THAT(dk.real(), WithinAbs(-0.04084, 5e-9));
+    CHECK_THAT(dk.imag(), WithinAbs(0.00262, 5e-9));
+    const std::complex<double> amp = kA1 * dk * kHf * 1e12;   // units of 1e-12
+    WARN("PERT-A-029: A_1 dk H_f = (" << amp.real() << ", " << amp.imag()
+         << ") x 1e-12, against Table 6.5a's printed (470.9, -30.2) for K1");
+    CHECK_THAT(amp.real(), WithinAbs(470.9, 0.05));
+    CHECK_THAT(amp.imag(), WithinAbs(-30.2, 0.05));
+
+    // Find K1 in the extracted table by its frequency, and confirm the printed
+    // amplitudes are the ones the worked example derives.
+    std::size_t k1 = SolidEarthTide::constituents(1);
+    for (std::size_t i = 0; i < SolidEarthTide::constituents(1); ++i) {
+        if (std::abs(printed_row(1, i).deg_per_hour - 15.04107) < 1e-6) k1 = i;
+    }
+    REQUIRE(k1 < SolidEarthTide::constituents(1));
+    CHECK_THAT(printed_row(1, k1).ip, WithinAbs(470.9, 1e-9));
+    CHECK_THAT(printed_row(1, k1).op, WithinAbs(-30.2, 1e-9));
+
+    // HALF TWO, the theta dependence, at eight values of theta_g rather than one.
+    int checked = 0;
+    double worst = 0.0;
+    for (int j = 0; j < 8; ++j) {
+        const double theta_g = 2.0 * std::numbers::pi * j / 8.0 + 0.137;
+        const double theta = theta_g + std::numbers::pi;
+        auto r = SolidEarthTide::step2_one(1, k1, theta);
+        REQUIRE(r.has_value());
+        const double want_c = 470.9e-12 * std::sin(theta) - 30.2e-12 * std::cos(theta);
+        const double want_s = 470.9e-12 * std::cos(theta) + 30.2e-12 * std::sin(theta);
+        INFO("theta_g = " << theta_g);
+        CHECK_THAT(r->dc(2, 1), WithinAbs(want_c, 1e-24));
+        CHECK_THAT(r->ds(2, 1), WithinAbs(want_s, 1e-24));
+        worst = std::max({worst, std::abs(r->dc(2, 1) - want_c), std::abs(r->ds(2, 1) - want_s)});
+        ++checked;
+
+        // AND the module's own argument for K1 must BE theta_g + pi, which is
+        // the half that a wrong sign or a missing pi would fail.  gamma is
+        // theta_g + pi by construction, and K1's Delaunay multipliers are all
+        // zero with tau = 1, so theta_f = gamma exactly.
+        eop::tides::Arguments a{theta, 0.0, 0.0, 0.0, 0.0, 0.0};
+        CHECK_THAT(SolidEarthTide::theta_f(1, k1, a), WithinAbs(theta, 1e-15));
+    }
+    WARN("PERT-A-029: the printed expressions reproduced at " << checked
+         << " values of theta_g, worst residual " << worst
+         << "; and theta_f for K1 is theta_g + pi exactly");
 }

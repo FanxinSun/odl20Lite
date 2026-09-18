@@ -370,12 +370,23 @@ layer is open.
    waves **without failing** — the row count caught it, which is §4 rule 3 paying for itself a
    third time.
 
-   **What the gate does not yet use.** Chapter 6 prints a complete worked example for K₁ —
-   inputs *A*₁, *H*_f = 0.36870, θ_f, *k*₂₁ and its nominal value; outputs both ΔC̄₂₁ and ΔS̄₂₁
-   lines — and it is the only check available that exercises the **θ dependence**, which
-   evaluating at θ_f = 0 cannot. It also prints the resonance-formula corrections per
-   constituent, (1,1) for Q₁ through (244,299) for ψ₁ in units of 10⁻⁵. Both were missed at
-   drafting; see §4 rule 4.
+   **The K₁ worked example, found late and now the best row in §8.** Chapter 6 prints a complete
+   numerical case — inputs *A*₁, *H*_f = 0.36870, θ_f, *k*₂₁ and its nominal value; outputs both
+   ΔC̄₂₁ and ΔS̄₂₁ lines — which `PERT-A-029` reproduces from the published inputs alone, using
+   nothing from the module's own table: (470.915, −30.2105) × 10⁻¹² against the printed
+   (470.9, −30.2), then both expressions at **eight values of θ_g**, worst residual 5.2 × 10⁻²⁶.
+   It is the only check anywhere that exercises the **θ dependence**, which evaluating at
+   θ_f = 0 cannot, and the only non-circular check of Step 2. It was missed at drafting by
+   executor and manager alike; see §4 rule 4.
+
+   **Open: `PERT-Q-011`, the printed resonance-formula corrections.** (1,1) for Q₁ through
+   (244,299) for ψ₁, in units of 10⁻⁵. They are **signed** — the Conventions print (0, −1) for
+   P₁ — so what blocks *formula + correction = table* is not the signs but that δ*k*^OT is not
+   tabulated separately. What that leaves is better than it sounds: table − formula = correction
+   + δ*k*^OT **measures** δ*k*^OT per constituent for the nine constituents where the correction
+   is printed, against the Conventions' own words for it. ψ₁ is where it bites — its printed
+   correction is 83.5% of its δ*k*^I where P₁'s is 1.3% — and it is the constituent whose
+   imaginary residual is already flagged as anomalous.
 4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
    space-weather ingestion with its own manifest entries. Gate: the model's published reference
    profiles; out-of-range input refused with a diagnostic naming the request and the limit.
@@ -694,6 +705,14 @@ governs. Three rules apply to all of them:
    failure, in a statistic and then in a suite. Audited across all 165 tests on 2026-09-18:
    `EPH-A-007` was the only instance — every other loop is over a compile-time array, or is
    already guarded the way `EOP-A-014` guards its 19 000 rows.
+5. **A guard is proven by making it fire, in the place it will have to fire from.** The
+   stale-configure check was put in `tools/ci.sh` between gate 3 and gate 5 — where CI configures
+   before it tests, so the build system is always newer than the `CMakeLists.txt` and the
+   condition can never be true. It passed its own first run, which is how dead code that reads
+   like protection survives. It belongs in the **suite**, because the failure it guards against
+   is running `ctest` or one binary against an old build directory, and that happens outside CI
+   by definition. Every guard in this tree is demonstrated **both ways** before it counts:
+   passing when it should, and failing when the thing it guards against is injected.
 4. **A gate's wording names what this plan wanted; the source prints what it prints — and a
    claim that it prints nothing is a claim, not an observation.** Twice the plan asked for
    something the source does not carry: rule 1 above described a disagreement on a path that

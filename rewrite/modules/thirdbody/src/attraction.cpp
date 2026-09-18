@@ -194,7 +194,7 @@ Attraction::by_body(const frames::Position<frames::Frame::GCRS>& sat,
         if (!mu) return odl::err(mu.error());
         // ONE call, centred on the Earth.  Differencing two barycentric vectors
         // would subtract two 1.5e8 km quantities to get a 3.8e5 km one.
-        auto st = ephemeris.state(b, eph::Body::Earth, when, leaps);
+        auto st = ephemeris.geocentric_state(b, when, leaps);
         if (!st) return odl::err(ThirdBodyError{st.error().id, st.error().message});
         const Vec3 body_m = odl::field_position_m_from_state_km(st->position());
         out.push_back({b, pair_stable(sat.metres(), body_m, *mu)});

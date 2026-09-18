@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `FRAME` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.6 |
+| **Version** | 1.7 |
 | **Date** | 2026-09-18 |
 | **Layer** | `frames` (`doc/REWRITE_PLAN.md` §2) |
 | **Feature** | F3 (plan §3) |
@@ -190,7 +190,8 @@ Hence:
 - **FRAME-R-029.** A `State<Frame::BCRS>`'s epoch MUST be rendered to **TDB** when used with the
   ephemerides and to **TT** when used with the geocentric chain, and any operation crossing
   between them MUST state which it used. The relativistic scaling between TDB- and TT-compatible
-  quantities, *L*_B = 1.55 × 10⁻⁸ — 2.3 m on an astronomical unit — is **not** applied by this
+  quantities, *L*_B = 1.55 × 10⁻⁸ — 1.550 519 768 × 10⁻⁸ × 1.495 978 707 × 10¹¹ m = **2.3195 km**
+  on an astronomical unit, **not** the 2.3 m this specification said until v1.7 — is **not** applied by this
   module; a consumer needing TDB-compatible lengths must say so. See `FRAME-Q-006`.
 
 ---
@@ -594,6 +595,7 @@ Notes for the manager's review:
 | `FRAME-P-5` | TEME → GCRS, definitional floor | ≈ 3 m at 7000 km | — | §4.5, `FRAME-R-033`; irreducible |
 | `FRAME-P-5b` | agreement with `VAL06`'s published ITRS↔TEME example | **25 mm**, of which 13.3 mm is measured and characterised as a pure z-rotation | — | `FRAME-A-001`'s note |
 | `FRAME-P-6` | SGP4 TEME state vs a JPL Horizons table, 5-hour arc | **< 20 m** | — | plan §4 gate, retained. **It measures convention agreement, not orbit accuracy** — the Horizons ephemeris is the same TLE (§4.5) — so the expected residual is `FRAME-P-5`'s ≈ 3 m floor. The plan's former "expect < 1 m" was struck on 2026-09-18; see `FRAME-Q-001`. |
+| `FRAME-P-7` | the *L*_B scaling `FRAME-R-029` does **not** apply | 1.550519768 × 10⁻⁸ × 1.495978707 × 10¹¹ m = **2.3195 km** on an astronomical unit | it was stated as 2.3 m from v1.0 to v1.6, in **prose**, where gate 8 does not reach. It is a budget row now for that reason and not only to hold the number | `TN36-1`'s *L*_B; `FRAME-Q-006` |
 
 Note that `FRAME-P-1` is a **self-consistency** test and proves nothing about accuracy: a
 transformation that is consistently wrong round-trips perfectly. It is retained because it
@@ -711,7 +713,7 @@ cases rather than runtime ones.
 | `FRAME-Q-002` | **`BEU94` and `ARN15`, the primary sources for the DYB frame, could not be obtained** — the 1994 paper is in a journal with no accessible archive, and the 2015 paper is paywalled at Springer (abstract only). §4.7's definition is stated from first principles and is internally unambiguous, but the **sign of ê_D** and the **construction of ê_Y** (geocentric radial vs modelled body axis) are conventions I fixed rather than inherited. | Obtain `ARN15` before P4 (the phase that implements ECOM). Until then the definition stands as written, and `FRAME-R-050`/`-051` require it to be restated at every reporting point so that a later correction is a one-line change rather than a hunt. If ECOM coefficients are ever compared against published CODE values, the conventions must be confirmed first — a sign disagreement in ê_D is invisible in a fit and visible only in the sign of the reported parameter. |
 | `FRAME-Q-003` | **Is `frames` right to take EOP as a passed-in record rather than a queried service?** It makes the module pure and trivially testable, at the cost of every caller threading an `EopAt` through. | **CONFIRMED 2026-09-18, as specified.** The alternative puts a cache and a file dependency in the module that the variational equations call thousands of times per arc, and it makes the "which EOP did this run use" question un-answerable from the state alone. |
 | `FRAME-Q-004` | **Velocity accuracy.** §4.2 neglects Q̇ (54 µm s⁻¹ at LEO) while applying a LOD correction of similar size. Including Q̇ is not hard — it is a numerical differentiation of Q over a few seconds, or the analytic CIP rate. | Leave it neglected for P1 and state the 0.1 mm s⁻¹ figure honestly. Revisit only if a measurement model in F11 turns out to need ITRS velocity better than that; none of the P1–P6 campaigns does. Recorded here so the decision is visible rather than accidental. |
-| `FRAME-Q-006` | **The TDB/TT scaling between BCRS and GCRS quantities is not applied** (`FRAME-R-029`). IAU 2006 Resolution B3 makes TDB a linear transform of TCB, and lengths compatible with one differ from the other by *L*_B = 1.55 × 10⁻⁸ — 2.3 m on an astronomical unit, well above anything this tree measures. | Leave it unapplied at L2 and state it, as `FRAME-R-029` does: the ephemerides are TDB-compatible by construction and the geocentric chain never sees an astronomical unit, so nothing in L1–L4 crosses the boundary where it would matter. Revisit before L6, where a light-time solution spans both. Recorded so that if a metre-level discrepancy appears on a barycentric path, this is the first place to look. |
+| `FRAME-Q-006` | **The TDB/TT scaling between BCRS and GCRS quantities is not applied** (`FRAME-R-029`). IAU 2006 Resolution B3 makes TDB a linear transform of TCB, and lengths compatible with one differ from the other by *L*_B = 1.55 × 10⁻⁸, which is 1.550 519 768 × 10⁻⁸ × 1.495 978 707 × 10¹¹ m = **2.3195 km** on an astronomical unit. **v1.0 to v1.6 said 2.3 m — a factor of a thousand, in prose, where gate 8 cannot see it.** It is the fifth instance of the family that prompted `tools/budgetcheck.py` and the first found outside a budget row; the arithmetic is now written out so that the checker evaluates it. | Leave it unapplied at L2 and state it, as `FRAME-R-029` does: the ephemerides are TDB-compatible by construction and the geocentric chain never sees an astronomical unit, so nothing in L1–L4 crosses the boundary where it would matter. Revisit before L6, where a light-time solution spans both. Recorded so that if a metre-level discrepancy appears on a barycentric path, this is the first place to look. |
 | `FRAME-Q-005` | **ITRF realisation.** The EOP series in use is consistent with ITRF2020 (`SPEC-eop.md` §2), and station coordinate sets (SLRF2020, IGS products) have their own realisations. Nothing in this spec pins them together. | **DECIDED 2026-09-18: shape now, tag before P6** — specified at `FRAME-R-026`. Sharper than first written: correction §3.1 of `SPEC-eop.md` makes this a live hazard rather than a hypothetical one, because EOP 20 C04 is ITRF2020 where the superseded 14 C04 was ITRF2014, so data of the two eras really is in two realisations. |
 
 ---
@@ -720,6 +722,7 @@ cases rather than runtime ones.
 
 | version | date | change |
 |---|---|---|
+| 1.7 | 2026-09-18 | **`FRAME-Q-006`'s *L*_B figure was wrong by a factor of a thousand**: 1.550 519 768 × 10⁻⁸ × 1.495 978 707 × 10¹¹ m is **2.3195 km** on an astronomical unit, not 2.3 m. Found while `SPEC-perturbations` `PERT-Q-010` required the translation's omissions to be stated with their arithmetic rather than asserted from memory. It sat in prose from v1.0, where gate 8 cannot reach it — the fifth instance of the family `budgetcheck.py` exists for, and the first outside a budget row. Both occurrences now carry the multiplication. |
 | 1.6 | 2026-09-18 | **`FRAME-R-062`: the km/metre crossing is named and there is one of it**, in `core`, with `FRAME-A-025`. The manager's condition on ratifying `GRAV-Q-009`: the split between km and metres was declared at v1.5 and the crossing was not, and a crossing left to arrive with the first force arrives once per force. `SPEC-dynamics` must state where it happens before anything is integrated. |
 | 1.5 | 2026-09-18 | **`Position<F>` and `Acceleration<F>` added** at L2 step 2's request, §3.6, with `FRAME-R-060`/`-061` and `FRAME-A-024`. Amended here rather than declared in `SPEC-gravity.md`, on the same ruling that placed `Frame::BCRS` here. Additive: nothing existing changed. The one thing to read twice is that these carry **metres** where `State` carries km, with the unit in the accessor name on both sides. |
 | 1.4 | 2026-09-18 | **`Frame::BCRS` added** at L2's request. Amended here rather than declared in `SPEC-ephemerides.md`, because the frame enumeration belongs to this specification and a second spec extending it silently is how enumerations drift. §3.5 carries the two things that make BCRS unlike the other members — the transformation is a **translation** and the timescale basis differs — as `FRAME-R-027`…`FRAME-R-029`, with `FRAME-A-023` and `FRAME-Q-006`. §6's rows carry their multiplication. |

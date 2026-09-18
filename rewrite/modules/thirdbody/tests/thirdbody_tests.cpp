@@ -92,7 +92,7 @@ TEST_CASE("PERT-A-014: the indirect term is not optional", "[thirdbody]") {
     const auto when = tdb_at(2458849.5);
     for (auto body : {eph::Body::Moon, eph::Body::Sun}) {
         auto mu = gm().gm_m3_s2(body);
-        auto st = ephemeris().state(body, eph::Body::Earth, when, leaps());
+        auto st = ephemeris().geocentric_state(body, when, leaps());
         REQUIRE(mu.has_value());
         REQUIRE(st.has_value());
         const Vec3 rb = odl::field_position_m_from_state_km(st->position());
@@ -115,7 +115,7 @@ TEST_CASE("PERT-A-015: the cancellation, measured before the remedy is adopted",
     const auto when = tdb_at(2458849.5);
     for (auto body : {eph::Body::Moon, eph::Body::Sun, eph::Body::JupiterBarycentre}) {
         auto mu = gm().gm_m3_s2(body);
-        auto st = ephemeris().state(body, eph::Body::Earth, when, leaps());
+        auto st = ephemeris().geocentric_state(body, when, leaps());
         REQUIRE(mu.has_value());
         REQUIRE(st.has_value());
         const Vec3 rb = odl::field_position_m_from_state_km(st->position());

@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `PERT` |
 | **Status** | **adopted** 2026-09-18; **amended by implementation the same day**, six corrections at v1.2 |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 3 (`doc/REWRITE_PLAN.md` §3.3) |
 | **Depends on** | `SPEC-gravity.md` (the field these perturb, and the secular pole it defines), `SPEC-ephemerides.md` (the Sun and Moon), `SPEC-eop.md` (polar motion), `SPEC-time.md`, `SPEC-frames.md`, `core` |
@@ -280,7 +280,17 @@ Sidereal Time in angle units.
   `GRAV-R-041`'s identity, which is 8.552 × 10⁻¹¹ m s⁻² at 7331 km (`PERT-P-2`).
 
   **Measured, and therefore now the default: degree 89.** At 7331 km the criterion is met at
-  degree 36, at 300 km altitude at degree 89, and the default is the larger. It MUST be measured at **two radii**,
+  degree 36, at 300 km altitude at degree 89, and the default is the larger. **Cost, measured
+  because the ruling asked for it as well as the degree: 0.137 ms per evaluation at degree 36 and
+  0.541 ms at degree 89, a factor of 3.94** — less than the quadratic estimate because the file
+  is sparse at high degree. L4 needs that number to decide whether a conservative default
+  survives contact with a propagator.
+
+  **And the asymmetry is stated here rather than discovered later.** This floor is
+  8.552 × 10⁻¹¹ m s⁻², and this layer keeps relativistic terms three orders of magnitude below
+  it — de Sitter is 6.3 × 10⁻¹¹ *of* a 0.22 m s⁻² acceleration at geostationary. Keeping cheap
+  closed-form terms below a floor at which an expensive quadratic-cost series is truncated is
+  defensible engineering; it is indefensible if someone finds it rather than reads it. It MUST be measured at **two radii**,
   because (*a*ₑ/*r*)ⁿ makes the answer strongly altitude-dependent — at 7331 km degree 50 is
   attenuated by 9.5 × 10⁻⁴ and degree 100 by 8.9 × 10⁻⁷, while at 300 km altitude the same
   degrees are attenuated by 0.10 and 0.010 — and **the default is the larger of the two degrees
@@ -544,6 +554,7 @@ thing to do once, deliberately, and be told about.
 
 | id | what is checked | expected value | source of the expected value | tolerance | discharges |
 |---|---|---|---|---|---|
+| `PERT-A-029` | **THE CONVENTIONS' OWN WORKED EXAMPLE, for K1** (`TN36-6` §6.2.1). Two halves. From the published inputs alone — *A*₁ = −3.1274 × 10⁻⁸, *H*_f = 0.36870, *k*₂₁⁽⁰⁾ = 0.257 46 + 0.001 18 *i* less the nominal — compute *A*₁ δ*k*_f *H*_f and land on Table 6.5a's printed amplitudes, **using nothing from the module's own table**. Then reproduce the two printed expressions at **eight values of θ_g**, and check that the module's own θ_f for K1 **is** θ_g + π | (470.9, −30.2) × 10⁻¹²; and ΔC̄₂₁ = 470.9 × 10⁻¹² sin(θ_g+π) − 30.2 × 10⁻¹² cos(θ_g+π), ΔS̄₂₁ = 470.9 × 10⁻¹² cos(θ_g+π) + 30.2 × 10⁻¹² sin(θ_g+π) | `TN36-6` §6.2.1 — **published inputs and published outputs, and non-circular** | the printed digits; measured worst residual 5.2 × 10⁻²⁶ | R-014, R-016, R-017, P-8 |
 | `PERT-A-001` | **THE GATE, term by term.** Every constituent of `TN36-6` Tables 6.5a and 6.5c, evaluated at θ_f = 0 so that (6.8b) with η₁ = −*i* returns ΔC̄₂₁ = Amp(op) × 10⁻¹² and ΔS̄₂₁ = Amp(ip) × 10⁻¹². **The gate reports two counts, not one: the terms it checked, and the terms of this module that the Conventions do not print an expected value for.** A count of passed terms without its denominator is what hid 868 ephemeris cases at step 1. | the printed in-phase and out-of-phase amplitudes | `TN36-6` Tables 6.5a, 6.5c — **published, per constituent** | the printed digit, 0.1 × 10⁻¹² | R-014, R-016, P-8 |
 | `PERT-A-002` | the extracted tables against the printed ones: an independently hand-audited subset of at least twenty rows spanning all three tables, **and** the internal relation Amp(ip)·δ*k*_f^I = Amp(op)·δ*k*_f^R on **every** row, which no column mis-parse survives | agreement | `TN36-6` Tables 6.5a–c | the printed digits | R-014 |
 | `PERT-A-003` | `TN36-6` Table 6.5b, the zonal band, likewise at θ_f = 0 through (6.8a) | the printed amplitudes | `TN36-6` Table 6.5b | the printed digit | R-014 |
@@ -601,7 +612,7 @@ What it does check is worth a gate and is not a weak result, provided it is deco
 | test | what it can fail on | what it cannot |
 |---|---|---|
 | `PERT-A-002`, the internal relation Amp(ip)·δ*k*_f^I = Amp(op)·δ*k*_f^R | **everything independent the tables contain.** δ*k*_f is printed and *H*_f is not, so *H*_f = Amp(ip)/(*A*ₘ δ*k*_f^R) is recoverable from either column, and this is the check that the two columns agree about it — on every row, for a quantity the Conventions never print | a transcription error that happens to preserve the ratio |
-| `PERT-A-025`, (6.9) against the tabulated δ*k*_f | **the resonance structure** — σ_α and *L*_α — by an independent route the production path does not use. *Measured: printed ÷ formula on the real part is 1.0344 with a spread of 2.98 %, across a band where δ*k*_f itself varies by a factor of 2955. A negative control moving σ₂ by 7 × 10⁻⁴ takes that spread to 654 %.* | **the value of δ*k*_f**, which it cannot reproduce — see below |
+| `PERT-A-025`, (6.9) against the tabulated δ*k*_f | **the resonance structure**, and **that the residual is the ocean-tide term the Conventions describe in words**: §6.2.1 says *"roughly half the value of the imaginary part comes from the ocean tide term, and the real part contribution from this term is of about the same magnitude"*, which is checkable and checks — over 24 constituents away from the FCN resonance, \|resid_R\|/\|resid_I\| is 0.906 and resid_I/δ*k*^I is 0.598. That turns the identification from an inference into a measurement the source predicted. *Measured: printed ÷ formula on the real part is 1.0344 with a spread of 2.98 %, across a band where δ*k*_f itself varies by a factor of 2955. A negative control moving σ₂ by 7 × 10⁻⁴ takes that spread to 654 %.* | **the value of δ*k*_f**, which it cannot reproduce — see below |
 | `PERT-A-001`, the θ_f = 0 evaluation | **the wiring**: a swapped in-phase and out-of-phase column, a wrong η_m, a sign, a mis-parsed field, a constituent dropped from the sum | a wrong amplitude, because the amplitude is what it was given |
 
 **And `PERT-A-025` checks less than the ruling that created it assumed, for a reason in the
@@ -643,14 +654,23 @@ the **degree-2 pole tides** of §6.4 and §6.5. They print **no** expected value
 - the relativistic correction as a vector, as opposed to the magnitudes and precession rates of
   `PERT-A-010` and `-A-011`;
 - third-body attraction, which the Conventions do not treat at all;
-- and **Step 2's amplitudes as anything other than their own input** — the item above, stated
-  here because it belongs in this list and not only in the paragraph that explains it.
+- and **Step 2's amplitudes as anything other than their own input — for 70 of the 71
+  constituents.** Not for K1: see below.
 
-**The one thing that would move Step 2's amplitudes out of that list is an independent *H*_f
-catalogue**, from `CT71`/`CE73` or an equivalent harmonic expansion of the tide-generating
-potential. Neither was obtained (`PERT-Q-004`), and that question stays open rather than closed:
-if a later layer ever depends on Step 2 at a level where self-consistency is not enough, this is
-where it reopens.
+**This list was wrong in two places until v1.3, and the error was an absence asserted without a
+search.** §6.2.1 prints a **worked example for K1**, fifteen lines below the definition of
+δ*k*_f, giving *A*₁, *H*_f = 0.36870, θ_f = θ_g + π, *k*₂₁⁽⁰⁾ = 0.257 46 + 0.001 18 *i*, the
+nominal, the resulting δ*k*_f, and the two expressions (6.8b) yields. So *H*_f **is** printed for
+one constituent, and chapter 6 **does** print a worked example. `PERT-A-029` now uses it, and it
+is the most valuable row in this section: inputs published, outputs published, the module's own
+extracted table not involved in the first half, and **the only check anywhere that exercises the
+θ dependence** — `PERT-A-001` evaluates at θ_f = 0, where a wrong sign on θ_g, a missing π or
+fundamental arguments off by a constant all survive untouched.
+
+**What would move the other 70 out of the list is an independent *H*_f catalogue**, from
+`CT71`/`CE73` or an equivalent harmonic expansion. Neither was obtained (`PERT-Q-004`), and that
+question stays open: if a later layer depends on Step 2 at a level where self-consistency is not
+enough, this is where it reopens.
 
 **The gate reports both counts on every run**, so that "the gate passed" never stands for more of
 this module than the Conventions actually constrain.
@@ -693,8 +713,9 @@ this module than the Conventions actually constrain.
 | `PERT-Q-005` | **The chapter tells you to add something the data file already contains.** §6.3.2 describes modelling Ω₁ and Ω₂ as equilibrium waves and gives the equation; `FES2004-CS`'s own header says they are already in it. Reading the chapter alone, one implements the equation and doubles them. The chapter also records an unresolved dispute — dated 2011-10-14 — about whether the π/2 phase change introduced in its 2011-09-23 update is justified. | **RULED 2026-09-18 as recommended, and the manager verified the header independently** — rows `55.565 Om1` and `55.575 Om2` are the file's first two data lines. Do not apply the equation; read the header. `PERT-R-020a`, `PERT-R-025` and `PERT-F-011` stand, and it goes into the discrepancy register **named as its own kind** rather than folded into the other two. |
 | `PERT-Q-006` | **Two numbers in one paragraph of `TN36-6` §6.4 disagree.** The printed cross-term ratio 0.0115 implies Im(*k*₂) = 0.003 539; the printed *k*₂ is 0.3077 + 0.0036 *i*, giving 0.011 700. 1.7 % of the imaginary part, 0.02 % of ΔC̄₂₁. | **RULED 2026-09-18 as recommended: follow *k*₂, report both, record it.** The manager reproduced both numbers independently. |
 | `PERT-Q-007` | **How far to take the ocean tides?** `FES2004-CS` carries degree and order 100. Full degree is 100× the work of degree 10 and the Conventions say only that the main waves are about 80 % of a 20 cm effect. | **RULED 2026-09-18: the method approved, the number refused.** *A number in a specification acquires authority whatever the changelog says about how it got there*, so the criterion is stated **before** the measurement and the measurement sets the default. The criterion, now `PERT-R-022a`: the truncation error is below the smallest term this module computes and keeps, at the same evaluation point, measured at **two radii** because (*a*ₑ/*r*)ⁿ makes it strongly altitude-dependent, and the default is the larger of the two degrees. If it says 30, it is 30. |
-| `PERT-Q-010` | **`Ephemeris::state` returns `State<Frame::BCRS>` whatever centre is asked for.** Asked for the Moon about the Earth it returns a geocentric vector typed as barycentric. The frame is in the type, which `FRAME-R-004` requires, but the ORIGIN is a runtime argument the type does not carry, so the tag can say something false about the vector. Found while implementing `PERT-R-053`, which had assumed the barycentric route. | Not this step's to fix, and flagged rather than worked around: `thirdbody` asks for Earth-centred vectors and converts them itself, with the reason in the source. The choices are to make the centre part of the type, to refuse a non-SSB centre, or to say in `SPEC-ephemerides.md` that the tag means axes and not origin — which would weaken what `FRAME-R-004` promises everywhere else. **Yours, because it touches an adopted specification's public surface.** |
 | `PERT-Q-008` | **The gate's wording again.** The plan says *the IERS Conventions worked examples, term by term*. Chapter 6 prints **no worked examples** — no numerical case with inputs and outputs. What it does print, per constituent, is Tables 6.5a/b/c's amplitudes, and, in closed form, §6.4's and §6.5's pole-tide coefficients. | **RULED 2026-09-18: the plan is corrected and this reading adopted** — the tables meet the gate better than a worked example would, because an example checks one epoch and Table 6.5a checks every constituent separately. Plan §4 now carries **rule 4**, naming all three instances: *where a step's gate names a form of evidence, the first thing its specification does is say whether the source prints that form, and if not, propose what it prints instead.* §3.3's step 3 gate is reworded to two counts. |
+| `PERT-Q-010` | **RULED 2026-09-18 and implemented.** `barycentric_state` returns `State<Frame::BCRS>`, `geocentric_state` returns `State<Frame::GCRS>` **and is `FRAME-R-028`'s translation for an ephemeris body**, and `relative_state` returns an untagged `RelativeState` for any other centre. Option (c) — redefining the tag to mean axes and not origin — was rejected explicitly: *a tag that can say something false about the value it labels is worse than no tag.* Plan §5 constraint 10. `SPEC-ephemerides.md` v1.3 states what the geocentric call does **not** include, with `EPH-P-5` carrying the arithmetic: the *L*_B scaling is **5.960 m** on the Moon's distance and **5.070 × 10⁻¹⁴ m s⁻²** as a third-body acceleration, **5.9 × 10⁻⁴ of the smallest term this module keeps** — so it does not land above that floor, and now it is known rather than assumed. *(The original finding: `Ephemeris::state` returned `State<Frame::BCRS>` whatever centre is asked for.)* Asked for the Moon about the Earth it returns a geocentric vector typed as barycentric. The frame is in the type, which `FRAME-R-004` requires, but the ORIGIN is a runtime argument the type does not carry, so the tag can say something false about the vector. Found while implementing `PERT-R-053`, which had assumed the barycentric route. | Not this step's to fix, and flagged rather than worked around: `thirdbody` asks for Earth-centred vectors and converts them itself, with the reason in the source. The choices are to make the centre part of the type, to refuse a non-SSB centre, or to say in `SPEC-ephemerides.md` that the tag means axes and not origin — which would weaken what `FRAME-R-004` promises everywhere else. **Yours, because it touches an adopted specification's public surface.** |
+| `PERT-Q-011` | **`PERT-A-025` cannot be tightened to the printed per-constituent corrections, and the reason is worth recording.** §6.2.1 lists the resonance-formula corrections for the ten constituents where they matter — (1,1) for Q1, (1,1) for O1 and its 145,545 companion, (1,0) for No1, (0,−1) for P1, **(244,299) for ψ1**, (12,12) for φ1, (3,2) for J1, (2,1) for Oo1 and its 185,565 companion — but prints **only their magnitudes, not their signs**, and does not tabulate δ*k*^OT separately. So "formula + printed correction = table" is not evaluable. | What is done instead, and it answers the question the ruling was really asking: the Conventions' two statements about the ocean-tide term **are** checkable and check (0.906 and 0.598 against "about the same magnitude" and "roughly half"), and **ψ1 is reported by name with its residual**. On ψ1 specifically: its real-part ratio is 1.0347 against a median of 1.0344 — **rank 28 of 48** — so the median did **not** absorb it. The real-part statistic never looked at the imaginary part, where ψ1 is a 3× outlier. **Blind, not tolerant**, which is the more dangerous of the two and is now asserted in both directions. |
 
 ---
 
@@ -702,6 +723,7 @@ this module than the Conventions actually constrain.
 
 | version | date | change |
 |---|---|---|
+| 1.3 | 2026-09-18 | **Step 3 reopened: §8's denominator was wrong because an absence was asserted without a search.** `TN36-6` §6.2.1 **prints a worked example for K1** — and prints *H*_f for it — fifteen lines below the definition this specification quoted. `PERT-A-029` now uses it: non-circular, and **the only check anywhere that exercises the θ dependence**, which `PERT-A-001`'s θ_f = 0 cannot touch. `PERT-A-025` gains the Conventions' two statements about the ocean-tide term, which check at 0.906 and 0.598, and reports **ψ1 by name** — rank 28 of 48 in the chosen statistic, so blind rather than absorbed (`PERT-Q-011`). `PERT-R-022a` gains the measured **cost** (3.94×) and the **asymmetry** against the relativistic terms. `PERT-Q-010` ruled and implemented. |
 | 1.2 | 2026-09-18 | **Amended by implementation, six corrections.** (1) **`PERT-A-025` checks less than the ruling that created it assumed**: `TN36-6` defines δ*k*_f as the body-tide difference *plus an ocean-loading contribution*, so (6.9) cannot reproduce it — measured, 3.4 % low on the real part and a factor of two on the imaginary. What it does check is the resonance structure, and §8 now says so, with a negative control. (2) `PERT-R-022a`'s threshold was self-referential and degenerated to "keep everything"; it is now `TN36-6` §6.2.1's own 3 × 10⁻¹² cutoff, and **the measured default is degree 89**. (3) `PERT-R-015` said the fundamental arguments come from `frames`; they live in `eop` and were promoted to its public surface, with `PERT-A-027` checking the two conventions against each other. (4) `PERT-R-053` said third-body positions come through the barycentric translation; they are taken Earth-centred in one call, and `PERT-Q-010` records why. (5) `PERT-F-012` and `PERT-F-013` added. (6) `PERT-A-028` added: the pinned GM file differs from `TN36-1` by **exactly *L*_B**. |
 | 1.1 | 2026-09-18 | **Adopted, with the three required amendments and rulings on all eight questions.** (1) **§8's claim for `PERT-A-001` was wrong and is rewritten.** `PERT-R-014` makes the printed amplitudes this module's *input*, so the test cannot fail on a wrong amplitude; calling it category 1 and "a stronger position than either of the preceding steps had" was the project's usual shape — true of the smaller thing, read as true of the larger. §8 now decomposes what each of `PERT-A-001`, `-A-002` and `-A-025` can and cannot fail on, and marks the first two category 4. (2) `PERT-A-006` and §4.4 now state the **unit**: (6.23a) is in radians and §6.5's printed result in arcseconds, a factor of 206 264.8 between two equations on one page, which cost the reviewer minutes. (3) §8's denominator gains Step 2's amplitudes-as-their-own-input, and the note that an independent *H*_f catalogue is what would remove them from it. `PERT-R-016`/`-017` and `PERT-A-025` add the resonance formula as a test-only cross-check; `PERT-R-022a` and `PERT-A-026` state the ocean-tide truncation **criterion** without stating a number. |
 | 1.0 | 2026-09-18 | First draft, L2 step 3, for manager review. |

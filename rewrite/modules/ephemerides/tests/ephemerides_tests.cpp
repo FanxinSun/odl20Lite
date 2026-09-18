@@ -15,6 +15,7 @@
 
 #include <cmath>
 #include <fstream>
+#include <type_traits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -91,15 +92,15 @@ Sweep run_sweep(const Ephemeris& eph, double au_km) {
         if (!body_of_classic_id(c.target, target) || !body_of_classic_id(c.centre, centre)) {
             ++s.not_a_body; continue;
         }
-        const auto st = eph.state(target, centre, tdb_at(c.jed), leaps());
+        const auto st = eph.relative_state(target, centre, tdb_at(c.jed), leaps());
         if (!st.has_value()) { ++s.outside_coverage; continue; }
 
         // The module returns km and km/s (EPH-R-013). testpo is in AU and
         // AU/day, so the comparison goes through the AU READ FROM THE KERNEL —
         // which is asserted exactly by EPH-A-003 and perturbed by EPH-A-004, so
         // it cannot cancel a units error.
-        const odl::Vec3& r = st->position();
-        const odl::Vec3& v = st->velocity();
+        const odl::Vec3& r = st->position_km;
+        const odl::Vec3& v = st->velocity_km_s;
         const double got =
             c.coord == 1 ? r.x / au_km
           : c.coord == 2 ? r.y / au_km
@@ -200,9 +201,9 @@ TEST_CASE("EPH-A-004: the units check cannot pass against a wrong AU", "[eph][sp
 TEST_CASE("EPH-A-005: Earth and the Earth-Moon barycentre are 4600-4700 km apart",
           "[eph][spec]") {
     const Ephemeris eph = open_or_fail(ODL_DE440S_BSP, "de440s-spk");
-    const auto st = eph.state(Body::Earth, Body::EarthMoonBarycentre, tdb_at(2458849.5), leaps());
+    const auto st = eph.relative_state(Body::Earth, Body::EarthMoonBarycentre, tdb_at(2458849.5), leaps());
     REQUIRE(st.has_value());
-    const double d = st->position().norm();
+    const double d = st->position_km.norm();
     INFO("Earth - EMB separation " << d << " km");
     REQUIRE(d > 4000.0);
     REQUIRE(d < 5200.0);
@@ -249,7 +250,7 @@ TEST_CASE("EPH-A-009/014: refusals", "[eph][refusal]") {
     SECTION("EPH-F-002: outside the coverage of that body in that kernel") {
         const auto cov = eph.coverage(Body::Sun);
         REQUIRE(cov.has_value());
-        const auto r = eph.state(Body::Sun, Body::SolarSystemBarycentre,
+        const auto r = eph.relative_state(Body::Sun, Body::SolarSystemBarycentre,
                                  tdb_at(cov->last_jd_tdb + 100.0), leaps());
         REQUIRE_FALSE(r.has_value());
         REQUIRE(r.error().id == "EPH-F-002");
@@ -274,4 +275,53 @@ TEST_CASE("EPH-A-012: two Ephemeris instances coexist", "[eph][spec]") {
         REQUIRE(cb.has_value());
         REQUIRE(cb->first_jd_tdb < ca->first_jd_tdb);   // the full kernel starts earlier
     }
+}
+
+// EPH-A-017 / PERT-Q-010: the centre is not a runtime argument on a frame-tagged
+// return.  Until 2026-09-18 `state()` handed back `State<Frame::BCRS>` whatever
+// centre was asked for, so a geocentric vector was typed as barycentric — the
+// frame in the type as FRAME-R-004 requires, and the ORIGIN in an argument the
+// type did not carry.  Plan §5 constraint 10: what a value means belongs in its
+// type, never in the argument that produced it.
+TEST_CASE("EPH-A-017: the centre is in the type, not in an argument", "[eph][spec]") {
+    const Ephemeris eph = open_or_fail(ODL_DE440S_BSP, "de440s-spk");
+    const Epoch when = tdb_at(2458849.5);
+
+    auto bary = eph.barycentric_state(Body::Moon, when, leaps());
+    auto geo = eph.geocentric_state(Body::Moon, when, leaps());
+    auto rel = eph.relative_state(Body::Moon, Body::JupiterBarycentre, when, leaps());
+    REQUIRE(bary.has_value());
+    REQUIRE(geo.has_value());
+    REQUIRE(rel.has_value());
+
+    // Three different types, and the compiler knows which is which.
+    static_assert(std::is_same_v<decltype(bary)::value_type,
+                                 odl::frames::State<odl::frames::Frame::BCRS>>);
+    static_assert(std::is_same_v<decltype(geo)::value_type,
+                                 odl::frames::State<odl::frames::Frame::GCRS>>);
+    static_assert(!std::is_convertible_v<decltype(rel)::value_type,
+                                         odl::frames::State<odl::frames::Frame::BCRS>>);
+    static_assert(!std::is_convertible_v<decltype(rel)::value_type,
+                                         odl::frames::State<odl::frames::Frame::GCRS>>);
+    static_assert(!std::is_convertible_v<odl::frames::State<odl::frames::Frame::BCRS>,
+                                         odl::frames::State<odl::frames::Frame::GCRS>>);
+
+    // And they are different vectors: the Moon is ~3.8e5 km from the Earth and
+    // ~1.5e8 km from the barycentre.
+    INFO("barycentric " << bary->position().norm() << " km, geocentric "
+         << geo->position().norm() << " km");
+    REQUIRE(geo->position().norm() > 3.5e5);
+    REQUIRE(geo->position().norm() < 4.1e5);
+    REQUIRE(bary->position().norm() > 1.3e8);
+
+    // The untagged one carries which bodies it is between, because nothing else
+    // can say so once the frame tag is gone.
+    CHECK(rel->target == Body::Moon);
+    CHECK(rel->centre == Body::JupiterBarycentre);
+
+    // The Earth about the Earth is identically zero and asking for it is a
+    // mistake about which body was wanted, not a legitimate zero.
+    auto self = eph.geocentric_state(Body::Earth, when, leaps());
+    REQUIRE_FALSE(self.has_value());
+    CHECK(self.error().id == "EPH-F-008");
 }

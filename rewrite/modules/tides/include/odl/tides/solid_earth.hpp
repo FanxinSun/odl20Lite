@@ -60,6 +60,16 @@ public:
     /// denominator instead of asserting one.
     [[nodiscard]] static std::size_t constituents(int band) noexcept;
 
+    /// theta_f for one constituent, TN36-6 below (6.8e):
+    ///     theta_f = m (theta_g + 180 deg) - sum_j N_j F_j
+    /// Exposed because it is the quantity PERT-A-029 checks against the
+    /// Conventions' own worked example for K1, where theta_f = theta_g + pi.
+    /// Evaluating step 2 at theta_f = 0, which is what PERT-A-001 does, cannot
+    /// touch this at all: a wrong sign on theta_g, a missing pi or arguments off
+    /// by a constant would all survive it.
+    [[nodiscard]] static double theta_f(int band, std::size_t row,
+                                        const eop::tides::Arguments& args) noexcept;
+
     /// TN36-6 (6.14): the permanent deformation, A0 H0 k20.
     [[nodiscard]] static double permanent_c20(LoveNumbers love) noexcept;
 
