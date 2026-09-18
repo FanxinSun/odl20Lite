@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The manifest of every external input to this tree, code and data alike. Nothing enters the tree undeclared (plan L0 step 3). Entries are pinned by URL and SHA-256, never by version range, because rule R11 applies to code for the same reason it applies to data: upstream is mutable and a resolver hides that. See MANIFEST.md for the format.",
+  "note": "The manifest of every external input to this tree, code and data alike. Nothing enters the tree undeclared (plan L0 step 3). Entries are pinned by URL and SHA-256, never by version range, because rule R11 applies to code for the same reason it applies to data: upstream is mutable and a resolver hides that. See MANIFEST.md for the format.\n\nARCHIVES DECLARE WHAT IS TAKEN OUT OF THEM. An archive's SHA-256 pins the container and says nothing about which of its members this tree reads. Every entry with `unpack` therefore carries `consumes` — `whole-tree` where the archive is compiled entire, `declared-members` where it is not — and a `members` list giving each individually-read member its own SHA-256: the licence text quoted verbatim into NOTICE, the file compared against a populated FetchContent tree, or a data member extracted into the cache because something outside Python needs a path to it. tools/fetch.py refuses an archive entry that declares neither. The rule was prompted by EGM2008, which ships seven members of which this tree reads two and deliberately does not open hsynth_WGS84.f, and it applies to every archive rather than to the one that revealed it.",
   "cache": "data/cache",
   "entries": [
     {
@@ -20,7 +20,23 @@
       "upstream_mutable_note": "A GitHub release tag archive is immutable in practice but not by guarantee; the SHA-256 is the identity, not the tag.",
       "retrieved": "2026-09-18",
       "verify_path": "CMakeLists.txt",
-      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE §8.11."
+      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE §8.11.",
+      "consumes": "whole-tree",
+      "consumes_note": "Every source file in the archive is compiled into this tree, so the consumed set is the whole tree and the archive hash is the statement about it. The members listed below are the ones read INDIVIDUALLY — the licence text quoted into NOTICE, and the file verify-populated compares against a FetchContent tree — and they carry their own hashes so that what is quoted and what is compared are pinned as well as the container.",
+      "members": [
+        {
+          "member": "LICENSE.txt",
+          "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566",
+          "role": "quoted verbatim into NOTICE by tools/notice.py",
+          "extract": false
+        },
+        {
+          "member": "CMakeLists.txt",
+          "sha256": "db7c559e2b262043733dc9e8bf9aa044a088f825bb6643b8d9e43896ef2d2a5c",
+          "role": "compared against the populated FetchContent tree",
+          "extract": false
+        }
+      ]
     },
     {
       "id": "tl-expected",
@@ -38,7 +54,23 @@
       "upstream_mutable": false,
       "retrieved": "2026-09-18",
       "verify_path": "CMakeLists.txt",
-      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE §8.11."
+      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE §8.11.",
+      "consumes": "whole-tree",
+      "consumes_note": "Every source file in the archive is compiled into this tree, so the consumed set is the whole tree and the archive hash is the statement about it. The members listed below are the ones read INDIVIDUALLY — the licence text quoted into NOTICE, and the file verify-populated compares against a FetchContent tree — and they carry their own hashes so that what is quoted and what is compared are pinned as well as the container.",
+      "members": [
+        {
+          "member": "COPYING",
+          "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+          "role": "quoted verbatim into NOTICE by tools/notice.py",
+          "extract": false
+        },
+        {
+          "member": "CMakeLists.txt",
+          "sha256": "cb78a82b19a91547e2cfa53be1a67b3caf509a15591a30ddb7c36a27d52d880a",
+          "role": "compared against the populated FetchContent tree",
+          "extract": false
+        }
+      ]
     },
     {
       "id": "erfa",
@@ -56,7 +88,17 @@
       "verify_path": "LICENSE",
       "verify_note": "Verified against LICENSE rather than CMakeLists.txt, because ERFA has no CMakeLists.txt. Any file present in the pinned archive serves; what matters is that the comparison is against the hash-pinned bytes.",
       "upstream_mutable": false,
-      "retrieved": "2026-09-18"
+      "retrieved": "2026-09-18",
+      "consumes": "whole-tree",
+      "consumes_note": "Every source file in the archive is compiled into this tree, so the consumed set is the whole tree and the archive hash is the statement about it. The members listed below are the ones read INDIVIDUALLY — the licence text quoted into NOTICE, and the file verify-populated compares against a FetchContent tree — and they carry their own hashes so that what is quoted and what is compared are pinned as well as the container.",
+      "members": [
+        {
+          "member": "LICENSE",
+          "sha256": "b1858f9a263f22c438a455a32945da51a31a0ae25a21055da13bb7ed57cc3b51",
+          "role": "quoted verbatim into NOTICE by tools/notice.py; also compared against the populated FetchContent tree",
+          "extract": false
+        }
+      ]
     },
     {
       "id": "calceph",
@@ -73,7 +115,23 @@
       "licence_note": "TRIPLE-LICENSED, AND THE CHOICE IS RECORDED HERE BECAUSE IT HAS TO BE MADE. CALCEPH's own LICENSE: \"The library is 'triple-licensed' (CeCILL-C, CeCILL-B or CeCILL), you have to choose one of the three licenses below to apply on the library.\" This tree chooses CeCILL-B, the BSD-like option. It is the ONLY one of the three compatible with plan §5 constraint 3: CeCILL-C is close to the GNU LGPL and CeCILL v2.1 is GPL-compatible, and tools/fetch.py's allowlist refuses both by name. Note that neither contains the string 'GPL', so the denylist this project used until 2026-09-18 would have passed them. OBLIGATIONS, heavier than BSD's and binding a FUTURE distribution rather than this tree today: CeCILL-B §5.3.4 CREDITS requires a distributor of MODIFIED software to state that it is based on CALCEPH, reproduce the intellectual-property notice, make that notice reachable from the software's interface, and mention it on a freely accessible website for as long as it is distributed. This tree links CALCEPH unmodified. The predecessor links it statically and records no choice at all, which is the situation this entry exists not to inherit.",
       "verify_path": "CMakeLists.txt",
       "upstream_mutable": false,
-      "retrieved": "2026-09-18"
+      "retrieved": "2026-09-18",
+      "consumes": "whole-tree",
+      "consumes_note": "Every source file in the archive is compiled into this tree, so the consumed set is the whole tree and the archive hash is the statement about it. The members listed below are the ones read INDIVIDUALLY — the licence text quoted into NOTICE, and the file verify-populated compares against a FetchContent tree — and they carry their own hashes so that what is quoted and what is compared are pinned as well as the container.",
+      "members": [
+        {
+          "member": "COPYING_CECILL_B.LIB",
+          "sha256": "590b84bda61a1562c260501aac68769dd751ca077d61dd634797ea858981eeec",
+          "role": "quoted verbatim into NOTICE by tools/notice.py",
+          "extract": false
+        },
+        {
+          "member": "CMakeLists.txt",
+          "sha256": "cabc823094172dc840e07043bf57b21821ccb0ed19c47eb826a4249e1931b09a",
+          "role": "compared against the populated FetchContent tree",
+          "extract": false
+        }
+      ]
     },
     {
       "id": "python3",
@@ -247,22 +305,26 @@
       "filename": "EGM2008_Spherical_Harmonics.zip",
       "sha256": "65a9072f337f156e8cbd76ffd773f536e6fb0de18697ea6726ecdb790fac0fbd",
       "unpack": "zip",
-      "extract": [
+      "licence": "NGA-public",
+      "licence_note": "NGA publishes EGM2008 for unrestricted use; the README asks that Pavlis, Holmes, Kenyon and Factor (EGU 2008) be cited, which PROVENANCE.md §4 does. Data, never linked. THE ARCHIVE ALSO CONTAINS hsynth_WGS84.f AND hsynth_WGS84.exe, a FORTRAN harmonic-synthesis program and its binary. Neither is extracted and neither was opened: plan §3.3 step 2 says this tree's recursions come from published mathematics rather than from anyone's code, and declaring the archive whole while consuming two of its seven members is what makes that claim checkable rather than merely asserted. Zeta-to-N_to2160_egm2008 (142 MB) is not extracted either; it is the geoid conversion expansion, which GRAV-Q-002 ruled out of scope.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18",
+      "consumes": "declared-members",
+      "consumes_note": "TWO of the archive's seven members are consumed and the other five are not opened at all, hsynth_WGS84.f and hsynth_WGS84.exe among them. An archive hash says nothing about what is taken out of an archive; the member hashes are what make that claim checkable rather than asserted.",
+      "members": [
         {
           "member": "EGM2008_to2190_TideFree",
           "sha256": "7e448aac4e1b8e63955890cbca08286018ecc6d203e074a64ba5bde21851438a",
-          "role": "the coefficients (GRAV-R-011)"
+          "role": "the coefficients (GRAV-R-011)",
+          "extract": true
         },
         {
           "member": "README_WGS84_2.pdf",
           "sha256": "e17ee6311c24f3ee60802c6af84e9b773819178cb60cd3c57aaa8f15cca6b33c",
-          "role": "the scaling parameters, record format and tide system (GRAV-R-011, GRAV-R-015)"
+          "role": "the scaling parameters, record format and tide system (GRAV-R-011, GRAV-R-015)",
+          "extract": true
         }
-      ],
-      "licence": "NGA-public",
-      "licence_note": "NGA publishes EGM2008 for unrestricted use; the README asks that Pavlis, Holmes, Kenyon and Factor (EGU 2008) be cited, which PROVENANCE.md §4 does. Data, never linked. THE ARCHIVE ALSO CONTAINS hsynth_WGS84.f AND hsynth_WGS84.exe, a FORTRAN harmonic-synthesis program and its binary. Neither is extracted and neither was opened: plan §3.3 step 2 says this tree's recursions come from published mathematics rather than from anyone's code, and declaring the archive whole while consuming two of its seven members is what makes that claim checkable rather than merely asserted. Zeta-to-N_to2160_egm2008 (142 MB) is not extracted either; it is the geoid conversion expansion, which GRAV-Q-002 ruled out of scope.",
-      "upstream_mutable": false,
-      "retrieved": "2026-09-18"
+      ]
     },
     {
       "id": "wgs84-standard",

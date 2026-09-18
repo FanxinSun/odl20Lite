@@ -2,8 +2,13 @@
 // the whole tree rests on behaves as SPEC-template.md §5 requires.
 
 #include <odl/core/result.hpp>
+#include <odl/core/units.hpp>
 
 #include <catch2/catch_test_macros.hpp>
+
+#include <cmath>
+#include <limits>
+#include <type_traits>
 
 #include <string>
 
@@ -61,4 +66,41 @@ TEST_CASE("errors do not leak between operations", "[core][result]") {
     REQUIRE_FALSE(a.has_value());
     REQUIRE(b.has_value());
     REQUIRE(*b == 4);
+}
+
+// The km/metre crossing.  SPEC-frames FRAME-R-062: there is ONE named site, and
+// this is the test that keeps it one.
+TEST_CASE("units: the kilometre/metre crossing is named, exact and one-way-at-a-time", "[core]") {
+    using namespace odl;
+    static_assert(kMetresPerKilometre == 1000.0);
+    static_assert(metres_from_km(1.0) == 1000.0);
+    static_assert(km_from_metres(1000.0) == 1.0);
+
+    // The round trip is correct to within one ulp, and NOT exact in general.
+    // This test asserted exactness on the reasoning that 1000 is a power of ten
+    // and therefore harmless; that is wrong, because a power of ten is not a
+    // power of two, and 1e-9 fails it. The values where it is exact are the ones
+    // whose scaled form happens to be representable, which is most of them and
+    // not all.
+    for (double v : {0.0, 1.0, -7331.0, 6378.1363, 1.0 / 3.0, 1e-9, 1e9}) {
+        const double back = km_from_metres(metres_from_km(v));
+        CHECK(std::abs(back - v) <= std::abs(v) * std::numeric_limits<double>::epsilon());
+    }
+    // Exact for the cases that matter to this tree: a geocentric radius in km
+    // and an acceleration in m s^-2 both scale without rounding.
+    CHECK(metres_from_km(7331.0) == 7331000.0);
+    CHECK(km_from_metres(7331000.0) == 7331.0);
+
+    const Vec3 a_m{1e-3, -2e-3, 3.5e-3};                 // an acceleration in m s^-2
+    const Vec3 a_km = state_accel_km_s2_from_m_s2(a_m);
+    CHECK(a_km.x == 1e-6);
+    CHECK(a_km.y == -2e-6);
+    CHECK(a_km.z == 3.5e-6);
+
+    const Vec3 r_km{7331.0, 0.0, 0.0};
+    CHECK(field_position_m_from_state_km(r_km).x == 7331000.0);
+
+    // The crossing is a function call, never an implicit conversion: there is no
+    // type that turns one into the other on its own.
+    static_assert(std::is_same_v<decltype(state_accel_km_s2_from_m_s2(a_m)), Vec3>);
 }

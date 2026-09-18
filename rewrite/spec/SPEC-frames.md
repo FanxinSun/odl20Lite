@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `FRAME` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.5 |
+| **Version** | 1.6 |
 | **Date** | 2026-09-18 |
 | **Layer** | `frames` (`doc/REWRITE_PLAN.md` §2) |
 | **Feature** | F3 (plan §3) |
@@ -217,6 +217,15 @@ velocity and an epoch to discard, which is how a zero becomes a silent default.
   conversion factor appears in this tree's source at all, and EGM2008's reference radius is
   published as 6 378 136.3 **m**. Each module uses the unit its normative source publishes, and
   the boundary between them is explicit.
+
+- **FRAME-R-062.** **The crossing is named, and there is one of it.** Somewhere a sum of
+  accelerations in m s⁻² becomes the derivative of a `State` in km. That conversion lives in
+  `core` — `state_accel_km_s2_from_m_s2` and `field_position_m_from_state_km` — with its own
+  test, and no other site performs it. `SPEC-dynamics` MUST state **where** the crossing happens
+  **before any force is integrated**: left to arrive with the first force it arrives once per
+  force, and a one-site conversion becomes six. There is no implicit conversion, no operator and
+  no generic `convert<>`; a caller writes the function's name and the name says which way it
+  goes.
 
 ## 4. Required behaviour
 
@@ -635,6 +644,7 @@ catches a large class of implementation errors cheaply, and because the predeces
 | `FRAME-A-019` | **structural:** the ITRS frame type admits a realisation tag without a breaking change — demonstrated by a branch that adds an ITRF2014/ITRF2020 tag and compiles every caller unchanged | as stated | this spec, `FRAME-R-026` | — | R-026 |
 | `FRAME-A-020` | a state produced by TEME → GCRS carries a non-zero uncertainty floor of the order stated in `FRAME-P-5` | ≈ 3 m at 7000 km, present in the state, not in a comment | this spec, `FRAME-R-033` | order of magnitude | R-033 |
 | `FRAME-A-021` | fault injection: an ERFA routine made to return a non-zero status | refusal `FRAME-F-008` naming routine, status and epoch; **the returned value is not used** | this spec | — | F-008 |
+| `FRAME-A-025` | the km/metre crossing: the named conversion round-trips to within one ulp, is exact for a geocentric radius and an acceleration, and there is no implicit conversion between the two representations | as stated | this spec, `FRAME-R-062` | 1 ulp | R-062 |
 | `FRAME-A-024` | structural: a `Vec3` does not convert to a `Position<F>`, a `Position<GCRS>` does not convert to a `Position<ITRS>`, and neither is default-constructible | compile failure in all three | this spec, `FRAME-R-060` | — | R-060, R-061 |
 | `FRAME-A-022` | the composed chain is inverted by transposition, not by numerical inversion — a matrix perturbed off orthogonality by 10⁻⁹ is refused rather than inverted | as stated | this spec, `FRAME-R-004` | — | R-004 |
 
@@ -710,6 +720,7 @@ cases rather than runtime ones.
 
 | version | date | change |
 |---|---|---|
+| 1.6 | 2026-09-18 | **`FRAME-R-062`: the km/metre crossing is named and there is one of it**, in `core`, with `FRAME-A-025`. The manager's condition on ratifying `GRAV-Q-009`: the split between km and metres was declared at v1.5 and the crossing was not, and a crossing left to arrive with the first force arrives once per force. `SPEC-dynamics` must state where it happens before anything is integrated. |
 | 1.5 | 2026-09-18 | **`Position<F>` and `Acceleration<F>` added** at L2 step 2's request, §3.6, with `FRAME-R-060`/`-061` and `FRAME-A-024`. Amended here rather than declared in `SPEC-gravity.md`, on the same ruling that placed `Frame::BCRS` here. Additive: nothing existing changed. The one thing to read twice is that these carry **metres** where `State` carries km, with the unit in the accessor name on both sides. |
 | 1.4 | 2026-09-18 | **`Frame::BCRS` added** at L2's request. Amended here rather than declared in `SPEC-ephemerides.md`, because the frame enumeration belongs to this specification and a second spec extending it silently is how enumerations drift. §3.5 carries the two things that make BCRS unlike the other members — the transformation is a **translation** and the timescale basis differs — as `FRAME-R-027`…`FRAME-R-029`, with `FRAME-A-023` and `FRAME-Q-006`. §6's rows carry their multiplication. |
 | 1.3 | 2026-09-18 | **Amended after implementation.** `FRAME-R-030` corrected: the kinematic equation-of-equinoxes terms are **required**, not forbidden — v1.2 conflated them with the equinox-based TOD route, whose ambiguities are all in the geometric nutation terms this chain never uses. `FRAME-A-001`'s tolerance restated at 25 mm with a pure-rotation assertion and the residual 3.45 × 10⁻⁴ arcsec z-rotation recorded as unexplained. §3.3 gains the mechanism: the celestial-pole offset series cancel the model difference on the ITRF path by construction (measured, 1.56 mm), and TEME has no such series, which is why the difference appears there undiluted. `FRAME-Q-001` corrected from "convention" to "model difference". `FRAME-P-5b` added. |

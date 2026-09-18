@@ -871,3 +871,47 @@ TEST_CASE("GRAV-A-015 / A-018: the loader refuses what it should", "[gravity]") 
         fs::remove(p);
     }
 }
+
+TEST_CASE("GRAV-A-029: the scale's margin is measured at BOTH ends", "[gravity]") {
+    // The top margin is easy and was stated when the scale was chosen: the
+    // largest value the recursion forms is 10^457.9, so 10^-280 leaves 130
+    // decades of headroom.  The BOTTOM margin is set by the smallest intermediate
+    // the recursion actually forms, not by a unit result, and 28 decades is the
+    // thinner side — so it is measured here rather than argued.
+    //
+    // There is also a bound that does not need measuring.  Pbar'_nm = Pbar_nm /
+    // cos^m(phi) and cos(phi) <= 1, so |Pbar'| >= |Pbar| EVERYWHERE.  The scaled
+    // value can therefore only be subnormal where Pbar itself is below 10^-28,
+    // and a term that small sits beside terms of order 1 to 66 in the same
+    // degree's sum: it is already far below that sum's own rounding.  Losing it
+    // costs nothing.  The measurement below is the check on that argument.
+    const RecursionTable& t = j2000_field().recursion();
+    std::vector<double> P(2192), dP(2192);
+    double smallest = 1e300, largest = 0.0;
+    int subnormal = 0, samples = 0;
+    constexpr double kScale = 1e-280;
+    constexpr double kSmallestNormal = 2.2250738585072014e-308;
+
+    for (int m : {0, 1, 2, 60, 360, 979, 1500, 2159}) {
+        for (double u : {0.0, 0.3971478906347806, 0.7071067811865476, 0.9396926207859084,
+                         0.9999984769132877, 1.0}) {
+            legendre_column(t, m, 2190, u, kScale, P.data(), dP.data());
+            for (int n = m; n <= 2190; ++n) {
+                const double v = std::abs(P[static_cast<std::size_t>(n)]);
+                ++samples;
+                REQUIRE(std::isfinite(v));
+                largest = std::max(largest, v);
+                if (v == 0.0) continue;           // a genuine zero of the polynomial
+                if (v < kSmallestNormal) ++subnormal;
+                smallest = std::min(smallest, v);
+            }
+        }
+    }
+    WARN("GRAV-A-029: over " << samples << " scaled values the recursion forms, the range is "
+         << smallest << " to " << largest << " — that is " << std::log10(smallest) + 308.0
+         << " decades above the smallest normal double and "
+         << 308.0 - std::log10(largest) << " below the largest; " << subnormal << " subnormal");
+    CHECK(subnormal == 0);
+    CHECK(smallest > 1e-300);
+    CHECK(largest < 1e300);
+}

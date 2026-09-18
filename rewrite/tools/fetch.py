@@ -108,22 +108,77 @@ def entry_path(root: Path, doc: dict, e: dict) -> Path:
 # hashing and download
 
 
-def entry_extracts(e: dict) -> list[dict]:
-    """The archive members this tree actually consumes, each with its own hash.
+def entry_members(e: dict) -> list[dict]:
+    """The archive members this tree reads individually, each with its own hash.
 
-    An archive entry is pinned by the hash of the WHOLE archive, which says
-    nothing about what is taken out of it.  EGM2008 ships as seven members of
-    which this tree consumes two, and one of the five it does not consume is a
-    FORTRAN harmonic-synthesis program that plan §3.3 step 2 forbids as a source
-    of recursions.  Declaring the members, by hash, is what turns "we did not use
-    it" from an assertion into something a reviewer can check: the cache contains
-    exactly what the manifest names and nothing else was unpacked.
+    AN ARCHIVE HASH SAYS NOTHING ABOUT WHAT IS TAKEN OUT OF AN ARCHIVE.  EGM2008
+    ships as seven members of which this tree consumes two, and one of the five
+    it does not is a FORTRAN harmonic-synthesis program that plan §3.3 step 2
+    forbids as a source of recursions.  Declaring the members by hash is what
+    turns "we did not open it" from an assertion into something a reviewer can
+    check.
+
+    That case prompted the rule and the rule is not about that case.  Every
+    multi-member archive here has members read out of it individually — a licence
+    text quoted verbatim into NOTICE, a file compared against a populated
+    FetchContent tree — and each of those is now pinned as well as its container.
+    A rule that applies only to the case that revealed it is the shape this
+    project keeps catching.
+
+    Members with `extract` land in the cache because something outside Python
+    needs a path to them; the rest are verified in place, read straight out of
+    the archive, because duplicating bytes to check them is not an improvement.
     """
-    return list(e.get("extract") or [])
+    return list(e.get("members") or [])
 
 
 def extract_path(root: Path, doc: dict, e: dict, m: dict) -> Path:
     return cache_dir(root, doc) / e["id"] / "extracted" / Path(m["member"]).name
+
+
+def open_member(archive: Path, e: dict, member: str):
+    """Read one member out of a pinned archive, whatever kind of archive it is."""
+    kind = e.get("unpack")
+    if kind == "zip":
+        with zipfile.ZipFile(archive) as zf:
+            return zf.read(member)
+    if kind == "tar.gz":
+        root = e.get("unpacked_root")
+        inner = f"{root}/{member}" if root else member
+        with tarfile.open(archive, "r:gz") as tf:
+            f = tf.extractfile(inner)
+            if f is None:
+                raise KeyError(inner)
+            return f.read()
+    raise KeyError(f"entry {e['id']} declares members but unpack is {kind!r}")
+
+
+def verify_members(root: Path, doc: dict, e: dict) -> list[str]:
+    """Check every declared member against its own hash.  Returns their names."""
+    seen = []
+    for m in entry_members(e):
+        if m.get("extract"):
+            q = extract_path(root, doc, e, m)
+            if not q.exists():
+                raise FileNotFoundError(str(q))
+            got = sha256_file(q)
+        else:
+            try:
+                got = hashlib.sha256(open_member(entry_path(root, doc, e), e, m["member"])).hexdigest()
+            except (KeyError, tarfile.TarError, zipfile.BadZipFile, OSError) as exc:
+                die(MALFORMED, f"{e['id']}: cannot read member {m['member']!r}: {exc}")
+        if got != m["sha256"].lower():
+            die(MISMATCH,
+                "ARCHIVE MEMBER HASH MISMATCH — refusing.\n"
+                f"  entry    {e['id']}\n"
+                f"  member   {m['member']}\n"
+                f"  declared {m['sha256']}\n"
+                f"  got      {got}\n"
+                "\n"
+                "  The archive's own hash may still match: an archive hash says nothing about\n"
+                "  what is taken out of an archive, which is why the members are declared.")
+        seen.append(m["member"])
+    return seen
 
 
 def extract_members(root: Path, doc: dict, e: dict) -> list[tuple[str, str]]:
@@ -136,12 +191,9 @@ def extract_members(root: Path, doc: dict, e: dict) -> list[tuple[str, str]]:
     stating.
     """
     out = []
-    wanted = entry_extracts(e)
+    wanted = [m for m in entry_members(e) if m.get("extract")]
     if not wanted:
         return out
-    kind = e.get("unpack")
-    if kind != "zip":
-        die(MALFORMED, f"{e['id']}: 'extract' is declared but 'unpack' is {kind!r}, not 'zip'")
     archive = entry_path(root, doc, e)
     for m in wanted:
         dest = extract_path(root, doc, e, m)
@@ -150,10 +202,8 @@ def extract_members(root: Path, doc: dict, e: dict) -> list[tuple[str, str]]:
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
-            with zipfile.ZipFile(archive) as zf:
-                with zf.open(m["member"]) as src, open(dest.with_suffix(dest.suffix + ".part"), "wb") as dst:
-                    shutil.copyfileobj(src, dst, 1 << 20)
-        except (KeyError, zipfile.BadZipFile, OSError) as exc:
+            dest.with_suffix(dest.suffix + ".part").write_bytes(open_member(archive, e, m["member"]))
+        except (KeyError, tarfile.TarError, zipfile.BadZipFile, OSError) as exc:
             die(MALFORMED, f"{e['id']}: cannot extract {m['member']!r} from {archive}: {exc}")
         part = dest.with_suffix(dest.suffix + ".part")
         got = sha256_file(part)
@@ -262,18 +312,29 @@ def cmd_verify(root: Path, doc: dict, args) -> int:
     for e, got, p in bad:
         mismatch(e, got, str(p))
 
+    undeclared = [e for e in fetchable(doc) if e.get("unpack") and not e.get("consumes")]
+    if undeclared:
+        die(MALFORMED,
+            "an archive entry does not say what this tree consumes from it: "
+            + ", ".join(e["id"] for e in undeclared)
+            + "\n  Every entry with 'unpack' must declare 'consumes' — 'whole-tree' or\n"
+              "  'declared-members' — with a note, and list the members it reads individually\n"
+              "  with their own SHA-256. An archive hash says nothing about what is taken out\n"
+              "  of an archive.")
+
     for e in ok:
         print(f"ok       {e['id']:<16} {e['sha256'][:16]}…  {entry_path(root, doc, e)}")
-        for m in entry_extracts(e):
-            q = extract_path(root, doc, e, m)
-            if not q.exists():
-                missing.append(e)
-                print(f"MISSING  {e['id']:<16} member {m['member']} not extracted", file=sys.stderr)
-            elif sha256_file(q) != m["sha256"].lower():
-                die(MISMATCH,
-                    f"extracted member {m['member']!r} of {e['id']} does not match its declared hash")
-            else:
-                print(f"  member {m['member']:<30} {m['sha256'][:16]}…  {q}")
+        try:
+            names = verify_members(root, doc, e)
+        except FileNotFoundError as exc:
+            missing.append(e)
+            print(f"MISSING  {e['id']:<16} declared member not extracted: {exc}", file=sys.stderr)
+            continue
+        for m in entry_members(e):
+            where = "in the cache" if m.get("extract") else "in place"
+            print(f"  member {m['member']:<30} {m['sha256'][:16]}…  verified {where}")
+        if names:
+            print(f"  consumes {e['consumes']}, {len(names)} member(s) read individually")
     for e in fetchable(doc):
         if e in missing:
             print(f"MISSING  {e['id']:<16} {e['url']}", file=sys.stderr)

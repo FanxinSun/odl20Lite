@@ -328,6 +328,7 @@ documented by the IERS itself in `updateC04.txt`:
 
 | date | change |
 |---|---|
+| 2026-09-18 | **Step 2 accepted; its three conditions discharged.** §14.11: the km/metre crossing named once in `odl/core/units.hpp` with `FRAME-R-062` binding `SPEC-dynamics` to state where it happens (`SPEC-frames` v1.6); archive member hashing generalised to every archive with a `consumes` declaration the fetcher enforces; and the 10⁻²⁸⁰ scale's **bottom** margin measured at 26.0 decades over 74 802 values, none subnormal, with the |P̄′| ≥ |P̄| bound that makes it structural (`SPEC-gravity` v1.3, `GRAV-A-029`). The crossing's own test caught a false exactness claim in its comment on first run. **10 gates, 165 tests.** |
 | 2026-09-18 | **L2 step 2 `gravity` implemented and gated.** §14.8–14.10 added: the six specification corrections implementation forced — the factored recursion overflows by 10¹⁵⁰ and then yields NaN, so both representations fail and the 10⁻²⁸⁰ scale with a Horner nest is required; C̄₀₀ = 1; the recursion's achievable accuracy is 6.1 × 10⁻¹¹ at degree 2190 and not 10⁻¹³; `GRAV-A-008` claimed coverage that does not exist; WGS 84's GM cannot be refused by value; and an off-by-one in `truncation_rms` caught only because its expected values came from an independent route. §14.9 records what the gate measured, including the two defects in the gate's own design. `SPEC-gravity` v1.2, `SPEC-frames` v1.5 with `Position<F>`/`Acceleration<F>`. `tools/fetch.py` extracts declared archive members by their own hash, so "`hsynth_WGS84.f` was not used" is checkable. **10 gates, 163 tests, 611 artefacts byte-identical.** |
 | 2026-09-18 | **L2 step 2 `gravity` specification drafted; budget-row arithmetic made checkable.** §14 added: the sources obtained and the two that were not, the recursion derived from `TN36-6` (6.2b) and `DLMF-14` and **verified to 60 digits before being written down** because the Conventions print no recursion, the measured underflow of the classical form above 43.7° latitude at degree 2190, what the coefficient file's own structure is, the Table 6.1 conversion that fails and therefore gates nothing, and a claim about the figure-axis terms corrected during drafting. §8.13 records `tools/budgetcheck.py` — including its briefly acquiring the absolute-tolerance defect it was built to catch, found only by replaying the four historical errors. §9 gains two rows. |
 | 2025-06-05 | pole coordinates and rates for 2021-01-01 – 2024-02-24 replaced by ITRF2020-u2023 values. Series name and path unchanged. Previous solution archived at `eopc04_20_v2`. |
@@ -1011,6 +1012,50 @@ consume is `hsynth_WGS84.f`, the FORTRAN harmonic-synthesis program that plan §
 as a source of recursions. Declaring the consumed members by hash is what turns "we did not use
 it" from an assertion into something a reviewer can check: the cache contains exactly what the
 manifest names, and nothing else was unpacked.
+
+### 14.11 The three conditions attached to accepting step 2
+
+**The crossing is named, and there is one of it.** Ratifying `GRAV-Q-009` — km in `State`, metres
+in `Position`/`Acceleration` — was made conditional on something the specification had not said:
+the split was declared and the **crossing** was not. Somewhere a sum of accelerations in m s⁻²
+becomes the derivative of a `State` in km, and a crossing left to arrive with the first force
+arrives once per force. It is now `odl/core/units.hpp`:
+`state_accel_km_s2_from_m_s2` and `field_position_m_from_state_km`, with its own test, no implicit
+conversion and no generic `convert<>`. `SPEC-frames.md` v1.6 `FRAME-R-062` binds `SPEC-dynamics`
+to state **where** the crossing happens before any force is integrated.
+
+*Its test caught a false claim in its own comment on the first run.* The round trip was asserted
+exact, on the reasoning that 1000 is a power of ten and therefore harmless. A power of ten is not
+a power of two: 1e-9 fails it. The claim is now one ulp, with exactness asserted only for the
+cases that arise here — a geocentric radius in km and an acceleration in m s⁻².
+
+**Archive member hashing generalised.** The rule was prompted by EGM2008 and applies to every
+archive: an archive's SHA-256 pins the container and says nothing about which members are read
+out of it. Every manifest entry with `unpack` now declares `consumes` — `whole-tree` where the
+archive is compiled entire, `declared-members` where it is not — and lists each individually-read
+member with its own SHA-256. That is nine members across five archives: four licence texts
+quoted verbatim into `NOTICE`, three files compared against populated FetchContent trees, and
+EGM2008's two extracted into the cache. `tools/fetch.py verify` refuses an archive entry that
+declares neither, and reads the non-extracted members straight out of the archive rather than
+duplicating bytes to check them.
+
+**The scale's bottom margin, measured rather than argued.** 10⁻²⁸⁰ was justified at the top —
+10⁴⁵⁷·⁹ ÷ 10²⁸⁰ = 10¹⁷⁷·⁹, 130 decades of headroom — and at the bottom only by "a unit result
+becomes 10⁻²⁸⁰", which is not the binding constraint: the binding constraint is the **smallest
+intermediate the recursion forms**. Measured over 74 802 scaled values spanning orders 0 to 2159
+and latitudes 0° to 90° (`GRAV-A-029`):
+
+| | |
+|---|---|
+| range | 1.055 × 10⁻²⁸² to 7.313 × 10¹⁷⁷ |
+| decades above the smallest normal double | **26.0** |
+| decades below the largest | **130.1** |
+| subnormal | **0** |
+
+And the bound that makes 26 decades enough rather than merely observed: P̄′*ₙₘ* = P̄*ₙₘ*/cosᵐφ with
+cos φ ≤ 1, so |P̄′| ≥ |P̄| everywhere. The scaled value can be subnormal only where P̄ itself is
+below 10⁻²⁸, and a term that small sits beside terms of order 1 to 66 in the same degree's sum —
+already below that sum's own rounding.
 
 ---
 

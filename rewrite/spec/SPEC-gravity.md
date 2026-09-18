@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `GRAV` |
 | **Status** | **adopted** 2026-09-18; **amended by implementation the same day**, six corrections at v1.2 — see the changelog |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 2 (`doc/REWRITE_PLAN.md` §3.3) |
 | **Depends on** | `SPEC-frames.md` (the ITRS the field is fixed in), `SPEC-time.md` (the TT argument of the secular rates), `core` |
@@ -279,8 +279,23 @@ are about to be multiplied by many factors of cos φ, and each step scales down 
 subtracting.
 
 10⁻²⁸⁰ is `HF02`'s constant and `HF02` could not be obtained. It is adopted here because the
-measurement above says it is right — 10⁴⁵⁷·⁹ ÷ 10²⁸⁰ = 10¹⁷⁷·⁹ at the top, 10⁻²⁸⁰ for a unit
-result at the bottom — and not because it was cited.
+measurement says it is right, and the measurement is of **both** ends. The top is the easy one:
+10⁴⁵⁷·⁹ ÷ 10²⁸⁰ = 10¹⁷⁷·⁹, with 130 decades of headroom. The bottom is set by the **smallest
+intermediate the recursion forms**, not by a unit result, and is the thinner side — so it is
+measured rather than argued (`GRAV-A-029`):
+
+| | |
+|---|---|
+| range of the scaled values over 74 802 of them | 1.055 × 10⁻²⁸² to 7.313 × 10¹⁷⁷ |
+| decades above the smallest normal double | **26.0** |
+| decades below the largest | **130.1** |
+| subnormal values | **0** |
+
+There is also a bound that does not need measuring, and it is what makes 26 decades enough
+rather than merely observed. P̄′*ₙₘ* = P̄*ₙₘ*/cosᵐφ and cos φ ≤ 1, so **|P̄′| ≥ |P̄| everywhere**.
+The scaled value can be subnormal only where P̄ itself is below 10⁻²⁸ — and a term that small
+sits beside terms of order 1 to 66 in the same degree's sum, already far below that sum's own
+rounding. Losing it costs nothing.
 
 - **GRAV-R-030.** The recursion MUST propagate the factored function **scaled by 10⁻²⁸⁰**, and
   the powers of cos φ MUST be restored by a Horner nest over order. An implementation that forms
@@ -638,6 +653,7 @@ default and the override is what makes the module usable for an epoch in 2030.
 | `GRAV-A-022` | the substitution register: `substitutions()` lists exactly the four coefficients `GRAV-R-020` and `GRAV-R-022` change, each with its from-value, to-value and source | as stated | this spec | exact | R-025, R-021 |
 | `GRAV-A-023` | the sign convention: at a point above the equator the acceleration points towards the origin, and *V* increases downwards | as stated | `TN36-6` (6.1) | exact | R-003 |
 | `GRAV-A-025` | **the figure-axis terms**: C̄₂₁(*t*), S̄₂₁(*t*) from (6.5) with the secular pole of `TN36-7` (21), at J2000.0 and at 2026.0 | −2.264 385 × 10⁻¹⁰ and +1.299 633 × 10⁻⁹ at J2000.0; −4.048 365 × 10⁻¹⁰ and +1.664 613 × 10⁻⁹ at 2026.0 | `TN36-6` (6.5) evaluated in closed form on the constants §3.7 lists | 1 in the last digit shown | R-022, R-023, R-024 |
+| `GRAV-A-029` | **the scale's margin, at both ends**: the range of the scaled values the recursion forms, over a grid spanning orders 0 to 2159 and latitudes 0° to 90° | 1.055 × 10⁻²⁸² to 7.313 × 10¹⁷⁷ — 26.0 decades above the smallest normal double, 130.1 below the largest, **0 subnormal** | measured, §3.6a | none subnormal, none infinite | R-030, R-031a, P-7 |
 | `GRAV-A-028` | **one pole model, not two**: the secular pole this module exports is the same object (6.5) consumes, checked by perturbing the exported definition and requiring C̄₂₁/S̄₂₁ to move with it; and the four constants appear in exactly one place in the module's source | as stated | this spec, `GRAV-R-029` | exact | R-029, R-023 |
 | `GRAV-A-026` | the loader records **which file, in which tide system**: `tide_system()` reads back tide-free before the conventional substitution and zero-tide after it, and `provenance()` names the file by hash either way | as stated | `EGM08-RM` (1) and `TN36-6` Table 6.2 | exact | R-008, R-015, R-021 |
 | `GRAV-A-024` | the Condon–Shortley convention: an odd-order term computed with the (−1)ᵐ phase differs in sign, and `GRAV-A-001` then fails | sign flip on every odd *m* | `DLMF-14` (14.6.1) against `TN36-6` (6.2a) | exact | R-007 |
@@ -741,6 +757,7 @@ require it.
 
 | version | date | change |
 |---|---|---|
+| 1.3 | 2026-09-18 | **§3.6a gains the measured bottom margin**, at the manager's request on accepting step 2: the scale's top margin was justified when it was chosen and the bottom was not, and the bottom is the thinner side. Measured at 26.0 decades over 74 802 values with none subnormal (`GRAV-A-029`), together with the bound |P̄′| ≥ |P̄| that makes it structural rather than lucky. |
 | 1.2 | 2026-09-18 | **Amended by implementation, six corrections.** (1) **§3.6a added: the factored function is not bounded** — only the sectorial seed is. Max over *m* of P̄′₂₁₉₀,ₘ(1) is 10⁴⁵⁷·⁸⁶⁴, overflowing a double by 10¹⁵⁰, after which the three-term recursion yields NaN rather than infinity. Both representations fail, in opposite directions; `GRAV-R-030` now requires the 10⁻²⁸⁰ scale **and** the Horner nest, with `GRAV-R-031a` on where the scale is removed. (2) `GRAV-R-012`: **C̄₀₀ = 1, not 0** — degree 0 is the two-body term inside the same sum. (3) `GRAV-P-8` tiered: 10⁻¹³ to degree 360, 10⁻⁹ to 2190; measured worst 6.1 × 10⁻¹¹. (4) **`GRAV-A-008`'s claim that the √2 error would fail the gate was false** — the *m* = 1 share of σ₂² is 7 × 10⁻¹² — and was removed rather than left looking like coverage. (5) `GRAV-R-006`/`-F-005`: WGS 84's GM **is** the TCG value numerically and cannot be refused by value; the pair is checked instead. (6) `GRAV-R-049`/§5: `acceleration_by_degree` added, and `GRAV-A-001b` with it. `GRAV-Q-009` opened on the frame-carrying position type. |
 | 1.1 | 2026-09-18 | **Adopted**, with the addition the adoption carried and rulings on all eight questions. `GRAV-A-027`: a point-wise check against the exact J2-only closed form, covering the gate's blind spot — `GRAV-A-001` is a statement about means over the sphere, and a recursion with wrong angular structure but unit mean square would satisfy it. `GRAV-R-029` and `GRAV-A-028`: the secular pole is defined once here and L2 step 3 consumes that definition. §6 conformed to the amended `SPEC-template.md` §7 — every acceleration budget names its spectral character, and `GRAV-P-4` says explicitly that ½*aT*² *is* the right instrument for a secular error. §10 `GRAV-Q-005` also carried, into v1.0, the very claim §3.7 had corrected; repaired. |
 | 1.0 | 2026-09-18 | First draft, L2 step 2, for manager review. |
