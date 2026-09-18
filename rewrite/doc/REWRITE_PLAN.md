@@ -617,7 +617,25 @@ Every non-gravitational force that can be written in closed form. The ray-traced
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
 the MVP needs.
 
-**Entry:** L3 exit gate. Step 5 additionally needs L5 step 1.
+**Entry:** L3 exit gate.
+
+> **This layer's boundary with L5 does not close, and it is found here because L4 is where it
+> first has to be executed.** §3.5 says step 5 needs L5 step 1; §3.6 says L5 opens at L4 step 2;
+> §5 constraint 7 says a layer does not open until the one below has passed its **exit gate**.
+> Those three cannot all hold. Worse, L4's exit gate as written — *a GNSS arc fit with this
+> layer's forces* — needs a **populated** macromodel, which is L5 steps 2–3, so the gate that
+> releases L5 cannot be reached without L5.
+>
+> **The principle, which is what constraint 7 exists to protect: a layer's exit gate must be
+> satisfiable with what that layer and the layers below it have.** A gate that needs the layer
+> above is not a gate. The decomposition that restores it is the executor's to propose with
+> L4 step 1's report and the manager's to adopt — the `eop`-as-own-module split is the precedent
+> (§5 constraint 6). The shape the manager expects, stated so the proposal has something to
+> disagree with: the macromodel **schema** belongs to L4, because it is the contract the
+> box-wing, ERP and thrust models consume and freezing a contract before its consumers multiply
+> is L3 step 1's own argument; L5 keeps the **population** of that library; and the arc fit that
+> needs a populated library belongs to L5's exit gate, with L4's asking for each force's own
+> published case and an arc fit that a cannonball satisfies.
 
 1. **TODO** — `shadow`: conical shadow first, then the perspective-projection model with
    atmospheric refraction. Source: Li, Ziebart, Bhattarai et al. 2019. Gate: the paper's
@@ -648,7 +666,10 @@ carrying its own published test case — the oracle ranks last (§4 rule 2).
 
 The macromodel library as **data with per-value citations**, not as code.
 
-**Entry:** L4 step 2 — the models that consume the library must exist to shape its schema.
+**Entry:** L4 exit gate — **amended 2026-09-18**; it read *L4 step 2*, which conflicts with
+§5 constraint 7 and with L4's own exit gate. See the note in §3.5. The argument the old entry
+carried is sound and survives in the other direction: one consumer must exist to shape the
+schema, not all of them, so the schema goes to L4 and the population stays here.
 
 1. **TODO** — Schema: surfaces, areas, normals, optical coefficients, mass, centre of mass,
    each value carrying a citation field. A value without a citation is a load error, not a
