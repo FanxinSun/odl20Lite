@@ -555,6 +555,20 @@
       "upstream_mutable": false,
       "verify_note": "OBTAINED FROM SYRTE (Observatoire de Paris), NOT FROM THE IAU, because the IAU no longer serves it. Searched 2026-09-18 and recorded so the next reader need not repeat it: https://www.iau.org/static/resolutions/IAU2012_English.pdf (404, http and https), .../IAU_2012_English.pdf (404), https://iau.org/administration/resolutions/ (404), https://www.iau.org/administration/resolutions/general_assemblies/ (404) and .../ga2012/ (404). SYRTE hosts the IERS Conventions Centre and serves the individual resolution text. That bounds the search; it does not establish that the IAU publishes no copy anywhere. THE DOCUMENT WAS READ, NOT JUST FETCHED: recommendation 1 is 'that the astronomical unit be re-defined to be a conventional unit of length equal to 149 597 870 700 m exactly', and recommendation 2 is 'that this definition of the astronomical unit be used with all time scales such as TCB, TDB, TCG, TT, etc.' The second matters here: the au carries NO time-scale dependence, unlike the GM values of PERT-A-028 where the TDB/TCB rate L_B is exactly what separates two published numbers.",
       "retrieved": "2026-09-18"
+    },
+    {
+      "id": "fehlberg-tr-r-287",
+      "kind": "data",
+      "role": "Fehlberg, NASA TR R-287 (1968) — RK7(8) and RK8(9) coefficients (Tables X, XII), the truncation-error term (134), and Example (53) with its closed-form exact solution and published accumulated errors (Tables XI, XIII). SPEC-integrators, L3 step 2.",
+      "version": "NASA TR R-287, October 1968, 97 pages",
+      "url": "https://ntrs.nasa.gov/api/citations/19680027281/downloads/19680027281.pdf",
+      "filename": "TR-R-287.pdf",
+      "sha256": "5553a2a3eb53785a461762cc2b29428015f1b32c3ad0a5cb57f85a421256a0c8",
+      "licence": "NASA-PUBLIC",
+      "licence_note": "NASA technical report, public domain.",
+      "upstream_mutable": false,
+      "verify_note": "THIS IS A 1968 SCAN AND ITS OCR IS UNUSABLE FOR THE MATHEMATICS. pdftotext renders Table X's beta block as '83_ = 841 = B_I = 8sl = B71 = Be1', and mangles even the contents page ('TABLE IN.' for III, 'SectionXVHI' for XVIII, '8O' for 80) -- the I/1 and O/0 confusions that matter most for digits. THE PAGE IMAGES ARE PERFECTLY LEGIBLE: rendered at 150 dpi, Table X (report p.65, PDF p.72) gives the coefficients as EXACT RATIONALS -- alpha = 0, 2/27, 1/9, 1/6, 5/12, 1/2, 5/6, 1/6, 2/3, 1/3, 1, 0, 1; c = 41/840, 34/105, 9/35, 9/280; TE = (41/840)(f0 + f10 - f11 - f12)h at (134). So the coefficients must be read from the IMAGES, not the text layer -- and, crucially, the transcription is then verified against the RUNGE-KUTTA ORDER CONDITIONS, which are exact algebraic identities independent of the scan. A misread digit fails them. The source's legibility is therefore not what the gate rests on.",
+      "retrieved": "2026-09-18"
     }
   ]
 }

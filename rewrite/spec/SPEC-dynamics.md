@@ -322,21 +322,24 @@ prose, because gate 8's dimensional check rejected the row without it — correc
 kg m⁻² s⁻¹. **The ratio below is independent of *A*/*m* and of the normalisation**; it depends
 only on *C*_D/*C*_R, which is why one object is the whole of the comparison.
 
-Measured against `SPEC-atmosphere`'s model, **one object, both coefficients**, drag's velocity
-derivative exceeds SRP's by:
+**Inside the model's domain**, measured against `SPEC-atmosphere`'s model with one object and
+both coefficients, drag's velocity derivative exceeds SRP's by **9.3 × 10⁶ at 300 km** and
+**1078 at 953 km**. NRLMSISE-00's data reach about 1200 km (`MSIS-STATS` Table 1's highest
+band), and those two altitudes are inside it.
 
-| altitude | 300 km | 953 km | 1500 km | 3000 km | 6000 km | 20 200 km |
-|---|---|---|---|---|---|---|
-| ratio drag : SRP | 9.3 × 10⁶ | **1078** | 128 | 9.1 | 1.9 | **0.20** |
+**Above that, only the existence of a crossover is claimed, not its altitude.** The argument
+needs no model at all: `DYN-P-3` is altitude-independent — it is *P C*_R/*c*, with no density in
+it — and `DYN-P-4` falls exponentially with density, so the two cross. On this model's analytic
+continuation the crossing falls somewhere around 6000 km, **which is five times outside the
+altitude range the model was fitted to**, and that figure is given to one significant digit
+because it is worth one. At GNSS altitude the ratio is **of order 0.2** — SRP's term the larger
+— on an extrapolation roughly twenty times outside the fitted domain.
 
-**SRP's aberration term is the dominant velocity dependence in exactly the regime L4 targets for
-GNSS**, where drag has died. That is the argument for `DYN-R-022`'s split, and it identifies a
-*regime* rather than a coincidence.
-
-*Caveat, because the number would otherwise read as firmer than it is.* NRLMSISE-00's data reach
-about 1200 km, so densities above that are analytic continuation of the Bates profile outside
-the fitted data. **The crossover altitude is an extrapolation.** Its existence is not — that
-needs only one term constant and the other decaying.
+**Two-figure ratios from a model evaluated far outside its domain would read as two-figure
+facts**, which is why they are not printed here. What survives without the model is the whole of
+the argument for `DYN-R-022`'s split: **SRP's aberration term becomes the dominant velocity
+dependence once drag has decayed**, and *that* is a regime rather than a coincidence of two
+vehicles.
 
 ---
 
@@ -393,10 +396,25 @@ argument for freezing it against a *trivial* force rather than a real one: the t
 exercises the surface without negotiating with it.
 
 **`DYN-A-010` is the only gate here that catches a defect in another layer's code**, and it is
-the one the plan asked for. What it cannot catch: a km↔m crossing written *without* a literal —
-via a named constant defined elsewhere, or a `Vec3` scaled by a variable that happens to be
-1000. The register makes the literal case impossible and the named-constant case visible at the
-definition; the variable case is out of its reach and is stated here rather than left implied.
+the one the plan asked for. **A register that does not state its own residual is the thing it was
+built to replace**, so:
+
+* **A km↔m crossing written without a literal** — via a named constant defined elsewhere, or a
+  `Vec3` scaled by a variable that happens to be 1000 — is out of the register's reach. The
+  literal case is impossible and the named-constant case is visible at its definition; the
+  variable case is not caught.
+* **A MISLABELLED crossing passes both arms.** A km↔m scaling annotated as some other
+  conversion — `// UNIT-CROSSING: mas -> arcsec` on a line that is nothing of the kind — carries
+  a marker, so the first arm is satisfied, and does not name kilometres, so `DYN-R-041` is
+  satisfied too. **Nothing mechanical will catch it.** The residual is held by the discipline
+  that each entry is re-derived from what its line does rather than from the enumeration that
+  found it — which is a **process, not a gate**, and which is exactly what produced this
+  register's second marker and the `eop` limit-versus-value asymmetry that no enumeration could
+  have shown.
+
+This is plan §4 rule 6's third obligation — *state the cost where a reader will meet it* —
+applied to a **guard** rather than to an acceptance value. A gate that reports only what it
+catches invites the reader to believe it catches everything.
 
 ### The gate's denominator
 
@@ -406,6 +424,12 @@ value is 1000 or 1/1000; how many are in `core/units.hpp`; how many are annotate
 how many name kilometres **outside** `core/units.hpp`. **The last two are the gate**; the rest
 make it legible. Today: **62, 15, 1, 10, 4, 0, 0** — and 1 + 10 + 4 = 15, which the gate checks
 rather than leaving to the reader.
+
+**The pair of numbers is a measurement of the property, not only a guard on it.** Adding
+`modules/dynamics` — the first caller of the crossing — took the search from **62 production
+sources to 66 with still 15 literals**, because the crossing goes through `core/units.hpp` by
+name. That pair is reported on every run and is expected to stay flat: **it is the number that
+will move first if L4's dozen forces begin writing their own constants.**
 
 The enumeration was confirmed by a **second, independent method** before the register was built:
 first by matching the spellings of the 1e3 family, then by parsing every numeric literal in the

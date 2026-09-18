@@ -1982,6 +1982,93 @@ happens at exactly **two sites**, both in `dynamics.cpp`, both naming `core/unit
 register confirms it structurally: adding the module took the search from 62 production sources
 to 66 with **still 15 literals**, because the first caller of the crossing introduced none.
 
+## 22. L3 step 2 — coefficients proved rather than trusted, and a prediction made before the run
+
+**Date.** 2026-09-18. **State.** `tools/ci.sh` exits 0: **12 gates, 228 tests**.
+`SPEC-integrators.md` v1.0, Spec ID `INTG`: 31 own-prefix identifiers, 15 requirements and
+refusals, 13 discharged, 2 excused, 0 uncovered.
+
+### 22.1 The source prints everything and OCR destroys all of it
+
+Fehlberg, NASA TR R-287 (1968), pinned as `fehlberg-tr-r-287`, prints Table X (RK7(8)), the
+truncation term (134), Example (53) with a closed-form solution, and Table XI's accumulated
+errors. `pdftotext` renders Table X's β block as `83_ = 841 = B_I = 8sl = B71 = Be1 = B_l =
+81ol`, and mangles the contents page — `TABLE IN.` for III, `8O` for 80. **The page images at
+300 dpi are exact**, and the coefficients there are **rationals**.
+
+So they were read by eye. That is acceptable **here and would not be elsewhere**, and the reason
+is plan §4 rule 6's converse: a Runge–Kutta tableau has an independent specification — the order
+conditions, exact algebraic identities over the rationals. *The question is not whether a 1968
+scan can be read reliably; it is whether what was read is checkable.*
+
+**The coefficients being rationals is what makes this work.** A source published as decimals
+satisfies the order conditions only to rounding, and a transcription error in the last digits is
+then indistinguishable from that rounding.
+
+| check, exact rational arithmetic | result |
+|---|---|
+| row-sum consistency Σⱼβᵢⱼ = αᵢ | **13/13 rows** |
+| *c* through order 7 | **85 conditions, 0 violated** |
+| *ĉ* through order 8 | **200 conditions, 0 violated** |
+| *c* at order 8 | **40 of 115 violated** |
+
+**The last line is an independent cross-check that never touches the coefficient digits.** There
+are **115** rooted trees of order 8 — exactly the range of Fehlberg's *T*ᵥ — and Section XV says
+in prose, on a different page from the table, that RK7(8) has *"only **40** non-zero error
+coefficients"*. Prose on one page and mathematics applied to a table on another agree.
+
+**The two checks are orthogonal and `SPEC-integrators` §3.3 says which establishes what.** The
+order conditions prove the tableau is *a valid RK7(8) pair*; they cannot prove it is *Fehlberg's*,
+because his derivation has free parameters that were chosen rather than forced. Table XI is the
+only check of that claim.
+
+### 22.2 The prediction, written before the first run, and what happened
+
+`INTG-P-2` was written into the specification **before the integrator was run**, so the tolerance
+could not be chosen from the result — the defect already ruled on when a number went into a
+specification and was measured afterwards.
+
+| | predicted, in advance | measured |
+|---|---|---|
+| order of magnitude | **10⁻¹⁴, within ×10** — the gate | Δ*y* = −1.465 × 10⁻¹⁴, Δ*z* = −1.976 × 10⁻¹⁴ against Fehlberg's −2.509 × 10⁻¹⁴ and −5.135 × 10⁻¹⁴: **×1.7 and ×2.6** |
+| sign | **expected negative, explicitly NOT gated** (n = 4 is not a pattern) | **both negative**, as expected |
+| leading digit | **expected NOT to match**; a four-figure match would mean something was wrong | 1.47 against 2.51, 1.98 against 5.14 — **does not match** |
+| step count | within ×2 of 818, reported not gated | 1251 accepted, ×1.53 |
+
+Every element was borne out, **including the one predicted to fail**. The sizing that produced
+the prediction: at tolerance 10⁻¹⁸ over 818 steps, controlled truncation contributes at most
+~8 × 10⁻¹⁶ — 31× less than printed — so the printed errors are accumulated *arithmetic*, and a
+random-walk estimate over ~10⁵ operations gives 2 × 10⁻¹³, the same order.
+
+### 22.3 What building it found
+
+**The grouping of (134) decides whether the estimator's blindness is visible.** On a quadrature
+problem the four evaluations are pairwise **bit-identical** (α₀ = α₁₁, α₁₀ = α₁₂, and the *y*
+argument is ignored), so the cancellation is algebraically exact. Written as the report writes
+it, `(f₀ + f₁₀) − f₁₁ − f₁₂` **rounds before it subtracts** and returns about 1.1 × 10⁻¹⁶
+instead of zero.
+
+That is not a rounding detail. **An estimate of exactly zero is honest about being blind**, and
+the controller's behaviour is then obviously degenerate. An estimate of a few times 10⁻¹⁸ is
+rounding noise *wearing the shape of an estimate*: the controller responds to it, the numbers
+look plausible, and nothing announces that the quantity is meaningless. The implementation groups
+the differences pairwise, which is also better conditioned in general.
+
+**The exhibition is worse than the description.** `INTG-A-005` integrates *y*′ = cos *x* from 0
+to 10 at a tolerance of **10⁻³⁰**: the integrator takes **four steps**, rejects **none**, reports
+a worst estimate of **exactly zero**, and is wrong by **4.4 × 10⁻³**.
+
+**A refusal fired on a real condition rather than a constructed one.** An oversized first step on
+Example (53) drives *z* negative and log *z* is not finite, so `INTG-F-004` fires naming the
+component and the abscissa. That is now `INTG-A-008`'s case; the rejection-counting test moved to
+two-body, which has no domain restriction.
+
+**Orders recovered rather than asserted**: fixed-step RKF7(8) slope **6.90**, RK4 slope **4.11**.
+The first attempt measured 0.87, because at *period*/200 a 7th-order method on that orbit is
+already round-off limited — ~2 × 10⁻⁷ m of accumulated arithmetic against a truncation term near
+5 × 10⁻¹⁰ m. Halving the step there measures the round-off walk, not the order. Measured first,
+then chosen.
+
 ## Changelog
 
 | date | change |
@@ -1992,6 +2079,7 @@ to 66 with **still 15 literals**, because the first caller of the crossing intro
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
 | 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
+| 2026-09-18 | §22 added: L3 step 2. RKF7(8) read from page images and proved against the order conditions; Fehlberg's own prose count of 40 error coefficients confirms the reading. Table XI's agreement predicted before the run and borne out, including the part predicted to fail. |
 | 2026-09-18 | §21 added: L3 step 1. The crossing gate the plan asked for would have fired 14 times and caught nothing; replaced by a register, which is ci.sh gate 10. An annotation is not a permit. The SRP-versus-drag figure compared two vehicles. |
 | 2026-09-18 | §20.8-20.9 added: ci.sh exited 1 on NOTICE drift while the individual checkers were green — the submission criterion is now the composed gate's exit code. EPH-Q-005 resolved: IAU 2012 B2 obtained and pinned, and L2 can close. |
 | 2026-09-18 | §20.6-20.7 added: the ingestion layer verifies 7 969/7 969 against the issuing authority; l2_floors gains the atmosphere row at both radii; four review corrections, all of the same shape. |

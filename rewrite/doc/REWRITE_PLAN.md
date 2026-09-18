@@ -456,7 +456,7 @@ external table in the layer is manifest-declared with a hash.
 
 ---
 
-### 3.4 L3 `dynamics` — 1 of 4 done; **the open layer**
+### 3.4 L3 `dynamics` — 2 of 4 done; **the open layer**
 
 Small in code and the hinge of the design: this is where the predecessor's fixed-width
 sensitivity block becomes a registry, which is what later gives a joint covariance instead of a
@@ -502,8 +502,39 @@ grid scan.
    62 production sources to 66 **with still 15 literals**. The first caller of the crossing
    introduced none, because it goes through `core/units.hpp` by name. The register measures the
    property rather than only guarding it.
-2. **TODO** — Integrators: RK4 and a DP8(7)- or RKF7/8-class variable-order scheme. Gate: the
-   analytic two-body solution, with step-size insensitivity demonstrated rather than assumed.
+2. **DONE** — Integrators: RK4 and **Fehlberg's RKF7(8)**, transcribed from the page images of
+   `TR R-287` because the 1968 scan's OCR renders a coefficient row as `83_ = 841 = B_I = 8sl`.
+   DP8(7) via `dop853.f` was not taken — it states no licence at all, like the two sources §6
+   already dropped — but the **deciding** ground is §4 rule 6's converse: Fehlberg prints exact
+   rationals, so the order conditions either hold in exact rational arithmetic or do not, where a
+   decimal-published source satisfies them only to rounding.
+
+   *Transcription proved, never in floating point:* row sums 13/13, `c` through order 7 —
+   85 conditions, 0 violated — `ĉ` through order 8 — 200, 0 violated — and `c` **violating 40 of
+   the 115 order-8 conditions**, which is exactly the count Fehlberg states in prose on a
+   *different page*: "only 40 non-zero error coefficients". Prose on p.66 against mathematics
+   applied to the table on p.65, with neither being the scan's digits. (115, 85 and 200 are the
+   rooted-tree numbers, verified independently — a checker reporting *0 violated* against a
+   wrong denominator passes while examining a subset.)
+
+   *Two checks, orthogonal, and §8 says which is which.* The order conditions establish that the
+   tableau is **a valid** RK7(8) pair and cannot establish it is **Fehlberg's**, because his
+   derivation has free parameters chosen rather than forced. Table XI is the only check of that
+   claim. Its comparison was **pre-registered** — the expected order of magnitude, sign and
+   whether the leading digit should match, written down with the reason before the first run,
+   because a tolerance chosen from its own result tests nothing. Gated on order of magnitude
+   within ×10: predicted 10⁻¹⁴, measured 1.465 and 1.976 × 10⁻¹⁴ against Fehlberg's printed
+   2.509 and 5.135 × 10⁻¹⁴. Leading digits predicted **not** to match, and they do not.
+
+   *Propagation is with the 7th-order solution, not by local extrapolation* — measured order
+   6.90 — and that is **required** to reproduce Table XI, which is the only thing tying this
+   tableau to Fehlberg's method. An optimiser who notices that an 8th-order solution is computed
+   and discarded, and switches to local extrapolation, gains an order and silently invalidates
+   that gate.
+
+   *Gate:* the analytic two-body solution, Fehlberg's Example (53) — a coupled nonlinear system
+   with a closed form, verified to solve its own stated system before being used — step-size
+   insensitivity demonstrated rather than assumed, and the quadrature blindness **exhibited**.
 3. **TODO** — State transition matrix, integrated alongside the state. Gate: agreement with
    finite differences of the propagated state to a stated tolerance.
 4. **TODO** — Parameter sensitivity registry: any registered parameter automatically gains a

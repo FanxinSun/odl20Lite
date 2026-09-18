@@ -44,6 +44,7 @@ SUMMARY
   nrlmsise00-datavsmodels 2002         NRL-PUBLIC       data
   nrlmsise00-statsreadme 2002         NRL-PUBLIC       data
   iau2012-b2         adopted by the XXVIII General Assembly, Beijing, 30 August 2012 IAU-PUBLIC       data
+  fehlberg-tr-r-287  NASA TR R-287, October 1968, 97 pages NASA-PUBLIC      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -431,6 +432,14 @@ DATA INPUTS
     retrieved 2026-09-18
     note      An IAU General Assembly resolution: a published standards
               document. Text, never linked.
+
+  fehlberg-tr-r-287  NASA TR R-287, October 1968, 97 pages
+    role      Fehlberg, NASA TR R-287 (1968) — RK7(8) and RK8(9) coefficients (Tables X, XII), the truncation-error term (134), and Example (53) with its closed-form exact solution and published accumulated errors (Tables XI, XIII). SPEC-integrators, L3 step 2.
+    licence   NASA-PUBLIC
+    url       https://ntrs.nasa.gov/api/citations/19680027281/downloads/19680027281.pdf
+    sha256    5553a2a3eb53785a461762cc2b29428015f1b32c3ad0a5cb57f85a421256a0c8
+    retrieved 2026-09-18
+    note      NASA technical report, public domain.
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

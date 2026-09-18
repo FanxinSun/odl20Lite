@@ -83,6 +83,9 @@ gate "budget-row arithmetic (specifications' only untested numbers)"
 gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
 "$PY" tools/constraint8.py
 
+gate "RKF7(8)'s tableau satisfies the order conditions exactly (SPEC-integrators INTG-A-001)"
+"$PY" tools/rk_coefficients.py --check
+
 gate "every factor of a thousand is accounted for (SPEC-dynamics DYN-R-040)"
 "$PY" tools/unitcheck.py --quiet
 
