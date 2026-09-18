@@ -55,7 +55,7 @@ anything that arrives in the clean session's context is registered in the ledger
 section, because "did not read it" and "nothing about it reached me" are different claims and
 only the first is the executor's to control. Three one-time obligations are already discharged:
 the licence has been in the tree since commit one (`bdd80be`); the patent check is done and
-clear (L9 stage 0 records it); the oracle is frozen.
+clear (L9 step 1 records it); the oracle is frozen.
 
 ---
 
@@ -105,14 +105,14 @@ around.
 
 ### The rule — one layer, one sequence
 
-**A layer has exactly one ordered sequence of stages, and at most one stage of it is open at a
+**A layer has exactly one ordered sequence of steps, and at most one step of it is open at a
 time.** Concretely:
 
-1. Every stage appears in exactly one layer. Nothing is worked on in two places.
-2. A stage runs the whole §3 shape — spec, review, data, dependencies, implement, test,
-   ledger, gate — before the next stage of that layer opens.
+1. Every step appears in exactly one layer. Nothing is worked on in two places.
+2. A step runs the whole of §3.11 — spec, review, data, dependencies, implement, test,
+   ledger, gate — before the next step of that layer opens.
 3. A layer's sequence does not open until the layer below has passed its exit gate.
-4. Work that does not fit the open stage is written down and left; it does not become a second
+4. Work that does not fit the open step is written down and left; it does not become a second
    front inside the layer.
 
 **Why the rule exists.** The predecessor's whole failure mode was the plausible wrong number,
@@ -131,10 +131,10 @@ L8. Interfaces are validated bottom-up: the P1 specifications found six errors i
 implementation will find the same class of error in the specifications, so the three adopted
 specs of L1 are *implemented* before further specs are written — writing another twelve on
 unvalidated interfaces banks twelve specs' worth of undetected error. **D1 is the only true
-blocker**; while it is open the sole forward work is the spec stages of L2, which are
+blocker**; while it is open the sole forward work is the spec steps of L2, which are
 language-free, taken knowingly at interface-revision risk.
 
-*Effort, labelled judgement:* L0–L8 is roughly eleven M-class stages and a handful of S-class
+*Effort, labelled judgement:* L0–L8 is roughly eleven M-class steps and a handful of S-class
 ones — order of **3–5 focused months** solo-with-assistant. L9 adds **1–2 months**. No more
 precision than that is honest yet.
 
@@ -144,7 +144,7 @@ precision than that is honest yet.
 
 A reviewer comparing the two trees must see two designs, not one design twice; this section is
 that requirement made specific, and conformance to it is an adoption criterion in every
-stage's Review step. The layers of §1 are these modules; names indicative:
+step's Review step. The layers of §1 are these modules; names indicative:
 
 ```
 time      TT/TAI/UTC/UT1/GPS/TDB, leap-second table with enforced expiry; no file access
@@ -187,318 +187,313 @@ Design points that are both improvements and the independence evidence:
 
 ## 3. The layers — one sequence each
 
-Every stage of every layer runs the same eight-step shape. **The shape is where the former
-ground rules now live** — following the steps is keeping the discipline:
-
-1. **Spec** — write `spec/SPEC-<stage>.md` from *only* the sources the stage names below, to
-   `SPEC-template.md` (derivation declaration; an obtained-`primary/secondary/not` column on
-   every source; open questions to the manager, not into guesses).
-2. **Review** — the manager adopts or returns. Adoption criteria: sources primary or flagged;
-   conforms to §2; every requirement discharged by a test or individually excused; no porting
-   of the predecessor's revival-era extensions — their algorithms are re-derived from the same
-   public sources the revival itself cites.
-3. **Data** — manifest entries (URL, SHA-256, licence note), fetched from origin. Baselines and
-   acceptance tests pin **IERS-archived** series by path and hash: the IERS revises EOP
-   retroactively at unchanged URLs (three documented instances: 2025-06-05, 2026-02-05,
-   2026-03-09) and archives the superseded series at stable paths, so pinning records a URL and
-   redistributes nothing. Operational runs may use live data but record identity + hash in run
-   provenance; a pinned-hash mismatch is a hard failure; re-baselining is deliberate and
-   logged, never a side effect of a re-fetch.
-4. **Dependencies** — permissive licences only (BSD/MIT/Apache-class), recorded at adoption
-   with any multi-licence choice named; no GPL/LGPL/AGPL in anything that could ship.
-   Unlicensed normative code (the IERS Conventions Fortran) is never vendored or translated:
-   implement from the tables printed in the Conventions, verify against the routines'
-   published test cases — using a published expected output is observation, not derivation
-   from code.
-5. **Implement** — in the §2 module, to the adopted spec, under the §5 constraints. Every
-   refusal ships with exactly one named, logged escape hatch, set explicitly per run and
-   recorded in run provenance with the relevant table's hash — default refuses, and the escape
-   cannot arrive through a configuration fall-through.
-6. **Test** — the spec's acceptance suite, gated on *published* values; then the oracle rows
-   named below, each comparison logged in the ledger (date, quantity, oracle value, new value,
-   verdict) and **never the sole gate** — §4 says why some oracle rows must *disagree*.
-7. **Ledger** — module and parameter register rows in `PROVENANCE.md`; the oracle-log rows.
-8. **Gate** — the single criterion that closes the stage; numbers frozen in `oracle/cases.tsv`
-   or in a named publication; statistic definitions named.
-
-Steps with no content for a stage ("Data: —") are stated, not skipped, so absence is visible.
-Each layer below gives its **entry**, its **sequence**, and the **exit gate** that releases the
-layer above. The bracketed tags record which feature of the previous draft each stage absorbed.
+Ten layers, ten sequences. **Each layer below is a single numbered list, worked top to bottom,
+one step open at a time.** Every step is marked **DONE** or **TODO**: a step is DONE only when
+its gate has passed, so a written-and-adopted specification with no implementation behind it is
+still TODO, and the explanation says so. §3.11 says how any one step is executed.
 
 ---
 
-### 3.1 L0 `foundation` — *partial*
+### 3.1 L0 `foundation` — 2 of 7 done
 
-Repository, build, CI, the data manifest, provenance automation. No science, so stages 1–2 of
-the shape are empty throughout and stage 4 is the toolchain.
+**Entry:** none, this is the floor. **Blocked on:** D1 (language and toolchain) for steps 3–7.
 
-**Entry:** none — this is the floor.
+1. **DONE** — Repository created with the licence in the first commit (`bdd80be`), together
+   with this plan, the provenance skeleton and the P1 specifications. The licence-first
+   obligation is discharged and stays discharged.
+2. **DONE** — Oracle frozen: 27 cases in `oracle/cases.tsv`, every input hashed, `capture.sh`
+   reproducing them. This is the step that lets the predecessor serve as a test oracle without
+   anyone reading it again — the numbers are captured once and the tree is finished with.
+3. **TODO** — Manifest format and fetcher. Every external input declared with URL, SHA-256 and
+   a licence note, fetched from origin into a cache. Nothing enters the tree undeclared, so
+   provenance becomes a build artefact rather than a habit.
+4. **TODO** — CI running the gates offline from that cache, so a green build means the frozen
+   numbers still hold and not that the network was up.
+5. **TODO** — Licence and NOTICE generation per D1 — generated from the dependency set, never
+   hand-maintained, because a hand-maintained NOTICE is wrong within two dependencies.
+6. **TODO** — Spec-coverage checker, with its denominator pinned to OWN-PREFIX identifiers.
+   Specs cross-cite by design and a naive count gave 128 against a true 121 in hand audit:
+   small enough to look like rounding, and a script would have asserted it.
+7. **TODO** — Reproducible-build flags.
 
-**Sequence**
-1. **Repository and licence** — *done at `bdd80be`*: tree, licence in the first commit, plan,
-   provenance skeleton, frozen oracle. [was 3.1]
-2. **Manifest and fetcher** — the declaration format (URL, SHA-256, licence note), the cache,
-   and the fetch tool. Every external input in the tree is declared here or it is not used.
-3. **CI** — runs the §3 gates from cached manifest data, offline and reproducible.
-4. **Licence and NOTICE automation** — generated, not hand-maintained, per D1.
-5. **Spec-coverage checker** — **pins its denominator to OWN-PREFIX identifiers.** Specs
-   cross-cite by design, and a naive count gave 128 against a true 121 in hand audit: small
-   enough to look like rounding, and a script would have asserted it.
-6. **Reproducible-build flags.**
-
-**Exit gate:** a clean clone builds, tests, and regenerates NOTICE with one command, with CI
-green on cached data.
-
----
-
-### 3.2 L1 `time-frames` — *three specs adopted v1.2; implementation next*
-
-Timescales, Earth orientation, and the frame chain. The layer that makes two of the revival's
-most expensive traps unrepresentable rather than merely discouraged.
-
-**Entry:** L0 stages 1–3.
-
-**Sequence**
-1. **`time`** [was 3.2] — TT/TAI/UTC/UT1/GPS/TDB. Sources: IERS Conventions TN36 ch. 10, the
-   IERS leap-second table, ERFA documentation. *Spec adopted v1.2*, carrying: representation
-   (i64 seconds + f64 fraction) in TAI from 1958, because a bare f64 Julian Date quantises at
-   ≈ 40 µs ≈ 0.30 m at LEO and is disqualified by arithmetic; leap-second table with enforced
-   expiry and one named escape hatch (R12's pattern).
-   *Gate:* the Conventions' published worked examples, each timescale pair.
-2. **`eop`** [was 3.3] — EOP 20 C04 and `finals2000A.all` ingestion, splice, interpolation,
-   tidal terms. Its own module, **not** part of `time`: it reads files and holds a coverage
-   policy, and that boundary was argued and adopted rather than assumed.
-   *Gate:* published IERS values at sampled epochs; refusal outside coverage, with the escape
-   hatch exercised and logged.
-3. **`frames`** [was 3.4] — GCRS↔ITRS by IAU 2006/2000A through ERFA, TEME↔GCRS, RTN and DYB.
-   *Gate:* round-trip closure, **and** the required-disagreement test against oracle case T-01
-   — the predecessor computes IAU-76/1980, this tree computes IAU 2006/2000A, so the ≈ 0.064″
-   ≈ 2.17 m at 7000 km separation must be present with the right sign and size. Agreement is
-   the failure. See §4 rule 1.
-
-**Exit gate:** all three gates passed, and a state may not be constructed without a declared
-timescale or reinterpreted between frames — checked as a compile-time property, not a test.
+**Exit gate:** a clean clone builds, tests and regenerates NOTICE with one command, CI green
+from cached data alone.
 
 ---
 
-### 3.3 L2 `environment` — *not started*
+### 3.2 L1 `time-frames` — 0 of 3 done, all three specs adopted
+
+**Entry:** L0 steps 1–4.
+
+1. **TODO** — `time`: TT/TAI/UTC/UT1/GPS/TDB. *Specification adopted v1.2* from IERS
+   Conventions TN36 ch. 10, the IERS leap-second table and the ERFA documentation, carrying two
+   decisions worth keeping: the representation is i64 seconds plus f64 fraction in TAI from
+   1958, because a bare f64 Julian Date quantises at ≈ 40 µs ≈ 0.30 m at LEO and is disqualified
+   by arithmetic; and the leap-second table has an enforced expiry with exactly one named,
+   logged escape hatch. **Implementation and gate remain.** Gate: the Conventions' published
+   worked examples, every timescale pair.
+2. **TODO** — `eop`: EOP 20 C04 and `finals2000A.all` ingestion, splice, interpolation, tidal
+   terms. *Specification adopted v1.2.* It is its own module rather than part of `time` — it
+   reads files and holds a coverage policy — and that boundary was argued by the spec author
+   and adopted, not assumed. **Implementation and gate remain.** Gate: published IERS values at
+   sampled epochs, plus refusal outside coverage with the escape hatch exercised and logged.
+3. **TODO** — `frames`: GCRS↔ITRS by IAU 2006/2000A through ERFA, TEME↔GCRS, RTN and DYB.
+   *Specification adopted v1.2.* **Implementation and gate remain.** Gate: round-trip closure,
+   **and** the required-disagreement test against oracle case T-01 — the predecessor computes
+   IAU-76/1980 and this tree computes IAU 2006/2000A, so a ≈ 0.064″ ≈ 2.17 m separation at
+   7000 km must be present with the right sign and size, and agreement is the failure (§4
+   rule 1).
+
+**Exit gate:** all three gates passed, and a state cannot be built without a declared timescale
+or reinterpreted between frames — enforced by the type system, not by a test.
+
+---
+
+### 3.3 L2 `environment` — 0 of 4 done
 
 Everything the spacecraft moves through or is pulled by, with no reference to the spacecraft
-itself. Kept separate from L4 on exactly that line: a gravity field is the environment, a drag
-force is a spacecraft property.
+itself. A gravity field is the environment; a drag force is a spacecraft property and lives in
+L4.
 
 **Entry:** L1 exit gate.
 
-**Sequence**
-1. **`ephemerides`** [was 3.5] — planetary and lunar positions, SPK via CALCEPH. Sources: the
-   JPL DE documentation and the SPK format specification.
-   *Gate:* published DE test values; the units trap of the revival — a reader whose comment
-   claims AU while the routine returns km — is a named acceptance test, not a comment.
-2. **`gravity`** [was 3.6] — geopotential to full degree/order, with the recursions taken from
-   the Conventions' printed tables.
-   *Gate:* published coefficients' acceleration at sampled points; degree-truncation behaviour
-   stated and tested.
-3. **`tides-relativity-thirdbody`** [was 3.6] — solid Earth, ocean and pole tides; the
-   relativistic correction; third-body attraction.
-   *Gate:* IERS Conventions worked examples, term by term.
-4. **`atmosphere`** [was 3.10, environment half] — NRLMSISE-00 from D2's public-domain FORTRAN
-   port, plus space-weather ingestion with its own manifest entries.
-   *Gate:* the model's published reference profiles; out-of-range inputs refused with a
-   diagnostic naming the request and the limit.
+1. **TODO** — `ephemerides`: planetary and lunar positions, SPK through CALCEPH. Sources: the
+   JPL DE documentation and the SPK format specification. Gate: published DE test values, with
+   the revival's units trap — a routine whose comment claims AU while it returns km — as a
+   named acceptance test rather than a comment.
+2. **TODO** — `gravity`: the geopotential to full degree and order, recursions taken from the
+   tables printed in the Conventions rather than from anyone's code. Gate: published
+   coefficients' acceleration at sampled points, with truncation behaviour stated and tested.
+3. **TODO** — `tides-relativity-thirdbody`: solid Earth, ocean and pole tides; the relativistic
+   correction; third-body attraction. Gate: the IERS Conventions worked examples, term by term.
+4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
+   space-weather ingestion with its own manifest entries. Gate: the model's published reference
+   profiles; out-of-range input refused with a diagnostic naming the request and the limit.
 
-**Exit gate:** each model reproduces its published reference values, and every external table
-in the layer is manifest-declared with a hash.
+**Exit gate:** every model reproduces its published reference values and every external table in
+the layer is manifest-declared with a hash.
 
 ---
 
-### 3.4 L3 `dynamics` — *not started*
+### 3.4 L3 `dynamics` — 0 of 4 done
 
-Equations of motion, integration, and the generic sensitivity machinery. Small in code and the
-hinge of the whole design: this is where the predecessor's fixed-width sensitivity block is
-replaced by a registry, which is what later delivers a joint covariance instead of a grid scan.
+Small in code and the hinge of the design: this is where the predecessor's fixed-width
+sensitivity block becomes a registry, which is what later gives a joint covariance instead of a
+grid scan.
 
 **Entry:** L2 exit gate.
 
-**Sequence**
-1. **Force plugin surface** — the one interface every force implements:
-   `accel(t, state, params) -> (a, da/dstate, da/dparams)`. Defined and frozen before any force
-   exists, because retrofitting it is how the predecessor ended up unable to estimate drag.
-2. **Integrators** — RK4 and a DP8(7)- or RKF7/8-class variable-order scheme.
-   *Gate:* the analytic two-body solution, and step-size insensitivity demonstrated rather
-   than assumed.
-3. **State transition matrix** — integrated alongside the state.
-   *Gate:* agreement with finite differences of the propagated state, to a stated tolerance.
-4. **Parameter sensitivity registry** — any registered parameter automatically gains a
-   sensitivity column and a place in the joint covariance, for **whatever** parameter set is
-   registered; no fixed width.
-   *Gate:* a registered parameter's sensitivity column matches finite differences, and
-   registering a second parameter requires no change to the integrator.
+1. **TODO** — Force plugin surface: the one interface every force implements,
+   `accel(t, state, params) -> (a, da/dstate, da/dparams)`. Defined and frozen **before any
+   force exists**, because retrofitting it is how the predecessor ended up unable to estimate
+   drag at all.
+2. **TODO** — Integrators: RK4 and a DP8(7)- or RKF7/8-class variable-order scheme. Gate: the
+   analytic two-body solution, with step-size insensitivity demonstrated rather than assumed.
+3. **TODO** — State transition matrix, integrated alongside the state. Gate: agreement with
+   finite differences of the propagated state to a stated tolerance.
+4. **TODO** — Parameter sensitivity registry: any registered parameter automatically gains a
+   sensitivity column and a place in the joint covariance, for whatever set is registered, with
+   no fixed width anywhere. Gate: a registered parameter's column matches finite differences,
+   and registering a second parameter requires no change to the integrator.
 
-**Exit gate:** the plugin surface is used by a trivial test force end to end, sensitivities
+**Exit gate:** the plugin surface carries a trivial test force end to end, sensitivities
 included, with nothing in the integrator aware of what the parameter means.
 
 ---
 
-### 3.5 L4 `forces-analytic` — *not started*
+### 3.5 L4 `forces-analytic` — 0 of 6 done
 
-Every non-gravitational force that can be written down in closed form. The ray-traced treatment
-of the same physics is L9 and deliberately later: this layer must stand on its own first,
-because it is what the MVP needs.
+Every non-gravitational force that can be written in closed form. The ray-traced treatment of
+the same physics is L9 and deliberately later: this layer must stand alone, because it is what
+the MVP needs.
 
-**Entry:** L3 exit gate; stage 5 additionally needs L5 stage 1.
+**Entry:** L3 exit gate. Step 5 additionally needs L5 step 1.
 
-**Sequence**
-1. **`shadow`** [was 3.8] — conical shadow, then the perspective-projection model with
-   atmospheric refraction. Source: Li, Ziebart, Bhattarai et al. 2019.
-   *Gate:* the paper's published eclipse geometry cases.
-2. **`srp-analytic`** [was 3.9] — cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
-   Rodríguez-Solano et al. 2012. The coefficient convention is stated per model and tested:
-   the sphere's (9 + 4ν(1−μ))/9 is *not* a flat plate's 1 + ρ_s, and conflating them is a 2×
-   error in a recovered area — an acceptance test, not a comment.
-3. **`drag`** [was 3.10, force half] — the drag force over L2's atmosphere, with the drag
-   coefficient a **registered parameter** from the first commit, never a constant.
-   *Gate:* published ballistic-coefficient cases; the parameter's sensitivity column against
-   finite differences.
-4. **`erp`** [was 3.11] — Earth albedo and infrared radiation pressure. Sources: Knocke et al.
-   1988; Rodríguez-Solano et al. 2012.
-   *Gate:* the papers' published accelerations for a stated geometry.
-5. **`thrust-yaw`** [was 3.12] — antenna thrust and the yaw-attitude laws. Sources:
-   Steigenberger 2018; Kouba 2009; Montenbruck et al. 2015; the official Galileo, GLONASS and
-   BeiDou attitude-law documents.
-   *Gate:* published yaw angles through noon and midnight turns, per constellation.
-6. **`ecom`** [was 3.13] — the empirical SRP frame, D/Y/B. Source: Arnold et al. 2015.
-   *Gate:* the published parameterisation reproduced on a GNSS arc.
+1. **TODO** — `shadow`: conical shadow first, then the perspective-projection model with
+   atmospheric refraction. Source: Li, Ziebart, Bhattarai et al. 2019. Gate: the paper's
+   published eclipse geometry cases.
+2. **TODO** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
+   Rodríguez-Solano et al. 2012. The coefficient convention is stated per model and tested — a
+   sphere's (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρ_s, and conflating them is a factor of
+   two in a recovered area. That is an acceptance test, not a comment.
+3. **TODO** — `drag`: the drag force over L2's atmosphere, with the drag coefficient a
+   **registered parameter from the first commit**, never a constant. Gate: published ballistic
+   coefficient cases, and the parameter's sensitivity column against finite differences.
+4. **TODO** — `erp`: Earth albedo and infrared radiation pressure. Sources: Knocke et al. 1988;
+   Rodríguez-Solano et al. 2012. Gate: the papers' published accelerations for a stated
+   geometry.
+5. **TODO** — `thrust-yaw`: antenna thrust and the yaw-attitude laws. Sources: Steigenberger
+   2018; Kouba 2009; Montenbruck et al. 2015; the official Galileo, GLONASS and BeiDou
+   attitude-law documents. Gate: published yaw angles through noon and midnight turns, per
+   constellation.
+6. **TODO** — `ecom`: the empirical SRP frame, D/Y/B. Source: Arnold et al. 2015. Gate: the
+   published parameterisation reproduced on a GNSS arc.
 
 **Exit gate:** a GNSS arc fit with this layer's forces reaches its frozen residual, every force
-carrying its own published test case — the oracle ranks last, per §4 rule 2.
+carrying its own published test case — the oracle ranks last (§4 rule 2).
 
 ---
 
-### 3.6 L5 `spacecraft` — *not started*
+### 3.6 L5 `spacecraft` — 0 of 5 done
 
-The macromodel library, **as data with per-value citations**, not as code.
+The macromodel library as **data with per-value citations**, not as code.
 
-**Entry:** L4 stage 2 (the models that consume it must exist to shape the schema).
+**Entry:** L4 step 2 — the models that consume the library must exist to shape its schema.
 
-**Sequence**
-1. **Schema** — surfaces, areas, normals, optical coefficients, mass, centre of mass, each
-   value carrying its citation field. A value without a citation is a load error.
-2. **GPS** — from Fliegel & Gallini 1992/1996.
-3. **Galileo** — from the ESA GSC metadata published in 2017 (dimensions, mass, centre of
-   mass, optical coefficients, attitude law).
-4. **GLONASS, BeiDou, QZSS** — from the IAC metadata, CSNO 2019, the Cabinet Office release,
-   consolidated via the IGS satellite metadata SINEX.
-5. **Altimetry** — Jason from the CNES box-wing macromodel (Cerri et al. 2010); Sentinel-6
-   from the ESA/EUMETSAT metadata.
+1. **TODO** — Schema: surfaces, areas, normals, optical coefficients, mass, centre of mass,
+   each value carrying a citation field. A value without a citation is a load error, not a
+   warning.
+2. **TODO** — GPS, from Fliegel & Gallini 1992/1996.
+3. **TODO** — Galileo, from the ESA GSC metadata published in 2017 — dimensions, mass, centre
+   of mass, optical coefficients and attitude law.
+4. **TODO** — GLONASS, BeiDou and QZSS, from the IAC metadata, CSNO 2019 and the Cabinet Office
+   release, consolidated through the IGS satellite metadata SINEX.
+5. **TODO** — Altimetry: Jason from the CNES box-wing macromodel (Cerri et al. 2010),
+   Sentinel-6 from the ESA/EUMETSAT metadata.
 
-**Note, and it is the sharpest edge in the whole plan.** The predecessor's own surface models
-under `res/` and `analysis/` — a hand-built hundred-plus-surface GPS-IIR model with material
-properties — are **not** taken. A compilation of that size can attract a database right under
-UK and EU law even where copyright in it is thin, and the models here are rebuilt from the
-public sources above. Where the public sources are coarser than the predecessor's, the answer
-is a model derived from published dimensions and imagery, which is this tree's own, not a
-transcription that is not.
+**The sharpest edge in the plan.** The predecessor's own surface models under `res/` and
+`analysis/` — a hand-built hundred-plus-surface GPS-IIR model with material properties — are
+**not** taken. A compilation of that size can attract a database right under UK and EU law even
+where copyright in it is thin. Where a public source is coarser than the predecessor's model,
+the answer is a model derived from published dimensions and imagery, which is this tree's own;
+not a transcription, which is not.
 
-**Exit gate:** every value in the library resolves to a citation, and a check refuses to build
-the library if any does not.
+**Exit gate:** every value resolves to a citation, and the library refuses to build if any does
+not.
 
 ---
 
-### 3.7 L6 `io-measurements` — *not started*
+### 3.7 L6 `io-measurements` — 0 of 4 done
 
-Formats in, measurements out. Public specifications throughout; nothing here is anyone's
+Formats in, measurements out. Public specifications throughout — nothing here is anyone's
 intellectual property but the format authors'.
 
 **Entry:** L1 exit gate.
 
-**Sequence**
-1. **Formats** [was 3.14] — SP3, TLE, CRD and CPF, the optical observation formats, SINEX and
-   ANTEX. Each reader refuses a field it does not recognise rather than defaulting it. The
-   predecessor read an SP3 interval from the wrong field and skipped a fixed header length;
-   both are acceptance tests here.
-2. **Horizons client** [was 3.14] — with the timescale refusal built in: a table that is not on
-   the requested scale is rejected, because 69 s of TDB is ≈ 518 km along track and the fit
-   converges on it without complaint.
-3. **`sgp4`** [was 3.15] — this tree's own port, written against the published test vectors per
-   D4, with TEME handled through L1 rather than assumed to be inertial.
-   *Gate:* the published SGP4 verification vectors, to their stated tolerance.
-4. **`measmod`** [was 3.17] — ephemeris-position, SLR range and optical angles against one
+1. **TODO** — Formats: SP3, TLE, CRD and CPF, the optical observation formats, SINEX and ANTEX.
+   Each reader refuses a field it does not recognise rather than defaulting it. The predecessor
+   read an SP3 interval from the wrong field and skipped a fixed header length; both are
+   acceptance tests here.
+2. **TODO** — Horizons client, with the timescale refusal built in: a table not on the
+   requested scale is rejected, because 69 s of TDB is ≈ 518 km along track and a fit converges
+   on it without complaint.
+3. **TODO** — `sgp4`: this tree's own port written against the published test vectors per D4,
+   with TEME handled through L1 rather than assumed inertial. Gate: the published SGP4
+   verification vectors to their stated tolerance.
+4. **TODO** — `measmod`: ephemeris-position, SLR range and optical angles against one
    interface, with the station and site registry. Light time, tropospheric refraction and the
-   observer's motion are the model's, not the caller's.
-   *Gate:* each measurement's partials against finite differences; a published SLR range case.
+   observer's own motion belong to the model, not to the caller. Gate: each measurement's
+   partials against finite differences, plus a published SLR range case.
 
-**Exit gate:** every format round-trips, and a measurement model computes its residual and its
-partials for all three observation types.
+**Exit gate:** every format round-trips, and a measurement model returns residual and partials
+for all three observation types.
 
 ---
 
-### 3.8 L7 `estimation` — *not started*
+### 3.8 L7 `estimation` — 0 of 4 done
 
-The estimator. Two of the predecessor's defects are design requirements here rather than
-lessons.
+Two of the predecessor's defects are design requirements here rather than lessons learned.
 
 **Entry:** L3 and L6 exit gates.
 
-**Sequence**
-1. **Batch least squares** — normal equations **scaled by default**, never as an option. The
-   predecessor's columns spanned twelve orders of magnitude and its unscaled inverse was noise
-   that presented as unobservability.
-2. **Levenberg–Marquardt** — because a sail's trajectory over days is nothing like linear in
-   its initial state and plain Gauss–Newton diverges from it.
-3. **A priori** — isotropic and RTN, the anisotropic form being necessary wherever a prediction
-   is wrong almost entirely along track.
-4. **Joint covariance** — over the state and every registered parameter of L3's registry.
-   *Gate:* a joint confidence region for two correlated parameters recovered from one fit —
-   the thing the predecessor could only approach by grid-profiling one against the other.
+1. **TODO** — Batch least squares with normal equations **scaled by default**, never as an
+   option. The predecessor's columns spanned twelve orders of magnitude and its unscaled
+   inverse was noise that presented as unobservability.
+2. **TODO** — Levenberg–Marquardt, because a sail's trajectory over days is nothing like
+   linear in its initial state and plain Gauss–Newton diverges from it.
+3. **TODO** — A priori constraints, isotropic and RTN. The anisotropic form is necessary
+   wherever a prediction is wrong almost entirely along track, which is every high
+   area-to-mass object.
+4. **TODO** — Joint covariance over the state and every parameter registered in L3. Gate: a
+   joint confidence region for two correlated parameters recovered from one fit — the thing the
+   predecessor could only approach by grid-profiling one against the other.
 
 **Exit gate:** a fit over real data reaches its frozen residual and reports a joint covariance
 whose correlations are reproduced by finite differences.
 
 ---
 
-### 3.9 L8 `campaigns` — *not started; the MVP gate*
+### 3.9 L8 `campaigns` — 0 of 5 done — **the MVP gate**
 
 The validation campaigns as executable definitions, run by CI. The campaign *logic* of the
-revival's `validate_*.sh` scripts carries over — it is already this tree's own work — re-pointed
-at these binaries.
+revival's `validate_*.sh` scripts carries over — already this tree's own work — re-pointed at
+these binaries.
 
 **Entry:** L7 exit gate, and L5.
 
-**Sequence**
-1. **GNSS against IGS precise orbits** — the three frozen baselines.
-2. **Laser ranging** — the LightSail-2 campaign, against its frozen residual.
-3. **Optical angles** — the sparse single-site campaign, with its condition number reported and
-   not hidden.
-4. **Frame regression** — the TEME→J2000 check against a mission ephemeris.
-5. **Atmosphere** — density plausibility and diurnal variation.
+1. **TODO** — GNSS against IGS precise orbits: the three frozen baselines.
+2. **TODO** — Laser ranging: the LightSail-2 campaign against its frozen residual.
+3. **TODO** — Optical angles: the sparse single-site campaign, with its condition number
+   reported rather than hidden, because the residual alone flatters it.
+4. **TODO** — Frame regression: the TEME→J2000 check against a mission ephemeris.
+5. **TODO** — Atmosphere: density plausibility and diurnal variation.
 
 **Exit gate — the MVP.** Every campaign meets its frozen number, each statistic **naming the
-formula it was computed with**: two unstated denominators produced defensible-looking wrong
-numbers within two days of each other, and §4 rule 3 exists because of it.
+formula it was computed with**. Two unstated denominators produced defensible-looking wrong
+numbers within two days of each other; §4 rule 3 exists because of it.
 
 ---
 
-### 3.10 L9 `raytracer` — *not started; optional, the owner's call after L8*
+### 3.10 L9 `raytracer` — 1 of 4 done — *optional, the owner's call after L8*
 
 The pixel-array method and thermal re-radiation. Strategically the most valuable layer and the
-only one that is not on the critical path.
+only one off the critical path.
 
-**Entry:** L8 exit gate, plus an explicit decision to start it.
+**Entry:** L8 exit gate, plus an explicit decision to start.
 
-**Sequence**
-0. **Patent gate** — **discharged, clear.** Searched before committing effort; no encumbrance
-   found on the method.
-1. **Ray tracer** — pixel-array acceleration computation. Sources: Ziebart 2001 (PhD), Ziebart
-   2004 (*J. Spacecraft & Rockets*), Ziebart et al. 2005.
-2. **Thermal re-radiation** — Ziebart et al. 2005 (*Adv. Space Res.*); Adhya et al.; Bhattarai
-   et al. 2022.
-3. **Grid generation, format and interpolation** — the acceleration-versus-geometry grid. The
-   *format and the interpolation scheme are ideas* and are this tree's; the predecessor's
-   **generated grid files are not taken**, and are regenerated by this tracer. That is wanted
-   independently of ownership: the first question anyone asks of a grid is whose code made it.
+1. **DONE** — Patent gate: searched before committing effort, **clear**, no encumbrance found
+   on the method. Done first precisely so that the expensive layer cannot be started on an
+   assumption.
+2. **TODO** — Ray tracer: pixel-array acceleration computation. Sources: Ziebart 2001 (PhD),
+   Ziebart 2004 (*J. Spacecraft & Rockets*), Ziebart et al. 2005.
+3. **TODO** — Thermal re-radiation. Sources: Ziebart et al. 2005 (*Adv. Space Res.*), Adhya et
+   al., Bhattarai et al. 2022.
+4. **TODO** — Grid generation, format and interpolation. The format and the interpolation
+   scheme are *ideas* and are this tree's; the predecessor's **generated grid files are not
+   taken** and are regenerated by this tracer. That is wanted independently of ownership — the
+   first question anyone asks of a grid is whose code made it.
 
 **Exit gate:** grids regenerated from this tree alone, reproducing the published results of the
-sources above, with the analytic models of L4 as the coarse cross-check.
+sources above, with L4's analytic models as the coarse cross-check.
+
+---
+
+### 3.11 How a step is executed
+
+The eight points below are not a second sequence — they are what doing any one step of §3.1–
+§3.10 consists of, and they are where the plan's former ground rules now live. A point with no
+content for a step ("Data: —") is stated, not skipped, so absence is visible.
+
+1. **Spec** — write `spec/SPEC-<step>.md` from *only* the sources that step names, to
+   `SPEC-template.md`: derivation declaration, an obtained-`primary/secondary/not` column on
+   every source, open questions raised to the manager rather than resolved into guesses.
+2. **Review** — the manager adopts or returns. Adoption criteria: sources primary or flagged;
+   conforms to §2; every requirement discharged by a test or individually excused; no porting
+   of the predecessor's revival-era extensions — those algorithms are re-derived from the same
+   public sources the revival itself cites.
+3. **Data** — manifest entries (URL, SHA-256, licence note), fetched from origin. Baselines and
+   acceptance tests pin **IERS-archived** series by path and hash: the IERS revises EOP
+   retroactively at unchanged URLs (three documented instances: 2025-06-05, 2026-02-05,
+   2026-03-09) and archives the superseded series at stable paths, so pinning records a URL and
+   redistributes nothing. Operational runs may use live data but record identity and hash in
+   run provenance; a pinned-hash mismatch is a hard failure; re-baselining is deliberate and
+   logged, never a side effect of a re-fetch.
+4. **Dependencies** — permissive licences only (BSD/MIT/Apache-class), recorded at adoption
+   with any multi-licence choice named; no GPL/LGPL/AGPL in anything that could ship.
+   Unlicensed normative code (the IERS Conventions Fortran) is never vendored or translated:
+   implement from the tables printed in the Conventions and verify against the routines'
+   published test cases — using a published expected output is observation, not derivation
+   from code.
+5. **Implement** — in the §2 module, to the adopted spec, under the §5 constraints. Every
+   refusal ships with exactly one named, logged escape hatch, set explicitly per run and
+   recorded in run provenance with the relevant table's hash. The default refuses, and the
+   escape cannot arrive through a configuration fall-through.
+6. **Test** — the spec's acceptance suite gated on *published* values; then the oracle rows,
+   each comparison logged (date, quantity, oracle value, new value, verdict) and **never the
+   sole gate** — §4 says why some oracle rows must *disagree*.
+7. **Ledger** — module and parameter register rows in `PROVENANCE.md`, plus the oracle-log rows.
+8. **Gate** — the single criterion that closes the step, with numbers frozen in
+   `oracle/cases.tsv` or in a named publication and statistic definitions named.
 
 ---
 
@@ -536,7 +531,7 @@ governs. Three rules apply to all of them:
 5. **Error and diagnostic state is scoped to one run** and cannot survive into the next.
 6. **The §2 layering is mandatory**; departures are argued at Review (the `eop`-as-own-module
    split is the precedent: proposed by the spec author with reasons, adopted, plan amended).
-7. **One layer, one sequence** (§1). One stage open at a time; a layer does not open until the
+7. **One layer, one sequence** (§1). One step open at a time; a layer does not open until the
    layer below has passed its exit gate; nothing is worked on in two layers.
 
 ## 6. What carries over, what is dropped
@@ -556,9 +551,9 @@ unstated → D4's own port on published vectors); png++ (no consumer); TIE-GCM t
 | # | Decision | State |
 |---|---|---|
 | D1 | **Core language** | **OPEN — the only blocker.** Recommendation: Rust (structural distance from the GNU-C++14 predecessor; `cargo license` automates the dependency register; memory safety in a long-lived estimator); C++20 acceptable if familiarity outweighs distance. Specs are language-free either way. |
-| D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN, validated on its packaged tests (L2 stage 4). |
+| D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN, validated on its packaged tests (L2 step 4). |
 | D3 | Ray tracer | Decided in plan: own implementation from the papers; `photonsXforce` as cross-oracle only (L9). Owner revisits after L8. |
-| D4 | SGP4 | Decided in plan: own port from STR#3 + Vallado 2006 on the published vectors (L6 stage 3). |
+| D4 | SGP4 | Decided in plan: own port from STR#3 + Vallado 2006 on the published vectors (L6 step 3). |
 | D5 | Licence | **Done** 2026-09-18: no grant, as the owner chose — implemented as posture, not text; `LICENSE` says why the predecessor's reason must not be copied. |
 | D6 | Name | **Done** 2026-09-18: `odl/self_built`, directory `odl-self_built`. Overrides the earlier no-echo naming guidance deliberately; recorded in `LICENSE` §4. |
 | — | **Copyright holder name** | **OPEN, owner-only, thirty seconds:** `LICENSE` line 4 is a marked placeholder — the single open title item, and the first thing a counterparty reads. |
@@ -574,25 +569,25 @@ registers.
 To the ownership analysis (`doc/ownership-analysis.md`), which `chat.md` is the source of, and
 to the first draft's feature numbers:
 
-| ownership-analysis row | layer | stage | was |
+| ownership-analysis row | layer | step | was |
 |---|---|---|---|
 | Integrator / EOM / variational | **L3** `dynamics` | §3.4 all | F1 |
-| Gravity, tides, relativity, third-body | **L2** `environment` | §3.3 stages 1–3 | F2 |
+| Gravity, tides, relativity, third-body | **L2** `environment` | §3.3 steps 1–3 | F2 |
 | Frames, precession–nutation, EOP | **L1** `time-frames` | §3.2 all | F3 |
-| Atmospheric drag | **L2** / **L4** | §3.3 stage 4 (model), §3.5 stage 3 (force) | F4 |
-| Albedo/IR | **L4** `forces-analytic` | §3.5 stage 4 | F5 |
-| Antenna thrust, yaw laws | **L4** | §3.5 stage 5 | F6 |
-| SRP models; ECOM | **L4** | §3.5 stages 2 and 6 | F7 |
-| Shadow function | **L4** | §3.5 stage 1 | F8 |
+| Atmospheric drag | **L2** / **L4** | §3.3 step 4 (model), §3.5 step 3 (force) | F4 |
+| Albedo/IR | **L4** `forces-analytic` | §3.5 step 4 | F5 |
+| Antenna thrust, yaw laws | **L4** | §3.5 step 5 | F6 |
+| SRP models; ECOM | **L4** | §3.5 steps 2 and 6 | F7 |
+| Shadow function | **L4** | §3.5 step 1 | F8 |
 | SRP ray-tracing / pixel array; TRR; grid concept | **L9** `raytracer` | §3.10 all | F9 |
-| OD / least squares; measurement models | **L7** `estimation`, **L6** | §3.8 all, §3.7 stage 4 | F10, F11 |
-| File I/O | **L6** `io-measurements` | §3.7 stages 1–2 | F12 |
+| OD / least squares; measurement models | **L7** `estimation`, **L6** | §3.8 all, §3.7 step 4 | F10, F11 |
+| File I/O | **L6** `io-measurements` | §3.7 steps 1–2 | F12 |
 | GNSS / altimetry spacecraft data | **L5** `spacecraft` | §3.6 all | F13 |
-| SGP4/TLE | **L6** | §3.7 stage 3 | F14 |
+| SGP4/TLE | **L6** | §3.7 step 3 | F14 |
 | Build/CI/tooling | **L0** `foundation` | §3.1 all | F15 |
 | Validation / provenance practice | **L8** `campaigns`, §8 | §3.9 all | F16 |
 | "Cannot take" items 1–5 | §0 discipline; **L5** and **L9** notes; §6 | §3.6, §3.10 | — |
-| Patent check | **L9** | §3.10 stage 0 | R9 |
+| Patent check | **L9** | §3.10 step 1 | R9 |
 
 Read across: the ownership analysis has one row per body of published literature, and the
 layers are that list grouped by what depends on what. Nothing in the analysis is unclaimed by a
@@ -611,21 +606,21 @@ owner decision.
 ## Appendix — rule identifiers cited by the specifications
 
 The adopted specs and the ledger cite "plan rule Rn" / "plan Rn" from earlier drafts, whose
-rules table an earlier draft dissolved into §3's steps. The identifiers stay stable and
+rules table an earlier draft dissolved into §3.11. The identifiers stay stable and
 resolve as — note that §3's subsection numbers now address layers, not the first draft's
 twenty features:
 
 | id | now lives at |
 |---|---|
-| R1 spec-first | §3 step 1 |
+| R1 spec-first | §3.11 point 1 |
 | R2 run-never-read | §0 discipline — **discharged**: the oracle is frozen (27 cases); the leak-channel corollary is §0's closing sentences |
-| R3 different design | §2, checked at §3 step 2 |
-| R4 oracle logged, never the sole gate | §3 step 6 and §4 rule 2 |
-| R5 provenance ledger | §3 step 7 and §8 |
-| R6 no file crosses over | §0 discipline and §3 step 3 |
-| R7 permissive dependencies, choices recorded | §3 step 4 |
-| R8 licence-first | L0 stage 1 (§3.1) — **discharged** at `bdd80be` |
-| R9 patent gate | L9 stage 0 (§3.10) — **discharged, clear** |
-| R10 revival-era work re-derived, not ported | §3 step 2 and L6 stage 4 (§3.7) |
-| R11 mutable public data pinned | §3 step 3 (the policy, verbatim) |
-| R12 one named, logged escape hatch per refusal | §3 step 5 (the pattern: `time`'s leap-table expiry, L1 stage 1) |
+| R3 different design | §2, checked at §3.11 point 2 |
+| R4 oracle logged, never the sole gate | §3.11 point 6 and §4 rule 2 |
+| R5 provenance ledger | §3.11 point 7 and §8 |
+| R6 no file crosses over | §0 discipline and §3.11 point 3 |
+| R7 permissive dependencies, choices recorded | §3.11 point 4 |
+| R8 licence-first | L0 step 1 (§3.1) — **discharged** at `bdd80be` |
+| R9 patent gate | L9 step 1 (§3.10) — **discharged, clear** |
+| R10 revival-era work re-derived, not ported | §3.11 point 2 and L6 step 4 (§3.7) |
+| R11 mutable public data pinned | §3.11 point 3 (the policy, verbatim) |
+| R12 one named, logged escape hatch per refusal | §3.11 point 5 (the pattern: `time`'s leap-table expiry, L1 step 1) |
