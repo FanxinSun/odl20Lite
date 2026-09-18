@@ -302,7 +302,7 @@ uniform scale, which is also the realistic path since the dynamics works in TT/T
 
 ---
 
-### 3.3 L2 `environment` — 2 of 4 done; **the open layer**
+### 3.3 L2 `environment` — 3 of 4 done; **the open layer**
 
 Everything the spacecraft moves through or is pulled by, with no reference to the spacecraft
 itself. A gravity field is the environment; a drag force is a spacecraft property and lives in
@@ -350,14 +350,32 @@ layer is open.
    TCG-compatible EGM2008 value under another name; what is refusable is taking both constants
    from WGS 84, whose semi-major axis is 6 378 137.0 m against the model's 6 378 136.3 m — a
    relative 1.1 × 10⁻⁷ that the (a_e/r)ⁿ factor carries to 2.4 × 10⁻⁴ by degree 2190.
-3. **TODO** — `tides-relativity-thirdbody`: solid Earth, ocean and pole tides; the relativistic
-   correction; third-body attraction. Gate: **every printed per-term value in the Conventions,
-   and a statement of what they do not print.** Chapter 6 carries no worked example — no
-   numerical case with inputs and outputs — so this gate is met by Tables 6.5a/b/c constituent by
-   constituent, by the closed-form pole-tide coefficients of §6.4 and §6.5, and by chapter 10's
-   stated magnitudes and precession rates. The gate reports **two** counts: the terms checked,
-   and the terms of the module the Conventions constrain by nothing. See rule 4 in §4 for why the
-   wording was wrong.
+3. **DONE** — `tides-relativity-thirdbody`, built as **three link targets** (`tides`,
+   `relativity`, `thirdbody`) from one specification, because their dependencies are disjoint and
+   one target would make every consumer of third-body attraction link the ocean-tide tables.
+   Gate: **every printed per-term value in the Conventions, and a statement of what they do not
+   print** — 50 constituents of Tables 6.5a/6.5c and 21 zonal at θ_f = 0, the closed-form
+   pole-tide coefficients of §6.4 and §6.5 to every printed digit, and chapter 10's precession
+   rates (de Sitter 19.188 mas/yr and height-independent to 10⁻¹², Lense–Thirring 0.755 at GEO
+   and 181.7 at 6778 km against the stated 0.8 and 180). Two counts reported on every run.
+
+   **Three things this step establishes that outlive it.** The tabulated δ*k*_f is **not** what
+   (6.9) generates: the Conventions define it under (6.8e) as the body-tide difference *"plus a
+   contribution from ocean loading"*, and §6.2.1 folds the load resonances into the body-tide
+   tables. So the formula cannot verify the column — what it verifies is the resonance
+   *structure*, as a ratio constant to 2.98% across a band where δ*k* varies by 2955×, with the
+   3.4% offset the loading term. A statistic can be misnamed as easily as a gate: §6.5's 90% is
+   of the **potential**, and the raw coefficient variance under the same word is 75.8%. And a
+   parser demanding six-digit Doodson codes dropped 7 952 of 59 462 rows and 8 of 18 long-period
+   waves **without failing** — the row count caught it, which is §4 rule 3 paying for itself a
+   third time.
+
+   **What the gate does not yet use.** Chapter 6 prints a complete worked example for K₁ —
+   inputs *A*₁, *H*_f = 0.36870, θ_f, *k*₂₁ and its nominal value; outputs both ΔC̄₂₁ and ΔS̄₂₁
+   lines — and it is the only check available that exercises the **θ dependence**, which
+   evaluating at θ_f = 0 cannot. It also prints the resonance-formula corrections per
+   constituent, (1,1) for Q₁ through (244,299) for ψ₁ in units of 10⁻⁵. Both were missed at
+   drafting; see §4 rule 4.
 4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
    space-weather ingestion with its own manifest entries. Gate: the model's published reference
    profiles; out-of-range input refused with a diagnostic naming the request and the limit.
@@ -676,17 +694,28 @@ governs. Three rules apply to all of them:
    failure, in a statistic and then in a suite. Audited across all 165 tests on 2026-09-18:
    `EPH-A-007` was the only instance — every other loop is over a compile-time array, or is
    already guarded the way `EOP-A-014` guards its 19 000 rows.
-4. **A gate's wording names what this plan wanted; the source prints what it prints.** Three
-   times now the two have differed, and each time the executor found it while specifying rather
-   than while testing: rule 1 above described a disagreement on a path that cannot carry one;
-   step 2's instruction sent the executor to recursions "printed in the Conventions", which
-   chapter 6 does not print; and step 3's said *worked examples*, of which chapter 6 has none.
-   The pattern is not carelessness about sources — it is this plan writing the **shape** of a
-   check before anyone has read what the source publishes. So: **where a step's gate names a
-   form of evidence, the first thing its specification does is say whether the source prints
-   that form**, and if it does not, propose what it prints instead. A gate reworded from the
-   source is a correction to this plan and is recorded as one; a gate quietly satisfied by
-   something else is not.
+4. **A gate's wording names what this plan wanted; the source prints what it prints — and a
+   claim that it prints nothing is a claim, not an observation.** Twice the plan asked for
+   something the source does not carry: rule 1 above described a disagreement on a path that
+   cannot carry one, and step 2's instruction sent the executor to recursions "printed in the
+   Conventions", which chapter 6 does not contain (verified 2026-09-18: zero occurrences of
+   *recursion* or *recurrence* in the extracted text). **The third instance went the other way
+   and is the instructive one.** Step 3's gate said *worked examples*; the executor reported
+   that chapter 6 prints none, this plan recorded that as a third correction — and chapter 6
+   prints one, for K₁, fifteen lines below the definition the same report had quoted, with
+   *H*_f = 0.36870 among its inputs, which the same report said the Conventions never print. It
+   reproduces exactly: *A*₁ δ*k*_f *H*_f = (470.9 − 30.2*i*) × 10⁻¹², and (6.8b) with η₁ = −*i*
+   returns both printed lines. Neither of us had searched; we had each read the section we
+   needed and stopped.
+
+   So the rule has two halves. **Where a step's gate names a form of evidence, the first thing
+   its specification does is say whether the source prints that form** — and **a finding of
+   absence is recorded with the search that established it**, the terms and the count, the way
+   a statistic is recorded with its formula under rule 3. "The source does not print X" earns
+   the same scrutiny as "the source prints X = 1.333 × 10⁻⁹", because a gate is weakened as
+   surely by evidence not looked for as by evidence read wrong. A gate reworded from the source
+   is a correction to this plan and is recorded as one; a gate quietly satisfied by something
+   else is not.
 
 ## 5. Design constraints, binding every layer
 
@@ -708,6 +737,14 @@ governs. Three rules apply to all of them:
    `tl::expected` under C++20, and construction, checking and unwrapping are where it and
    `std::expected` are interchangeable; the monadic operations are where they diverge. The
    one-line migration D7 was chosen for holds exactly as long as this constraint does.
+10. **What a value means belongs in its type, never in the argument that produced it.** The
+    frame is in the type, the timescale is in the type, the unit is in the accessor's name — and
+    the **origin** was a runtime argument to `Ephemeris::state`, which returned
+    `State<Frame::BCRS>` whatever centre was asked for, so a geocentric Moon vector came back
+    labelled barycentric. A tag that can say something false about the value it labels is worse
+    than no tag, because the whole of `FRAME-R-004`'s value is that it cannot. Where the tree has
+    a name for the thing, the name goes in the type; where it does not, the call is refused or
+    returns a type that carries no tag at all.
 9. **Changing a manifest entry re-runs every gate that consumed it**, in the step that changes
    it, and the frozen numbers are restated from the re-run rather than carried forward. A
    pinned input is pinned because the numbers depend on it; swapping one and keeping the old
