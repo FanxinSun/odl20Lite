@@ -15,17 +15,17 @@
       "unpacked_root": "Catch2-3.16.0",
       "licence": "BSL-1.0",
       "licence_file": "LICENSE.txt",
-      "licence_note": "Boost Software License 1.0. Permissive; plan \u00a75 constraint 3 satisfied. Chosen over doctest (MIT) and GoogleTest (BSD-3) for its floating-point matcher vocabulary \u2014 WithinAbs, WithinRel, WithinULP \u2014 which is the vocabulary the adopted L1 specifications already state their tolerances in. BSL-1.0 additionally does not require its notice to be reproduced in machine-executable object code, which is a real convenience for a tree whose own licence posture is undecided (LICENSE \u00a72).",
+      "licence_note": "Boost Software License 1.0. Permissive; plan §5 constraint 3 satisfied. Chosen over doctest (MIT) and GoogleTest (BSD-3) for its floating-point matcher vocabulary — WithinAbs, WithinRel, WithinULP — which is the vocabulary the adopted L1 specifications already state their tolerances in. BSL-1.0 additionally does not require its notice to be reproduced in machine-executable object code, which is a real convenience for a tree whose own licence posture is undecided (LICENSE §2).",
       "upstream_mutable": false,
       "upstream_mutable_note": "A GitHub release tag archive is immutable in practice but not by guarantee; the SHA-256 is the identity, not the tag.",
       "retrieved": "2026-09-18",
       "verify_path": "CMakeLists.txt",
-      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE \u00a78.11."
+      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE §8.11."
     },
     {
       "id": "tl-expected",
       "kind": "code",
-      "role": "odl::Result \u2014 the vehicle for D7",
+      "role": "odl::Result — the vehicle for D7",
       "version": "1.3.1",
       "url": "https://github.com/TartanLlama/expected/archive/refs/tags/v1.3.1.tar.gz",
       "filename": "expected-1.3.1.tar.gz",
@@ -34,16 +34,16 @@
       "unpacked_root": "expected-1.3.1",
       "licence": "CC0-1.0",
       "licence_file": "COPYING",
-      "licence_note": "CC0 1.0 Universal \u2014 a public-domain dedication, the most permissive terms available and comfortably inside plan \u00a75 constraint 3. Header-only, one header. Vendored under decision D7 because std::expected is C++23 and D1 fixed the language at C++20; the API is std::expected's, so the eventual migration is a change of alias. Plan \u00a75 constraint 8 keeps that migration one line: every signature names odl::Result and no monadic operation is used, since construction, checking and unwrapping are where the two are interchangeable and the monadic operations are where they diverge.",
+      "licence_note": "CC0 1.0 Universal — a public-domain dedication, the most permissive terms available and comfortably inside plan §5 constraint 3. Header-only, one header. Vendored under decision D7 because std::expected is C++23 and D1 fixed the language at C++20; the API is std::expected's, so the eventual migration is a change of alias. Plan §5 constraint 8 keeps that migration one line: every signature names odl::Result and no monadic operation is used, since construction, checking and unwrapping are where the two are interchangeable and the monadic operations are where they diverge.",
       "upstream_mutable": false,
       "retrieved": "2026-09-18",
       "verify_path": "CMakeLists.txt",
-      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE \u00a78.11."
+      "verify_note": "After FetchContent populates this dependency, verify_path inside the populated tree is compared byte-for-byte against the same file inside the hash-pinned archive. A transitive FetchContent_Declare once substituted a different major version of a pinned dependency; this is the check that would have caught it. See PROVENANCE §8.11."
     },
     {
       "id": "erfa",
       "kind": "code",
-      "role": "IAU SOFA algorithms \u2014 precession-nutation, Earth rotation, TDB-TT, calendar arithmetic",
+      "role": "IAU SOFA algorithms — precession-nutation, Earth rotation, TDB-TT, calendar arithmetic",
       "version": "2.0.1",
       "url": "https://github.com/liberfa/erfa/archive/refs/tags/v2.0.1.tar.gz",
       "filename": "erfa-2.0.1.tar.gz",
@@ -52,7 +52,7 @@
       "unpacked_root": "erfa-2.0.1",
       "licence": "BSD-3-Clause",
       "licence_file": "LICENSE",
-      "licence_note": "BSD 3-clause. Mandated by plan \u00a75 constraint 1 and chosen over SOFA specifically to avoid SOFA's rename clause; ERFA is derived from SOFA with the SOFA board's permission, recorded in its own LICENSE. This release tracks SOFA \"20231011\". Note that ERFA ships no CMakeLists.txt \u2014 it is autotools only \u2014 so this tree builds it with cmake/BuildErfa.cmake rather than adding its subdirectory.",
+      "licence_note": "BSD 3-clause. Mandated by plan §5 constraint 1 and chosen over SOFA specifically to avoid SOFA's rename clause; ERFA is derived from SOFA with the SOFA board's permission, recorded in its own LICENSE. This release tracks SOFA \"20231011\". Note that ERFA ships no CMakeLists.txt — it is autotools only — so this tree builds it with cmake/BuildErfa.cmake rather than adding its subdirectory.",
       "verify_path": "LICENSE",
       "verify_note": "Verified against LICENSE rather than CMakeLists.txt, because ERFA has no CMakeLists.txt. Any file present in the pinned archive serves; what matters is that the comparison is against the hash-pinned bytes.",
       "upstream_mutable": false,
@@ -61,7 +61,7 @@
     {
       "id": "calceph",
       "kind": "code",
-      "role": "reads SPK kernels; the ephemeris interpolation (SPEC-ephemerides \u00a73.4)",
+      "role": "reads SPK kernels; the ephemeris interpolation (SPEC-ephemerides §3.4)",
       "version": "4.0.5",
       "url": "https://www.imcce.fr/content/medias/recherche/equipes/asd/calceph/calceph-4.0.5.tar.gz",
       "filename": "calceph-4.0.5.tar.gz",
@@ -70,7 +70,7 @@
       "unpacked_root": "calceph-4.0.5",
       "licence": "CeCILL-B",
       "licence_file": "COPYING_CECILL_B.LIB",
-      "licence_note": "TRIPLE-LICENSED, AND THE CHOICE IS RECORDED HERE BECAUSE IT HAS TO BE MADE. CALCEPH's own LICENSE: \"The library is 'triple-licensed' (CeCILL-C, CeCILL-B or CeCILL), you have to choose one of the three licenses below to apply on the library.\" This tree chooses CeCILL-B, the BSD-like option. It is the ONLY one of the three compatible with plan \u00a75 constraint 3: CeCILL-C is close to the GNU LGPL and CeCILL v2.1 is GPL-compatible, and tools/fetch.py's allowlist refuses both by name. Note that neither contains the string 'GPL', so the denylist this project used until 2026-09-18 would have passed them. OBLIGATIONS, heavier than BSD's and binding a FUTURE distribution rather than this tree today: CeCILL-B \u00a75.3.4 CREDITS requires a distributor of MODIFIED software to state that it is based on CALCEPH, reproduce the intellectual-property notice, make that notice reachable from the software's interface, and mention it on a freely accessible website for as long as it is distributed. This tree links CALCEPH unmodified. The predecessor links it statically and records no choice at all, which is the situation this entry exists not to inherit.",
+      "licence_note": "TRIPLE-LICENSED, AND THE CHOICE IS RECORDED HERE BECAUSE IT HAS TO BE MADE. CALCEPH's own LICENSE: \"The library is 'triple-licensed' (CeCILL-C, CeCILL-B or CeCILL), you have to choose one of the three licenses below to apply on the library.\" This tree chooses CeCILL-B, the BSD-like option. It is the ONLY one of the three compatible with plan §5 constraint 3: CeCILL-C is close to the GNU LGPL and CeCILL v2.1 is GPL-compatible, and tools/fetch.py's allowlist refuses both by name. Note that neither contains the string 'GPL', so the denylist this project used until 2026-09-18 would have passed them. OBLIGATIONS, heavier than BSD's and binding a FUTURE distribution rather than this tree today: CeCILL-B §5.3.4 CREDITS requires a distributor of MODIFIED software to state that it is based on CALCEPH, reproduce the intellectual-property notice, make that notice reachable from the software's interface, and mention it on a freely accessible website for as long as it is distributed. This tree links CALCEPH unmodified. The predecessor links it statically and records no choice at all, which is the situation this entry exists not to inherit.",
       "verify_path": "CMakeLists.txt",
       "upstream_mutable": false,
       "retrieved": "2026-09-18"
@@ -106,7 +106,7 @@
     {
       "id": "iers-leap-seconds",
       "kind": "data",
-      "role": "TAI \u2212 UTC, the leap-second table (SPEC-time \u00a74.5, \u00a74.7)",
+      "role": "TAI − UTC, the leap-second table (SPEC-time §4.5, §4.7)",
       "version": "through IERS Bulletin C 72, July 2026; expires 2027-06-28",
       "url": "https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat",
       "filename": "Leap_Second.dat",
@@ -120,7 +120,7 @@
     {
       "id": "eop-c04-20",
       "kind": "data",
-      "role": "IERS EOP 20 C04 \u2014 the final Earth orientation series (SPEC-eop \u00a74.1)",
+      "role": "IERS EOP 20 C04 — the final Earth orientation series (SPEC-eop §4.1)",
       "version": "20 C04 v3 (ITRF2020-u2023), archived 2026-02-05",
       "url": "https://hpiers.obspm.fr/iers/eop/eopc04_20_v3/eopc04.1962-now",
       "filename": "eopc04.1962-now",
@@ -128,7 +128,7 @@
       "licence": "IERS-public",
       "licence_note": "IERS public product. Not redistributed: the pin is the IERS's own URL.",
       "upstream_mutable": false,
-      "upstream_mutable_note": "THIS IS THE ARCHIVED PATH, deliberately, per plan \u00a73.11 point 3. The live series at .../eopc04/ is revised RETROACTIVELY at an unchanged URL \u2014 three documented instances (2025-06-05, 2026-02-05, 2026-03-09), two of which rewrote historical pole coordinates for 2021-2024. The IERS archives each superseded solution at a stable path as it retires it, so pinning one records a URL and redistributes nothing. Operational runs may use the live series; they must record its identity and hash in run provenance.",
+      "upstream_mutable_note": "THIS IS THE ARCHIVED PATH, deliberately, per plan §3.11 point 3. The live series at .../eopc04/ is revised RETROACTIVELY at an unchanged URL — three documented instances (2025-06-05, 2026-02-05, 2026-03-09), two of which rewrote historical pole coordinates for 2021-2024. The IERS archives each superseded solution at a stable path as it retires it, so pinning one records a URL and redistributes nothing. Operational runs may use the live series; they must record its identity and hash in run provenance.",
       "archived_url": "https://hpiers.obspm.fr/iers/eop/eopc04_20_v3/eopc04.1962-now",
       "live_url": "https://hpiers.obspm.fr/iers/eop/eopc04/eopc04.1962-now",
       "retrieved": "2026-09-18"
@@ -136,7 +136,7 @@
     {
       "id": "eop-finals2000a",
       "kind": "data",
-      "role": "IERS Rapid Service / Prediction Centre finals2000A.all \u2014 rapid and predicted EOP",
+      "role": "IERS Rapid Service / Prediction Centre finals2000A.all — rapid and predicted EOP",
       "version": "as published 2026-09-18",
       "url": "https://maia.usno.navy.mil/ser7/finals2000A.all",
       "filename": "finals2000A.all",
@@ -144,26 +144,26 @@
       "licence": "IERS-public",
       "licence_note": "IERS/USNO public product.",
       "upstream_mutable": true,
-      "upstream_mutable_note": "Rewritten daily. NOTE THE 2000A IN THE NAME: finals.all carries dPsi/dEps against IAU 1980, finals2000A.all carries dX/dY against IAU 2000A. The layouts are identical and nothing detects the substitution at parse time, so this manifest entry's identity is the only guard (SPEC-eop \u00a73.2, EOP-R-002).",
+      "upstream_mutable_note": "Rewritten daily. NOTE THE 2000A IN THE NAME: finals.all carries dPsi/dEps against IAU 1980, finals2000A.all carries dX/dY against IAU 2000A. The layouts are identical and nothing detects the substitution at parse time, so this manifest entry's identity is the only guard (SPEC-eop §3.2, EOP-R-002).",
       "retrieved": "2026-09-18"
     },
     {
       "id": "tn36-chapter5",
       "kind": "data",
-      "role": "IERS Conventions (2010) TN36 chapter 5 \u2014 Tables 5.1a and 5.1b, libration in EOP",
+      "role": "IERS Conventions (2010) TN36 chapter 5 — Tables 5.1a and 5.1b, libration in EOP",
       "version": "2010",
       "url": "https://iers-conventions.obspm.fr/content/chapter5/icc5.pdf",
       "filename": "icc5.pdf",
       "sha256": "9ec6fac43f7037ff43896539d759333fc7e6007176cd72043b38d71cfd3e69c0",
       "licence": "IERS-public",
-      "licence_note": "The normative document. Pinned because SPEC-eop EOP-R-007 implements the tidal models FROM THE PRINTED TABLES rather than from the IERS Conventions Fortran, which carries no licence at all (plan \u00a73.11 point 4). A source a requirement derives from is an external input like any other.",
+      "licence_note": "The normative document. Pinned because SPEC-eop EOP-R-007 implements the tidal models FROM THE PRINTED TABLES rather than from the IERS Conventions Fortran, which carries no licence at all (plan §3.11 point 4). A source a requirement derives from is an external input like any other.",
       "upstream_mutable": false,
       "retrieved": "2026-09-18"
     },
     {
       "id": "tn36-chapter8",
       "kind": "data",
-      "role": "IERS Conventions (2010) TN36 chapter 8 \u2014 Tables 8.2a/8.2b/8.3a/8.3b, ocean tides in EOP",
+      "role": "IERS Conventions (2010) TN36 chapter 8 — Tables 8.2a/8.2b/8.3a/8.3b, ocean tides in EOP",
       "version": "2010",
       "url": "https://iers-conventions.obspm.fr/content/chapter8/icc8.pdf",
       "filename": "icc8.pdf",
@@ -176,7 +176,7 @@
     {
       "id": "de440s-spk",
       "kind": "data",
-      "role": "JPL DE440 planetary/lunar ephemeris, short span (1849\u20132150) \u2014 routine use and CI",
+      "role": "JPL DE440 planetary/lunar ephemeris, short span (1849–2150) — routine use and CI",
       "version": "DE440",
       "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp",
       "filename": "de440s.bsp",
@@ -189,26 +189,91 @@
     {
       "id": "de440-spk",
       "kind": "data",
-      "role": "JPL DE440, full span (1550\u20132650) \u2014 the complete testpo.440 sweep, which EPH-A-001 must RUN",
+      "role": "JPL DE440, full span (1550–2650) — the complete testpo.440 sweep, which EPH-A-001 must RUN",
       "version": "DE440",
       "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440.bsp",
       "filename": "de440.bsp",
       "sha256": "a4ce9bf9b3282becc9f4b2ac3cebe03a2ae7599981aabd7265fd8482fff7c4b5",
       "licence": "NASA-public",
-      "licence_note": "As de440s. Pinned as well as the short kernel because EPH-Q-003 was ruled that the full sweep must actually be run at the step's gate and its case count recorded, not merely be possible \u2014 'pinned both, CI uses the short one' decays into the full coverage being notional.",
+      "licence_note": "As de440s. Pinned as well as the short kernel because EPH-Q-003 was ruled that the full sweep must actually be run at the step's gate and its case count recorded, not merely be possible — 'pinned both, CI uses the short one' decays into the full coverage being notional.",
       "upstream_mutable": false,
       "retrieved": "2026-09-18"
     },
     {
       "id": "de440-testpo",
       "kind": "data",
-      "role": "JPL's published verification set for DE440 \u2014 the gate (EPH-A-001)",
+      "role": "JPL's published verification set for DE440 — the gate (EPH-A-001)",
       "version": "DE440",
       "url": "https://ssd.jpl.nasa.gov/ftp/eph/planets/ascii/de440/testpo.440",
       "filename": "testpo.440",
       "sha256": "45084a7f406b8e41032e7d99dd8042d4df97a9f752a68c06d1a27af16693429f",
       "licence": "NASA-public",
       "licence_note": "JPL Solar System Dynamics published test set. Values in AU and AU/day.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "tn36-chapter6",
+      "kind": "data",
+      "role": "IERS Conventions (2010) TN36 chapter 6 — the geopotential: equations (6.1)–(6.5), Tables 6.1 and 6.2, §6.2.2",
+      "version": "2010, update of 2018-02-01",
+      "url": "https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf",
+      "filename": "icc6.pdf",
+      "sha256": "abb3c0b0b6d2079b19893d6872a9d8e7320516d9a4736acb5eecaa79c4543388",
+      "licence": "IERS-public",
+      "licence_note": "The normative document for SPEC-gravity. Pinned because GRAV-R-020's coefficients, GRAV-R-022's equation and the truncation table are read FROM THE PRINTED CHAPTER; the Conventions print no recursion at all, so nothing here substitutes for §4.4's derivation.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "tn36-chapter7",
+      "kind": "data",
+      "role": "IERS Conventions (2010) TN36 chapter 7 §7.1.4 — the secular pole, equation (21)",
+      "version": "2010, update of 2018-02-01",
+      "url": "https://iers-conventions.obspm.fr/content/chapter7/icc7.pdf",
+      "filename": "icc7.pdf",
+      "sha256": "ffe8ffb13c8bbc3b07ac298f458fcbb564974377b165fb93921a05bb0d55043d",
+      "licence": "IERS-public",
+      "licence_note": "GRAV-R-023's four constants. The 2018 update REPLACED the 'mean pole' of earlier Conventions with a linear secular pole, so the edition matters and the hash pins it.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "egm2008-coefficients",
+      "kind": "data",
+      "role": "EGM2008 fully normalised spherical harmonic coefficients to degree 2190, order 2159 — the field SPEC-gravity implements",
+      "version": "EGM2008, file dated 2008-03-28",
+      "url": "https://earth-info.nga.mil/php/download.php?file=egm-08spherical",
+      "filename": "EGM2008_Spherical_Harmonics.zip",
+      "sha256": "65a9072f337f156e8cbd76ffd773f536e6fb0de18697ea6726ecdb790fac0fbd",
+      "unpack": "zip",
+      "extract": [
+        {
+          "member": "EGM2008_to2190_TideFree",
+          "sha256": "7e448aac4e1b8e63955890cbca08286018ecc6d203e074a64ba5bde21851438a",
+          "role": "the coefficients (GRAV-R-011)"
+        },
+        {
+          "member": "README_WGS84_2.pdf",
+          "sha256": "e17ee6311c24f3ee60802c6af84e9b773819178cb60cd3c57aaa8f15cca6b33c",
+          "role": "the scaling parameters, record format and tide system (GRAV-R-011, GRAV-R-015)"
+        }
+      ],
+      "licence": "NGA-public",
+      "licence_note": "NGA publishes EGM2008 for unrestricted use; the README asks that Pavlis, Holmes, Kenyon and Factor (EGU 2008) be cited, which PROVENANCE.md §4 does. Data, never linked. THE ARCHIVE ALSO CONTAINS hsynth_WGS84.f AND hsynth_WGS84.exe, a FORTRAN harmonic-synthesis program and its binary. Neither is extracted and neither was opened: plan §3.3 step 2 says this tree's recursions come from published mathematics rather than from anyone's code, and declaring the archive whole while consuming two of its seven members is what makes that claim checkable rather than merely asserted. Zeta-to-N_to2160_egm2008 (142 MB) is not extracted either; it is the geoid conversion expansion, which GRAV-Q-002 ruled out of scope.",
+      "upstream_mutable": false,
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "wgs84-standard",
+      "kind": "data",
+      "role": "NGA.STND.0036 — WGS 84 normal gravity at the pole and the semi-minor axis, for GRAV-A-012's external band check",
+      "version": "1.0.0",
+      "url": "https://earth-info.nga.mil/php/download.php?file=coord-wgs84",
+      "filename": "NGA.STND.0036_1.0.0_WGS84.pdf",
+      "sha256": "5edc1cf7411d4df01cae5205ee19f661265c45a55cca60b9351f6ae5abade512",
+      "licence": "NGA-public",
+      "licence_note": "Pinned for exactly two numbers — gamma_p = 9.8321849379 m/s^2 and b = 6356752.3142 m (Table 3.6, Table 3.1) — which are the only expected values in SPEC-gravity §8 that come from outside this tree's own mathematics. Note that its GM, 3986004.418e8 m^3 s^-2, IS NUMERICALLY the TCG-compatible EGM2008 value under another name, so it cannot be refused on its value; what GRAV-F-005 refuses is taking both constants from here, since this document's semi-major axis is 6378137.0 m against EGM2008's reference radius of 6378136.3 m.",
       "upstream_mutable": false,
       "retrieved": "2026-09-18"
     }

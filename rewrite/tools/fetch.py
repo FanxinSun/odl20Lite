@@ -33,6 +33,7 @@ import json
 import os
 import shutil
 import tarfile
+import zipfile
 import sys
 import urllib.error
 import urllib.request
@@ -105,6 +106,69 @@ def entry_path(root: Path, doc: dict, e: dict) -> Path:
 
 # --------------------------------------------------------------------------- #
 # hashing and download
+
+
+def entry_extracts(e: dict) -> list[dict]:
+    """The archive members this tree actually consumes, each with its own hash.
+
+    An archive entry is pinned by the hash of the WHOLE archive, which says
+    nothing about what is taken out of it.  EGM2008 ships as seven members of
+    which this tree consumes two, and one of the five it does not consume is a
+    FORTRAN harmonic-synthesis program that plan §3.3 step 2 forbids as a source
+    of recursions.  Declaring the members, by hash, is what turns "we did not use
+    it" from an assertion into something a reviewer can check: the cache contains
+    exactly what the manifest names and nothing else was unpacked.
+    """
+    return list(e.get("extract") or [])
+
+
+def extract_path(root: Path, doc: dict, e: dict, m: dict) -> Path:
+    return cache_dir(root, doc) / e["id"] / "extracted" / Path(m["member"]).name
+
+
+def extract_members(root: Path, doc: dict, e: dict) -> list[tuple[str, str]]:
+    """Unpack the declared members, AFTER the archive's own hash has verified.
+
+    Each member is checked against its own declared SHA-256 as it lands, so a
+    change in upstream's zip tooling cannot quietly change what this tree reads
+    while the archive hash still matches — the archive hash would change too, but
+    the member hash is what the module actually consumes and it is the one worth
+    stating.
+    """
+    out = []
+    wanted = entry_extracts(e)
+    if not wanted:
+        return out
+    kind = e.get("unpack")
+    if kind != "zip":
+        die(MALFORMED, f"{e['id']}: 'extract' is declared but 'unpack' is {kind!r}, not 'zip'")
+    archive = entry_path(root, doc, e)
+    for m in wanted:
+        dest = extract_path(root, doc, e, m)
+        if dest.exists() and sha256_file(dest) == m["sha256"].lower():
+            out.append((m["member"], "cached"))
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with zipfile.ZipFile(archive) as zf:
+                with zf.open(m["member"]) as src, open(dest.with_suffix(dest.suffix + ".part"), "wb") as dst:
+                    shutil.copyfileobj(src, dst, 1 << 20)
+        except (KeyError, zipfile.BadZipFile, OSError) as exc:
+            die(MALFORMED, f"{e['id']}: cannot extract {m['member']!r} from {archive}: {exc}")
+        part = dest.with_suffix(dest.suffix + ".part")
+        got = sha256_file(part)
+        if got != m["sha256"].lower():
+            part.unlink(missing_ok=True)
+            die(MISMATCH,
+                f"EXTRACTED MEMBER HASH MISMATCH — refusing.\n"
+                f"  entry    {e['id']}\n"
+                f"  member   {m['member']}\n"
+                f"  declared {m['sha256']}\n"
+                f"  got      {got}\n"
+                f"  archive  {archive}")
+        shutil.move(str(part), str(dest))
+        out.append((m["member"], got))
+    return out
 
 
 def sha256_file(p: Path) -> str:
@@ -200,6 +264,16 @@ def cmd_verify(root: Path, doc: dict, args) -> int:
 
     for e in ok:
         print(f"ok       {e['id']:<16} {e['sha256'][:16]}…  {entry_path(root, doc, e)}")
+        for m in entry_extracts(e):
+            q = extract_path(root, doc, e, m)
+            if not q.exists():
+                missing.append(e)
+                print(f"MISSING  {e['id']:<16} member {m['member']} not extracted", file=sys.stderr)
+            elif sha256_file(q) != m["sha256"].lower():
+                die(MISMATCH,
+                    f"extracted member {m['member']!r} of {e['id']} does not match its declared hash")
+            else:
+                print(f"  member {m['member']:<30} {m['sha256'][:16]}…  {q}")
     for e in fetchable(doc):
         if e in missing:
             print(f"MISSING  {e['id']:<16} {e['url']}", file=sys.stderr)
@@ -226,6 +300,8 @@ def cmd_fetch(root: Path, doc: dict, args) -> int:
             if got != e["sha256"].lower():
                 mismatch(e, got, str(p))
             print(f"cached   {e['id']:<16} {e['sha256'][:16]}…")
+            for member, how in extract_members(root, doc, e):
+                print(f"  member {member:<30} {how if how == 'cached' else how[:16] + '…'}")
             results.append((e["id"], e["url"], got))
             continue
 
@@ -245,6 +321,8 @@ def cmd_fetch(root: Path, doc: dict, args) -> int:
             mismatch(e, got, f"{e['url']} (download discarded)")
         shutil.move(str(part), str(p))
         print(f"ok       {e['id']:<16} {got[:16]}…")
+        for member, how in extract_members(root, doc, e):
+            print(f"  member {member:<30} {how if how == 'cached' else how[:16] + '…'}")
         results.append((e["id"], e["url"], got))
 
     write_receipt(root, doc, results)
@@ -266,6 +344,12 @@ def cmd_path(root: Path, doc: dict, args) -> int:
         if e["id"] == args.id:
             if e.get("provided_by_host"):
                 die(USAGE, f"{args.id} is provided by the build host and has no cache path")
+            if getattr(args, "member", None):
+                for m in entry_extracts(e):
+                    if Path(m["member"]).name == args.member or m["member"] == args.member:
+                        print(extract_path(root, doc, e, m))
+                        return OK
+                die(USAGE, f"{args.id} declares no extracted member {args.member!r}")
             print(entry_path(root, doc, e))
             return OK
     die(USAGE, f"no manifest entry with id {args.id!r}")
@@ -357,6 +441,9 @@ PERMISSIVE_LICENCES = {
                      "unrestricted use. Data, never linked.",
     "NASA-PUBLIC":   "not an SPDX identifier: NASA/JPL published data products (NAIF generic\n"
                      "                    kernels, JPL SSD test sets). Data, never linked.",
+    "NGA-PUBLIC":    "not an SPDX identifier: NGA published geospatial standards and models\n"
+                     "                    (EGM2008, WGS 84). Unrestricted use; the EGM2008 README asks for a\n"
+                     "                    citation, which PROVENANCE.md §4 carries. Data, never linked.",
 }
 
 
@@ -410,6 +497,7 @@ def main(argv: list[str] | None = None) -> int:
     l.add_argument("--json", action="store_true")
     p = sub.add_parser("path", help="print the cache path of one entry")
     p.add_argument("id")
+    p.add_argument("--member", help="print the path of an extracted archive member instead")
     sub.add_parser("check-licences", help="plan §5 constraint 3: refuse GPL/LGPL/AGPL")
     vp = sub.add_parser("verify-populated",
                         help="is a populated FetchContent tree the archive we pinned?")

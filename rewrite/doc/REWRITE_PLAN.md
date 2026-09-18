@@ -325,22 +325,31 @@ layer is open.
    the **root** of an SPK's body tree — the centre of every record and the target of none — so
    scanning for it as a target found nothing and 868 cases were being silently counted as
    outside coverage. The gate reporting its denominator is what exposed that.
-2. **TODO** — `gravity`: the geopotential to full degree and order. **This step's instruction
-   as first written was impossible and is corrected here:** the Conventions print no recursions
-   — chapter 6 gives the expansion (6.1) and the normalisation (6.2b) and nothing else — so
-   "recursions taken from the tables printed in the Conventions" named a table that does not
-   exist. The route is to *derive* the normalised recursion from (6.2b) with a primary, freely
-   readable source for the underlying identities (NIST DLMF 14.6 and 14.10 serve), and to verify
-   the derivation in exact rational arithmetic before it is written into a spec. That is a
-   better artefact than citing a paywalled paper, because anyone can reproduce the verification.
-   Gate: no published table of geopotential accelerations exists either, so the gate is the
-   closed-form degree-variance identity — rms |a_n| = (GM/r²)(a_e/r)ⁿ σ_n √((n+1)(2n+1)), exact
-   from the 4π normalisation — checked at every degree and several radii, **plus** a point-wise
-   check against the exact J2-only closed form, which the identity does not cover because it is
-   a statement about means over the sphere and says nothing about angular structure.
-   **No gate is set from Table 6.1's 0.5 mm orbit accuracy**; see `SPEC-template.md` §7 for why
-   the obvious conversion is wrong by five orders of magnitude. That claim is orbit-level and
-   belongs to L8, which is where a fitted orbit exists.
+2. **DONE** — `gravity`: the geopotential to full degree and order, EGM2008 to 2190. Gate
+   passed on the degree-variance identity at three radii (2190 of 2190 degrees at 7331 km, 300
+   points, mean ratio 0.99699) **and** the J2-only closed form point-wise, which agrees to
+   2.5 × 10⁻¹⁶ over 32 points spanning both poles. The two are not redundant: the identity
+   constrains the power per degree, the closed form constrains where on the sphere it sits.
+   26 ms per full degree-2190 evaluation, 11 ns per coefficient pair against a 100 ns budget.
+
+   **The instruction to derive rather than cite was right and the derivation was not enough.**
+   Both representations of the normalised recursion fail, in opposite directions: the classical
+   one underflows above 43.7° of latitude, and the factored one — asserted in the spec to stay
+   near 10.3 — reaches 10^457.9 at degree 2190, order 979, overflowing a double by 10^150 and
+   then turning the column to NaN through inf − inf in the three-term recursion. Neither works
+   alone. What works is the pair: a global 10⁻²⁸⁰ scale with cos^m φ folded back through a Horner
+   nest over order so it is never formed as a number. That is Holmes & Featherstone's
+   construction, arrived at from measurement rather than from the paywalled paper, which is the
+   stronger route and the reason the derive-don't-cite instruction stands.
+
+   Five more corrections implementation forced, of which two are worth carrying: an off-by-one
+   in the truncation statistic advancing (a_e/r)ⁿ before its first use rather than after — a
+   clean 13% error at 7331 km, exactly the size that reads as a modelling difference, visible
+   **only** because the expected values were computed independently in Python rather than from
+   the code under test. And WGS 84's GM cannot be refused by its value, because it *is* the
+   TCG-compatible EGM2008 value under another name; what is refusable is taking both constants
+   from WGS 84, whose semi-major axis is 6 378 137.0 m against the model's 6 378 136.3 m — a
+   relative 1.1 × 10⁻⁷ that the (a_e/r)ⁿ factor carries to 2.4 × 10⁻⁴ by degree 2190.
 3. **TODO** — `tides-relativity-thirdbody`: solid Earth, ocean and pole tides; the relativistic
    correction; third-body attraction. Gate: the IERS Conventions worked examples, term by term.
 4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus

@@ -2,6 +2,7 @@
 
 #include <odl/frames/transform.hpp>
 #include <odl/frames/local.hpp>
+#include <odl/frames/vector.hpp>
 #include <odl/eop/series.hpp>
 
 extern "C" {
@@ -12,6 +13,7 @@ extern "C" {
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <cmath>
+#include <type_traits>
 #include <fstream>
 #include <sstream>
 
@@ -390,4 +392,24 @@ TEST_CASE("L1 step 4 gate: the REQUIRED DISAGREEMENT with the predecessor, oracl
     const double closure_km = (back->position() - ecef_r).norm();
     INFO("round-trip closure " << closure_km * 1e6 << " mm, predecessor 8.5519e-8 km = 0.0855 mm");
     REQUIRE(closure_km < 8.5519e-8);
+}
+
+// FRAME-A-024 — SPEC-frames §3.6.  A position or an acceleration carries its
+// frame in the type, exactly as a State does, and neither converts from a bare
+// Vec3 nor from another frame's.
+TEST_CASE("FRAME-A-024: Position and Acceleration carry their frame", "[frames]") {
+    using namespace odl::frames;
+    static_assert(!std::is_default_constructible_v<Position<Frame::ITRS>>);
+    static_assert(!std::is_default_constructible_v<Acceleration<Frame::ITRS>>);
+    static_assert(!std::is_convertible_v<odl::Vec3, Position<Frame::ITRS>>);
+    static_assert(!std::is_convertible_v<Position<Frame::GCRS>, Position<Frame::ITRS>>);
+    static_assert(!std::is_convertible_v<Acceleration<Frame::GCRS>, Acceleration<Frame::ITRS>>);
+    // Units are named in the accessor, and they are metres here where a State
+    // carries km.
+    const Position<Frame::ITRS> p{odl::Vec3{7331e3, 0.0, 0.0}};
+    CHECK(p.metres().x == 7331e3);
+    CHECK(p.norm_m() == 7331e3);
+    CHECK(Position<Frame::ITRS>::frame_name == "ITRS");
+    const Acceleration<Frame::ITRS> a{odl::Vec3{0.0, 0.0, -9.8}};
+    CHECK(a.metres_per_second_squared().z == -9.8);
 }

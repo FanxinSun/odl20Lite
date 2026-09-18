@@ -328,6 +328,7 @@ documented by the IERS itself in `updateC04.txt`:
 
 | date | change |
 |---|---|
+| 2026-09-18 | **L2 step 2 `gravity` implemented and gated.** §14.8–14.10 added: the six specification corrections implementation forced — the factored recursion overflows by 10¹⁵⁰ and then yields NaN, so both representations fail and the 10⁻²⁸⁰ scale with a Horner nest is required; C̄₀₀ = 1; the recursion's achievable accuracy is 6.1 × 10⁻¹¹ at degree 2190 and not 10⁻¹³; `GRAV-A-008` claimed coverage that does not exist; WGS 84's GM cannot be refused by value; and an off-by-one in `truncation_rms` caught only because its expected values came from an independent route. §14.9 records what the gate measured, including the two defects in the gate's own design. `SPEC-gravity` v1.2, `SPEC-frames` v1.5 with `Position<F>`/`Acceleration<F>`. `tools/fetch.py` extracts declared archive members by their own hash, so "`hsynth_WGS84.f` was not used" is checkable. **10 gates, 163 tests, 611 artefacts byte-identical.** |
 | 2026-09-18 | **L2 step 2 `gravity` specification drafted; budget-row arithmetic made checkable.** §14 added: the sources obtained and the two that were not, the recursion derived from `TN36-6` (6.2b) and `DLMF-14` and **verified to 60 digits before being written down** because the Conventions print no recursion, the measured underflow of the classical form above 43.7° latitude at degree 2190, what the coefficient file's own structure is, the Table 6.1 conversion that fails and therefore gates nothing, and a claim about the figure-axis terms corrected during drafting. §8.13 records `tools/budgetcheck.py` — including its briefly acquiring the absolute-tolerance defect it was built to catch, found only by replaying the four historical errors. §9 gains two rows. |
 | 2025-06-05 | pole coordinates and rates for 2021-01-01 – 2024-02-24 replaced by ITRF2020-u2023 values. Series name and path unchanged. Previous solution archived at `eopc04_20_v2`. |
 | 2026-02-05 | pole coordinates and rates for 2021-01-01 – 2024-12-31 replaced by ITRF2020-u2024 values. Series name and path unchanged. Previous solution archived at `eopc04_20_v3`. |
@@ -905,6 +906,111 @@ manifest-declared archive is recorded in the specification's front matter so tha
 is checkable rather than merely asserted.
 
 ---
+
+### 14.8 Implementation, and the six things it corrected in the specification
+
+`modules/gravity` built and gated on 2026-09-18, the same day the specification was adopted.
+**10 gates green offline, 163 tests, 0 failures, 611 artefacts byte-identical across two build
+paths.** `SPEC-gravity` is at **v1.2** and `SPEC-frames` at **v1.5**; every correction below was
+found by a test rather than by review.
+
+**1. The factored recursion is not bounded, and the specification said it was.** §14.3 measured
+that the classical form underflows above 43.7° of latitude at order 2190, and that is right. §3.6
+of the draft went on to say the factored form "never exceeds about 10.3 anywhere in the model",
+which is true only of the **sectorial** seed. From the closed form
+P̄′*ₙₘ*(1) = √((2*n*+1)(2−δ₀ₘ)) √((*n*+*m*)!/(*n*−*m*)!) / (2ᵐ *m*!):
+
+| quantity | value |
+|---|---|
+| max over *m* of P̄′₂₁₉₀,ₘ(1) | **10⁴⁵⁷·⁸⁶⁴**, at *m* = 979 |
+| largest double | 10³⁰⁸·²⁵ |
+| overflow margin | **10¹⁵⁰** |
+
+And it does not merely overflow: once two consecutive entries of a column are infinite, the
+three-term recursion subtracts one from the other and the column becomes **NaN**, which
+propagates silently into every sum it touches. Both representations fail, in opposite
+directions, and neither works alone. What works is the pair — a global scale of 10⁻²⁸⁰ on every
+associated Legendre function, and the powers of cos φ folded back in through a **Horner nest over
+order** so that cosᵐφ is never formed as a number. That is `HF02`'s construction, and `HF02`
+could not be obtained; 10⁻²⁸⁰ is adopted because the measurement above says it is right
+(10⁴⁵⁷·⁹ ÷ 10²⁸⁰ = 10¹⁷⁷·⁹ at the top, 10⁻²⁸⁰ for a unit result at the bottom), not because it
+was cited. `GRAV-A-007` now demonstrates both failures rather than describing them.
+
+**2. C̄₀₀ is 1, not 0.** `GRAV-R-012` said the reader must supply degrees 0 and 1 as zero.
+`TN36-6` (6.1) sums from *n* = 0 with C̄₀₀ carrying the two-body term. Setting it to 1 makes
+`GRAV-R-027`'s exact GM/*r*² at degree 0 a consequence of the same sum rather than a separate
+code path, and makes σ₀ = 1, which is what it should be. Degree 1 is zero, for the quite
+different reason that the origin is the centre of mass.
+
+**3. `GRAV-P-8`'s 10⁻¹³ is not achievable at degree 2190.** The three-term recursion accumulates
+rounding over *n* − *m* steps with a mild cancellation at each. **Measured worst: 6.1 × 10⁻¹¹, at
+degree 2190, order 0, on the polar axis.** The budget is now tiered — 10⁻¹³ to degree 360, which
+covers every truncation Table 6.1 suggests, and 10⁻⁹ to 2190. The derivation itself still agrees
+with the definition to 9.9 × 10⁻⁵⁸ at 60 digits, so what this budget measures is floating point
+and not algebra.
+
+**4. `GRAV-A-008` claimed coverage that does not exist.** It said a √2 error in the *m* = 1 seed
+would fail the gate. It would not: the *m* = 1 share of σ*ₙ*² is about 7 × 10⁻¹² at degree 2,
+because C̄₂₀ dominates that degree by six orders of magnitude, so the error moves no degree
+variance measurably. It is caught by `GRAV-A-003`, whose reference set includes (2, 1) and
+(2190, 1) from the definition. The claim was removed rather than left looking like coverage.
+
+**5. WGS 84's GM cannot be refused by its value.** `GRAV-R-006` treated it as a distinct wrong
+constant. It is not: 3 986 004.418 × 10⁸ m³ s⁻² **is** the TCG-compatible EGM2008 value under
+another name. What is refusable is the realistic mistake — taking **both** constants from WGS 84,
+whose semi-major axis is 6 378 137.0 m against this model's *a*ₑ = 6 378 136.3 m — so the pair is
+checked as a pair, and the GM's declared time-scale compatibility is recorded. The consequence
+the requirement exists for is now measured rather than asserted: 5.5821 × 10⁻⁹ m s⁻² at 7331 km,
+108.91 mm over one revolution, **secularly**, which is the one place in this specification where
+half-a-T-squared is the right instrument.
+
+**6. An off-by-one in `truncation_rms`, caught only because the expected values came from
+elsewhere.** The power (*a*ₑ/*r*)ⁿ was advanced before its first use instead of after, putting one
+extra factor into every term — a clean 13 % error at 7331 km and 48 % at 12270 km. Both are the
+sort of size that reads as a modelling difference. It was visible because `GRAV-A-013`'s expected
+values were computed independently in Python from the file's own degree amplitudes, not from this
+code.
+
+### 14.9 What the gate measured
+
+| | |
+|---|---|
+| `GRAV-A-001`, 7331 km | **2190 of 2190 degrees compared**, 1 skipped (degree 1 is identically zero), 300 sample points, band 5/√(2*K*) = 20 %, **mean ratio 0.99699** |
+| `GRAV-A-001`, 12270 km | 964 of 1200 compared, 237 below the representable floor, mean ratio 0.99893 |
+| `GRAV-A-001`, 26600 km | 441 of 600 compared, 160 below the floor, mean ratio 0.999139 |
+| `GRAV-A-001b`, 7331 km | 60 degrees, **20 000 sample points**, band 2.5 %, **worst 8.4 × 10⁻⁶ at degree 35, mean ratio 1.000000** |
+| `GRAV-A-027`, the J2 closed form | 32 points, **worst relative 2.5 × 10⁻¹⁶** |
+| `GRAV-A-005`, gradient vs central differences | 12 points at degrees 2, 8, 90, 360; worst 1.8 × 10⁻¹⁰ |
+| `GRAV-A-004`, orthonormality | 266 (*n*, *m*) pairs to degree 60, 256-point Gauss–Legendre |
+| `GRAV-A-013`, truncation | 1.21736 × 10⁻¹⁰, 9.91217 × 10⁻¹², 2.3018 × 10⁻¹⁴ m s⁻², matching §14.4's independent computation |
+| `GRAV-P-5`, cost | **26 ms** per full degree-2190 evaluation = 11 ns per coefficient pair, against a 100 ns budget |
+
+**Two things about the gate's own design are worth keeping.** Its first version accumulated a
+sum of squares of |**a**ₙ|: the degree-1900 acceleration at 7331 km is about 10⁻¹³⁰ m s⁻², which
+is representable, but its **square is not**, so the statistic silently became zero and the test
+reported a 100 % disagreement over half its range. Dividing by the prediction first keeps every
+quantity at order unity. And an attempt to tighten the band at low degree on the reasoning that a
+Fibonacci lattice is low-discrepancy was simply **wrong at K = 300** — degrees 19 to 27 missed a
+1 % band. The right answer was more samples where they are cheap, not a smaller number: degree 60
+is 1830 terms against 2.4 million, so `GRAV-A-001b` uses 20 000 points and gets 8.4 × 10⁻⁶.
+
+### 14.10 Two additions outside `gravity`
+
+**`SPEC-frames.md` v1.5 gains `Position<F>` and `Acceleration<F>`** (§3.6, `FRAME-R-060`/`-061`,
+`FRAME-A-024`). `GRAV-R-050` assumed `frames` had frame-carrying vector types; it has `State`,
+which is a position *and* a velocity *at* an epoch, in km, and a point at which to evaluate a
+static field is none of those. They were added to `frames` rather than declared in
+`SPEC-gravity.md`, on the manager's ruling for `EPH-Q-001`. They carry **metres** where `State`
+carries km, with the unit in the accessor name on both sides. Raised for the manager's verdict as
+`GRAV-Q-009`, because amending an adopted specification is the manager's.
+
+**`tools/fetch.py` learned to extract declared archive members, each with its own SHA-256.** An
+archive entry pinned by the hash of the whole archive says nothing about what is taken out of it.
+EGM2008 ships as seven members of which this tree consumes two, and one of the five it does not
+consume is `hsynth_WGS84.f`, the FORTRAN harmonic-synthesis program that plan §3.3 step 2 forbids
+as a source of recursions. Declaring the consumed members by hash is what turns "we did not use
+it" from an assertion into something a reviewer can check: the cache contains exactly what the
+manifest names, and nothing else was unpacked.
 
 ---
 

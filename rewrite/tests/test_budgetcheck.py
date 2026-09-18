@@ -80,6 +80,20 @@ def main() -> int:
         check(f"  ... and does not report success", "ok       every budget row" not in res.stdout,
               True, res.stdout)
 
+    # --- prose beside the arithmetic, which SPEC-template.md §7 now requires --
+    # An acceleration budget must name its integration time and spectral
+    # character, so budget cells carry prose next to their numbers.  Digit-free
+    # prose is dropped and reported; prose containing a digit is NOT dropped,
+    # because at that point prose cannot be told from a factor.
+    res = run(row("X-P-7", "achieved, over one revolution, 1 ns × 7.5 km s⁻¹ = **7.5 µm**"))
+    check("accepts digit-free prose before the arithmetic", res.returncode, OK,
+          res.stdout + res.stderr)
+    res = run(row("X-P-8", "oscillatory at 90 cycles per revolution: 1 ns × 7.5 km s⁻¹ = **7.5 µm**"))
+    check("REFUSES prose containing a digit rather than guessing",
+          res.returncode in (WRONG, UNPARSEABLE), True, res.stdout + res.stderr)
+    check("  ... and does not report success", "ok       every budget row" not in res.stdout,
+          True, res.stdout)
+
     # --- a row with no arithmetic is legitimately not checked --------------
     res = run(row("X-P-5", "—") + row("X-P-6", "exact"))
     check("a row with no arithmetic passes", res.returncode, OK, res.stdout + res.stderr)

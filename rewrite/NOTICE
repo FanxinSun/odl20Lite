@@ -29,6 +29,10 @@ SUMMARY
   de440s-spk         DE440        NASA-public      data
   de440-spk          DE440        NASA-public      data
   de440-testpo       DE440        NASA-public      data
+  tn36-chapter6      2010, update of 2018-02-01 IERS-public      data
+  tn36-chapter7      2010, update of 2018-02-01 IERS-public      data
+  egm2008-coefficients EGM2008, file dated 2008-03-28 NGA-public       data
+  wgs84-standard     1.0.0        NGA-public       data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -198,6 +202,63 @@ DATA INPUTS
     retrieved 2026-09-18
     note      JPL Solar System Dynamics published test set. Values in AU and
               AU/day.
+
+  tn36-chapter6  2010, update of 2018-02-01
+    role      IERS Conventions (2010) TN36 chapter 6 — the geopotential: equations (6.1)–(6.5), Tables 6.1 and 6.2, §6.2.2
+    licence   IERS-public
+    url       https://iers-conventions.obspm.fr/content/chapter6/icc6.pdf
+    sha256    abb3c0b0b6d2079b19893d6872a9d8e7320516d9a4736acb5eecaa79c4543388
+    retrieved 2026-09-18
+    note      The normative document for SPEC-gravity. Pinned because
+              GRAV-R-020's coefficients, GRAV-R-022's equation and the
+              truncation table are read FROM THE PRINTED CHAPTER; the
+              Conventions print no recursion at all, so nothing here
+              substitutes for §4.4's derivation.
+
+  tn36-chapter7  2010, update of 2018-02-01
+    role      IERS Conventions (2010) TN36 chapter 7 §7.1.4 — the secular pole, equation (21)
+    licence   IERS-public
+    url       https://iers-conventions.obspm.fr/content/chapter7/icc7.pdf
+    sha256    ffe8ffb13c8bbc3b07ac298f458fcbb564974377b165fb93921a05bb0d55043d
+    retrieved 2026-09-18
+    note      GRAV-R-023's four constants. The 2018 update REPLACED the 'mean
+              pole' of earlier Conventions with a linear secular pole, so the
+              edition matters and the hash pins it.
+
+  egm2008-coefficients  EGM2008, file dated 2008-03-28
+    role      EGM2008 fully normalised spherical harmonic coefficients to degree 2190, order 2159 — the field SPEC-gravity implements
+    licence   NGA-public
+    url       https://earth-info.nga.mil/php/download.php?file=egm-08spherical
+    sha256    65a9072f337f156e8cbd76ffd773f536e6fb0de18697ea6726ecdb790fac0fbd
+    retrieved 2026-09-18
+    note      NGA publishes EGM2008 for unrestricted use; the README asks that
+              Pavlis, Holmes, Kenyon and Factor (EGU 2008) be cited, which
+              PROVENANCE.md §4 does. Data, never linked. THE ARCHIVE ALSO
+              CONTAINS hsynth_WGS84.f AND hsynth_WGS84.exe, a FORTRAN
+              harmonic-synthesis program and its binary. Neither is extracted
+              and neither was opened: plan §3.3 step 2 says this tree's
+              recursions come from published mathematics rather than from
+              anyone's code, and declaring the archive whole while consuming
+              two of its seven members is what makes that claim checkable
+              rather than merely asserted. Zeta-to-N_to2160_egm2008 (142 MB)
+              is not extracted either; it is the geoid conversion expansion,
+              which GRAV-Q-002 ruled out of scope.
+
+  wgs84-standard  1.0.0
+    role      NGA.STND.0036 — WGS 84 normal gravity at the pole and the semi-minor axis, for GRAV-A-012's external band check
+    licence   NGA-public
+    url       https://earth-info.nga.mil/php/download.php?file=coord-wgs84
+    sha256    5edc1cf7411d4df01cae5205ee19f661265c45a55cca60b9351f6ae5abade512
+    retrieved 2026-09-18
+    note      Pinned for exactly two numbers — gamma_p = 9.8321849379 m/s^2
+              and b = 6356752.3142 m (Table 3.6, Table 3.1) — which are the
+              only expected values in SPEC-gravity §8 that come from outside
+              this tree's own mathematics. Note that its GM, 3986004.418e8 m^3
+              s^-2, IS NUMERICALLY the TCG-compatible EGM2008 value under
+              another name, so it cannot be refused on its value; what
+              GRAV-F-005 refuses is taking both constants from here, since
+              this document's semi-major axis is 6378137.0 m against EGM2008's
+              reference radius of 6378136.3 m.
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

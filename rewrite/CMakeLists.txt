@@ -141,6 +141,7 @@ add_subdirectory(modules/time)
 add_subdirectory(modules/eop)
 add_subdirectory(modules/frames)
 add_subdirectory(modules/ephemerides)
+add_subdirectory(modules/gravity)
 
 # --------------------------------------------------------------------------- #
 

@@ -169,6 +169,28 @@ def significant_tolerance(text: str, value: float) -> float:
 EXPR = re.compile(r"([^|=]+?)\s*=\s*\*\*([^*]+)\*\*")
 
 
+# A budget cell may open with prose before its arithmetic, and since
+# SPEC-template.md §7 was amended on 2026-09-18 it often MUST: an acceleration
+# budget that quotes a position consequence has to name the integration time and
+# the spectral character of the error, and that is prose.
+#
+# What may be dropped is restricted to a prefix containing NO DIGIT.  Once a
+# digit appears there is no way to tell prose from a factor, and dropping a
+# factor silently is exactly the failure this tool exists to prevent — so a
+# prefix with a digit in it is left where it is and the row fails loudly as
+# UNPARSEABLE.  The prefix that is dropped is printed, because a tool that
+# discards part of its input without saying so is the shape of defect this
+# whole file is about.
+PROSE = re.compile(r"^(?P<prose>[^\d]*?[A-Za-z][^\d]*?)(?P<rest>[-+]?\s*\d.*)$", re.S)
+
+
+def strip_prose_prefix(lhs: str) -> tuple[str, str]:
+    m = PROSE.match(lhs)
+    if not m:
+        return "", lhs
+    return m.group("prose").strip(), m.group("rest").strip()
+
+
 def check_row(rid: str, row: str, quiet: bool) -> tuple[str, list[str]]:
     problems: list[str] = []
     text = normalise(row)
@@ -178,8 +200,9 @@ def check_row(rid: str, row: str, quiet: bool) -> tuple[str, list[str]]:
 
     for lhs, rhs in found:
         lhs = lhs.strip().lstrip(";, ").strip()
-        # Drop a leading prose word such as "achieved".
-        lhs = re.sub(r"^[A-Za-z][A-Za-z\-]*\s+(?=[-+<≤≈~\d])", "", lhs)
+        prose, lhs = strip_prose_prefix(lhs)
+        if prose and not quiet:
+            print(f"note     {rid:<14} prose prefix ignored: {prose!r}")
         try:
             factors = [parse_term(p) for p in lhs.split("*") if p.strip()]
             # A range on the left pairs with the range on the right, elementwise.

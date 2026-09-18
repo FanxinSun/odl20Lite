@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `GRAV` |
-| **Status** | draft, for manager review |
-| **Version** | 1.0 |
+| **Status** | **adopted** 2026-09-18; **amended by implementation the same day**, six corrections at v1.2 — see the changelog |
+| **Version** | 1.2 |
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 2 (`doc/REWRITE_PLAN.md` §3.3) |
 | **Depends on** | `SPEC-frames.md` (the ITRS the field is fixed in), `SPEC-time.md` (the TT argument of the secular rates), `core` |
@@ -141,10 +141,14 @@ east, and P̄*ₙₘ* the fully normalised associated Legendre functions of §3.
 - **GRAV-R-005.** The TT-compatible value is used, because `SPEC-frames.md` §3.5 makes the GCRS
   a TT-based frame and this tree integrates there. Choosing another MUST be explicit and MUST
   be recorded in the run's provenance.
-- **GRAV-R-006.** `WGS84`'s GM = 3 986 004.418 × 10⁸ m³ s⁻² is the **TCG-compatible** number
-  wearing a different name. Using it with EGM2008's coefficients MUST be refused
-  (`GRAV-F-005`), because it is the single most available wrong constant in this subject and
-  it is wrong by an amount that matters (§6 `GRAV-P-4`).
+- **GRAV-R-006.** `WGS84`'s GM = 3 986 004.418 × 10⁸ m³ s⁻² **is numerically the TCG-compatible
+  value under another name**, so it cannot be refused on its value — v1.0 and v1.1 assumed it
+  could and implementation found otherwise. What is refusable is the realistic mistake, which is
+  taking **both** constants from WGS 84: its semi-major axis is 6 378 137.0 m against this
+  model's *a*ₑ = 6 378 136.3 m. The pair MUST be checked as a pair (`GRAV-F-005`), and the GM's
+  declared time-scale compatibility MUST be recorded in provenance, because a TCG-compatible GM
+  used on a TT argument is wrong by an amount that matters (§6 `GRAV-P-4`) and no constant
+  distinguishes the two.
 
 ### 3.3 Normalisation, and the one place it is not uniform
 
@@ -228,8 +232,10 @@ Measured here, by evaluating the seed product to *m* = 2190:
 | P̄′₂₁₅₉,₂₁₅₉ | 10.241 024 |
 | P̄′₂₁₉₀,₂₁₉₀ | 10.277 577 |
 
-The factored function never exceeds about 10.3 anywhere in the model. The unfactored one, at
-the same orders, underflows the smallest normal double (2.225 × 10⁻³⁰⁸) at these latitudes:
+**The *sectorial* function never exceeds 10.278 anywhere in the model. v1.0 and v1.1 of this
+specification said "the factored function", and that is false away from the sectorial diagonal —
+implementation found it and §3.6a now states it.** The unfactored function, at the same orders,
+underflows the smallest normal double (2.225 × 10⁻³⁰⁸) at these latitudes:
 
 | order *m* | classical P̄*ₘₘ* underflows above latitude |
 |---|---|
@@ -245,9 +251,42 @@ of every one of the three singularity-free algorithms it studies is set by the s
 the Legendre generator inside it, and that *normalisation amplifies* whatever instability the
 generator has. Its own trend study stops at degree 150, which is below where this begins.
 
-- **GRAV-R-030.** The recursion MUST propagate the factored function. An implementation that
-  forms P̄*ₙₘ* itself at *m* ≳ 175 is non-conforming even if it happens to agree at the
-  equator, and `GRAV-A-007` is the test that makes the difference visible.
+### 3.6a Neither representation works alone, and the third thing that is needed
+
+Away from the sectorial diagonal the factored function is **not** bounded. From the closed form
+P̄′*ₙₘ*(1) = √((2*n*+1)(2−δ₀ₘ)) √((*n*+*m*)!/(*n*−*m*)!) / (2ᵐ *m*!), evaluated here:
+
+| quantity | value |
+|---|---|
+| max over *m* of P̄′₂₁₉₀,ₘ(1) | **10⁴⁵⁷·⁸⁶⁴**, at *m* = 979 |
+| largest double | 10³⁰⁸·²⁵ |
+| overflow margin | **10¹⁵⁰** |
+
+And it does not merely overflow. Once two consecutive entries of a column are infinite, the
+three-term recursion subtracts one from the other and the column becomes **NaN** — a failure that
+propagates silently into every sum it touches instead of announcing itself as a large number.
+
+So the two representations fail in opposite directions and neither is usable on its own. What
+works is both at once:
+
+- **a global scale of 10⁻²⁸⁰ on every associated Legendre function**, which puts the range
+  10⁻²⁷⁹ to 10¹⁷⁸ inside a double with room at both ends; and
+- **folding the powers of cos φ back in through a Horner nest over order**, rather than forming
+  cosᵐφ as a number at all.
+
+There is no cancellation in that nest: the large intermediates are large precisely because they
+are about to be multiplied by many factors of cos φ, and each step scales down rather than
+subtracting.
+
+10⁻²⁸⁰ is `HF02`'s constant and `HF02` could not be obtained. It is adopted here because the
+measurement above says it is right — 10⁴⁵⁷·⁹ ÷ 10²⁸⁰ = 10¹⁷⁷·⁹ at the top, 10⁻²⁸⁰ for a unit
+result at the bottom — and not because it was cited.
+
+- **GRAV-R-030.** The recursion MUST propagate the factored function **scaled by 10⁻²⁸⁰**, and
+  the powers of cos φ MUST be restored by a Horner nest over order. An implementation that forms
+  P̄*ₙₘ* itself is non-conforming (it underflows above 43.7° at *m* = 2190); so is one that forms
+  P̄′*ₙₘ* unscaled (it becomes NaN above degree ≈ 1800 at *m* = 979). `GRAV-A-007` demonstrates
+  both failures rather than describing them.
 
 ### 3.7 The figure-axis terms need a pole model, and chapter 6 does not name which
 
@@ -259,8 +298,9 @@ pole** fitted to 1900–2017 observations:
 
 > xs = 55.0 + 1.677 (*t* − 2000) mas, ys = 320.5 + 3.460 (*t* − 2000) mas, *t* in years of 365.25 days
 
-Using it in (6.5) is the reading this specification takes, and `GRAV-Q-005` puts the choice
-and its scope to the manager. The term is worth having, and the reason is the **epoch
+Using it in (6.5) is the reading this specification takes, **ruled and confirmed on
+2026-09-18** together with the condition of `GRAV-R-029`: the pole model is defined once, here,
+and L2 step 3's pole tide consumes that definition rather than restating it. The term is worth having, and the reason is the **epoch
 dependence** rather than its size at any one epoch — the file's C̄₂₁, S̄₂₁ are fixed while the
 conventional ones move with the pole. Computed here from (6.5) and `TN36-7` (21):
 
@@ -301,10 +341,15 @@ RMS acceleration of **7.4627 × 10⁻⁹ m s⁻²** at 7331 km by the identity o
 - **GRAV-R-011.** The record format is `{n, m, C̄ₙₘ, S̄ₙₘ, σC̄ₙₘ, σS̄ₙₘ}` as `2i5, 2d25.15, 2d20.10`
   (`EGM08-RM` (3)). The exponent marker is FORTRAN `D`; a reader that only accepts `E` reads
   nothing. Free-format reading is permitted by the source and by this spec.
-- **GRAV-R-012.** **Degrees 0 and 1 are absent from the file.** Degree 0 is the two-body term,
-  carried by GM; degree 1 vanishes because the origin is the centre of mass. The reader MUST
-  supply them as zero and MUST refuse a file that carries a non-zero degree-1 coefficient
-  (`GRAV-F-002`), since that would mean the coefficients are referred to some other origin.
+- **GRAV-R-012.** **Degrees 0 and 1 are absent from the file, and they are not both zero.**
+  `TN36-6` (6.1) sums from *n* = 0 with C̄₀₀ carrying the two-body term, so **C̄₀₀ = 1**; the
+  EGM2008 README writes the equivalent form with the 1 outside the sum and the sum starting at
+  *n* = 2. Degree 1 is **zero**, for the quite different reason that the origin is the centre of
+  mass. The reader MUST supply both, and MUST refuse a file that carries a non-zero degree-1
+  coefficient (`GRAV-F-002`), since that would mean the coefficients are referred to some other
+  origin. *(v1.0 and v1.1 said the reader must supply both as zero. Setting C̄₀₀ = 1 is what makes
+  `GRAV-R-027`'s exact GM/r² at degree 0 a consequence of the same sum rather than a separate code
+  path, and makes σ₀ = 1, which is what it should be.)*
 - **GRAV-R-013.** **The file is padded to the full triangle with explicit zeros and the model's
   true extent cannot be read off its last record.** Measured here: the last record is
   (2190, 2190) and is zero; the highest order carrying a non-zero coefficient is 2159 at odd
@@ -349,6 +394,14 @@ RMS acceleration of **7.4627 × 10⁻⁹ m s⁻²** at 7331 km by the identity o
   run's provenance. A field that cannot say how it differs from the file it was loaded from is
   not auditable.
 
+- **GRAV-R-029.** **The secular pole is defined once, in this module, and is exported.** L2
+  step 3 needs the same four constants for the solid Earth and ocean pole tides and MUST consume
+  this definition rather than restate it. Two definitions is how this module ends up secular and
+  the pole tide ends up mean, and that inconsistency would be worth about what the substitution
+  of `GRAV-R-022` is worth in the first place — which §3.7 measures at sixty-one times the
+  truncation error the same field accepts. The export is part of this module's public surface
+  (§5) for that reason and not because this module needs it to be.
+
 ### 4.3 Evaluation
 
 - **GRAV-R-026.** The module MUST evaluate *V* and **a** at any point with *r* > 0, including on
@@ -388,6 +441,10 @@ arithmetic's own rounding.
 - **GRAV-R-031.** The recursion above MUST be implemented as written, from these published
   sources. It MUST NOT be transcribed or adapted from any program, including the harmonic
   synthesis program shipped inside `EGM08` (front matter).
+- **GRAV-R-031a.** The column is propagated **scaled**, per `GRAV-R-030`. The recursion is
+  linear, so scaling the seed scales the column; the scale is removed once, per degree, **before**
+  the (*a*ₑ/*r*)ⁿ factor is applied and not after — the other order underflows, because the scaled
+  degree-2190 sum is about 10⁻²⁸⁹ and (*a*ₑ/*r*)²¹⁹⁰ at 7331 km is 10⁻¹³³.
 - **GRAV-R-032.** *aₙₘ* and *bₙₘ* MUST be formed from exact integer expressions and then
   converted, not accumulated from previous values, so that no error compounds along a column.
 - **GRAV-R-033.** The *m* = 1 seed MUST be separate from the general sectorial step (§3.5).
@@ -451,6 +508,10 @@ ConventionalField::potential(position: Position<Frame::ITRS>[m],
                              degree: Degree, order: Order)
                                                         -> Result<Potential[m^2/s^2], GravityError>
 
+ConventionalField::acceleration_by_degree(position: Position<Frame::ITRS>[m],
+                                          degree: Degree, order: Order)
+                                                        -> Result<[Vec3][m/s^2]], GravityError>
+
 ConventionalField::truncation_rms(radius: Length[m], degree: Degree)
                                                         -> Result<Acceleration[m/s^2], GravityError>
 
@@ -459,9 +520,18 @@ ConventionalField::substitutions()                      -> [Substitution]
 GravityModel::provenance()                              -> Provenance
 ```
 
+- **GRAV-R-049.** `acceleration_by_degree` returns the per-degree contributions, degree 0 first.
+  It exists because `GRAV-A-001` checks the field against `GRAV-R-041`'s identity **degree by
+  degree**, and forming those as differences of truncated evaluations would cost O(*N*²). It
+  returns a value rather than filling a caller's buffer, per this section's convention.
 - **GRAV-R-050.** `Position` and `Acceleration` are the frame-carrying types of
   `SPEC-frames.md`. A bare triple of doubles MUST NOT cross this interface in either
-  direction, so a caller cannot hand in a GCRS position by mistake.
+  direction, so a caller cannot hand in a GCRS position by mistake. *(`SPEC-frames.md` had no
+  such types when this was written: it has `State`, which is a position AND a velocity AT an
+  epoch, in km, and a point at which to evaluate a static field is none of those. `Position<F>`
+  and `Acceleration<F>` were added to `frames` rather than declared here, on the manager's ruling
+  for `EPH-Q-001` — the frame enumeration belongs to that specification and a second spec
+  extending it silently is how enumerations drift. See `GRAV-Q-009`.)*
 - **GRAV-R-051.** `Degree` and `Order` are distinct opaque types constructed through checked
   factories. They are both small integers and they are not interchangeable; passing (order,
   degree) where (degree, order) is meant MUST NOT compile.
@@ -479,27 +549,35 @@ GravityModel::provenance()                              -> Provenance
 
 | id | quantity | budget | physical consequence | basis |
 |---|---|---|---|---|
-| `GRAV-P-1` | truncation at Table 6.1's LEO row: degree 90 at *r* = 7331 km | RMS **1.2174 × 10⁻¹⁰ m s⁻²** | 1.2174 × 10⁻¹⁰ m s⁻² × 6246.8 s × 6246.8 s × 0.5 = **2.3753 mm** of along-track displacement if it acted secularly for one revolution, which it does not — see below | computed here from `EGM08`'s own degree amplitudes by `GRAV-R-041` |
-| `GRAV-P-2` | truncation at Table 6.1's Lageos row: degree 20 at *r* = 12 270 km | RMS **9.9122 × 10⁻¹² m s⁻²** | 9.9122 × 10⁻¹² m s⁻² × 13526.3 s × 13526.3 s × 0.5 = **0.90677 mm** on the same crude reading | as `GRAV-P-1` |
-| `GRAV-P-3` | truncation at Table 6.1's GPS row: degree 12 at *r* = 26 600 km | RMS **2.3018 × 10⁻¹⁴ m s⁻²** | 2.3018 × 10⁻¹⁴ m s⁻² × 43175.1 s × 43175.1 s × 0.5 = **0.021454 mm** | as `GRAV-P-1` |
-| `GRAV-P-4` | using `WGS84`'s GM with EGM2008's coefficients | MUST be refused | 5.5821 × 10⁻⁹ m s⁻² × 6246.8 s × 6246.8 s × 0.5 = **108.91 mm** at 7331 km, from a GM differing by 3 × 10⁻⁴ km³ s⁻² | `TN36-6` §6.1 against `WGS84` Table 3.1 |
-| `GRAV-P-5` | cost of one full-field evaluation | ≤ 100 ns per coefficient pair | 2 401 333 × 100 ns = **240.13 ms** per point at degree 2190 | `GRAV-R-014`'s record count; the reason `GRAV-S-043` exists |
-| `GRAV-P-6` | agreement of the evaluated field with the degree-variance identity `GRAV-R-041` | ≤ 2 % per degree at a sample of 10 000 points | the sampling error of an RMS from *K* points is about 1/√(2*K*) = 0.7 % | `GRAV-A-001`; the row states its own formula per `SPEC-template.md` §8 |
-| `GRAV-P-7` | the modified Legendre function over the whole model | bounded by **10.278** | — | measured, §3.6 |
-| `GRAV-P-8` | agreement of the recursion with the definition in exact arithmetic | ≤ 10⁻¹³ relative, in double precision | — | `GRAV-A-003`; the derivation itself agrees to 9.9 × 10⁻⁵⁸ at 60 digits |
+| `GRAV-P-1` | truncation at Table 6.1's LEO row: degree 90 at *r* = 7331 km | RMS **1.2174 × 10⁻¹⁰ m s⁻²** | 1.2174 × 10⁻¹⁰ m s⁻² × 6246.8 s × 6246.8 s × 0.5 = **2.3753 mm**, which is the value for *T* = one revolution **if the error were secular**. It is not: its **spectral character is oscillatory at about ninety cycles per revolution**, amplitude *a*/(*Nn*)², which is 1.5 × 10⁻⁵ mm | computed here from `EGM08`'s own degree amplitudes by `GRAV-R-041` |
+| `GRAV-P-2` | truncation at Table 6.1's Lageos row: degree 20 at *r* = 12 270 km | RMS **9.9122 × 10⁻¹² m s⁻²** | 9.9122 × 10⁻¹² m s⁻² × 13526.3 s × 13526.3 s × 0.5 = **0.90677 mm** on the secular reading over *T* = one revolution. **Spectral character: oscillatory at about twenty cycles per revolution**, amplitude 1.1 × 10⁻⁴ mm | as `GRAV-P-1` |
+| `GRAV-P-3` | truncation at Table 6.1's GPS row: degree 12 at *r* = 26 600 km | RMS **2.3018 × 10⁻¹⁴ m s⁻²** | 2.3018 × 10⁻¹⁴ m s⁻² × 43175.1 s × 43175.1 s × 0.5 = **0.021454 mm** on the secular reading over *T* = one revolution. **Spectral character: oscillatory at about twelve cycles per revolution**, amplitude 7.5 × 10⁻⁶ mm | as `GRAV-P-1` |
+| `GRAV-P-4` | using `WGS84`'s GM with EGM2008's coefficients | MUST be refused | 5.5821 × 10⁻⁹ m s⁻² × 6246.8 s × 6246.8 s × 0.5 = **108.91 mm** at 7331 km, from a GM differing by 3 × 10⁻⁴ km³ s⁻² over *T* = one revolution. **Spectral character: secular** — a constant fractional error in GM — so here ½*aT*² is the right instrument and not the wrong one | `TN36-6` §6.1 against `WGS84` Table 3.1 |
+| `GRAV-P-5` | cost of one full-field evaluation | ≤ 100 ns per coefficient pair | 2 401 333 × 100 ns = **240.13 ms** per point at degree 2190. **Measured: 26 ms, or 11 ns per pair**, so the budget holds with a factor of nine in hand | `GRAV-R-014`'s record count; the reason `GRAV-S-043` exists |
+| `GRAV-P-6` | agreement of the evaluated field with the degree-variance identity `GRAV-R-041` | **5/√(2*K*)** per degree, *K* stated by the test | the relative standard error of an RMS estimated from *K* samples is 1/√(2*K*); the band is five of them. At *K* = 300, 20 %; at *K* = 20 000, 2.5 % | `GRAV-A-001`, `GRAV-A-001b`; the row states its own formula per `SPEC-template.md` §8 |
+| `GRAV-P-7` | the **sectorial** modified Legendre function over the whole model | bounded by **10.278** | the *non-sectorial* one is not bounded: max over *m* of P̄′₂₁₉₀,ₘ(1) is 10⁴⁵⁷·⁸⁶⁴, which overflows a double by 10¹⁵⁰ | measured, §3.6 and §3.6a |
+| `GRAV-P-8` | agreement of the recursion with the definition in exact arithmetic | **≤ 10⁻¹³ to degree 360; ≤ 10⁻⁹ to degree 2190** | the three-term recursion accumulates rounding over *n* − *m* steps with a mild cancellation at each, so the achievable accuracy falls off with degree. **Measured worst: 6.1 × 10⁻¹¹, at degree 2190, order 0, on the polar axis.** Degree 360 covers every truncation Table 6.1 suggests, the largest being 90 | `GRAV-A-003`; the derivation itself agrees to 9.9 × 10⁻⁵⁸ at 60 digits, so what this budget measures is floating point and not algebra |
 
-**`GRAV-P-1` to `GRAV-P-3` carry a conversion that is deliberately not a requirement, and the
-reason belongs in the specification rather than in a report.** `TN36-6` Table 6.1 states that
-these truncations give "3-dimensional orbit accuracy of better than 0.5 mm" for the named
-satellites. The obvious move is to convert that into an acceleration tolerance and gate on it.
-Carried out, it fails: treating the truncation error as a constant acceleration acting for one
-revolution gives **2.3753 mm** for Starlette and **0.90677 mm** for Lageos against Table 6.1's
-0.5 mm, and only GPS's 0.021454 mm comes in under it. The model is not wrong and Table 6.1 is
-not wrong; the conversion is, because truncation error at degree *N* oscillates at *N* cycles
-per revolution and does not accumulate secularly. **So Table 6.1 is a statement about an orbit
-and this module produces an acceleration, and no gate here is set from it.** The numbers are
-printed so a reader can see the size of the gap rather than take the claim on trust, and the
-orbit-level check belongs where an orbit exists, at L4 or L8.
+**Why `GRAV-P-1` to `GRAV-P-3` name a spectral character, and why no gate here comes from
+Table 6.1.** `TN36-6` Table 6.1 states that these truncations give "3-dimensional orbit accuracy
+of better than 0.5 mm" for the named satellites. The obvious move is to convert that into an
+acceleration tolerance and gate on it. Carried out as ½*aT*² over one revolution it gives
+**2.3753 mm** for Starlette and **0.90677 mm** for Lageos against Table 6.1's 0.5 mm — an
+apparent failure by 4.8× and 1.8×, with only GPS's 0.021454 mm inside.
+
+**It is the conversion that is wrong, and not by a little.** Truncation error at degree *N*
+oscillates at about *N* cycles per revolution and does not accumulate secularly; treated as
+oscillatory its amplitude is *a*/(*Nn*)², which for Starlette is **1.5 × 10⁻⁵ mm** — five orders
+of magnitude inside Table 6.1, not marginally inside it. The model is right, the table is right,
+and a gate built from ½*aT*² would have failed a correct implementation while looking like a
+physics failure, which is the expensive kind of wrong. *(Both readings were computed
+independently by the manager on adoption and agree to the digit.)*
+
+So **no gate here is set from Table 6.1**; the orbit-level claim belongs to the layer that fits
+orbits. `SPEC-template.md` §7 now carries the whole worked case as the reason acceleration has
+no conversion row in this tree, and the rule that follows from it: an acceleration budget states
+the acceleration, and if it also quotes a position consequence it must name the integration time
+**and** the spectral character.
 
 This is the same class of mistake this project has now made five times in five disguises,
 running in the opposite direction: not a true statement about a smaller thing read as a
@@ -517,7 +595,7 @@ was done before the gate was written.
 | `GRAV-F-002` | a coefficient file carrying a non-zero degree-1 term | the coefficient, its value, and that degree 1 must vanish for a geocentric origin | re-centre the field; ignore it |
 | `GRAV-F-003` | record count, or any record's (*n*, *m*), not as `GRAV-R-011`/`-014` require | the expected and actual counts, and the first record that broke the sequence | accept a short file; fill the remainder with zeros |
 | `GRAV-F-004` | requested *N* > 2190, or *M* > min(*N*, 2159) | the request and the model's limits, separately for degree and order | clamp silently to the maximum |
-| `GRAV-F-005` | scaling parameters whose GM is not the one matched to the coefficient set, or a GM and *a*ₑ from different sources | both values, both sources, and which time scale each GM is compatible with | use them; substitute the model's own |
+| `GRAV-F-005` | scaling parameters that are not the model's own **as a pair**: an *a*ₑ that is not 6 378 136.3 m, or a GM that is none of the model's three | both values, both sources, which time scale each GM is compatible with, and the consequence | use them; substitute the model's own; refuse on the GM alone |
 | `GRAV-F-006` | the conventional field requested at an epoch outside the validity of `GRAV-R-020`'s linear rates or `TN36-7`'s secular-pole fit | the epoch, the fit's span (1900–2017 for the pole), and which term is out of range | extrapolate the linear model without saying so |
 | `GRAV-F-007` | a coefficient file from outside the manifest cache | the path and the cache root | read it |
 | `GRAV-F-008` | the tide system of the field and of a tide model asked to be added disagree | both systems and both sources | add them; convert silently |
@@ -534,14 +612,16 @@ default and the override is what makes the module usable for an epoch in 2030.
 
 | id | what is checked | expected value | source of the expected value | tolerance | discharges |
 |---|---|---|---|---|---|
-| `GRAV-A-001` | **THE GATE.** The evaluated field's degree-by-degree RMS acceleration over an equal-area global sample, at *r* = 7331, 12 270 and 26 600 km, against the exact identity of `GRAV-R-041`, for **every** degree 2…2190. The sample size and the per-degree residual MUST be reported, so "the gate passed" carries its denominator. | (GM/*r*²)(*a*ₑ/*r*)ⁿ σ*ₙ* √((*n*+1)(2*n*+1)) for each *n* | a closed-form consequence of the 4π normalisation of `TN36-6` (6.2b), evaluated on `EGM08`'s own coefficients | ≤ 2 % per degree (`GRAV-P-6`) | R-001, R-026, R-030, R-034, R-041, R-042, P-6 |
+| `GRAV-A-001` | **THE GATE.** The evaluated field's degree-by-degree RMS acceleration over an equal-area global sample, at *r* = 7331, 12 270 and 26 600 km, against the exact identity of `GRAV-R-041`, for **every** degree 2…2190. The sample size and the per-degree residual MUST be reported, so "the gate passed" carries its denominator. | (GM/*r*²)(*a*ₑ/*r*)ⁿ σ*ₙ* √((*n*+1)(2*n*+1)) for each *n* | a closed-form consequence of the 4π normalisation of `TN36-6` (6.2b), evaluated on `EGM08`'s own coefficients | 5/√(2*K*) per degree, and the **mean ratio over all degrees within 1 %** (`GRAV-P-6`) | R-001, R-026, R-030, R-034, R-041, R-042, R-049, P-6 |
+| `GRAV-A-001b` | **The same identity at low degree with a sample that can carry it.** Degrees 0–60 at *r* = 7331 km with *K* = 20 000 points, which costs almost nothing because degree 60 is 1830 terms against 2.4 million. | as `GRAV-A-001` | as `GRAV-A-001` | 5/√(2*K*) = 2.5 %; **measured worst 8.4 × 10⁻⁶, mean ratio 1.000000** | R-001, R-041, P-6 |
+| `GRAV-A-027` | **THE GATE'S COMPANION, added at adoption.** The field truncated to degree 2, order 0, at points spanning latitude 0°–90° and longitude, against the **exact J2-only closed form** — a = −(GM/*r*³)·*x*·[1 + (3/2)J₂(*a*ₑ/*r*)²(1 − 5*z*²/*r*²)] in *x* and *y*, and with (3 − 5*z*²/*r*²) in *z*, with J₂ = −√5 C̄₂₀ = 1.082 635 869 911 × 10⁻³ | at *r* = 7331 km: **−7.425 827 533 237 m s⁻²** in *x* on the equator at λ = 0; **−7.398 476 898 171 m s⁻²** in *z* on the polar axis; (−5.234 736 488 403, 0, −5.247 629 701 420) at latitude 45°, λ = 0 | closed form, derived from `TN36-6` (6.1) and (6.2b) alone and cross-checked against a second algebraic route to machine precision | ≤ 10⁻¹³ relative | R-001, R-003, R-030, R-035, R-036 |
 | `GRAV-A-002` | the two-body limit: *N* = 0 | exactly GM/*r*², directed at the origin | analytic | 4 ulp | R-027 |
 | `GRAV-A-003` | P̄′*ₙₘ* from the recursion against the definition evaluated in ≥ 50-digit arithmetic, at sampled (*n*, *m*) including *n* = *m* = 2190 and *n* = 2190, *m* = 0, over latitudes 0°…90° | the definition's value | `TN36-6` (6.2b) + `DLMF-14` (14.6.1), de-phased | ≤ 10⁻¹³ relative (`GRAV-P-8`) | R-007, R-030, R-032, P-8 |
 | `GRAV-A-004` | orthonormality by Gauss–Legendre quadrature: ∫₋₁¹ P̄*ₙₘ*(*t*)² d*t* | 2 for *m* = 0, 4 for *m* ≥ 1 | a closed-form consequence of `TN36-6` (6.2b) | 10⁻¹² relative | R-007 |
 | `GRAV-A-005` | the analytic gradient against central differences of `potential()` at the same points, at degrees 2, 8, 90 and 360 | agreement | self-consistency of two independent routes through the same coefficients | ≤ 10⁻⁷ relative, the step-size floor | R-003, R-037 |
 | `GRAV-A-006` | evaluation **on the polar axis**, φ = ±90°, at full degree: finite, and the limit of the field as φ → ±90° along two meridians 90° apart | continuity to the tolerance of the approach | analytic; the field has no singularity there | ≤ 10⁻⁹ relative | R-026, R-035, R-036 |
-| `GRAV-A-007` | **the factored recursion earns its place**: the same field evaluated with cosᵐφ *not* factored out is measurably worse, and at *m* = 2190, |φ| > 43.7° returns zero where the factored form does not | the unfactored form loses the term entirely | §3.6, measured | — | R-030, R-034, P-7 |
-| `GRAV-A-008` | **the *m* = 1 seed**: substituting the general sectorial seed at *m* = 1 changes P̄₁₁ by exactly √2 and `GRAV-A-001` then fails | ratio √2 = 1.414 213 562 | §3.5, verified at 60 digits | 10⁻¹² relative | R-033 |
+| `GRAV-A-007` | **the factored recursion earns its place**: the same field evaluated with cosᵐφ *not* factored out is measurably worse, and at *m* = 2190, |φ| > 43.7° returns zero where the factored form does not | the unfactored form loses the term entirely; the unscaled factored form becomes **NaN**, not merely large; the scaled one is finite and its magnitude matches the closed form | §3.6 and §3.6a, measured | — | R-030, R-031a, R-034, P-7 |
+| `GRAV-A-008` | **the *m* = 1 seed**: substituting the general sectorial seed at *m* = 1 changes P̄₁₁ by exactly √2 | ratio √2 = 1.414 213 562 | §3.5, verified at 60 digits | 10⁻¹² relative | R-033 |
 | `GRAV-A-009` | the coefficients as loaded, before substitution, against the values `TN36-6` prints: C̄₂₂ = 2.439 383 6 × 10⁻⁶, S̄₂₂ = −1.400 273 7 × 10⁻⁶ (§6.1), C̄₃₀ = 0.957 161 2 × 10⁻⁶, C̄₄₀ = 0.539 965 9 × 10⁻⁶ (Table 6.2) | as printed | `TN36-6` §6.1 and Table 6.2 — **published numbers checked against the published file** | the printed digits | R-011, R-052 |
 | `GRAV-A-010` | the tide-system arithmetic: C̄₂₀^zt − (−4.1736 × 10⁻⁹) | −0.484 165 31 × 10⁻³, the tide-free value `TN36-6` §6.2.2 prints | `TN36-6` §6.2.2 | the printed digits | R-008, R-021 |
 | `GRAV-A-011` | **the conventional substitution is not cosmetic**: the conventional zero-tide C̄₂₀ minus the file's tide-free C̄₂₀ | −4.3362 × 10⁻⁹, and after removing the tide-system difference −1.6261 × 10⁻¹⁰, which is 8× the 2 × 10⁻¹¹ uncertainty the Conventions state | `TN36-6` §6.1, Table 6.2, §6.2.2 and `EGM08` | 1 in the last printed digit | R-020, R-025 |
@@ -550,7 +630,7 @@ default and the override is what makes the module usable for an epoch in 2030.
 | `GRAV-A-014` | the file's structure: 2 401 333 records; degrees 0 and 1 absent; the last record (2190, 2190) zero; the highest non-zero order 2159 at odd and 2158 at even degrees above 2159 | as stated | measured from `EGM08` | exact | R-012, R-013, R-014 |
 | `GRAV-A-015` | refusal: a coefficient file with a non-zero C̄₁₁ | `GRAV-F-002` naming the coefficient and its value | this spec | — | F-002, R-012 |
 | `GRAV-A-016` | refusal: degree 2191; order 2160; order > degree | `GRAV-F-004`, naming degree and order separately | this spec | — | F-004, R-026 |
-| `GRAV-A-017` | refusal: `ScalingParameters` built from `WGS84`'s GM and EGM2008's *a*ₑ | `GRAV-F-005` naming both values and both time scales | this spec, `GRAV-P-4` | — | F-005, R-004, R-006, R-053, P-4 |
+| `GRAV-A-017` | refusal: `ScalingParameters` built from **both** of WGS 84's constants — its *a* = 6 378 137.0 m against the model's 6 378 136.3 m. The legitimate TCG pair is accepted and its compatibility recorded. The consequence is measured rather than asserted: 5.5821 × 10⁻⁹ m s⁻² at 7331 km, 108.91 mm over one revolution | `GRAV-F-005` naming both values, both time scales and the consequence | this spec, `GRAV-P-4` | — | F-005, R-004, R-006, R-053, P-4 |
 | `GRAV-A-018` | refusal: a coefficient file outside the manifest cache; and the file's SHA-256 verified by the fetcher before the module sees it | `GRAV-F-007` naming the path and the cache root | this spec, plan rule R11 | — | F-007, R-010 |
 | `GRAV-A-019` | refusal: the conventional field at 2035-01-01, outside `TN36-7`'s 1900–2017 fit, and that the single named override lets it through and is recorded | `GRAV-F-006` naming the epoch and the span | this spec, `R-ERR-3` | — | F-006, R-023, R-024 |
 | `GRAV-A-020` | structural: `Degree` and `Order` cannot be exchanged; a bare `double[3]` cannot reach `acceleration()`; `ConventionalField` exposes no mutator | compile failure in all three | this spec | — | R-050, R-051, R-052 |
@@ -558,8 +638,16 @@ default and the override is what makes the module usable for an epoch in 2030.
 | `GRAV-A-022` | the substitution register: `substitutions()` lists exactly the four coefficients `GRAV-R-020` and `GRAV-R-022` change, each with its from-value, to-value and source | as stated | this spec | exact | R-025, R-021 |
 | `GRAV-A-023` | the sign convention: at a point above the equator the acceleration points towards the origin, and *V* increases downwards | as stated | `TN36-6` (6.1) | exact | R-003 |
 | `GRAV-A-025` | **the figure-axis terms**: C̄₂₁(*t*), S̄₂₁(*t*) from (6.5) with the secular pole of `TN36-7` (21), at J2000.0 and at 2026.0 | −2.264 385 × 10⁻¹⁰ and +1.299 633 × 10⁻⁹ at J2000.0; −4.048 365 × 10⁻¹⁰ and +1.664 613 × 10⁻⁹ at 2026.0 | `TN36-6` (6.5) evaluated in closed form on the constants §3.7 lists | 1 in the last digit shown | R-022, R-023, R-024 |
+| `GRAV-A-028` | **one pole model, not two**: the secular pole this module exports is the same object (6.5) consumes, checked by perturbing the exported definition and requiring C̄₂₁/S̄₂₁ to move with it; and the four constants appear in exactly one place in the module's source | as stated | this spec, `GRAV-R-029` | exact | R-029, R-023 |
 | `GRAV-A-026` | the loader records **which file, in which tide system**: `tide_system()` reads back tide-free before the conventional substitution and zero-tide after it, and `provenance()` names the file by hash either way | as stated | `EGM08-RM` (1) and `TN36-6` Table 6.2 | exact | R-008, R-015, R-021 |
 | `GRAV-A-024` | the Condon–Shortley convention: an odd-order term computed with the (−1)ᵐ phase differs in sign, and `GRAV-A-001` then fails | sign flip on every odd *m* | `DLMF-14` (14.6.1) against `TN36-6` (6.2a) | exact | R-007 |
+
+**`GRAV-A-008`'s error would NOT be caught by the gate, and v1.1 of this specification said it
+would.** The *m* = 1 share of σ*ₙ*² is tiny — at degree 2 it is (C̄₂₁² + S̄₂₁²)/σ₂² ≈ 7 × 10⁻¹²,
+because C̄₂₀ dominates that degree by six orders of magnitude — so a √2 on every order-1 term
+moves no degree variance measurably. It is caught by `GRAV-A-003`, whose reference set includes
+(2, 1) and (2190, 1) evaluated from the definition. The claim was removed at v1.2 rather than
+left to look like coverage that does not exist.
 
 **What `GRAV-A-012` does and does not check, because a band this wide invites being
 over-read.** It compares the full-field magnitude against a number published independently of
@@ -585,11 +673,21 @@ is kept despite being coarse — see `GRAV-Q-001`.
 | `GRAV-F-008` | The consumer does not exist until L2 step 3. The refusal is specified now so that step inherits it rather than inventing it. |
 | `GRAV-S-043` | A recommendation about defaults; its content is the numbers `GRAV-A-013` checks. |
 
+**The gate has a blind spot, and `GRAV-A-027` is what covers it.** `GRAV-A-001` is a statement
+about **means over the sphere**. A recursion that produced wrong angular structure while
+preserving unit mean square would satisfy it — the identity constrains how much power each
+degree carries, not where on the sphere it is. `GRAV-A-027` is point-wise against an exact
+closed form and tests precisely what the identity cannot. The two together are the gate; neither
+alone is. *(The blind spot was named by the manager at adoption, not by this author.)*
+
 **This §8 is not built on a published table of accelerations, because there is none** — see
 `GRAV-Q-001`. By the template's §8 ordering its rows draw on category 1 (published numbers:
-`GRAV-A-009`, `-A-010`, `-A-011`, `-A-012`), category 2 (closed-form results: `GRAV-A-001`
-through `-A-004`, and `-A-013`) and category 4 (self-consistency: `GRAV-A-005`). The gate is a
-category-2 test, not a category-1 one, and the template requires that to be said plainly.
+`GRAV-A-009`, `-A-010`, `-A-011`, `-A-012`), category 2 (closed-form results: `GRAV-A-001`,
+`-A-002`, `-A-003`, `-A-004`, `-A-013` and `-A-027`) and category 4 (self-consistency:
+`GRAV-A-005`). The gate is category 2, not category 1, and the template requires that to be said
+plainly. An oracle comparison against the predecessor's geopotential is available as a
+category-5 cross-check and is **not** part of the gate; the manager offered it and did not
+require it.
 
 ---
 
@@ -627,15 +725,15 @@ category-2 test, not a category-1 one, and the template requires that to be said
 
 | id | question | recommendation |
 |---|---|---|
-| `GRAV-Q-001` | **There is no published table of geopotential accelerations to gate on.** The step's scope says "published coefficients' acceleration at sampled points". The coefficients are published; accelerations computed from them are not, in any form this author could find — searched: NGA's EGM2008 distribution, ICGEM, `PAVLIS12`'s abstract and figures, `NASA-TP` (whose appendix B publishes *error magnitudes*, not accelerations, and for the Moon), and the harmonic-synthesis literature. So `GRAV-A-001` is a closed-form identity rather than a published comparison. | Accept the identity as the gate. It is stronger than a handful of published points would be — it constrains **every** degree to 2190 rather than a sample of positions — and it is the only instrument found that reaches the high degrees at all. But it is category 2 and not category 1, and the template requires that difference to be visible, so it is stated in §8. **If the manager or the owner knows of a published acceleration set, it should be added and the gate promoted.** |
-| `GRAV-Q-002` | **NGA publishes a six-point reference inside the archive this spec already pins — of geoid undulation, not acceleration.** `INPUT.DAT` and `OUTPUT1.DAT` give six latitude/longitude pairs and their EGM2008 geoid undulations to the millimetre, including **both poles** and computed at **full degree 2190**. That is precisely the two hard cases. Consuming it costs: the WGS 84 normal potential and Somigliana normal gravity in closed form, a second pinned 142 MB expansion (the ζ*-to-N conversion to degree 2160), and matching Pavlis's exact option conventions to 4 × 10⁻⁵ relative. | **Do not adopt it at this step, and I want this ruled rather than assumed.** The cost is a geoid capability this plan has no other use for, and the risk is that a mismatch would be a convention disagreement wearing the costume of a physics failure — the gate would fail for the wrong reason and take days to clear. `GRAV-A-006` covers the polar case and `GRAV-A-001` covers degree 2190; what this would add is an independent *publisher's* number. If the manager judges that worth the cost, it is a clean amendment to §8 and nothing else in the spec changes. |
-| `GRAV-Q-003` | **The Conventions print no recursions, so the step's scope cannot be met as worded.** The scope says "recursions taken from the tables printed in the Conventions rather than from anyone's code". Chapter 6 prints the expansion (6.1) and the normalisation (6.2b) and nothing else; the words "recursion" and "recurrence" do not occur in it. The standard citation, `HF02`, is paywalled and was not obtained. | **Ratify the substitute.** §4.4's recursion is derived from `TN36-6` (6.2b) and `DLMF-14` — published mathematics, freely readable, primary — and **verified to 60 digits against the definition in exact rational arithmetic before being written down**. That meets the intent of the instruction, which was to keep this tree's mathematics traceable to published statements rather than transcribed from a program, and it is stronger than citing a paper nobody here can read. The deviation is flagged because it is a deviation. |
-| `GRAV-Q-004` | **Table 6.1 cannot be converted into an acceleration gate**, worked through in §6. Two of its three rows fail a conservative conversion by factors of 4.8 and 1.8. | No action needed beyond the ruling that **no gate here is set from Table 6.1**, which §6 already takes. Recorded because the opposite is the obvious thing to do and someone will propose it. The orbit-level check belongs at L4 or L8, where an orbit exists. |
-| `GRAV-Q-005` | **Which pole model feeds equation (6.5)?** Chapter 6 says "consistent with the mean figure axis corresponding to the pole of the TRF defined in Chapter 4" and names no model. Chapter 7's 2018 update replaced the "mean pole" of earlier Conventions with a linear **secular pole**, so the model chapter 6's wording originally pointed at no longer exists under that name. The term is not negligible: it makes C̄₂₁ several times the value the file carries. | Take `TN36-7` §7.1.4's secular pole, which is what `GRAV-R-023` says. Two sub-questions are the manager's: (a) confirm that reading; (b) decide whether the secular pole is implemented **here** or at L2 step 3, which needs the same four constants for the pole tides. My recommendation is **here**, because (6.5) is part of the *static conventional model* of §6.1 and deferring it ships an adopted field knowingly incomplete on a term worth sixty-one times
-the truncation error the same field accepts (§3.7) — but it is a scope call and scope calls are yours. |
-| `GRAV-Q-006` | **The gravity-gradient tensor ∂a/∂r is not in this step's scope** and the variational equations of L3/L7 will need it. The second derivatives come from the same recursion at negligible extra cost if the interface allows for them, and at the cost of a second traversal if it does not. | Leave it out of step 2 — one step open at a time, and the plan puts variational equations elsewhere — but **do not foreclose it**: §5's interface returns values rather than filling caller-supplied buffers, so adding `gradient()` later is additive. Flagged now so that L3 does not discover it as a surprise. |
-| `GRAV-Q-007` | **`SPEC-template.md` §7's conversion table has no acceleration row**, so every acceleration-to-position conversion in this tree will be improvised. This spec writes its own out in full in §6, four times. | Add one row to the template: *1 nm s⁻² over one LEO revolution (6246.8 s) → 19.5 mm, as ½at²*, with the warning §6 makes — that the conversion is an upper bound valid only for a secular perturbation, and that it is wrong by a factor of several for an oscillatory one like truncation error. The warning is the more valuable half. This is an amendment to an adopted document, so it is yours, not mine. |
-| `GRAV-Q-008` | **The secular rates have no stated validity span**, and the Conventions warn in §6.1 that the low-degree trends "are not strictly linear in reality", that there may be "decadal variations that are not captured", and that they "may not be consistent with more recent surface mass trends due to increased ice sheet melting". `GRAV-F-006` therefore refuses outside the span, but the span for Table 6.2's rates is not published — only the secular pole's 1900–2017 fit is. | Take the pole's 1900–2017 as the span for the whole conventional-model epoch dependence, since it is the only published one, and say so in the diagnostic rather than implying the rates carry it. The alternative — no limit on the rates — makes `GRAV-F-006` a refusal that never fires, which is worse than a conservative one that can be overridden by name. |
+| `GRAV-Q-001` | **There is no published table of geopotential accelerations to gate on.** The step's scope says "published coefficients' acceleration at sampled points". The coefficients are published; accelerations computed from them are not, in any form this author could find — searched: NGA's EGM2008 distribution, ICGEM, `PAVLIS12`'s abstract and figures, `NASA-TP` (whose appendix B publishes *error magnitudes*, not accelerations, and for the Moon), and the harmonic-synthesis literature. So `GRAV-A-001` is a closed-form identity rather than a published comparison. | **RULED 2026-09-18: accept the identity as the gate**, and the manager checked it rather than taking it — (*n*+1)² from the radial derivative plus *n*(*n*+1) from the tangential is exactly (*n*+1)(2*n*+1), and the 4π normalisation makes each normalised function's mean square unity. Every degree at three radii is stronger coverage than a handful of points. It stays marked **category 2**. If a published acceleration set ever turns up, the gate is promoted. |
+| `GRAV-Q-002` | **NGA publishes a six-point reference inside the archive this spec already pins — of geoid undulation, not acceleration.** `INPUT.DAT` and `OUTPUT1.DAT` give six latitude/longitude pairs and their EGM2008 geoid undulations to the millimetre, including **both poles** and computed at **full degree 2190**. That is precisely the two hard cases. Consuming it costs: the WGS 84 normal potential and Somigliana normal gravity in closed form, a second pinned 142 MB expansion (the ζ*-to-N conversion to degree 2160), and matching Pavlis's exact option conventions to 4 × 10⁻⁵ relative. | **RULED 2026-09-18: do not take it**, for the reason given here — a mismatch would be a convention disagreement wearing the costume of a physics failure, and clearing that would cost days. **Recorded with that reason so it is not reopened cheaply in six months.** The archive is still pinned whole and `hsynth_WGS84.f` still not opened. |
+| `GRAV-Q-003` | **The Conventions print no recursions, so the step's scope cannot be met as worded.** The scope says "recursions taken from the tables printed in the Conventions rather than from anyone's code". Chapter 6 prints the expansion (6.1) and the normalisation (6.2b) and nothing else; the words "recursion" and "recurrence" do not occur in it. The standard citation, `HF02`, is paywalled and was not obtained. | **RULED 2026-09-18: the substitute is accepted and the plan is corrected rather than this specification.** "Recursions taken from the tables printed in the Conventions" named a table that does not exist. Deriving from (6.2b) with `DLMF-14` — primary, free, and the successor to Abramowitz & Stegun — and verifying in exact rational arithmetic to 60 digits is an artefact **anyone can reproduce**, which citing a paywalled paper would not have been. `doc/REWRITE_PLAN.md` §3.3 step 2 now specifies this route. |
+| `GRAV-Q-004` | **Table 6.1 cannot be converted into an acceleration gate**, worked through in §6. Two of its three rows fail a conservative conversion by factors of 4.8 and 1.8. | **RULED 2026-09-18: no gate is set from Table 6.1**, and the manager verified both readings independently — ½*aT*² reproduces 2.37, 0.90 and 0.021 mm to the digit, and the oscillatory amplitude *a*/(*Nn*)² puts Starlette at 1.5 × 10⁻⁵ mm, five orders of magnitude inside the table. The whole worked case is now in `SPEC-template.md` §7 as the reason acceleration has no conversion row in this tree. |
+| `GRAV-Q-005` | **Which pole model feeds equation (6.5)?** Chapter 6 says "consistent with the mean figure axis corresponding to the pole of the TRF defined in Chapter 4" and names no model. Chapter 7's 2018 update replaced the "mean pole" of earlier Conventions with a linear **secular pole**, so what chapter 6's wording pointed at no longer exists under that name. The term is not negligible: §3.7 measures the substitution at sixty-one times the truncation error the same field accepts. Two sub-questions: (a) confirm the reading; (b) decide whether the secular pole is implemented **here** or at L2 step 3, which needs the same four constants for the pole tides. | **RULED 2026-09-18: the secular pole, confirmed, and implemented at step 2** — the 2018 update exists because the mean-pole model was diverging, and 7.46 × 10⁻⁹ m s⁻² at 7331 km is not a rounding. The conventional C̄₂₁/S̄₂₁ are the static field's own degree-2 order-1 terms and belong here. **Binding condition, now `GRAV-R-029`: the pole model is defined once, here, and L2 step 3's pole tide consumes that definition rather than restating it.** Two definitions is how this module ends up secular and step 3 ends up mean. |
+| `GRAV-Q-006` | **The gravity-gradient tensor ∂a/∂r is not in this step's scope** and the variational equations of L3/L7 will need it. The second derivatives come from the same recursion at negligible extra cost if the interface allows for them, and at the cost of a second traversal if it does not. | Open, and deliberately so. Left out of step 2 on the one-step-at-a-time rule; §5's interface returns values rather than filling caller-supplied buffers, so adding `gradient()` is additive. Flagged so L3 meets it as a plan item rather than a surprise. |
+| `GRAV-Q-007` | **`SPEC-template.md` §7's conversion table has no acceleration row**, so every acceleration-to-position conversion in this tree will be improvised. This spec writes its own out in full in §6, four times. | **RULED 2026-09-18, and deliberately not the row this specification asked for.** An acceleration-to-position conversion row would have institutionalised the exact error `GRAV-Q-004` had just caught. `SPEC-template.md` §7 instead carries **the prohibition and the worked example**: acceleration has no row, because every other row is a rotation or a rate where the consequence is a multiplication and this one is not; an acceleration budget states the acceleration, and one quoting a position consequence must name the integration time **and** the spectral character. §6 conforms at v1.1. |
+| `GRAV-Q-009` | **`SPEC-frames.md` has no frame-carrying position or acceleration type**, and `GRAV-R-050` assumed it did. It has `State`, which is a position *and* a velocity *at* an epoch, in km; a point at which to evaluate a static field is none of those, and reusing it would have meant inventing a velocity and an epoch to discard. `Position<F>` and `Acceleration<F>`, in metres, were therefore added to `frames` rather than declared here. | **Implemented that way under your `EPH-Q-001` ruling** — *the frame enumeration belongs to that specification, and a second spec extending it silently is how enumerations drift* — and `SPEC-frames.md` amended to match. It is additive: nothing existing changed, and no existing test moved. **Flagged for your verdict because amending an adopted specification is yours, not mine.** The one wrinkle worth your eye: these carry **metres** where `State` carries km, and the unit is in the accessor name on both sides (`metres()`, `position()`), so a conversion cannot happen silently. |
+| `GRAV-Q-008` | **The secular rates have no stated validity span**, and the Conventions warn in §6.1 that the low-degree trends "are not strictly linear in reality", that there may be "decadal variations that are not captured", and that they "may not be consistent with more recent surface mass trends due to increased ice sheet melting". `GRAV-F-006` therefore refuses outside the span, but the span for Table 6.2's rates is not published — only the secular pole's 1900–2017 fit is. | Standing as recommended: chapter 7's 1900–2017 is the only published span, it is named in the diagnostic rather than implied to cover the rates, and `GRAV-F-006`'s single named override is the way past it. |
 
 ---
 
@@ -643,4 +741,6 @@ the truncation error the same field accepts (§3.7) — but it is a scope call a
 
 | version | date | change |
 |---|---|---|
+| 1.2 | 2026-09-18 | **Amended by implementation, six corrections.** (1) **§3.6a added: the factored function is not bounded** — only the sectorial seed is. Max over *m* of P̄′₂₁₉₀,ₘ(1) is 10⁴⁵⁷·⁸⁶⁴, overflowing a double by 10¹⁵⁰, after which the three-term recursion yields NaN rather than infinity. Both representations fail, in opposite directions; `GRAV-R-030` now requires the 10⁻²⁸⁰ scale **and** the Horner nest, with `GRAV-R-031a` on where the scale is removed. (2) `GRAV-R-012`: **C̄₀₀ = 1, not 0** — degree 0 is the two-body term inside the same sum. (3) `GRAV-P-8` tiered: 10⁻¹³ to degree 360, 10⁻⁹ to 2190; measured worst 6.1 × 10⁻¹¹. (4) **`GRAV-A-008`'s claim that the √2 error would fail the gate was false** — the *m* = 1 share of σ₂² is 7 × 10⁻¹² — and was removed rather than left looking like coverage. (5) `GRAV-R-006`/`-F-005`: WGS 84's GM **is** the TCG value numerically and cannot be refused by value; the pair is checked instead. (6) `GRAV-R-049`/§5: `acceleration_by_degree` added, and `GRAV-A-001b` with it. `GRAV-Q-009` opened on the frame-carrying position type. |
+| 1.1 | 2026-09-18 | **Adopted**, with the addition the adoption carried and rulings on all eight questions. `GRAV-A-027`: a point-wise check against the exact J2-only closed form, covering the gate's blind spot — `GRAV-A-001` is a statement about means over the sphere, and a recursion with wrong angular structure but unit mean square would satisfy it. `GRAV-R-029` and `GRAV-A-028`: the secular pole is defined once here and L2 step 3 consumes that definition. §6 conformed to the amended `SPEC-template.md` §7 — every acceleration budget names its spectral character, and `GRAV-P-4` says explicitly that ½*aT*² *is* the right instrument for a secular error. §10 `GRAV-Q-005` also carried, into v1.0, the very claim §3.7 had corrected; repaired. |
 | 1.0 | 2026-09-18 | First draft, L2 step 2, for manager review. |
