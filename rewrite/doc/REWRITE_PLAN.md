@@ -852,6 +852,19 @@ governs. Three rules apply to all of them:
    law, a limit — because a relation the source states about its own results is checkable without
    the source's arithmetic and is not a second look at the same thing.
 
+   **The converse is the useful half, and L3 step 2 is the case.** Where an independent
+   specification *does* exist, it need not be a document — the Runge–Kutta **order conditions**
+   are exact algebraic identities that any correct coefficient set satisfies, so a transcription
+   is checkable against mathematics that does not involve the source at all. That changes the
+   question from *can this source be read reliably* to *is what I read checkable*, and the second
+   question has an answer that does not depend on the first. Fehlberg's `TR R-287` is a 1968 scan
+   whose OCR renders a coefficient row as `83_ = 841 = B_I = 8sl`, and it does not matter: the
+   coefficients are printed as **exact rationals**, read from the page images, and either satisfy
+   the order conditions in exact rational arithmetic or do not. A source published as decimals
+   satisfies them only to rounding, and a transcription error in the last digits is then
+   indistinguishable from it. So when choosing among sources, **ask what independent property the
+   thing must satisfy before asking how cleanly it is published.**
+
    This binds **L4's drag coefficient** and **L9's ray tracing**, which are the same shape, and
    it is settled here rather than three layers later for that reason.
 4. **A gate's wording names what this plan wanted; the source prints what it prints — and a
