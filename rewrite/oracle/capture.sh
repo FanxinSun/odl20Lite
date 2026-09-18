@@ -68,6 +68,19 @@ now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # ---- case recorder --------------------------------------------------------
 : > "$CASES"
+# The header is emitted here, not only kept in the frozen copy: a regeneration
+# that dropped it would leave the file depending on this script to be read, which
+# is the defect it exists to remove.
+{
+  echo "# Frozen predecessor measurements. See ORACLE.md; capture.sh regenerates all but B-* and E-*."
+  echo "#"
+  echo "# The F-* cases are this ECEF state, which was previously only in capture.sh and so"
+  echo "# made this file not self-contained:"
+  echo "#   position  6373.144386  -3485.243421   2605.215522  km"
+  echo "#   velocity    -0.689758464  3.306816989  6.103804423  km/s"
+  echo "#   epoch     MJD 57372.37458333 (F-01..F-04), MJD 60827.0 (F-05)"
+  echo "#"
+} >> "$CASES"
 printf 'id\tquantity\tvalue\tunit\tcommand\n' >> "$CASES"
 rec() { printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5" >> "$CASES"; }
 

@@ -146,6 +146,10 @@ that requirement made specific, and conformance to it is an adoption criterion i
 step's Review step. The layers of §1 are these modules; names indicative:
 
 ```
+core      the vocabulary every module above shares and nothing below: odl::Result and its
+          error type (D7), Vec3/Mat3, the unit and angle types. Added at L1, reported rather
+          than assumed; it exists because a Result alias that lived in `time` would have made
+          every module depend on `time` to report an error.
 time      TT/TAI/UTC/UT1/GPS/TDB, leap-second table with enforced expiry; no file access
 frames    GCRS <-> ITRS (IAU 2006/2000A via ERFA), TEME <-> GCRS, RTN and DYB rotations
 eop       EOP 20 C04 + finals2000A.all ingestion, splice, interpolation, tidal terms;
@@ -247,51 +251,61 @@ of what Rust's crate boundaries would have given free, and it is why no §2 amen
 
 ---
 
-### 3.2 L1 `time-frames` — 0 of 4 done; **the open layer** — all three specs adopted
+### 3.2 L1 `time-frames` — **4 of 4 done; exit gate passed 2026-09-18**
 
-**Entry:** L0 exit gate — **passed 2026-09-18**, so this layer is open.
+1. **DONE** — `odl::Result` over vendored `tl::expected` (D7), manifest-declared, NOTICE
+   regenerated. The step also found the manifest's one real hole — a dependency's own build
+   system fetching an unpinned transitive dependency — now closed and written into §3.11 point 4.
+2. **DONE** — `time`. Six implementation defects were caught by the tests meant to catch them,
+   one of which is worth keeping in the plan: the two-part Julian date was formed as a single
+   double and then split, **reintroducing the 2⁻³¹ d ≈ 40 µs quantisation that SPEC-time §4.2
+   exists to disqualify** — inside the module built to avoid it. Found by comparing two routes
+   to TCB−TDB. Also: `from_calendar` evaluated rate-dependent offsets once instead of iterating
+   (1.15 µs against a 1 ns budget, with a comment claiming femtoseconds); `ut1_two_part_jd`
+   added ΔUT1 to TAI rather than UTC.
+3. **DONE** — `eop`. `finals2000A.all` predicts about a year ahead and TIME-R-051 refuses UTC
+   past the leap table's expiry, so loading it failed outright: two adopted specs colliding in
+   a way neither anticipated. The series now truncates at the leap horizon and reports the
+   count, so a caller meets EOP-F-007 naming coverage rather than a leap-table error three
+   layers down.
+4. **DONE** — `frames`. ω×r was being formed in ITRS when the Earth spins about the CIP, which
+   is TIRS's z. The gate was restated: see §4 rule 1, which this step's measurement corrected.
 
-**D7 decided:** `odl::Result` over vendored `tl::expected`, C++20 unchanged (§7, §5 constraint 8).
-Step 1 below is that decision made real; steps 2–4 are the three adopted specifications
-implemented in dependency order.
+**Exit gate — passed.** Verified independently 2026-09-18: **58 of 58 tests pass**, 384
+artefacts byte-identical. The type-level requirement holds and holds structurally — **frame is a
+template parameter**, so `State<Gcrs>` and `State<Teme>` are unrelated types and there is no tag
+to reassign. That is the answer to the risk flagged at L0, and it is the second time a C++20
+"optional at implementation" hazard was closed by making the compiler the enforcer.
 
-1. **TODO** — `odl::Result`. Declare `tl::expected` in the manifest with URL and SHA-256 like
-   any other input, define `odl::Result<T,E>` and `odl::Err`, regenerate NOTICE. Tooling, not
-   science, so §3.11 points 1–2 do not apply — there is no published source to specify from.
-   Gate: the alias compiles under `-std=c++20`, a refusal round-trips through it in a test, the
-   manifest hash verifies, and NOTICE lists the new entry with its CC0-1.0 text quoted from the
-   pinned archive.
-2. **TODO** — `time`: TT/TAI/UTC/UT1/GPS/TDB. *Specification adopted v1.2* from IERS
-   Conventions TN36 ch. 10, the IERS leap-second table and the ERFA documentation, carrying two
-   decisions worth keeping: the representation is i64 seconds plus f64 fraction in TAI from
-   1958, because a bare f64 Julian Date quantises at ≈ 40 µs ≈ 0.30 m at LEO and is disqualified
-   by arithmetic; and the leap-second table has an enforced expiry with exactly one named,
-   logged escape hatch. **Implementation and gate remain.** Gate: the Conventions' published
-   worked examples, every timescale pair.
-3. **TODO** — `eop`: EOP 20 C04 and `finals2000A.all` ingestion, splice, interpolation, tidal
-   terms. *Specification adopted v1.2.* It is its own module rather than part of `time` — it
-   reads files and holds a coverage policy — and that boundary was argued by the spec author
-   and adopted, not assumed. **Implementation and gate remain.** Gate: published IERS values at
-   sampled epochs, plus refusal outside coverage with the escape hatch exercised and logged.
-4. **TODO** — `frames`: GCRS↔ITRS by IAU 2006/2000A through ERFA, TEME↔GCRS, RTN and DYB.
-   *Specification adopted v1.2.* **Implementation and gate remain.** Gate: round-trip closure,
-   **and** the required-disagreement test against oracle case T-01 — the predecessor computes
-   IAU-76/1980 and this tree computes IAU 2006/2000A, so a ≈ 0.064″ ≈ 2.17 m separation at
-   7000 km must be present with the right sign and size, and agreement is the failure (§4
-   rule 1).
+**Specification amendments this layer requires**, to be applied before L2 opens, by their author:
 
-**Exit gate:** all three gates passed, and a state cannot be built without a declared timescale
-or reinterpreted between frames — enforced by the type system, not by a test.
+- `SPEC-eop`: EOP-R-007 mandates implementing from the printed tables *because* the IERS Fortran
+  is unlicensed, while EOP-A-003 demands matching `ORTHO_EOP` to the last published digit. TN36
+  §8.2 settles it in as many words — the two routes "agree at the level of a few microarcseconds
+  in polar motion and a few tenths of a microsecond in UT1". Achieved 0.09–0.34 µas and 0.007 µs.
+  EOP-A-003 takes the Conventions' own tolerance.
+- `SPEC-frames`: FRAME-R-030 forbade the equinox route outright, but Vallado's eq. (C-1) requires
+  the **kinematic** equation-of-equinoxes terms, and those are not the ambiguous part — his
+  ambiguities are in the geometric nutation terms this chain never uses. FRAME-A-001's 1 mm is
+  not achievable; 13.3 mm is, characterised as a pure z-rotation of 3.45 × 10⁻⁴ arcsec that
+  neither the two-term form nor `eraEect00` explains. Tolerance 25 mm **plus an assertion that
+  the residual stays a pure rotation** — a radial component would mean a scale or units error,
+  which no rotation can produce. The unexplained rotation stays recorded as unexplained.
+- `SPEC-time`: record that `tdb_minus_tt` uses UTC's day fraction for the diurnal term, the
+  amplitude being ≈ 2.1 µs so 0.9 s of UT1 ambiguity moves it under 0.2 ns.
+- Both `SPEC-time` and `SPEC-eop`: record the prediction/leap-horizon interaction. It will recur
+  at every layer that ingests a forecast.
 
 ---
 
-### 3.3 L2 `environment` — 0 of 4 done
+### 3.3 L2 `environment` — 0 of 4 done; **the open layer**
 
 Everything the spacecraft moves through or is pulled by, with no reference to the spacecraft
 itself. A gravity field is the environment; a drag force is a spacecraft property and lives in
 L4.
 
-**Entry:** L1 exit gate.
+**Entry:** L1 exit gate — **passed 2026-09-18**, so this layer is open once L1's
+specification amendments above are applied.
 
 1. **TODO** — `ephemerides`: planetary and lunar positions, SPK through CALCEPH. Sources: the
    JPL DE documentation and the SPK format specification. Gate: published DE test values, with
@@ -415,7 +429,12 @@ intellectual property but the format authors'.
    on it without complaint.
 3. **TODO** — `sgp4`: this tree's own port written against the published test vectors per D4,
    with TEME handled through L1 rather than assumed inertial. Gate: the published SGP4
-   verification vectors to their stated tolerance.
+   verification vectors to their stated tolerance — **and the required-disagreement gate that
+   §4 rule 1 moved here from L1**, against oracle T-01. TEME is referred to the mean equinox of
+   date, so unlike ITRF↔GCRS there is no pole-offset series to reconcile two precession models
+   and the ≈ 0.064″ ≈ 2.2 m difference appears undiluted. Assert size *and* direction; agreement
+   is the failure. Vallado's kinematic equation-of-equinoxes terms must be carried but are
+   ≈ 95 mm, 4% of it, not the explanation.
 4. **TODO** — `measmod`: ephemeris-position, SLR range and optical angles against one
    interface, with the station and site registry. Light time, tropospheric refraction and the
    observer's own motion belong to the model, not to the caller. Gate: each measurement's
@@ -524,7 +543,14 @@ eight, and §1's last column says which is which.
    Unlicensed normative code (the IERS Conventions Fortran) is never vendored or translated:
    implement from the tables printed in the Conventions and verify against the routines'
    published test cases — using a published expected output is observation, not derivation
-   from code.
+   from code. **A dependency's own build system counts as a fetcher.** `tl::expected`'s
+   `CMakeLists.txt` declares Catch2 v2.13.10 by URL with no hash, and CMake's `FetchContent`
+   honours the *first* declaration it sees — so a build printed that it was using the pinned
+   3.16.0 from cache while fetching an unpinned v2 over the network. The pin was a fiction and
+   was visible only by accident (v2 puts its CMake helpers in `contrib/`, v3 in `extras/`; a
+   substitution *within* a major version would have built cleanly). Every dependency is checked
+   for what its own build declares, and the populated tree is verified against the hash-pinned
+   archive at configure time, not trusted.
 5. **Implement** — in the §2 module, to the adopted spec, under the §5 constraints. Every
    refusal ships with exactly one named, logged escape hatch, set explicitly per run and
    recorded in run provenance with the relevant table's hash. The default refuses, and the
@@ -547,13 +573,34 @@ recorded sweeps too expensive to re-run and are cited by source hash rather than
 reproduce byte-identically. The plan quotes them for readability; the file
 governs. Three rules apply to all of them:
 
-1. **Parity means matching public truth, not the predecessor bit-for-bit.** The predecessor
-   computes with IAU-76/1980 and consumes the IAU 1980 data products; this tree uses
-   IAU 2006/2000A and the IAU 2000A products, so **certain disagreements are required, of
-   predictable size, and agreement would be the failure** — the accumulated IAU-76 precession
-   error is ≈ 0.064″ ≈ 2.17 m at 7000 km, essentially the whole of oracle case T-01. The
-   required-disagreement test (FRAME-A-009's pattern: assert size *and* direction, fail on
-   agreement as well as on excess) is the standing shape for these.
+1. **Parity means matching public truth, not the predecessor bit-for-bit** — but *where* a
+   disagreement is required is narrower than this rule first claimed, and the correction is
+   measured. The predecessor computes IAU-76/1980 and this tree IAU 2006/2000A, and the
+   original reading was that every predecessor-derived number must therefore differ by about
+   0.064″ ≈ 2.2 m at 7000 km. **On the ITRF↔GCRS path that is false.** Measured 2026-09-18:
+   the two agree to **1.559 mm at |r| = 7716.93 km, 4.17 × 10⁻⁵ arcsec** — 1500× smaller than
+   this rule predicted.
+
+   The mechanism is the part worth keeping. Each chain applies the **celestial-pole offset
+   series matched to its own model** — the predecessor adds dΨ/dε to an IAU-1980 nutation, this
+   tree adds dX/dY to the IAU-2006/2000A CIP — and those series exist precisely to bring each
+   model onto the *observed* pole. Two different algorithms, each corrected onto the same
+   physical pole, must agree; the model difference cancels by construction. It was never going
+   to appear here.
+
+   **It does appear on the TEME path**, because TEME is referred to the mean equinox of date,
+   which is a model construct with no correction series to reconcile two models. Oracle T-01's
+   2.2 m at 7234 km is 0.0627″, and the accumulated IAU-76 vs IAU-2006 precession difference of
+   0.064″ is 2.24 m there — essentially all of it. Vallado's kinematic equation-of-equinoxes
+   terms (0.00264″ sin Ω + 0.000063″ sin 2Ω) are real and must be carried, but they are ≈ 95 mm
+   at that radius, **4% of T-01, not its explanation.**
+
+   So the required-disagreement gate belongs at **T-01, in L6**, where the TLE and the Horizons
+   table live — asserting size *and* direction and failing on agreement as well as on excess
+   (FRAME-A-009's pattern), at the ≈ 2.2 m the precession difference predicts. L1 step 4's gate
+   is what the oracle actually supports on its own path: magnitudes agree, separation bounded,
+   round trip better than the predecessor's closure.
+
 2. **An oracle comparison is never a gate on its own** — it ranks last among acceptance-value
    sources per `SPEC-template.md`. Published worked examples and published test cases are the
    gates; the oracle catches gross error — a sign, an axis, a factor of two.

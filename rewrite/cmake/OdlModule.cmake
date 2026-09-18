@@ -27,11 +27,6 @@
 #   modules/<name>/include/odl/<name>/*.hpp     PUBLIC  — the module's surface
 #   modules/<name>/src/*.{hpp,cpp}              PRIVATE — its internals
 #   modules/<name>/tests/*.cpp                          — its own acceptance suite
-#
-# Note the absence of lib/, bin/, obj/ and output/ as directory names anywhere in
-# this tree.  The repository root's .gitignore carries unanchored patterns for
-# all four, so a directory of any of those names under rewrite/ would be silently
-# untracked.  Naming around it is cheaper than fighting it.
 
 include_guard(GLOBAL)
 

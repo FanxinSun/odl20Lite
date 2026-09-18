@@ -95,14 +95,22 @@ tree's template exists to prevent.
 
 | module | status | implements | spec | sources (keys as in §4) |
 |---|---|---|---|---|
-| `time` | **specified and adopted**, not implemented | TAI, TT, TCG, TDB, TCB, UTC, GPS; leap seconds; epoch representation; pre-1972 policy | `spec/SPEC-time.md` v1.2 | `TN36-1`, `TN36-10`, `LEAP`, `ERFA`, `CGPM27-4` |
-| `frames` | **specified and adopted**, not implemented | GCRS ↔ ITRS via IAU 2006 precession / IAU 2000A nutation, CIO-based; TEME ↔ ITRS/GCRS; polar motion; RTN; DYB | `spec/SPEC-frames.md` v1.2 | `TN36-5`, `TN36-1`, `ERFA`, `VAL06`, (`BEU94`, `ARN15` — see §4 gaps) |
-| `eop` | **specified and adopted**, not implemented | IERS EOP 20 C04 and `finals2000A` parsing; splicing; 4-point Lagrange interpolation; ocean-tide and libration restoration; coverage policy | `spec/SPEC-eop.md` v1.2 | `TN36-5` §§5.5.1/5.5.3, `TN36-8`, `C04`, `FINALS`, `INTERP`, `ORTHO`, `PMSD`, `UTLIBR` |
+| `core` | **implemented** | `odl::Result` (D7's vehicle) and the small vector/matrix types. A **§2 addition, reported not assumed**: every module links it, and a loose shared header outside any target would be visible to everything by accident — the property `cmake/OdlModule.cmake` exists to prevent. | — (tooling) | D7 |
+| `time` | **implemented**, gated | TAI, TT, TCG, TDB, TCB, UTC, GPS; leap seconds; epoch representation; pre-1972 policy | `spec/SPEC-time.md` v1.2 | `TN36-1`, `TN36-10`, `LEAP`, `ERFA`, `CGPM27-4` |
+| `frames` | **implemented**, gated | GCRS ↔ ITRS via IAU 2006 precession / IAU 2000A nutation, CIO-based; TEME ↔ ITRS/GCRS; polar motion; RTN; DYB | `spec/SPEC-frames.md` v1.2 | `TN36-5`, `TN36-1`, `ERFA`, `VAL06`, (`BEU94`, `ARN15` — see §4 gaps) |
+| `eop` | **implemented**, gated | IERS EOP 20 C04 and `finals2000A` parsing; splicing; 4-point Lagrange interpolation; ocean-tide and libration restoration; coverage policy | `spec/SPEC-eop.md` v1.2 | `TN36-5` §§5.5.1/5.5.3, `TN36-8`, `C04`, `FINALS`, `INTERP`, `ORTHO`, `PMSD`, `UTLIBR` |
 
 **Model declaration, carried in every run's output** (`SPEC-frames.md` `FRAME-R-002`):
-precession **IAU 2006**, nutation **IAU 2000A**, origin **CIO-based**. This is a deliberate
-upgrade from the predecessor's IAU-76/80 and changes numerical results by about 0.06–0.08
-arcsec at present epochs — roughly 2.2 m at 7000 km. Any comparison against a pre-upgrade
+precession **IAU 2006**, nutation **IAU 2000A**, origin **CIO-based**, with the ERFA version
+string; `odl::frames::model_version()` emits it.
+
+**Measured, and it contradicts what this ledger and plan §4 rule 1 assumed.** The upgrade was
+expected to move results by 0.06–0.08 arcsec, about 2.2 m at 7000 km, against the predecessor.
+On the ITRF↔GCRS path it does not: oracle case F-01–F-03 reproduces **to 1.6 mm out of
+7717 km**, which is 2 × 10⁻¹⁰ relative and means the same algorithm and effectively the same
+EOP, not a model difference. The 2.2 m of oracle T-01 is a **TEME** comparison, where the
+conversion convention genuinely differs. Rule 1 needs narrowing to the TEME path; see §12.5 and
+the L1 report. Any comparison against a pre-upgrade
 baseline must record both model versions.
 
 ---
@@ -410,6 +418,43 @@ Hence the rule, now in `SPEC-template.md` §8: **a statistic cited as an accepta
 the formula it was computed with, not only its number.** The frozen oracle records both block-
 recovery figures in `cases.tsv` with their formulas, and the plan's acceptance row names which
 one it means.
+
+**8.11 A transitive dependency can capture a pinned one, and did.** `FetchContent` honours the
+**first** declaration of a given name and silently ignores every later one. That is the supported
+way for a top-level project to pin a transitive dependency — and it is equally the way a
+transitive dependency captures ours.
+
+`tl::expected`'s own `CMakeLists.txt` contains
+
+```cmake
+FetchContent_Declare(Catch2 URL https://github.com/catchorg/Catch2/archive/v2.13.10.zip)
+```
+
+by URL, with **no hash**, naming a different major version of a dependency this tree pins. Before
+the declaration order was fixed, adding `tl::expected` caused the build to fetch **Catch2 v2.13.10
+over the network** while printing that it was using the pinned 3.16.0 from the cache. Everything
+the manifest exists to guarantee was defeated by the second dependency ever added to it.
+
+It surfaced only because Catch2 v2 puts its CMake helpers in `contrib/` and v3 in `extras/`, so an
+`include()` failed. **A substitution within a major version would have built cleanly and the pin
+would have been a fiction** — the plausible-wrong-number failure mode, arriving through the build
+system rather than the physics.
+
+Three changes, and the third is the one that matters:
+
+1. `odl_declare_all_code()` declares every manifest pin **before anything is made available**, so
+   this tree's declarations are always first.
+2. A dependency's own test build is turned off, since that is what drags in its test
+   dependencies.
+3. **`tools/fetch.py verify-populated` compares a file inside the populated tree against the same
+   file inside the hash-pinned archive**, at configure time, for every code dependency. Nothing is
+   inferred from a version string; the comparison is against the bytes. Items 1 and 2 are
+   preventive and could be got wrong again; item 3 is detective and fails loudly.
+
+A first attempt at item 3 compared `${<Project>_VERSION}` against the manifest. It does not work —
+`project()` sets that in the subdirectory scope `FetchContent` adds, invisible to the caller — and
+it failed loudly rather than passing vacuously, which is the only reason the flaw was caught. A
+verification that cannot see what it is verifying is worse than none, because it reports success.
 ---
 
 ## 9. Checks
@@ -513,10 +558,95 @@ unnoticed:
 
 ---
 
+## 12. L1 `time-frames` — implemented
+
+No derivation declaration attaches to this section either (§0.1): it was written after the merge
+that ended the clean-room separation. The three module specifications it implements were written
+before that merge and keep theirs.
+
+### 12.1 What was built
+
+| step | module | gate |
+|---|---|---|
+| 1 | `core` | `odl::Result` over vendored `tl::expected` (D7). A refusal round-trips; `tools/constraint8.py` enforces plan §5 constraint 8 mechanically and CI runs it. |
+| 2 | `time` | Every timescale pair round-trips to under a nanosecond; ΔAT matches all 28 IERS rows; the 2016 leap second renders as `23:59:60` and two SI seconds elapse across the 61-second minute; TN36's published constants *L*_G, *L*_B and TDB₀ reproduce. |
+| 3 | `eop` | All four IERS published test cases — `ORTHO_EOP`, `PMSDNUT2`, `UTLIBR` ×2 — inside the disagreement TN36 §8.2 itself documents; both products parse; interpolation reproduces a tabulated node exactly; coverage refuses with the two-day margin. |
+| 4 | `frames` | Vallado's published ITRS↔TEME worked example to 13 mm out of 10 208 km; round-trip closure better than the predecessor's; ERFA's own verification suite runs as a CTest case, which discharges `FRAME-A-004` by construction. |
+
+### 12.2 The tidal coefficient tables are generated, and verified
+
+`modules/eop/src/tide_tables.hpp` is **generated** by `tools/tides_from_conventions.py` from the
+hash-pinned Conventions PDFs — 178 constituents across Tables 8.2a, 8.2b, 8.3a, 8.3b, 5.1a and
+5.1b. Hand transcription of ~1400 numbers would have been its own defect source.
+
+The extraction is **not part of the build**: `pdftotext` output varies with the poppler version,
+so a build that re-ran it would not be reproducible. What the build checks is the numbers, against
+the routines' own published test cases (EOP-R-008).
+
+Row counts came out exactly as the Conventions state — 41 + 30 ocean constituents in each of pole
+and UT1/LOD, and 25 libration rows of which **10 are near-diurnal**, which is precisely the ten
+`PMSDNUT2` uses.
+
+| routine | quantity | published | this tree | TN36 §8.2's stated bound |
+|---|---|---|---|---|
+| `ORTHO_EOP` | Δ*x* | −162.8386 µas | −162.928 | "a few µas" |
+| `ORTHO_EOP` | Δ*y* | 117.7908 µas | 118.131 | "a few µas" |
+| `ORTHO_EOP` | ΔUT1 | −23.39092 µs | −23.3842 | "a few tenths of a µs" |
+| `UTLIBR` | ΔUT1 at MJD 44239.1 | 2.441144 µs | 2.45079 | — |
+| `UTLIBR` | ΔLOD at MJD 55227.4 | 27.39446 µs/d | 27.4666 | — |
+
+### 12.3 Errors the tests caught
+
+Recorded because the reason the plan implements L1 before writing further specifications is to
+find this class of thing, and a list of them is the evidence that it worked.
+
+| error | size | caught by |
+|---|---|---|
+| The two-part Julian date was formed as **one double and then split**, reintroducing the 2⁻³¹ d = 40 µs quantisation `SPEC-time` §4.2 exists to disqualify — inside the module built to avoid it | 1.9 × 10⁻⁵ s on TCB − TDB | comparing two routes to the same published quantity |
+| `from_calendar` evaluated the rate-dependent offsets once at the naive epoch instead of iterating to a fixed point; the comment justifying it was out by nine orders of magnitude | 1.15 µs against a 1 ns budget | the all-scales round trip |
+| `ut1_two_part_jd` added ΔUT1 to **TAI** rather than to UTC | 37 s | the pre-1972 refusal test |
+| ω × r was formed in ITRS with ω along its z. The Earth spins about the **CIP**, which is TIRS's z, and polar motion separates them by ≈ 0.3″ | 0.96 mm s⁻¹ | Vallado's published velocity |
+| The EOP contiguity check compared against **stored** rows, so skipping any row reported a phantom gap | whole-file refusal | loading the real `finals2000A.all` |
+| `FRAME-A-006` evaluated `eraXy06` at J2000 expecting the polynomial's constant term; the series **value** at *t* = 0 is −5.558″, not −0.016617″ | the test, not the code | itself |
+
+### 12.4 The dependency capture
+
+Recorded in full at §8.11. `tl::expected`'s own `CMakeLists.txt` declares Catch2 v2.13.10 by URL
+with **no hash**; because `FetchContent` honours the first declaration of a name, adding the
+second dependency to this tree made the build fetch that over the network while printing that it
+was using the pinned 3.16.0 from the cache. Everything the manifest exists to guarantee, defeated
+by the second entry ever added to it, and visible only because Catch2 v2 puts its CMake helpers
+in a different directory from v3.
+
+### 12.5 The required disagreement is absent on this path
+
+Plan §4 rule 1: the predecessor computes IAU-76/1980 and this tree computes IAU 2006/2000A, so
+"certain disagreements are required, of predictable size, and agreement would be the failure".
+
+Measured against oracle F-01–F-03, at MJD 57372.37458333 with the input state from
+`oracle/capture.sh`:
+
+| | |
+|---|---|
+| separation from the predecessor | **1.6 mm** out of 7717 km |
+| as an angle | 4.2 × 10⁻⁵ arcsec |
+| predicted by rule 1 | ≈ 0.064 arcsec, ≈ 2.2 m |
+
+2 × 10⁻¹⁰ relative agreement is the same algorithm and effectively the same EOP. **Rule 1 does
+not hold on the ITRF↔GCRS path.** It evidently does hold on the TEME path, where oracle T-01's
+2.2 m is a difference of *conversion convention* — which is what `FRAME-Q-001` concluded
+independently. The step-4 gate was specified as a required-disagreement test on the ITRF path and
+has been restated as what the oracle actually supports: magnitudes agree, the separation is
+bounded well above the measurement so a gross error still fails, and the round trip beats the
+predecessor's closure.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-18 | **L1 steps 1–4 executed and gated.** §12 added: what was built, the generated tidal tables with their agreement against the four IERS published test cases, the six errors the tests caught, the dependency capture, and the measurement showing plan §4 rule 1's required disagreement is absent on the ITRF↔GCRS path. §1 module register updated to *implemented* and gains `core`. §8.11 records the FetchContent capture. |
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
 | 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |

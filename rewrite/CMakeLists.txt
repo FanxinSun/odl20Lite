@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.21)
 project(odl_self_built
   VERSION      0.0.0
   DESCRIPTION  "A fully-owned reimplementation of the validated ODL pipeline"
-  LANGUAGES    CXX)
+  LANGUAGES    CXX C)     # C for ERFA, which is 249 flat C files with no CMake build
 
 if(PROJECT_IS_TOP_LEVEL)
   set(CMAKE_CXX_STANDARD 20)
@@ -64,22 +64,61 @@ if(NOT _odl_lic_rc EQUAL 0)
 endif()
 
 # --------------------------------------------------------------------------- #
+# Dependencies.
+#
+# EVERY manifest pin is DECLARED FIRST, before anything is made available.
+# FetchContent honours the first declaration of a name and ignores later ones,
+# so declaring ours up front is what stops a dependency's own unhashed
+# FetchContent_Declare from capturing one of them.  It is not hypothetical:
+# tl::expected declares Catch2 v2.13.10 by URL with no hash, and before this was
+# reordered the build silently fetched that over the network instead of the
+# pinned 3.16.0 from the cache.  See cmake/OdlManifest.cmake.
+
+odl_declare_all_code()
+
+# A dependency's own test suite is not this tree's business, and building it
+# drags in that suite's own dependencies — which is how the capture above
+# happened.
+set(EXPECTED_BUILD_TESTS  OFF CACHE BOOL "" FORCE)
+set(EXPECTED_BUILD_PACKAGE OFF CACHE BOOL "" FORCE)
+set(CATCH_INSTALL_DOCS    OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(tl-expected)
+odl_verify_populated(tl-expected)
+
+# ERFA ships no CMakeLists.txt, so MakeAvailable populates it and nothing more;
+# cmake/BuildErfa.cmake defines the target.  Plan §5 constraint 1.
+FetchContent_MakeAvailable(erfa)
+odl_verify_populated(erfa)
+include(BuildErfa)
+
+include(CTest)
+if(BUILD_TESTING)
+  FetchContent_MakeAvailable(catch2)
+  odl_verify_populated(catch2)
+  list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
+  include(Catch)
+endif()
+
+# --------------------------------------------------------------------------- #
 # Modules.  Each is its own target and sees only what it declares; see
 # cmake/OdlModule.cmake for why that is the whole independence argument now
 # that D1 has settled on C++20.
 #
-# None exist yet: L1 (time, eop, frames) is the next layer to open and does not
-# open until L0's exit gate passes.  The absence is stated rather than left
-# blank so that it reads as a sequence position, not an omission.
+# L1 is the open layer: core (D7's vehicle), then time, then eop, then frames,
+# one step at a time.  A module absent below is a sequence position, not an
+# omission.
+
+odl_build_erfa("${erfa_SOURCE_DIR}")
+
+add_subdirectory(modules/core)
+add_subdirectory(modules/time)
+add_subdirectory(modules/eop)
+add_subdirectory(modules/frames)
 
 # --------------------------------------------------------------------------- #
 
-include(CTest)
 if(BUILD_TESTING)
-  odl_declare_dependency(catch2)
-  FetchContent_MakeAvailable(catch2)
-  list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
-  include(Catch)
   add_subdirectory(tests)
 endif()
 

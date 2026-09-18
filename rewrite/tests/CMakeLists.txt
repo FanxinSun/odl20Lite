@@ -17,6 +17,11 @@ add_test(NAME manifest.verify_offline
 add_test(NAME manifest.licences_permissive
   COMMAND "${Python3_EXECUTABLE}" "${ODL_FETCH_TOOL}" check-licences)
 
+# Plan §5 constraint 8.  D7's one-line migration holds only while the tree stays
+# inside the interchangeable part of the expected API; this is what keeps it so.
+add_test(NAME constraint8.result_only
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/constraint8.py")
+
 # --------------------------------------------------------------------------- #
 # The module boundary is a link boundary — proved both ways.
 

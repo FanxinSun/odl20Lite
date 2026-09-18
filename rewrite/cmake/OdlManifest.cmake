@@ -86,6 +86,22 @@ endfunction()
 #   bytes a second time and independently of tools/fetch.py.  Two checks of the
 #   same hash by two tools is cheap; one check is a single point of failure in
 #   the one property the manifest exists to guarantee.
+#
+#   ORDER IS LOAD-BEARING.  FetchContent honours the FIRST declaration of a
+#   given name and silently ignores every later one.  That is the supported way
+#   for a top-level project to pin a transitive dependency — and it is equally
+#   the way a transitive dependency captures ours if it gets in first.  It did:
+#   tl::expected's own CMakeLists declares
+#       FetchContent_Declare(Catch2 URL .../v2.13.10.zip)
+#   with no hash, and because it was made available before our declaration, the
+#   build fetched Catch2 v2.13.10 OVER THE NETWORK while reporting our pinned
+#   3.16.0 from the cache.  It surfaced only because v2 puts its CMake helpers in
+#   contrib/ and v3 in extras/, so an include() failed.  A substitution within a
+#   major version would have built cleanly and the pin would have been a fiction.
+#
+#   Hence odl_declare_all_code(), called before any MakeAvailable, and hence
+#   odl_verify_populated(), because relying on documented first-wins behaviour
+#   without checking it is how this was missed in the first place.
 function(odl_declare_dependency id)
   odl_require_cached(${id})
   odl_manifest_get(${id} _m)
@@ -95,4 +111,49 @@ function(odl_declare_dependency id)
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     SYSTEM)
   message(STATUS "manifest: ${id} ${_m_VERSION} (${_m_LICENCE}) from cache, sha256 ${_m_SHA256}")
+endfunction()
+
+
+# odl_declare_all_code()
+#   Declare every `code` entry of the manifest up front, so that this tree's
+#   pins are always the first declaration and no dependency's own
+#   FetchContent_Declare can win.
+function(odl_declare_all_code)
+  math(EXPR _last "${_odl_entry_count} - 1")
+  foreach(i RANGE ${_last})
+    string(JSON _e GET "${_odl_manifest_json}" "entries" ${i})
+    string(JSON _kind GET "${_e}" "kind")
+    string(JSON _id GET "${_e}" "id")
+    if(_kind STREQUAL "code")
+      odl_declare_dependency(${_id})
+    endif()
+  endforeach()
+endfunction()
+
+# odl_verify_populated(<id>)
+#   After FetchContent_MakeAvailable, check that what landed is what was pinned.
+#   The check is delegated to tools/fetch.py, which compares a file inside the
+#   populated tree against the same file inside the hash-verified archive.
+#   Nothing is inferred from a version string; the comparison is against bytes.
+#
+#   The first attempt at this compared ${<Project>_VERSION} against the manifest.
+#   It does not work: project() sets that variable in the subdirectory scope
+#   FetchContent adds, and it is not visible to the caller.  The check failed
+#   loudly rather than passing vacuously, which is the only reason the flaw was
+#   noticed — a verification that cannot see what it is verifying is worse than
+#   none, because it reports success.
+function(odl_verify_populated id)
+  string(TOLOWER "${id}" _lc)
+  if(NOT DEFINED ${_lc}_SOURCE_DIR)
+    message(FATAL_ERROR
+      "odl_verify_populated(${id}): ${_lc}_SOURCE_DIR is not set. "
+      "Call this only after FetchContent_MakeAvailable(${id}).")
+  endif()
+  execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${ODL_FETCH_TOOL}" verify-populated ${id} "${${_lc}_SOURCE_DIR}"
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+  if(NOT _rc EQUAL 0)
+    message(FATAL_ERROR "${_out}${_err}")
+  endif()
+  message(STATUS "manifest: ${id} populated tree verified against the pinned archive")
 endfunction()

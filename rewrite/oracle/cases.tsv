@@ -1,3 +1,11 @@
+# Frozen predecessor measurements. See ORACLE.md; capture.sh regenerates all but B-* and E-*.
+#
+# The F-* cases are this ECEF state, which was previously only in capture.sh and so
+# made this file not self-contained:
+#   position  6373.144386  -3485.243421   2605.215522  km
+#   velocity    -0.689758464  3.306816989  6.103804423  km/s
+#   epoch     MJD 57372.37458333 (F-01..F-04), MJD 60827.0 (F-05)
+#
 id	quantity	value	unit	command
 F-01	ECEF->ECI x at MJD 57372.37458333	-7134.398676408507486	km	ECEF2ECI <state> 57372.37458333
 F-02	ECEF->ECI y at MJD 57372.37458333	-1344.208959991233173	km	ECEF2ECI <state> 57372.37458333

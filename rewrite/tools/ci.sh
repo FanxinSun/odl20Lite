@@ -77,6 +77,9 @@ gate "NOTICE regenerates and matches what is committed"
 gate "specification coverage"
 "$PY" tools/speccheck.py
 
+gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
+"$PY" tools/constraint8.py
+
 gate "build is reproducible"
 "$PY" tools/reprocheck.py --build-dir "$BUILD"
 

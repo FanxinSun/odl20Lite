@@ -32,6 +32,7 @@ import hashlib
 import json
 import os
 import shutil
+import tarfile
 import sys
 import urllib.error
 import urllib.request
@@ -270,6 +271,60 @@ def cmd_path(root: Path, doc: dict, args) -> int:
     die(USAGE, f"no manifest entry with id {args.id!r}")
 
 
+def cmd_verify_populated(root: Path, doc: dict, args) -> int:
+    """Is the tree FetchContent populated actually the archive we pinned?
+
+    FetchContent honours the FIRST declaration of a name and silently ignores
+    later ones.  That is how a top-level project pins a transitive dependency,
+    and equally how a transitive dependency captures one of ours: tl::expected's
+    own CMakeLists declares Catch2 v2.13.10 by URL with no hash, and before the
+    declaration order was fixed the build fetched that over the network while
+    reporting the pinned 3.16.0 from the cache.
+
+    So this compares a file inside the populated tree against the same file
+    inside the archive whose SHA-256 the manifest pins.  Nothing is inferred
+    from a version string: the comparison is against the bytes.
+    """
+    for e in doc["entries"]:
+        if e["id"] != args.id:
+            continue
+        rel = e.get("verify_path")
+        if not rel:
+            print(f"ok       {args.id:<16} populated (no verify_path declared)")
+            return OK
+        inner = f"{e['unpacked_root']}/{rel}" if e.get("unpacked_root") else rel
+        archive = entry_path(root, doc, e)
+        try:
+            with tarfile.open(archive, "r:gz") as tf:
+                member = tf.extractfile(inner)
+                if member is None:
+                    die(MALFORMED, f"{args.id}: {inner!r} is not in {archive}")
+                pinned = member.read()
+        except (tarfile.TarError, OSError) as exc:
+            die(MALFORMED, f"{args.id}: cannot read {inner!r} from {archive}: {exc}")
+
+        landed_path = Path(args.populated) / rel
+        if not landed_path.exists():
+            die(MISMATCH, f"{args.id}: populated tree has no {rel} at {landed_path}")
+        landed = landed_path.read_bytes()
+        if landed != pinned:
+            die(MISMATCH,
+                "PINNED DEPENDENCY SUBSTITUTED — refusing.\n"
+                f"  entry      {args.id}\n"
+                f"  pinned     {archive} (sha256 {e['sha256']})\n"
+                f"  populated  {landed_path}\n"
+                f"  compared   {rel}: {len(pinned)} bytes pinned, {len(landed)} bytes populated\n"
+                "\n"
+                "  Something other than this tree's declaration populated the content.\n"
+                "  FetchContent honours the first declaration of a name, so the usual cause\n"
+                "  is a transitive dependency's own FetchContent_Declare getting in first —\n"
+                "  typically by URL, typically with no hash. Declare this tree's pins before\n"
+                "  anything is made available (odl_declare_all_code) and find the competitor.")
+        print(f"ok       {args.id:<16} populated tree matches the pinned archive ({rel})")
+        return OK
+    die(USAGE, f"no manifest entry with id {args.id!r}")
+
+
 def cmd_check_licences(root: Path, doc: dict, args) -> int:
     """Plan §5 constraint 3: no GPL/LGPL/AGPL in anything that could ship."""
     forbidden = ("GPL", "AGPL", "LGPL")
@@ -318,6 +373,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("path", help="print the cache path of one entry")
     p.add_argument("id")
     sub.add_parser("check-licences", help="plan §5 constraint 3: refuse GPL/LGPL/AGPL")
+    vp = sub.add_parser("verify-populated",
+                        help="is a populated FetchContent tree the archive we pinned?")
+    vp.add_argument("id")
+    vp.add_argument("populated", help="the populated source directory")
 
     args = ap.parse_args(argv)
     root = args.root.resolve()
@@ -330,6 +389,7 @@ def main(argv: list[str] | None = None) -> int:
         "list": cmd_list,
         "path": cmd_path,
         "check-licences": cmd_check_licences,
+        "verify-populated": cmd_verify_populated,
     }[args.cmd](root, doc, args)
 
 
