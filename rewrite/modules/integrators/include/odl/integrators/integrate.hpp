@@ -14,28 +14,32 @@ namespace odl::integrators {
 
 using IntgError = odl::Diagnostic;
 
-template <std::size_t N>
+template <StateVector V>
 struct Solution {
-    Vec<N> y{};
+    V y{};
     double x = 0.0;
     Record record{};
 };
 
 /// Integrate from `x0` to `x1` with RKF7(8) under step-size control.
-template <std::size_t N, class F>
-[[nodiscard]] odl::Result<Solution<N>, IntgError>
-integrate(F&& f, double x0, const Vec<N>& y0, double x1, double tolerance,
+///
+/// THE WIDTH IS THE STATE'S, NOT A TEMPLATE PARAMETER. Nothing in here knows how
+/// many components there are; `y0.size()` is the only answer available to it.
+template <StateVector V, class F>
+[[nodiscard]] odl::Result<Solution<V>, IntgError>
+integrate(F&& f, double x0, const V& y0, double x1, double tolerance,
           Control ctl = Control{}, double h_initial = 0.0) {
+    const std::size_t N = y0.size();
     if (!(tolerance > 0.0)) {
         return odl::err(IntgError{"INTG-F-005",
             "the tolerance must be positive; got " + std::to_string(tolerance)});
     }
-    if (x1 == x0) return Solution<N>{y0, x0, Record{}};
+    if (x1 == x0) return Solution<V>{y0, x0, Record{}};
 
     const double span = x1 - x0;
     double h = (h_initial != 0.0) ? h_initial : span / 100.0;
     double x = x0;
-    Vec<N> y = y0;
+    V y = y0;
     Record rec;
     rec.h_min = std::abs(h);
     rec.h_max = std::abs(h);
@@ -49,7 +53,7 @@ integrate(F&& f, double x0, const Vec<N>& y0, double x1, double tolerance,
                 std::to_string(x) + "'s resolution at tolerance " + std::to_string(tolerance) +
                 "; the integration cannot advance."});
         }
-        const auto step = rkf78_step<N>(f, x, y, h);
+        const auto step = rkf78_step<V>(f, x, y, h);
         rec.evaluations += rkf78::kStages;
 
         double est = 0.0;
@@ -86,7 +90,7 @@ integrate(F&& f, double x0, const Vec<N>& y0, double x1, double tolerance,
         factor = std::clamp(factor, ctl.max_shrink, ctl.max_growth);
         h *= factor;
     }
-    return Solution<N>{y, x, rec};
+    return Solution<V>{y, x, rec};
 }
 
 }  // namespace odl::integrators

@@ -1,7 +1,7 @@
 odl_add_module(dynamics
   SOURCES      src/dynamics.cpp src/variational.cpp
   DEPENDS      odl::core odl::time odl::frames odl::integrators
-  TEST_SOURCES tests/dynamics_tests.cpp tests/stm_tests.cpp)
+  TEST_SOURCES tests/dynamics_tests.cpp tests/stm_tests.cpp tests/sensitivity_tests.cpp)
 
 if(BUILD_TESTING)
   # gravity is a TEST-ONLY dependency: DYN-A-018 asserts that SPEC-gravity §5's

@@ -203,7 +203,8 @@ and the neglected bound.
 | `STM-A-002` | **the band is not pathological**: its size against `STM-P-1`'s prediction | within an order of magnitude of 6.6 × 10⁻⁹ at τ = 10⁻¹² | P-1, R-005 |
 | `STM-A-003` | **Φ(t₀,t₀) = I exactly**, and a zero-length propagation returns it | exact | R-010 |
 | `STM-A-004` | **the analytic gravity gradient against its own finite difference**, for the point-mass form, judged the same way | within a same-run band | R-003 |
-| `STM-A-005` | **Φ's determinant against Liouville's theorem**: d(det Φ)/d*t* = tr(A) det Φ, and for a force with tr(∂a/∂v) = 0 the determinant is **1 for all time**. This is an invariant the finite-difference comparison cannot see, because it does not involve a derivative estimate at all | det Φ = 1 to the integrator's own accuracy | R-001 |
+| `STM-A-005` | **Φ's determinant against Liouville's theorem, in the form that survives drag**: d(det Φ)/d*t* = tr(A) det Φ, integrated as **det Φ = exp(∫ tr A d*t*)**, with ∫ tr A d*t* carried alongside Φ as one extra scalar. An invariant the finite-difference comparison cannot see, because no derivative estimate enters it | det Φ = exp(∫ tr A d*t*) to the integrator's accuracy; and for L3's forces the integral is **exactly zero**, so the conservative case is the *special case* rather than the statement | R-001 |
+| `STM-A-005b` | **the same law where the determinant MOVES**: a dissipative force *a* = −*k***v** gives tr(A) = −3*k* exactly, so det Φ = exp(−3*kt*) in closed form | measured: ∫ tr A d*t* = −0.36 against a closed form of −0.36, det Φ = 0.6977 = exp(−0.36) at *t* = 600 s — **not the trivial det = 1 case** | R-001 |
 | `STM-A-007` | refusals `STM-F-001` … `-F-003`, fired **and shown not to fire** on the adjacent input | the diagnostics | F-001…F-003 |
 | `STM-A-008` | the neglected-velocity bound survives into the result | as stated | R-011 |
 | `STM-A-009` | **A's blocks come from `DYN` and nowhere else**: perturbing a force's `∂a/∂r` moves Φ, and the module contains no derivative of its own — structural, and asserted by there being no second path to a Jacobian | as stated | R-002 |
@@ -217,6 +218,16 @@ and the neglected bound.
 | `STM-R-020` | A documentation obligation: `PROVENANCE.md` must record `STM-P-1` **as written before the first run**, with the outcome beside it, and `GRAV-Q-006`'s two measured costs. The pre-registration is the part that cannot be reconstructed afterwards, which is why it is written down rather than tested for. |
 
 ### What these gates can and cannot catch
+
+**`STM-A-005` is written in the general form deliberately, and that is not tidiness.** "det Φ = 1"
+is true for every force L3 has, and becomes **false** the moment drag arrives at L4 with
+tr(∂a/∂v) < 0. Whoever met that failure would restrict the test to conservative forces or delete
+it — losing the only check on Φ that involves no difference estimate, *at exactly the moment the
+dynamics get harder*. In the integrated form the conservative case is the special case, and at L4
+the check gets **stronger** rather than merely surviving: with drag the determinant actually
+moves, so it verifies the dissipation rate instead of confirming a constant. `STM-A-005b` makes
+it sharp today rather than waiting for L4 to do so. **A test that is trivially satisfied now and
+sharp later is worth more than one that has to be rescued.**
 
 **`STM-A-001` alone would not be enough**, and `STM-A-005` is why it is not alone. A band
 measured from finite differences bounds how well Φ matches *a finite-difference estimate of

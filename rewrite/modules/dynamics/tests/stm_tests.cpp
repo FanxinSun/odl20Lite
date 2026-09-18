@@ -179,10 +179,57 @@ TEST_CASE("STM-A-001  Phi against finite differences, judged by a band measured 
     // figure predicted from h^2/6 + tau/(2h) before anything ran.
 }
 
-TEST_CASE("STM-A-005  Liouville: det Phi is 1 when tr(da/dv) is 0", "[stm][gate]") {
+namespace {
+/// A dissipative force, so that Liouville is exercised where the determinant
+/// actually MOVES rather than only where it is constant. a = -k v, so
+/// da/dv = -k I and tr(da/dv) = -3k.
+class LinearDrag final : public Force {
+public:
+    explicit LinearDrag(double k) : k_(k) {}
+    ForceId id() const override { return ForceId{"linear-drag"}; }
+    const std::vector<ParameterId>& consumes() const override { return none_; }
+    odl::Result<ForceEvaluation, DynError>
+    accel(const odl::time::Epoch&, const frames::Position<Frame::GCRS>&, const Vec3& v,
+          const ParameterSet&, const ParameterRegistry& reg) const override {
+        Mat3 dadv{};
+        dadv.r[0][0] = dadv.r[1][1] = dadv.r[2][2] = -k_;
+        return ForceEvaluation{frames::Acceleration<Frame::GCRS>{Vec3{-k_*v.x, -k_*v.y, -k_*v.z}},
+                               StateJacobian::with_velocity(Mat3{}, dadv),
+                               ParameterJacobian{reg}};
+    }
+private:
+    double k_;
+    std::vector<ParameterId> none_{};
+};
+
+double det6(Mat6 m) {
+    double det = 1.0;
+    for (std::size_t c = 0; c < 6; ++c) {
+        std::size_t p = c;
+        for (std::size_t i = c + 1; i < 6; ++i)
+            if (std::abs(m[i][c]) > std::abs(m[p][c])) p = i;
+        if (p != c) { std::swap(m[p], m[c]); det = -det; }
+        det *= m[c][c];
+        for (std::size_t i = c + 1; i < 6; ++i) {
+            const double f = m[i][c] / m[c][c];
+            for (std::size_t j = c; j < 6; ++j) m[i][j] -= f * m[c][j];
+        }
+    }
+    return det;
+}
+}  // namespace
+
+TEST_CASE("STM-A-005  Liouville: det Phi = exp(integral tr A dt)", "[stm][gate]") {
     // An invariant of the TRUE Phi that no finite-difference estimate enters.
-    // Two-body has no velocity dependence at all, so tr(A) = 0 and
-    // d(det Phi)/dt = tr(A) det Phi = 0.
+    //
+    // WRITTEN IN THE GENERAL FORM ON PURPOSE. "det Phi == 1" is true for the
+    // forces L3 has and becomes FALSE the moment drag arrives at L4 with
+    // tr(da/dv) < 0 -- and whoever met that failure would restrict the test to
+    // conservative forces or delete it, losing the only check on Phi that
+    // involves no difference estimate, exactly when the dynamics get harder.
+    // Here the conservative case is the special case where the integral is zero,
+    // and the dissipative case below makes the check SHARP rather than trivially
+    // satisfied.
     Setup s;
     for (double seconds : {600.0, 3000.0, 6246.0}) {
         auto r = propagate_with_stm(s.forces, s.params, s.x0, seconds, 1e-12);
@@ -201,8 +248,36 @@ TEST_CASE("STM-A-005  Liouville: det Phi is 1 when tr(da/dv) is 0", "[stm][gate]
                 for (std::size_t j = c; j < 6; ++j) m[i][j] -= f * m[c][j];
             }
         }
-        INFO("after " << seconds << " s, det Phi = " << det);
-        CHECK_THAT(det, Catch::Matchers::WithinRel(1.0, 1e-9));
+        INFO("after " << seconds << " s, det Phi = " << det
+             << ", integral tr A dt = " << r->integrated_trace);
+        CHECK_THAT(det, Catch::Matchers::WithinRel(std::exp(r->integrated_trace), 1e-9));
+        // and for THESE forces the integral is zero, so the general form reduces
+        // to the conservative one -- which is the statement, not the assumption
+        CHECK(r->integrated_trace == 0.0);
+    }
+}
+
+TEST_CASE("STM-A-005b  Liouville where the determinant MOVES", "[stm][gate]") {
+    // The same law with a dissipative force, so the test is sharp today rather
+    // than waiting for L4 to make it so. a = -k v gives tr(A) = -3k exactly, so
+    // det Phi = exp(-3 k t) -- a CLOSED FORM the integration must reproduce.
+    Setup s;
+    const double k = 2.0e-4;                     // s^-1
+    REQUIRE(s.forces.add(std::make_shared<LinearDrag>(k)).has_value());
+
+    for (double seconds : {600.0, 3000.0}) {
+        auto r = propagate_with_stm(s.forces, s.params, s.x0, seconds, 1e-12);
+        REQUIRE(r.has_value());
+        const double det = det6(r->phi);
+        const double closed_form = -3.0 * k * seconds;
+        INFO("after " << seconds << " s: integral tr A dt = " << r->integrated_trace
+             << ", closed form " << closed_form << "; det Phi = " << det
+             << ", exp(integral) = " << std::exp(r->integrated_trace));
+        // the integrated trace matches the closed form...
+        CHECK_THAT(r->integrated_trace, Catch::Matchers::WithinRel(closed_form, 1e-10));
+        // ...and the determinant follows it, having genuinely MOVED
+        CHECK_THAT(det, Catch::Matchers::WithinRel(std::exp(closed_form), 1e-8));
+        CHECK(det < 0.9);            // not the trivial det == 1 case
     }
 }
 

@@ -81,6 +81,10 @@ private:
 
     friend class ParameterSet;
     friend class ParameterJacobian;
+    /// The sensitivity block's one internal consumer. The PUBLIC surface stays
+    /// index-free (DYN-R-005); something has to map identity to storage, and it
+    /// is here rather than in a caller's arithmetic.
+    friend struct SensitivitySolution;
 };
 
 /// Issues identities.  Move-only: a registry is a thing, not a value, and two

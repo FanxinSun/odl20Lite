@@ -2182,6 +2182,84 @@ The measurement is **recorded, not asserted in CI**: a wall-clock assertion is m
 and one tuned until it passed here would be a threshold chosen by whoever is judged by it — the
 rule this step was told to apply.
 
+## 24. L3 step 4 — the registry, and the half of the gate that is easy to fake
+
+**Date.** 2026-09-18. **State.** `tools/ci.sh` exits 0: **12 gates, 236 tests**. L3's four steps
+are done and its exit gate holds. `SPEC-sensitivities.md` v1.0, Spec ID `SENS`: 18 own-prefix
+identifiers, 11 requirements and refusals, 10 discharged, 1 excused, 0 uncovered.
+
+### 24.1 The warning was right, and the defect was already in the tree
+
+*"It is easy to write a registry where adding a parameter works and something in the integrator
+quietly knew the width all along."*
+
+It did. `SPEC-integrators`' steppers were templated on `std::size_t N` and operated on
+`std::array<double, N>` — a **compile-time** width. Every test at *n* = 1 and again at *n* = 2
+would have passed, **by recompiling**, and nothing in the output would have distinguished that
+from a width the integrator never knew. A change to the integrator wearing the costume of a
+template argument.
+
+The steppers are now generic over a `StateVector` **concept** — anything sized and indexable — so
+`y0.size()` is the only answer available to them and **one instantiation serves every *n***.
+`SENS-A-002` asserts that at compile time as well as behaviourally, because the behavioural half
+alone would pass against the compile-time version too.
+
+**That change belongs to step 4**, not to step 2: it is what makes the second clause of the gate
+true rather than merely untested.
+
+### 24.2 What the gate measured
+
+**S** = ∂**x**/∂**p** satisfies d**S**/d*t* = A**S** + B with **S**(*t*₀) = **0** — zero because
+the *initial* state does not depend on the parameters, which is a statement about what is being
+differentiated rather than an initialisation convenience.
+
+A registered parameter's column against finite differences, judged by `STM-A-001`'s same-run band
+with the family chosen from the prediction: **band 1.13 × 10⁻⁹, best agreement 1.48 × 10⁻¹⁰**,
+and the column is not trivially zero.
+
+At *n* = 1, 2 and 3 the accepted step counts are **19, 19, 19** — reported and not asserted,
+because equal counts are evidence that the sensitivity block did not disturb the controller *for
+these forces*, and a parameter whose column grew faster than the state would change the count
+legitimately.
+
+### 24.3 A failing test found a refusal that named the wrong reason
+
+`ParameterSet` takes its width from the registry **at construction**. A test declared a parameter
+after building the set; the set refused, correctly — and said *"this ParameterId was not issued by
+the registry this ParameterSet was built for"*, **which was false**. It *was* that registry. The
+id was simply issued later.
+
+**A refusal that names the wrong reason sends the reader to the wrong bug**: a caller told the
+first message while suffering the second goes looking for a mixed-up registry that does not
+exist. The two cases are now distinguished, and the second says which slot, what width, and what
+to do. `SENS-A-004` asserts the message, not merely the identifier — the identifier was already
+right and would have passed.
+
+### 24.4 Liouville rewritten before drag arrives, not after
+
+`STM-A-005` asserted **det Φ = 1**, true for every force L3 has and **false** the moment drag
+arrives at L4 with tr(∂a/∂v) < 0. Whoever met that failure would have restricted the test to
+conservative forces or deleted it — losing the only check on Φ that involves no difference
+estimate, exactly when the dynamics get harder.
+
+It is now **det Φ = exp(∫ tr A d*t*)**, with the integral carried as one extra scalar in the
+variational state, so the conservative case is the *special case*. `STM-A-005b` makes it sharp
+today rather than waiting: a dissipative force *a* = −*k***v** gives tr(A) = −3*k* exactly, and at
+*t* = 600 s the integral is **−0.36 against a closed form of −0.36**, with det Φ = **0.6977** =
+exp(−0.36) — the determinant genuinely moving rather than confirming a constant.
+
+*A test that is trivially satisfied now and sharp later is worth more than one that has to be
+rescued.*
+
+### 24.5 The standing measurement, and which modules could never move it
+
+The crossing register is **72 production sources, still 15 literals**, unchanged through four new
+modules. Two of them could never have moved it and that is worth knowing before it does move:
+`integrators` works on a bare vector and never sees a length at all, and **the variational
+equations are structurally immune** — A's blocks are s⁻² and s⁻¹, both invariant under the
+scaling that takes metres to kilometres, so A is the same matrix in either system and there is
+nothing there to convert. When the pair finally moves, it will not have been these.
+
 ## Changelog
 
 | date | change |
@@ -2192,6 +2270,7 @@ rule this step was told to apply.
 | 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
 | 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
 | 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
+| 2026-09-18 | §24 added: L3 step 4 and the layer's exit gate. The integrator did know the width — templated on a compile-time size — and step 4 is what removed it. A failing test exposed a refusal naming the wrong reason. Liouville rewritten before drag arrives rather than after. |
 | 2026-09-18 | §23 added: L3 step 3. STM-P-1 predicted the FD agreement before the run, including that the textbook figure would be wrong by three orders; the threshold is a band measured in the same run and contains no absolute number; Liouville checks what finite differences cannot; GRAV-Q-006 resolved on measured cost. |
 | 2026-09-18 | §22 added: L3 step 2. RKF7(8) read from page images and proved against the order conditions; Fehlberg's own prose count of 40 error coefficients confirms the reading. Table XI's agreement predicted before the run and borne out, including the part predicted to fail. |
 | 2026-09-18 | §21 added: L3 step 1. The crossing gate the plan asked for would have fired 14 times and caught nothing; replaced by a register, which is ci.sh gate 10. An annotation is not a permit. The SRP-versus-drag figure compared two vehicles. |

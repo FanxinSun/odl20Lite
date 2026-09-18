@@ -24,10 +24,32 @@ ParameterRegistry::declaration(const ParameterId& id) const {
     return &decls_[id.slot_];
 }
 
+namespace {
+/// A REFUSAL THAT NAMES THE WRONG REASON SENDS THE READER TO THE WRONG BUG.
+/// "not issued by this registry" and "issued by this registry AFTER this object
+/// was built" are different situations with different fixes, and a caller told
+/// the first while suffering the second goes looking for a mixed-up registry
+/// that does not exist. Found by a test that declared a parameter after
+/// constructing the set.
+DynError wrong_or_late(bool right_registry, std::size_t slot, std::size_t width,
+                       const char* what) {
+    if (!right_registry) {
+        return DynError{"DYN-F-001",
+            std::string("this ParameterId was not issued by the registry this ") + what +
+            " was built for."};
+    }
+    return DynError{"DYN-F-001",
+        std::string("this ParameterId WAS issued by the right registry, but AFTER this ") +
+        what + " was built: it is slot " + std::to_string(slot) + " and this object has width " +
+        std::to_string(width) + ". Declare every parameter before constructing the objects that "
+        "carry values for them, or rebuild this one from the registry as it now stands."};
+}
+}  // namespace
+
 odl::Result<void, DynError> ParameterSet::set(const ParameterId& id, double v) {
     if (id.tag_ != tag_ || id.slot_ >= values_.size()) {
-        return odl::err(DynError{"DYN-F-001",
-            "this ParameterId was not issued by the registry this ParameterSet was built for."});
+        return odl::err(wrong_or_late(id.tag_ == tag_, id.slot_, values_.size(),
+                                      "ParameterSet"));
     }
     values_[id.slot_] = v;
     present_[id.slot_] = true;
@@ -36,8 +58,8 @@ odl::Result<void, DynError> ParameterSet::set(const ParameterId& id, double v) {
 
 odl::Result<double, DynError> ParameterSet::value(const ParameterId& id) const {
     if (id.tag_ != tag_ || id.slot_ >= values_.size()) {
-        return odl::err(DynError{"DYN-F-001",
-            "this ParameterId was not issued by the registry this ParameterSet was built for."});
+        return odl::err(wrong_or_late(id.tag_ == tag_, id.slot_, values_.size(),
+                                      "ParameterSet"));
     }
     if (!present_[id.slot_]) {
         return odl::err(DynError{"DYN-F-002",

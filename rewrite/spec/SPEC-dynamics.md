@@ -428,8 +428,18 @@ rather than leaving to the reader.
 **The pair of numbers is a measurement of the property, not only a guard on it.** Adding
 `modules/dynamics` — the first caller of the crossing — took the search from **62 production
 sources to 66 with still 15 literals**, because the crossing goes through `core/units.hpp` by
-name. That pair is reported on every run and is expected to stay flat: **it is the number that
-will move first if L4's dozen forces begin writing their own constants.**
+name. `integrators` and the variational equations took it to **72, still 15**. That pair is
+reported on every run and is expected to stay flat: **it is the number that will move first if
+L4's dozen forces begin writing their own constants.**
+
+**Two of those modules could never have moved it, and knowing which is worth recording now**, so
+that when the pair does move nobody re-examines them. `integrators` works on a bare vector and a
+right-hand side and never sees a length at all. **The variational equations are stronger than
+that: they are *structurally* immune.** A's blocks have units of s⁻² and s⁻¹, and both are
+**invariant under the uniform scaling that takes metres to kilometres** — rescaling **r** and
+**a** by the same factor leaves ∂a/∂r unchanged. So A is the *same matrix* in either unit system,
+and `variational.cpp` contains no conversion not because its author was careful but because there
+is nothing there to convert. When the pair finally moves, it will not have been these.
 
 The enumeration was confirmed by a **second, independent method** before the register was built:
 first by matching the spellings of the 1e3 family, then by parsing every numeric literal in the

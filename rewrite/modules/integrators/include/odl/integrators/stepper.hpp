@@ -18,12 +18,32 @@
 
 #include <array>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
+#include <vector>
 
 namespace odl::integrators {
 
 template <std::size_t N>
 using Vec = std::array<double, N>;
+
+/// A RUNTIME-SIZED state, for the parameter sensitivities of L3 step 4.
+using DynVec = std::vector<double>;
+
+/// The steppers are generic over the CONTAINER, not over a compile-time width.
+///
+/// That distinction is the whole of L3 step 4's gate. A registry issues however
+/// many parameters a caller declares, the sensitivity block is 6 x n wide, and
+/// "registering a second parameter requires no change to the integrator" is only
+/// true if the integrator never knew the width. Templating on `std::size_t N`
+/// would have satisfied every test at n = 1 and n = 2 by RECOMPILING, which is a
+/// change to the integrator wearing the costume of a template argument.
+template <class V>
+concept StateVector = requires(V v, const V& c, std::size_t i) {
+    { c.size() } -> std::convertible_to<std::size_t>;
+    { v[i] } -> std::convertible_to<double&>;
+    { c[i] } -> std::convertible_to<const double&>;
+};
 
 /// One RKF7(8) step. `f(x, y) -> Vec<N>`. Returns the 7th-order result and the
 /// (134) estimate; neither is combined with the other here.
@@ -46,18 +66,19 @@ using Vec = std::array<double, N>;
 ///
 /// The measured order confirms which is in use: INTG-A-006 recovers slope 6.90
 /// from fixed steps, not 7.9.
-template <std::size_t N, class F>
+template <StateVector V>
 struct StepResult {
-    Vec<N> y{};        ///< the propagating 7th-order solution
-    Vec<N> error{};     ///< (134): the truncation estimate, componentwise
+    V y{};        ///< the propagating 7th-order solution
+    V error{};    ///< (134): the truncation estimate, componentwise
 };
 
-template <std::size_t N, class F>
-StepResult<N, F> rkf78_step(F&& f, double x, const Vec<N>& y, double h) {
+template <StateVector V, class F>
+StepResult<V> rkf78_step(F&& f, double x, const V& y, double h) {
+    const std::size_t N = y.size();
     using namespace rkf78;
-    std::array<Vec<N>, kStages> k{};
+    std::array<V, kStages> k{};
     for (int s = 0; s < kStages; ++s) {
-        Vec<N> ys = y;
+        V ys = y;
         for (int j = 0; j < s; ++j) {
             const double b = kBeta[static_cast<std::size_t>(s)][static_cast<std::size_t>(j)];
             if (b == 0.0) continue;
@@ -66,8 +87,9 @@ StepResult<N, F> rkf78_step(F&& f, double x, const Vec<N>& y, double h) {
         }
         k[static_cast<std::size_t>(s)] = f(x + kAlpha[static_cast<std::size_t>(s)] * h, ys);
     }
-    StepResult<N, F> out;
+    StepResult<V> out;
     out.y = y;
+    out.error = y;
     for (int s = 0; s < kStages; ++s) {
         const double c = kC[static_cast<std::size_t>(s)];
         if (c == 0.0) continue;
@@ -99,17 +121,18 @@ StepResult<N, F> rkf78_step(F&& f, double x, const Vec<N>& y, double h) {
 }
 
 /// One classical RK4 step.
-template <std::size_t N, class F>
-Vec<N> rk4_step(F&& f, double x, const Vec<N>& y, double h) {
-    Vec<N> t{};
-    const Vec<N> k1 = f(x, y);
+template <StateVector V, class F>
+V rk4_step(F&& f, double x, const V& y, double h) {
+    const std::size_t N = y.size();
+    V t = y;
+    const V k1 = f(x, y);
     for (std::size_t i = 0; i < N; ++i) t[i] = y[i] + 0.5 * h * k1[i];
-    const Vec<N> k2 = f(x + 0.5 * h, t);
+    const V k2 = f(x + 0.5 * h, t);
     for (std::size_t i = 0; i < N; ++i) t[i] = y[i] + 0.5 * h * k2[i];
-    const Vec<N> k3 = f(x + 0.5 * h, t);
+    const V k3 = f(x + 0.5 * h, t);
     for (std::size_t i = 0; i < N; ++i) t[i] = y[i] + h * k3[i];
-    const Vec<N> k4 = f(x + h, t);
-    Vec<N> out = y;
+    const V k4 = f(x + h, t);
+    V out = y;
     for (std::size_t i = 0; i < N; ++i)
         out[i] += h / 6.0 * (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i]);
     return out;

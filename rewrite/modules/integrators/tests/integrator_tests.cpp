@@ -71,7 +71,7 @@ TEST_CASE("INTG-A-005  the estimator is EXACTLY zero on a quadrature problem",
 
     const double h = 0.75;                       // deliberately coarse
     const Vec<1> y0{0.0};
-    const auto step = rkf78_step<1>(quad, 0.0, y0, h);
+    const auto step = rkf78_step<Vec<1>>(quad, 0.0, y0, h);
 
     // the estimate is not small; it is zero
     CHECK(step.error[0] == 0.0);
@@ -84,7 +84,7 @@ TEST_CASE("INTG-A-005  the estimator is EXACTLY zero on a quadrature problem",
 
     // AND THE CONSEQUENCE, exhibited: the controller accepts any step at any
     // tolerance, because nothing ever exceeds it.
-    auto r = integrate<1>(quad, 0.0, y0, 10.0, 1e-30);
+    auto r = integrate<Vec<1>>(quad, 0.0, y0, 10.0, 1e-30);
     REQUIRE(r.has_value());
     const double end_err = std::abs(r->y[0] - std::sin(10.0));
     INFO("tolerance 1e-30, steps " << r->record.accepted << ", rejections "
@@ -101,7 +101,7 @@ TEST_CASE("INTG-A-004  Example (53) against its closed form, and against Table X
     REQUIRE_THAT(y0[0], Catch::Matchers::WithinRel(std::numbers::e, 1e-15));
     REQUIRE(y0[1] == 1.0);
 
-    auto r = integrate<2>(example53, 0.0, y0, 5.0, 1e-18);
+    auto r = integrate<Vec<2>>(example53, 0.0, y0, 5.0, 1e-18);
     REQUIRE(r.has_value());
     const Vec<2> truth = example53_exact(5.0);
     const double dy = r->y[0] - truth[0];
@@ -136,7 +136,7 @@ TEST_CASE("INTG-A-006  two-body, and step-size insensitivity demonstrated",
     std::vector<double> tols{1e-8, 1e-10, 1e-12};
     std::vector<double> errs;
     for (double tol : tols) {
-        auto r = integrate<6>(two_body, 0.0, s0, period, tol);
+        auto r = integrate<Vec<6>>(two_body, 0.0, s0, period, tol);
         REQUIRE(r.has_value());
         errs.push_back(norm6(r->y, s0));
         INFO("tol " << tol << ": steps " << r->record.accepted << " rejections "
@@ -158,7 +158,7 @@ TEST_CASE("INTG-A-006  two-body, and step-size insensitivity demonstrated",
         Vec<6> y = s0;
         double t = 0.0;
         const auto n = static_cast<std::size_t>(std::llround(period / h));
-        for (std::size_t i = 0; i < n; ++i) { y = rkf78_step<6>(two_body, t, y, h).y; t += h; }
+        for (std::size_t i = 0; i < n; ++i) { y = rkf78_step<Vec<6>>(two_body, t, y, h).y; t += h; }
         he.push_back(norm6(y, s0));
     }
     const double slope = std::log2(he[0] / he[1]);
@@ -177,7 +177,7 @@ TEST_CASE("INTG-A-007  RK4 converges at fourth order, measured", "[integrators]"
         Vec<6> y = s0;
         double t = 0.0;
         for (std::size_t i = 0; i < static_cast<std::size_t>(n); ++i) {
-            y = rk4_step<6>(two_body, t, y, h); t += h;
+            y = rk4_step<Vec<6>>(two_body, t, y, h); t += h;
         }
         e.push_back(norm6(y, s0));
     }
@@ -210,20 +210,20 @@ TEST_CASE("INTG-A-011  the controller's constants change the COST and not the AN
     const double tol = 1e-10;
 
     const Control a{0.9, 5.0, 0.1, 20};
-    auto ra = integrate<6>(two_body, 0.0, s0, period, tol, a);
+    auto ra = integrate<Vec<6>>(two_body, 0.0, s0, period, tol, a);
     REQUIRE(ra.has_value());
 
     // the band: same controller, different starting step
     double band = 0.0;
     for (double frac : {150.0, 200.0, 300.0, 500.0}) {
-        auto rc = integrate<6>(two_body, 0.0, s0, period, tol, a, period / frac);
+        auto rc = integrate<Vec<6>>(two_body, 0.0, s0, period, tol, a, period / frac);
         REQUIRE(rc.has_value());
         band = std::max(band, norm6(ra->y, rc->y));
     }
 
     // the claim: all four constants changed at once
     const Control b{0.75, 2.0, 0.25, 20};
-    auto rb = integrate<6>(two_body, 0.0, s0, period, tol, b);
+    auto rb = integrate<Vec<6>>(two_body, 0.0, s0, period, tol, b);
     REQUIRE(rb.has_value());
     const double separation = norm6(ra->y, rb->y);
 
@@ -244,26 +244,26 @@ TEST_CASE("INTG-A-008  refusals fire, and do not fire on the adjacent input", "[
     auto f = [](double, const Vec<1>& y) { return Vec<1>{y[0]}; };
     const Vec<1> y0{1.0};
 
-    const auto bad = integrate<1>(f, 0.0, y0, 1.0, -1.0);
+    const auto bad = integrate<Vec<1>>(f, 0.0, y0, 1.0, -1.0);
     REQUIRE_FALSE(bad.has_value());
     CHECK(bad.error().id == "INTG-F-005");
 
-    const auto zero = integrate<1>(f, 0.0, y0, 1.0, 0.0);
+    const auto zero = integrate<Vec<1>>(f, 0.0, y0, 1.0, 0.0);
     REQUIRE_FALSE(zero.has_value());
     CHECK(zero.error().id == "INTG-F-005");
 
     // proven both ways
-    CHECK(integrate<1>(f, 0.0, y0, 1.0, 1e-10).has_value());
+    CHECK(integrate<Vec<1>>(f, 0.0, y0, 1.0, 1e-10).has_value());
 
     // INTG-F-004, fired by a REAL condition rather than a constructed one: an
     // oversized first step on Example (53) drives z negative, and log(z) is not
     // finite. The refusal names the component and the abscissa.
     const Vec<2> e0 = example53_exact(0.0);
-    const auto nan = integrate<2>(example53, 0.0, e0, 5.0, 1e-18, Control{}, 2.0);
+    const auto nan = integrate<Vec<2>>(example53, 0.0, e0, 5.0, 1e-18, Control{}, 2.0);
     REQUIRE_FALSE(nan.has_value());
     CHECK(nan.error().id == "INTG-F-004");
     // and the same problem from a sane first step does not refuse
-    CHECK(integrate<2>(example53, 0.0, e0, 5.0, 1e-18).has_value());
+    CHECK(integrate<Vec<2>>(example53, 0.0, e0, 5.0, 1e-18).has_value());
 }
 
 TEST_CASE("INTG-A-009  accepted and rejected steps are counted separately", "[integrators]") {
@@ -275,7 +275,7 @@ TEST_CASE("INTG-A-009  accepted and rejected steps are counted separately", "[in
     const double v = std::sqrt(kMu / R);
     const double period = 2.0 * std::numbers::pi * std::sqrt(R * R * R / kMu);
     const Vec<6> s0{R, 0, 0, 0, v, 0};
-    auto r = integrate<6>(two_body, 0.0, s0, period, 1e-10, Control{}, period / 2.0);
+    auto r = integrate<Vec<6>>(two_body, 0.0, s0, period, 1e-10, Control{}, period / 2.0);
     REQUIRE(r.has_value());
     INFO("accepted " << r->record.accepted << " rejected " << r->record.rejected
          << " evaluations " << r->record.evaluations);

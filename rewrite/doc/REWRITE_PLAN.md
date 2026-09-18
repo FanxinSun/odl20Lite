@@ -456,7 +456,7 @@ external table in the layer is manifest-declared with a hash.
 
 ---
 
-### 3.4 L3 `dynamics` — 3 of 4 done; **the open layer**
+### 3.4 L3 `dynamics` — **4 of 4 done; exit gate passed 2026-09-18**
 
 Small in code and the hinge of the design: this is where the predecessor's fixed-width
 sensitivity block becomes a registry, which is what later gives a joint covariance instead of a
@@ -568,17 +568,50 @@ grid scan.
    metres to kilometres, so A is the same matrix in either system and the variational equations
    introduce no conversion. Gate 11 confirms it structurally: 72 production sources, still 15
    literals.
-4. **TODO** — Parameter sensitivity registry: any registered parameter automatically gains a
+4. **DONE** — Parameter sensitivity registry: any registered parameter automatically gains a
    sensitivity column and a place in the joint covariance, for whatever set is registered, with
    no fixed width anywhere. Gate: a registered parameter's column matches finite differences,
    and registering a second parameter requires no change to the integrator.
 
-**Exit gate:** the plugin surface carries a trivial test force end to end, sensitivities
-included, with nothing in the integrator aware of what the parameter means.
+   **The integrator did know the width, and finding that is what step 4 was for.** The steppers
+   were templated on `std::size_t N` over `std::array<double, N>` — a **compile-time** width.
+   Every test at *n* = 1 and again at *n* = 2 would have passed, *by recompiling*, and nothing in
+   the output distinguishes that from an integrator that never knew: a change to the integrator
+   wearing the costume of a template argument. They are now generic over a `StateVector`
+   **concept**, so `y0.size()` is the only answer available to them and one instantiation serves
+   every *n*. `SENS-A-002` asserts it at **compile time** as well as behaviourally, because the
+   behavioural half alone would have passed against the old version — *n* = 1, 2, 3 each
+   instantiating its own integrator, every one of them correct.
+
+   *S* = ∂x/∂p satisfies d*S*/d*t* = A*S* + B with *S*(t₀) = **0**, zero because the initial state
+   does not depend on the parameters — a statement about what is being differentiated, not an
+   initialisation convenience. Column against finite differences on `STM-A-001`'s same-run band
+   with the family chosen from the prediction: band 1.13 × 10⁻⁹, best agreement 1.48 × 10⁻¹⁰,
+   column not trivially zero. Accepted steps at *n* = 1, 2, 3 are 19, 19, 19 — **reported, not
+   asserted**, because a parameter whose column grew faster than the state would change the count
+   legitimately, and asserting it would be a fact about the test forces dressed as a property.
+
+   *A refusal that named the wrong reason.* A `ParameterSet` built before a parameter was declared
+   refused correctly and said *"this `ParameterId` was not issued by the registry this
+   `ParameterSet` was built for"* — false; it was that registry, and the id was issued later. A
+   refusal naming the wrong reason sends the reader hunting a bug that does not exist.
+   `SENS-A-004` asserts **the message**, because the identifier was already right and would have
+   passed.
+
+   *And Liouville was rewritten before drag arrives, per the manager's ruling*: det Φ =
+   exp(∫ tr A d*t*), the integral carried as one extra scalar, and made sharp **today** rather
+   than at L4 — `STM-A-005b` adds a = −*k***v**, so tr(A) = −3*k* exactly and det Φ = exp(−3*kt*)
+   in closed form. At 600 s the integral is −0.36 and det Φ = 0.6977. The determinant genuinely
+   moves.
+
+**Exit gate — PASSED 2026-09-18.** `tools/ci.sh` exits 0: 12 gates, 236 tests. The plugin
+surface carries a trivial test force end to end, sensitivities included, with nothing in the
+integrator aware of what the parameter means — which was **false when step 4 opened** and is the
+reason the second clause of that sentence is a gate and not a description.
 
 ---
 
-### 3.5 L4 `forces-analytic` — 0 of 6 done
+### 3.5 L4 `forces-analytic` — 0 of 6 done; **the open layer**
 
 Every non-gravitational force that can be written in closed form. The ray-traced treatment of
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
