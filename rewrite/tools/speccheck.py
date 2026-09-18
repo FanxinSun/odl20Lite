@@ -18,6 +18,14 @@ as fact.  So:
     The checker cannot make the 128-vs-121 mistake quietly because it is
     structurally incapable of printing only one number.
 
+SCOPE, stated because the first version of this message overstated it.  This
+tool reads the SPECIFICATIONS' internal traceability: is every requirement and
+refusal discharged by an acceptance ROW, or individually excused?  It does not
+look at the test suite and cannot tell whether those rows are implemented.  An
+adopted-but-unbuilt specification passes.  Saying "tested" would have been the
+same class of error as an unstated denominator: a true statement about a smaller
+thing, read as a statement about a larger one.
+
 Usage:  speccheck.py [--spec-dir DIR] [--quiet]
 Exit:   0 complete   1 gaps found   3 a spec could not be parsed
 """
@@ -170,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\n{'=' * 70}")
     print(f"{len(specs)} specifications")
     print(f"  requirements and refusals, OWN-PREFIX denominator : {total_reqs}")
-    print(f"    discharged by an acceptance test                : {total_tested}")
+    print(f"    discharged by an acceptance ROW                 : {total_tested}")
     print(f"    excused, with a reason, in §8 Coverage          : {total_excused}")
     print(f"    uncovered                                       : {total_uncovered}")
     print(f"  identifiers referenced, own-prefix / all          : {total_own} / {total_all}")
@@ -180,7 +188,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  denominator; that is the 121-against-128 error, printed rather than made.")
 
     if all(ok for ok, _ in results):
-        print("\nok       every requirement and refusal is tested or excused")
+        print("\nok       every requirement and refusal is discharged by an acceptance ROW")
+        print("         or individually excused, in every specification.")
+        print()
+        print("         WHAT THIS DOES NOT CHECK: that those rows are implemented. This reads")
+        print("         the specifications' own traceability, not the test suite, so a spec")
+        print("         that is written and not yet built passes here — SPEC-ephemerides.md")
+        print("         does today. A green result is 'the spec is internally complete', never")
+        print("         'the module is tested'.")
         return OK
     print("\nFAILED   see above", file=sys.stderr)
     return GAPS

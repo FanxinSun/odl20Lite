@@ -48,7 +48,7 @@ reads as an omission rather than a decision.
 | 3 | Definitions and conventions | Symbols, units, sign conventions, frames, the time argument of every time-dependent quantity |
 | 4 | Required behaviour | The mathematics, stated so an implementer who has seen no implementation can write one |
 | 5 | Interfaces | The module's public surface, language-free (§4 below) |
-| 6 | Precision and accuracy | Numbers, with the physical quantity each number is a budget for |
+| 6 | Precision and accuracy | Numbers, with the physical quantity each number is a budget for — **and the conversion written out**, not only its result. `SPEC-ephemerides`'s first draft stated 10⁻¹³ AU as "15 µm" where it is 14.96 mm; the arithmetic is one multiplication and writing it down is what makes a factor of a thousand visible. |
 | 7 | Failure behaviour | The refusal catalogue (§5 below) |
 | 8 | Acceptance tests | Concrete, checkable, each naming the **source of its expected values** |
 | 9 | Provenance obligations | What the implementation must add to `PROVENANCE.md` when it lands |
@@ -62,12 +62,21 @@ Immediately below the front-matter table, every spec carries this block, filled 
 truthfully:
 
 ```
-**Derivation declaration (plan R1, R2).** This specification was written from the
-documents listed in §2 and from no implementation of this module. Specifically, no file
-under `/home/rog/odl20lite` was opened, read, listed, searched, or otherwise inspected
-during its preparation. Numeric acceptance targets carried from prior measurement
-campaigns are behavioural observations against public data (plan R4) and are marked as
-such where they appear.
+**Derivation declaration (plan R1).** This specification was written from the documents
+listed in §2 and from no implementation of this module.
+
+**Predecessor access.** The predecessor shares this repository as of 2026-09-18, so the
+claim earlier specifications could make — that it lived in a separate tree and was not
+reachable — is no longer available to any specification written after that date, and must
+not be implied. What is claimed instead, and what is checkable: no file under the
+repository root's `src/`, `include/`, `res/`, `scripts/`, `analysis/`, `analyses/`,
+`REVIVAL.md` or `PROVENANCE.md` was opened, read, listed, searched or otherwise inspected
+during this specification's preparation. Anything about the predecessor that did reach the
+author is listed below with its route, and repeated in the exposure register at
+`PROVENANCE.md` §0.2.
+
+Numeric acceptance targets carried from prior measurement campaigns are behavioural
+observations against public data (plan R4) and are marked as such where they appear.
 ```
 
 If any part of that is untrue for a given spec, the block is edited to say what was

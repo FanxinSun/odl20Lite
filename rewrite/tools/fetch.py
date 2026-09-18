@@ -325,24 +325,60 @@ def cmd_verify_populated(root: Path, doc: dict, args) -> int:
     die(USAGE, f"no manifest entry with id {args.id!r}")
 
 
+# Plan §5 constraint 3, as an ALLOWLIST.
+#
+# The first version of this check was a denylist: refuse anything whose name
+# contained GPL, LGPL or AGPL.  That reports success without checking the thing.
+# CALCEPH is triple-licensed CeCILL-C / CeCILL-B / CeCILL v2.1, and of those
+# CeCILL-C is close to the LGPL and CeCILL v2.1 is GPL-compatible — yet neither
+# string contains "GPL", so both would have passed.  So would MPL, EPL, CDDL,
+# SSPL, OSL and EUPL.
+#
+# A denylist of forbidden licences can never be complete; an allowlist of
+# permitted ones can.  Adding an entry here is a deliberate act with a reason
+# attached, which is the point.
+PERMISSIVE_LICENCES = {
+    "0BSD":          "public-domain-equivalent",
+    "APACHE-2.0":    "permissive, with an express patent grant",
+    "BSD-2-CLAUSE":  "permissive",
+    "BSD-3-CLAUSE":  "permissive",
+    "BSL-1.0":       "Boost; permissive, and exempts object code from the notice requirement",
+    "CC0-1.0":       "public-domain dedication",
+    "CECILL-B":      "French BSD-like. NOT CeCILL-C (close to LGPL) and NOT CeCILL v2.1 "
+                     "(GPL-compatible). Carries a citation obligation — see the entry's note.",
+    "ISC":           "permissive",
+    "MIT":           "permissive",
+    "MIT-0":         "permissive, no attribution",
+    "NCSA":          "permissive",
+    "PSF-2.0":       "Python Software Foundation; permissive",
+    "UNLICENSE":     "public-domain dedication",
+    "ZLIB":          "permissive",
+    "IERS-PUBLIC":   "not an SPDX identifier: IERS public data products, published for "
+                     "unrestricted use. Data, never linked.",
+}
+
+
 def cmd_check_licences(root: Path, doc: dict, args) -> int:
-    """Plan §5 constraint 3: no GPL/LGPL/AGPL in anything that could ship."""
-    forbidden = ("GPL", "AGPL", "LGPL")
-    allowed_substrings = ("LGPL-EXCEPTION",)
+    """Plan §5 constraint 3: only known-permissive licences, by allowlist."""
     bad = []
     for e in doc["entries"]:
-        lic = e["licence"].upper()
-        if any(f in lic for f in forbidden) and not any(a in lic for a in allowed_substrings):
+        if e["licence"].upper().strip() not in PERMISSIVE_LICENCES:
             bad.append(e)
     for e in bad:
         print(
-            f"FORBIDDEN LICENCE  {e['id']}: {e['licence']}\n"
-            f"  Plan §5 constraint 3: no GPL/LGPL/AGPL anywhere in what could ship.",
+            f"LICENCE NOT ON THE PERMISSIVE LIST  {e['id']}: {e['licence']}\n"
+            f"  Plan §5 constraint 3 permits only licences on tools/fetch.py's allowlist.\n"
+            f"  This is an allowlist and not a denylist on purpose: a denylist of forbidden\n"
+            f"  licences can never be complete, and CeCILL v2.1 — GPL-compatible copyleft —\n"
+            f"  contains no forbidden substring and would pass one.\n"
+            f"  If this licence is genuinely permissive, add it to PERMISSIVE_LICENCES with a\n"
+            f"  one-line reason. That is meant to be a deliberate act.\n"
+            f"  Permitted today: {', '.join(sorted(PERMISSIVE_LICENCES))}",
             file=sys.stderr,
         )
     if bad:
         return MALFORMED
-    print(f"ok       {len(doc['entries'])} entries, all permissive")
+    print(f"ok       {len(doc['entries'])} entries, every licence on the permissive allowlist")
     return OK
 
 

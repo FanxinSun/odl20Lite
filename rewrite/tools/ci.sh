@@ -74,7 +74,7 @@ ctest --test-dir "$BUILD" --output-on-failure
 gate "NOTICE regenerates and matches what is committed"
 "$PY" tools/notice.py --check
 
-gate "specification coverage"
+gate "specification traceability (NOT a test-suite check — see the tool's output)"
 "$PY" tools/speccheck.py
 
 gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"

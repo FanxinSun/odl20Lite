@@ -118,10 +118,21 @@ def main() -> int:
         r = run(root, m2, "check-licences")
         check("a permissive manifest passes the licence check", r.returncode, OK, r.stderr)
 
-        for lic in ("GPL-3.0-only", "LGPL-2.1", "AGPL-3.0"):
-            bad = write_manifest(root, [dict(entry, licence=lic)])
+        # The check is an ALLOWLIST, and these are the cases that made it one.
+        # CeCILL-2.1 is GPL-compatible copyleft and CeCILL-C is close to the LGPL,
+        # yet neither string contains "GPL" — a denylist passed both silently, and
+        # CALCEPH is triple-licensed across exactly those two and CeCILL-B.
+        for lic in ("GPL-3.0-only", "LGPL-2.1", "AGPL-3.0",
+                    "CeCILL-2.1", "CeCILL-C", "MPL-2.0", "EPL-2.0", "CDDL-1.0",
+                    "SSPL-1.0", "OSL-3.0", "Proprietary", ""):
+            bad = write_manifest(root, [dict(entry, licence=lic or "unstated")])
             r = run(root, bad, "check-licences")
-            check(f"{lic} is refused", r.returncode, MALFORMED, r.stderr)
+            check(f"{lic or 'unstated'} is refused", r.returncode, MALFORMED, r.stderr)
+
+        # ... and the one of the three CALCEPH offers that is permissive passes.
+        ok_lic = write_manifest(root, [dict(entry, licence="CeCILL-B")])
+        r = run(root, ok_lic, "check-licences")
+        check("CeCILL-B is permitted", r.returncode, OK, r.stderr)
 
         # A host-provided tool needs no URL or hash, but still needs a licence.
         tool = {"id": "python3", "kind": "tool", "licence": "PSF-2.0", "provided_by_host": True}
