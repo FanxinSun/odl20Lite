@@ -325,9 +325,22 @@ layer is open.
    the **root** of an SPK's body tree — the centre of every record and the target of none — so
    scanning for it as a target found nothing and 868 cases were being silently counted as
    outside coverage. The gate reporting its denominator is what exposed that.
-2. **TODO** — `gravity`: the geopotential to full degree and order, recursions taken from the
-   tables printed in the Conventions rather than from anyone's code. Gate: published
-   coefficients' acceleration at sampled points, with truncation behaviour stated and tested.
+2. **TODO** — `gravity`: the geopotential to full degree and order. **This step's instruction
+   as first written was impossible and is corrected here:** the Conventions print no recursions
+   — chapter 6 gives the expansion (6.1) and the normalisation (6.2b) and nothing else — so
+   "recursions taken from the tables printed in the Conventions" named a table that does not
+   exist. The route is to *derive* the normalised recursion from (6.2b) with a primary, freely
+   readable source for the underlying identities (NIST DLMF 14.6 and 14.10 serve), and to verify
+   the derivation in exact rational arithmetic before it is written into a spec. That is a
+   better artefact than citing a paywalled paper, because anyone can reproduce the verification.
+   Gate: no published table of geopotential accelerations exists either, so the gate is the
+   closed-form degree-variance identity — rms |a_n| = (GM/r²)(a_e/r)ⁿ σ_n √((n+1)(2n+1)), exact
+   from the 4π normalisation — checked at every degree and several radii, **plus** a point-wise
+   check against the exact J2-only closed form, which the identity does not cover because it is
+   a statement about means over the sphere and says nothing about angular structure.
+   **No gate is set from Table 6.1's 0.5 mm orbit accuracy**; see `SPEC-template.md` §7 for why
+   the obvious conversion is wrong by five orders of magnitude. That claim is orbit-level and
+   belongs to L8, which is where a fitted orbit exists.
 3. **TODO** — `tides-relativity-thirdbody`: solid Earth, ocean and pole tides; the relativistic
    correction; third-body attraction. Gate: the IERS Conventions worked examples, term by term.
 4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
