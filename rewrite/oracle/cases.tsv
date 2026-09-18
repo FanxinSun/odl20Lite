@@ -1,0 +1,28 @@
+id	quantity	value	unit	command
+F-01	ECEF->ECI x at MJD 57372.37458333	-7134.398676408507486	km	ECEF2ECI <state> 57372.37458333
+F-02	ECEF->ECI y at MJD 57372.37458333	-1344.208959991233173	km	ECEF2ECI <state> 57372.37458333
+F-03	ECEF->ECI z at MJD 57372.37458333	2616.198918743878749	km	ECEF2ECI <state> 57372.37458333
+F-04	ECEF->ECI->ECEF round-trip closure	0.000000085519	km	ECEF2ECI then ECI2ECEF, same epoch
+F-05	ECEF->ECI x at MJD 60827.0	-5497.706120021189647	km	ECEF2ECI <state> 60827.0
+T-01	SGP4 TEME->J2000 vs Horizons, mean	2.246	m	sgnlOPS, SGP4, ACS3 TLE, 5 h
+T-02	SGP4 TEME->J2000 vs Horizons, max	3.553	m	sgnlOPS, SGP4, ACS3 TLE, 5 h
+G-01	GNSS 7-parameter fit residual RMS (2246 20230220000 G01)	0.0645	m	validate_sp3.sh 2246 20230220000 G01
+G-02	GNSS 7-parameter fit residual RMS (2246 20230230000 G01)	0.0573	m	validate_sp3.sh 2246 20230230000 G01
+G-03	GNSS 7-parameter fit residual RMS (2246 20230220000 G05)	0.1870	m	validate_sp3.sh 2246 20230220000 G05
+S-01	LightSail-2 SLR range residual RMS	57.177	m	validate_slr.sh
+S-02	LightSail-2 effective A*C_R/m	3.362537	m^2/kg	validate_slr.sh
+O-01	ACS3 optical angular residual RMS	26.14	arcsec	validate_angles.sh
+B-IIF	block mean A*C_R/m, BLOCKIIF (n=12)	0.023576	m^2/kg	analysis/gps_block_vs_fit.txt sha256:97b4ccfba6cf...; col4 x C_R 1.144444
+B-IIR-B	block mean A*C_R/m, BLOCKIIR-B (n=2)	0.022488	m^2/kg	analysis/gps_block_vs_fit.txt sha256:97b4ccfba6cf...; col4 x C_R 1.144444
+B-IIR-A	block mean A*C_R/m, BLOCKIIR-A (n=5)	0.022340	m^2/kg	analysis/gps_block_vs_fit.txt sha256:97b4ccfba6cf...; col4 x C_R 1.144444
+B-IIR-M	block mean A*C_R/m, BLOCKIIR-M (n=7)	0.021581	m^2/kg	analysis/gps_block_vs_fit.txt sha256:97b4ccfba6cf...; col4 x C_R 1.144444
+B-IIIA	block mean A*C_R/m, BLOCKIIIA (n=5)	0.017647	m^2/kg	analysis/gps_block_vs_fit.txt sha256:97b4ccfba6cf...; col4 x C_R 1.144444
+B-IIF-IIRA-pooled	block separation BLOCKIIF vs BLOCKIIR-A, POOLED-SD definition	14.1	sigma	|m1-m2| / sqrt(((n1-1)s1^2+(n2-1)s2^2)/(n1+n2-2))
+B-IIF-IIRA-sem	block separation BLOCKIIF vs BLOCKIIR-A, SEM definition	20.8	sigma	|m1-m2| / sqrt(s1^2/n1 + s2^2/n2)
+B-IIF-IIIA-pooled	block separation BLOCKIIF vs BLOCKIIIA, POOLED-SD definition	9.8	sigma	|m1-m2| / sqrt(((n1-1)s1^2+(n2-1)s2^2)/(n1+n2-2))
+B-IIF-IIIA-sem	block separation BLOCKIIF vs BLOCKIIIA, SEM definition	11.3	sigma	|m1-m2| / sqrt(s1^2/n1 + s2^2/n2)
+E-01	ECOM residual RMS, median over 30 satellites	0.0364	m	analysis/ecom_comparison.txt sha256:e1f3d2a26695... col4
+E-02	ECOM residual RMS, worst	0.0442	m	same
+D-01	NRLMSISE-00 density at ~725 km, 6 h orbit minimum	4.090755e-14	kg/m^3	sgnlOPS, RK8/7, drag=3, qbfanxin template 6 h
+D-02	NRLMSISE-00 density at ~725 km, 6 h orbit maximum	2.741296e-13	kg/m^3	same run, orbit maximum
+D-03	NRLMSISE-00 diurnal ratio max/min over the orbit	6.701	ratio	same run

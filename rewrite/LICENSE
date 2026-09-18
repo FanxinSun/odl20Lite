@@ -1,0 +1,89 @@
+COPYRIGHT NOTICE — NO LICENCE IS GRANTED
+========================================
+
+Copyright (c) 2026 <OWNER — replace this placeholder with your name or entity>
+
+All rights reserved. No licence is granted by this file. You may not copy,
+modify, distribute or use this work except as the copyright holder permits or
+the law allows.
+
+Why a placeholder rather than a guess
+-------------------------------------
+
+The value of this notice is that it is accurate, and a copyright line naming
+the wrong person is worse than one with an obvious blank. Replace the line
+above; it is the only edit this file needs.
+
+
+1. The same posture as the predecessor, for the opposite reason
+---------------------------------------------------------------
+
+The predecessor repository (`odl20lite`) also grants nothing, and this one was
+asked to match it. The posture is the same; the reason must not be copied,
+because it does not apply here and repeating it would be false.
+
+The predecessor withholds a grant because **nobody has established who may give
+one**: its first-party code originates with University College London, no rights
+statement ever existed in that tree, and an offer that may not be the offeror's
+to make is worse than no offer.
+
+This tree withholds a grant because **the owner has not yet decided to give
+one**. That is an entirely different thing. The work here is written from public
+literature and public standards — the IERS Conventions, published papers,
+published format specifications — under a clean-room discipline recorded in
+`doc/REWRITE_PLAN.md` and evidenced in every specification's derivation
+declaration. Nothing here descends from anyone else's source code.
+
+So: the predecessor *cannot* grant a licence. This tree *can*, and has chosen
+not to yet.
+
+
+2. This is the choice that keeps every option open
+---------------------------------------------------
+
+It is worth being explicit that "no grant" is not a restrictive posture here so
+much as an undecided one, and it is the only starting position that forecloses
+nothing:
+
+  * a grant can be added at any time, and made retroactive if wanted;
+  * a grant once published is, in practice, impossible to withdraw;
+  * publication, sale, exclusive licensing, open-sourcing and giving it away
+    all remain available from here, and each remains the owner's sole decision.
+
+Starting permissive would have given that away for nothing, before anyone knows
+which of those is wanted.
+
+
+3. What this file does not reach
+---------------------------------
+
+Third-party components, when there are any. There are none today — this tree is
+currently specifications, a provenance ledger and a set of frozen oracle
+measurements. The dependencies the plan anticipates (ERFA under BSD, CALCEPH
+under CeCILL-B) keep their own terms, and `PROVENANCE.md` carries the dependency
+register that records each one and, where a component is multi-licensed, which
+option was chosen.
+
+The measurements under `oracle/` are observations of what a program printed,
+recorded with the commands and input hashes that produced them. Facts about what
+software did are not the property of whoever wrote the software.
+
+
+4. On the name
+---------------
+
+The plan's original guidance for the project name was "anything that is not an
+echo of ODL/SGNL", to keep structural distance for the ownership story. The
+owner chose `odl/self_built`, which overrides that guidance deliberately: it
+names the problem domain rather than claiming descent, and `self_built` states
+the point of the exercise in the name itself. The concern the original guidance
+was protecting against is recorded here rather than silently dropped, so that a
+later decision to rename is an informed one.
+
+
+5. If you are reading this because you want to use the work
+-------------------------------------------------------------
+
+Ask the copyright holder. Unlike the predecessor, where the answer to "who can
+give me permission?" is genuinely unresolved, here there is someone who can
+answer.

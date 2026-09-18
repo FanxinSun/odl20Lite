@@ -1,0 +1,11 @@
+# Scratch and build output. The tree is specifications, provenance and frozen
+# oracle measurements; nothing here is generated yet.
+/build/
+/target/
+*.o
+*.d
+
+# Data fetched by manifest. Under plan rule R11 the identity of an input is its
+# hash, recorded in the manifest and in run provenance — never the file in the
+# tree. Re-fetchable data is not version-controlled; its hash is.
+/data/cache/

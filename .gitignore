@@ -57,10 +57,13 @@ analyses/qb50
 # ILRS orbit predictions are half a megabyte each; validate_slr.sh fetches them
 res/slr/*.nxt
 
-# The business value assessment is kept local from here on. Revision 9 went to
-# the public remote along with the code, which was a consequence of it sitting
-# in the tree rather than a decision about the document; its valuation figures
-# and its commentary on UCL's unresolved rights are public and stay that way,
-# because rewriting published history was considered and declined. Untracking
-# stops FUTURE revisions going out. It does not unpublish the one that did.
-ODL_business_value_assessment.pdf
+# Kept out of the public remote: the valuation document, the rewrite plan and
+# the ownership analysis. Not a licensing judgement - just not things to push.
+assessment/
+rewrite/doc/
+
+# --- conversation transcripts ----------------------------------------------
+# /export drops these in the working directory. They are full session logs and
+# contain working notes that were never meant for a public remote.
+chat.md
+log.md

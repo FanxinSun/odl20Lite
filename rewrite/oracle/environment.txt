@@ -1,0 +1,21 @@
+# Oracle environment, captured 2026-09-17T20:42:28Z
+
+predecessor_commit	a9782abf48711ac48d89446746cd68e7ebed1491
+predecessor_describe	a9782ab Withdraw the licence: a bare copyright notice, grant
+predecessor_dirty	yes
+compiler	g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+host	Linux 6.18.33.2-microsoft-standard-WSL2
+
+# Input data, by SHA-256. Every number below is conditional on these.
+res/eopc04	1c1212520473874f70e96981fcd4a2e2f64c548f3ab2892a3d2eeb6ff9c0955b
+res/1980_2020	8bcd113d3fb6125683959d331ea909cb90752a8e8f647123bdb0f89758f66426
+res/SW-All.csv	11dd6b45f39fc7b15031a9f9e64dc1c67b4e56b63c0ed3f7258abf731a14a080
+res/teme_check/acs3.tle	fb20103bf60ece4ed7af67c0c8b0085303b717a0d5e2606a762128c33de9d0da
+res/teme_check/acs3_horizons_20260914.eci	b9e73e297f9c1dd3fc99d479cdda38f284acc26e37b3903c90cb82293d1d58cb
+res/slr/lightsail2.slrobs	9ef9611310c6c2d438d1fbf60ebfceea225b7ddc548e395a82a9a0a3f3e5e50c
+res/slr_stations.txt	452f20260bac8973cd667aa117997796c3df14d4f2ea45fd090c2575f3b8acce
+res/angles/acs3.angles	778697ed2f264dfba7e3b99f838c3f1fa6b6c9bf256223a06ee8fb3b9516e6c5
+res/obs_sites.txt	5b2a3aa0202183653b6abe37684beb91674e4add2809a9adca42917d443068d7
+res/sp3/IGS0OPSFIN_20230220000_01D_15M_ORB.SP3	941697dadf220782c2971cccafa08bd1c9acc4f2d75fd3a132220d2e9bbef45f
+res/sp3/IGS0OPSFIN_20230230000_01D_15M_ORB.SP3	530343f01c3174a662ce736b99faa32a49271476159b418e4147b502c0f3821a
+res/sp3/WMC0MGXFIN_20230220000_01D_05M_ORB.SP3	faf50355b58e89ed2b90a96ca82e0fa0aa0962f5ded6248e34ef0cdee5838e36
