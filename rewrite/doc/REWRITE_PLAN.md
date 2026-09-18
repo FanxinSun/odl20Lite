@@ -696,6 +696,18 @@ governs. Three rules apply to all of them:
    counting, 128 vs 121; block separation, 20.8σ vs 14.1σ). L8's block gate names
    its definition for exactly this reason.
 
+   **Quantities that must be compared are measured in one place, at one reference point.** L2's
+   three floors lived in three specifications — the ocean-tide truncation floor in
+   `SPEC-perturbations`, the relativistic terms in the same document at a different radius, the
+   unapplied *L*_B scaling in `SPEC-ephemerides` — so the comparison between them had to be
+   **reconstructed** by whoever needed it, and both executor and manager reconstructed it wrong
+   in opposite directions before it became contradictory enough to force a measurement. Measured
+   together at 7331 km by `tests/l2_floors.cpp`, which links three modules on purpose: the floor
+   is 8.552 × 10⁻¹¹ m s⁻², the smallest term the layer actually computes is de Sitter at
+   3.478 × 10⁻¹¹, and the *L*_B scaling is 5.070 × 10⁻¹⁴ — **the floor is 2.46× the smallest
+   term kept**, not three orders above it and not twelve times it. This binds L4 hardest, where
+   a dozen accelerations have to be ranked against each other to decide what is modelled.
+
    **The same rule binds a test's own case count.** A test driven by data — rows of a file,
    segments of a kernel, constituents of a table — MUST assert how many cases it ran before it
    trusts that they passed, and print the number. `EPH-A-007` is why: it compared two TT−TDB

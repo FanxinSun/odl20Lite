@@ -10,6 +10,7 @@
 #include <array>
 #include <cmath>
 #include <numbers>
+#include <string>
 #include <vector>
 #include <type_traits>
 
@@ -450,6 +451,98 @@ TEST_CASE("PERT-A-025: the dk column's RESONANCE STRUCTURE against (6.9)", "[tid
         // part — both halves asserted, so neither can be quietly forgotten.
         CHECK(std::abs(rI / p.dk_i - 0.5) > 1.0);
         CHECK(std::abs(p.dk_r / f.real() - median) / median < 0.01);
+    }
+
+    // THE PRINTED PER-CONSTITUENT CORRECTIONS, WHICH ARE SIGNED.
+    //
+    // §6.2.1 lists them for the ten rows where they matter, in units of 1e-5:
+    // (1,1) Q1, (1,1) O1 and its 145,545 companion, (1,0) No1, (0,-1) P1,
+    // (244,299) psi1, (12,12) phi1, (3,2) J1, (2,1) Oo1 and its 185,565
+    // companion.  P1's MINUS SIGN is what settles that these are signed values
+    // and not magnitudes — v1.2 of the specification said magnitudes, and that
+    // was wrong.
+    //
+    // Since dk_f = (k21(sigma) - k21) + dk^OT and the corrections take the
+    // formula to the exact body-tide part, subtracting them from the residual
+    // MEASURES dk^OT per constituent — which the Conventions describe in words
+    // but do not tabulate.  Both application directions are computed, because
+    // the English ("the resulting numbers ... would require small corrections to
+    // match the exact values") admits both, and the DATA decides.
+    {
+        struct Corr { std::array<int, 6> doodson; double ip, op; const char* name; };
+        constexpr Corr kCorrections[] = {
+            {{1, -2, 0, 1, 0, 0}, 1, 1, "Q1"},
+            {{1, -1, 0, 0, 0, 0}, 1, 1, "O1"},
+            {{1, -1, 0, 0, -1, 0}, 1, 1, "O1 companion 145,545"},
+            {{1, 0, 0, 1, 0, 0}, 1, 0, "No1"},
+            {{1, 1, -2, 0, 0, 0}, 0, -1, "P1"},
+            {{1, 1, 1, 0, 0, -1}, 244, 299, "psi1"},
+            {{1, 1, 2, 0, 0, 0}, 12, 12, "phi1"},
+            {{1, 2, 0, -1, 0, 0}, 3, 2, "J1"},
+            {{1, 3, 0, 0, 0, 0}, 2, 1, "Oo1"},
+            {{1, 3, 0, 0, 1, 0}, 2, 1, "Oo1 companion 185,565"},
+        };
+        std::vector<double> half[2], magnitude[2];
+        double psi_half[2] = {0.0, 0.0}, psi_mag[2] = {0.0, 0.0};
+        int matched = 0;
+        for (const Corr& c : kCorrections) {
+            std::size_t row = SolidEarthTide::constituents(1);
+            for (std::size_t i = 0; i < SolidEarthTide::constituents(1); ++i) {
+                if (odl::tides::tables::kSolidTideDiurnal[i].doodson == c.doodson) row = i;
+            }
+            INFO(c.name);
+            REQUIRE(row < SolidEarthTide::constituents(1));
+            ++matched;
+            const Printed p = printed_row(1, row);
+            const C f = formula(p.deg_per_hour, sigma);
+            const double rR = p.dk_r - f.real(), rI = p.dk_i - f.imag();
+            for (int k = 0; k < 2; ++k) {
+                const double s = k == 0 ? -1.0 : +1.0;
+                const double oR = rR + s * c.ip, oI = rI + s * c.op;
+                if (oI == 0.0 || p.dk_i == 0.0) continue;
+                if (std::string(c.name) == "psi1") {
+                    psi_half[k] = oI / p.dk_i;
+                    psi_mag[k] = std::abs(oR) / std::abs(oI);
+                } else {
+                    half[k].push_back(oI / p.dk_i);
+                    magnitude[k].push_back(std::abs(oR) / std::abs(oI));
+                }
+            }
+        }
+        CHECK(matched == 10);
+        double spread[2];
+        for (int k = 0; k < 2; ++k) {
+            std::sort(half[k].begin(), half[k].end());
+            std::sort(magnitude[k].begin(), magnitude[k].end());
+            spread[k] = half[k].back() - half[k].front();
+            WARN("PERT-A-025 corrections, " << (k == 0 ? "resid - correction" : "resid + correction")
+                 << ": over the nine non-psi1 rows, dk^OT_I/dk_I spans " << half[k].front()
+                 << " to " << half[k].back() << " (median " << half[k][half[k].size() / 2]
+                 << ", against the Conventions' 'roughly half'), |dk^OT_R|/|dk^OT_I| median "
+                 << magnitude[k][magnitude[k].size() / 2]
+                 << "; psi1 gives " << psi_half[k] << " and " << psi_mag[k] << ".");
+        }
+        // THE DIRECTION IS DETERMINED BY THE SPREAD, not by the median and not
+        // by psi1 alone: the source's natural reading holds the nine inside
+        // [0.47, 0.62] where the other scatters them over five times that range.
+        CHECK(spread[0] < spread[1] / 3.0);
+        CHECK(half[0].front() > 0.40);
+        CHECK(half[0].back() < 0.70);
+        CHECK_THAT(magnitude[0][magnitude[0].size() / 2], WithinAbs(1.0, 0.15));
+
+        // AND PSI1 REMAINS ANOMALOUS AFTER THE PUBLISHED CORRECTION IS APPLIED,
+        // which is a stronger statement than "psi1 is an outlier in a statistic
+        // I chose".  Its ocean-tide term satisfies "about the same magnitude"
+        // essentially exactly and violates "roughly half" in SIGN.
+        WARN("PERT-A-025 psi1 after correction: dk^OT = (" << psi_mag[0] << " as |R|/|I|) with "
+             "dk^OT_I/dk_I = " << psi_half[0] << ", where the other nine corrected constituents "
+             "lie in [" << half[0].front() << ", " << half[0].back() << "]. The published "
+             "correction is 299 against dk_I = 358 — 83.5% of the quantity — and applying it "
+             "does NOT explain psi1: the magnitude relation holds, the sign of the half-relation "
+             "does not.");
+        CHECK(psi_half[0] < 0.0);                       // the wrong sign
+        CHECK(std::abs(psi_half[0]) > 1.0);             // and larger than the quantity
+        CHECK_THAT(psi_mag[0], WithinAbs(1.0, 0.15));   // while |R| ~ |I| still holds
     }
 
     // NEGATIVE CONTROL.  Move the retrograde FCN resonance by 7e-4 cpsd — less

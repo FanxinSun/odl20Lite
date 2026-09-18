@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `EPH` |
 | **Status** | **adopted** 2026-09-18, conditional on three corrections, which v1.1 applies |
-| **Version** | 1.3 |
+| **Version** | 1.4 |
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 1 (`doc/REWRITE_PLAN.md` §3.3) |
 | **Depends on** | `SPEC-time.md` (the TDB argument), `core` |
@@ -291,7 +291,7 @@ Notes for the manager's review:
 | `EPH-P-2` | AU constant read from the kernel | exactly 149 597 870.700 km | — | `PARK21` §2, IAU 2012 |
 | `EPH-P-3` | TDB−TT against `SPEC-time.md` | ≤ 100 ns | 100 ns × 7.5 km s⁻¹ = **0.75 mm** at LEO | two independent routes; the difference is the check |
 | `EPH-P-4` | interpolation from a two-part epoch vs a collapsed one | the collapsed form MUST be measurably worse | — | `EPH-R-002`; the test demonstrates the reason for the split |
-| `EPH-P-5` | what `geocentric_state` does **not** include | the *L*_B scaling between TDB-compatible and TCB-compatible lengths, **not applied** | 1.550519768 × 10⁻⁸ × 3.844 × 10⁸ m = **5.960 m** on the Moon's geocentric distance; as a third-body acceleration, 3 × 1.550519768 × 10⁻⁸ × 1.09 × 10⁻⁶ m s⁻² = **5.070 × 10⁻¹⁴ m s⁻²**, which is 5.9 × 10⁻⁴ of the smallest term L2 step 3 keeps | `PERT-Q-010`'s ruling required this stated with its arithmetic rather than asserted from memory. It does **not** land above that floor, and now it is known rather than assumed |
+| `EPH-P-5` | what `geocentric_state` does **not** include | the *L*_B scaling between TDB-compatible and TCB-compatible lengths, **not applied** | 1.550519768 × 10⁻⁸ × 3.844 × 10⁸ m = **5.960 m** on the Moon's geocentric distance; as a third-body acceleration, 3 × 1.550519768 × 10⁻⁸ × 1.09 × 10⁻⁶ m s⁻² = **5.070 × 10⁻¹⁴ m s⁻²**. **Against the smallest term L2 step 3 actually computes — the de Sitter correction, 3.478 × 10⁻¹¹ m s⁻² at 7331 km — that is 0.146 %.** v1.3 compared it against the ocean-tide truncation floor instead and called the ratio 5.9 × 10⁻⁴; the floor and the smallest term kept are different numbers, and `tests/l2_floors.cpp` now measures all three at one radius so that the comparison is read rather than reconstructed | `PERT-Q-010`'s ruling required this stated with its arithmetic rather than asserted from memory. It does **not** land above that floor, and now it is known rather than assumed |
 
 **`EPH-P-1` said "15 µm" until v1.1, where it is 15 mm** — a factor of a thousand, in a budget
 column, where a reader takes it for the precision the module achieves and sizes every later
@@ -381,6 +381,7 @@ its place rather than being cargo.
 
 | version | date | change |
 |---|---|---|
+| 1.4 | 2026-09-18 | **`EPH-P-5`'s reference point was the wrong one.** It compared the unapplied *L*_B scaling against the ocean-tide truncation floor while calling that "the smallest term L2 step 3 keeps"; the smallest term the layer actually computes is the de Sitter correction, 3.478 × 10⁻¹¹ m s⁻² at 7331 km, and the ratio is 0.146 % rather than 5.9 × 10⁻⁴. The conclusion is unchanged and now rests on a number that means what it says. `tests/l2_floors.cpp` measures the floor, the smallest term kept and the *L*_B effect **at one radius, from the modules**. |
 | 1.3 | 2026-09-18 | **`state()` split by centre**, on `PERT-Q-010`'s ruling: it returned `State<Frame::BCRS>` whatever centre was asked for, so a geocentric vector came back typed as barycentric — the frame in the type, the **origin** in a runtime argument the type did not carry. Now `barycentric_state` returns `State<Frame::BCRS>`, `geocentric_state` returns `State<Frame::GCRS>` and **is** `FRAME-R-028`'s translation for an ephemeris body, and `relative_state` returns an **untagged** `RelativeState` for any other centre. Plan §5 constraint 10: *what a value means belongs in its type, never in the argument that produced it.* `EPH-P-5` added, stating what the geocentric call does not include, with its arithmetic. |
 | 1.2 | 2026-09-18 | **Amended by implementation.** `EPH-R-012` corrected: an SPK kernel carries **no constants**, so "read the AU from the kernel" was unsatisfiable on the mandated route. Replaced by the IAU 2012 defining value, with a kernel-supplied AU *checked against* it where one exists, and `from_kernel` recorded either way. `EPH-A-003` now asserts the absence as well as the value. |
 | 1.1 | 2026-09-18 | **Adopted, with the three corrections the adoption was conditional on.** `EPH-P-1` corrected from 15 µm to **15 mm** and every §6 row given its multiplication. §3.2a added: one sign convention, `tdb_minus_tt`, replacing v1.0's `tt_minus_tdb` in §5 — opposite signs in adjacent sentences inside the very check built to catch that class. `EPH-R-041` and `EPH-F-002` restated as **per body per kernel**. Four questions ruled: `Frame::BCRS` added at `SPEC-frames.md` v1.4 with its two conditions; kernels take **paths**, named as this tree's one exception; **both** DE kernels pinned with the full sweep required to RUN at the gate and its case count recorded; CALCEPH kept. The derivation declaration now uses the template's **Predecessor access** block verbatim. |

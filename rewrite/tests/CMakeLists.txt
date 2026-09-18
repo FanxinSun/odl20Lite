@@ -63,3 +63,12 @@ add_test(NAME tides.one_secular_pole
 add_test(NAME build.configure_is_current
          COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_configure_is_current.py
                  ${CMAKE_BINARY_DIR})
+
+# The three L2 floors in one place with one reference point.  It links three
+# modules on purpose: the numbers it compares live in three specifications, and
+# stating each against its own reference point is what let two of them disagree
+# by three orders of magnitude.
+add_executable(odl_l2_floor_tests l2_floors.cpp)
+target_link_libraries(odl_l2_floor_tests
+  PRIVATE odl::core odl::relativity odl::time odl::frames Catch2::Catch2WithMain odl_warnings)
+catch_discover_tests(odl_l2_floor_tests EXTRA_ARGS --warn NoAssertions)

@@ -328,6 +328,7 @@ documented by the IERS itself in `updateC04.txt`:
 
 | date | change |
 |---|---|
+| 2026-09-18 | **Two corrections of reasons rather than conclusions.** §18: the per-constituent resonance corrections ARE signed — P1's is (0,−1) — so what blocks `formula + correction = table` is only the untabulated δk^OT, and that **measures** it: 0.467–0.616 against "roughly half" and 1.002 against "about the same magnitude", with the direction determined by the spread. **ψ1 stays anomalous after the published correction**, at −1.539. And the L2 floors are measured at one radius in `tests/l2_floors.cpp`: the truncation floor is **2.46×** the smallest term kept, not the three orders `PERT-R-022a` claimed from a geostationary-against-LEO comparison. **10 gates, 196 tests.** |
 | 2026-09-18 | **Step 3 reopened: chapter 6 prints a worked example and this tree said it did not.** §17: `PERT-A-029` uses TN36-6 §6.2.1's K1 example — non-circular, and **the only check that exercises the theta dependence**, which theta_f = 0 cannot touch. The Conventions' words about the ocean-tide term check at 0.906 and 0.598. **psi1 is rank 28 of 48 in the chosen statistic** — the median did not absorb it; the real-part ratio never looked at the imaginary part, so the statistic was blind rather than tolerant. The truncation's cost (3.94x) and its asymmetry stated. `PERT-Q-010` ruled and implemented as three accessors with three return types; doing its arithmetic found **`FRAME-Q-006`'s L_B figure wrong by a factor of a thousand — 2.32 km, not 2.3 m — in prose since v1.0**, now `FRAME-P-7` so gate 8 reaches it. And a stale-configure guard that could never fire, now a test proven both ways. **10 gates, 195 tests.** |
 | 2026-09-18 | **L2 step 3 `perturbations` implemented as three link targets.** §16: the gate with both denominators (50 constituents exact; 14 of 48 rows constrain the internal relation); the three column orders of Tables 6.5a/b/c; **`PERT-A-025` checks the resonance structure and not δk, because TN36-6 defines δk as including an ocean-loading contribution (6.9) does not produce**; two statistics that were not what their names said — the ocean pole tide's variance (90.55% weighted against 75.8% raw) and the ocean tide's truncation criterion, which was self-referential and now measures **degree 89**; a parser that dropped 8 of 18 FES2004 waves on five-digit Doodson codes; `Ephemeris::state` typing a geocentric vector as barycentric (`PERT-Q-010`); and `--warn NoAssertions` proven by injection. `SPEC-perturbations` v1.2. **10 gates, 192 tests, 626 artefacts byte-identical.** |
 | 2026-09-18 | **`SPEC-perturbations` adopted at v1.1; three amendments and eight rulings applied.** §15.6: `PERT-A-001` was overclaimed as category 1 when the printed amplitudes are the module's own input — decomposed honestly, with `PERT-A-025` (the resonance formula as a test-only cross-check) added as the one thing that verifies δk without an H_f catalogue. §15.7: `de440t.bsp` substituted for `de440.bsp` after verifying both DAFs' segment summaries (14 shared, identical; one extra, the TT−TDB record); constraint 9 re-ran step 1's full sweep unchanged at 1.06296 mm; and **`EPH-A-007` now runs for the first time — 53 epochs, worst 26.027 ns against 100 ns** — where it had been passing by executing zero times since step 1. §15.8: `speccheck.py`'s components now partition its denominator and **found three stale Coverage rows, two in specs adopted at L1**; `fetch.py` sniffs HTML error pages and file magic **before** hashing. **10 gates, 165 tests.** |
@@ -1521,6 +1522,67 @@ It is a **test** now, `build.configure_is_current`, because the failure mode is 
 `ctest` or a single binary against an old build directory and the only place to catch that is
 inside the suite. Proven both ways: it passes after a configure and fails after touching a
 `CMakeLists.txt`.
+
+## 18. Two corrections of reasons rather than conclusions
+
+**10 gates green, 196 tests, 628 artefacts byte-identical.** `SPEC-perturbations` v1.4,
+`SPEC-ephemerides` v1.4.
+
+### 18.1 The printed corrections are signed, and they measure what was said to be unmeasurable
+
+`PERT-Q-011` at v1.3 said `PERT-A-025` could not be tightened to `TN36-6` §6.2.1's per-constituent
+resonance corrections because they are printed *"as magnitudes and not signs"*. **They are
+signed**: P1's is printed **(0, −1)**, and one minus sign settles that the unsigned entries are
+positive values rather than magnitudes.
+
+What actually blocks *formula + correction = table* is only that δ*k*^OT is not tabulated — and
+that blocks far less than was concluded, because **subtracting the correction measures δ*k*^OT
+per constituent**, against words the Conventions print for exactly that quantity. Over the nine
+corrected constituents other than ψ1:
+
+| | measured | `TN36-6` §6.2.1 |
+|---|---|---|
+| δ*k*^OT_I / δ*k*^I | **0.467 to 0.616** | "roughly half the value of the imaginary part" |
+| \|δ*k*^OT_R\| / \|δ*k*^OT_I\|, median | **1.002** | "about the same magnitude" |
+
+**The application direction is determined rather than chosen, and by the spread rather than by
+one constituent.** The source's natural reading — the formula plus the correction gives the exact
+body-tide value — holds the nine inside [0.467, 0.616]; the other direction scatters the same
+nine over [0.181, 0.944], five times the range, and gives ψ1 a magnitude ratio of 21.5.
+
+**And ψ1 remains anomalous after the published correction is applied.** Its δ*k*^OT_I/δ*k*^I is
+**−1.539** — the wrong sign, and larger than the quantity — while its magnitude relation holds at
+0.943. The published correction is 299 against δ*k*^I = 358, **83.5 % of the quantity**, and
+applying it does not explain the constituent. That is a far stronger statement than "ψ1 is an
+outlier in a statistic I chose", and it is the one the manager predicted might come out.
+
+*It is also a fourth instance of the pattern named in §17.3, inside the analysis that named it:
+the real-part ratio never looked at the imaginary part; the imaginary-part analysis then never
+looked at the printed correction that is 83.5 % of the imaginary part.* Each new tool needs the
+treatment the last one got.
+
+### 18.2 Three numbers, three specifications, three reference points
+
+`EPH-P-5` said the unapplied *L*_B scaling is 5.9 × 10⁻⁴ of *"the smallest term L2 step 3 keeps"*
+— but the number it divided by was the **ocean-tide truncation floor**. `PERT-R-022a` said the
+same layer keeps relativistic terms **three orders of magnitude below** that floor. Both could
+not be true, and neither was right: the "three orders" compared a de Sitter term at
+**geostationary** with a truncation floor at **LEO**.
+
+Measured at one radius, from the modules, by `tests/l2_floors.cpp`:
+
+| at *r* = 7331 km | |
+|---|---|
+| ocean-tide truncation floor (`TN36-6` §6.2.1's 3 × 10⁻¹² cutoff) | **8.552 × 10⁻¹¹ m s⁻²** |
+| smallest relativistic term this layer computes (de Sitter) | **3.478 × 10⁻¹¹ m s⁻²** |
+| unapplied *L*_B scaling, as a third-body acceleration | **5.070 × 10⁻¹⁴ m s⁻²** |
+
+The floor is **2.46×** the smallest term kept — a factor of a few, not three orders and not the
+twelve a reading of `TN36-10`'s stated band suggests — and the *L*_B effect is **0.146 %** of it.
+The conclusion is unchanged; what changed is that it now rests on numbers that mean what they
+say. The test links three modules on purpose: the error survived because the three numbers lived
+in three specifications, each stated against its own reference point, so the comparison had to be
+reconstructed rather than read.
 
 ---
 
