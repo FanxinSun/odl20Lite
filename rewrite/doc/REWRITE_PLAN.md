@@ -456,7 +456,7 @@ external table in the layer is manifest-declared with a hash.
 
 ---
 
-### 3.4 L3 `dynamics` — 0 of 4 done; **the open layer**
+### 3.4 L3 `dynamics` — 1 of 4 done; **the open layer**
 
 Small in code and the hinge of the design: this is where the predecessor's fixed-width
 sensitivity block becomes a registry, which is what later gives a joint covariance instead of a
@@ -464,7 +464,7 @@ grid scan.
 
 **Entry:** L2 exit gate.
 
-1. **TODO** — Force plugin surface: the one interface every force implements,
+1. **DONE** — Force plugin surface: the one interface every force implements,
    `accel(t, state, params) -> (a, da/dstate, da/dparams)`. Defined and frozen **before any
    force exists**, because retrofitting it is how the predecessor ended up unable to estimate
    drag at all.
@@ -478,6 +478,30 @@ grid scan.
    scaling written anywhere outside `core/units.hpp`, and is demonstrated to fail by an injected
    one. A gate that is green because no second site exists yet is worth having for exactly that
    reason — it turns red on the day one is written, which is the day it matters.
+
+   **Met by a register, not by the search this plan asked for**, and the difference is §4 rule 5's
+   newest paragraph: measured before being built, 14 false positives to 1 true one. Two things
+   the building found that the specifying had not. **The register needed two markers** — four of
+   the fourteen convert *nothing* (a YYDDD date radix, two "no longitude" sentinels, a row-count
+   threshold), and one marker would have forced a false label onto each, turning "fourteen
+   unexamined literals" into "fourteen literals someone said were fine". `UNIT-CROSSING` and
+   `NOT-A-UNIT-CROSSING`, counted separately and summed by gate 10: 1 + 10 + 4 = 15. **And an
+   annotation is not a permit** — an injected km↔m scaling annotated *honestly* as
+   `UNIT-CROSSING: km -> m` **passed**, because the gate only checked that a marker was present.
+   `DYN-R-041` closes it: no conversion outside `core/units.hpp` may name kilometres, because if
+   kilometres are involved it *is* the crossing and the crossing has one site. Proven in four
+   states, not two.
+
+   What the gate still cannot catch is a **mislabelled** crossing — one annotated as some other
+   conversion — and nothing mechanical will. That residual is held by the discipline that produced
+   the labels, each re-derived from what its line does rather than from the enumeration, which is
+   a process and not a gate; `SPEC-dynamics` §8 says so rather than letting the register look
+   stronger than it is.
+
+   *Structural evidence the register gave for free:* adding `modules/dynamics` took the search from
+   62 production sources to 66 **with still 15 literals**. The first caller of the crossing
+   introduced none, because it goes through `core/units.hpp` by name. The register measures the
+   property rather than only guarding it.
 2. **TODO** — Integrators: RK4 and a DP8(7)- or RKF7/8-class variable-order scheme. Gate: the
    analytic two-body solution, with step-size insensitivity demonstrated rather than assumed.
 3. **TODO** — State transition matrix, integrated alongside the state. Gate: agreement with
