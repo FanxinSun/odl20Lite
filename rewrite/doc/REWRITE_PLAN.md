@@ -351,7 +351,13 @@ layer is open.
    from WGS 84, whose semi-major axis is 6 378 137.0 m against the model's 6 378 136.3 m — a
    relative 1.1 × 10⁻⁷ that the (a_e/r)ⁿ factor carries to 2.4 × 10⁻⁴ by degree 2190.
 3. **TODO** — `tides-relativity-thirdbody`: solid Earth, ocean and pole tides; the relativistic
-   correction; third-body attraction. Gate: the IERS Conventions worked examples, term by term.
+   correction; third-body attraction. Gate: **every printed per-term value in the Conventions,
+   and a statement of what they do not print.** Chapter 6 carries no worked example — no
+   numerical case with inputs and outputs — so this gate is met by Tables 6.5a/b/c constituent by
+   constituent, by the closed-form pole-tide coefficients of §6.4 and §6.5, and by chapter 10's
+   stated magnitudes and precession rates. The gate reports **two** counts: the terms checked,
+   and the terms of the module the Conventions constrain by nothing. See rule 4 in §4 for why the
+   wording was wrong.
 4. **TODO** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
    space-weather ingestion with its own manifest entries. Gate: the model's published reference
    profiles; out-of-range input refused with a diagnostic naming the request and the limit.
@@ -660,6 +666,17 @@ governs. Three rules apply to all of them:
    unstated denominators produced defensible-looking wrong numbers within two days (identifier
    counting, 128 vs 121; block separation, 20.8σ vs 14.1σ). L8's block gate names
    its definition for exactly this reason.
+4. **A gate's wording names what this plan wanted; the source prints what it prints.** Three
+   times now the two have differed, and each time the executor found it while specifying rather
+   than while testing: rule 1 above described a disagreement on a path that cannot carry one;
+   step 2's instruction sent the executor to recursions "printed in the Conventions", which
+   chapter 6 does not print; and step 3's said *worked examples*, of which chapter 6 has none.
+   The pattern is not carelessness about sources — it is this plan writing the **shape** of a
+   check before anyone has read what the source publishes. So: **where a step's gate names a
+   form of evidence, the first thing its specification does is say whether the source prints
+   that form**, and if it does not, propose what it prints instead. A gate reworded from the
+   source is a correction to this plan and is recorded as one; a gate quietly satisfied by
+   something else is not.
 
 ## 5. Design constraints, binding every layer
 
@@ -681,6 +698,12 @@ governs. Three rules apply to all of them:
    `tl::expected` under C++20, and construction, checking and unwrapping are where it and
    `std::expected` are interchangeable; the monadic operations are where they diverge. The
    one-line migration D7 was chosen for holds exactly as long as this constraint does.
+9. **Changing a manifest entry re-runs every gate that consumed it**, in the step that changes
+   it, and the frozen numbers are restated from the re-run rather than carried forward. A
+   pinned input is pinned because the numbers depend on it; swapping one and keeping the old
+   figures would leave a frozen number whose source no longer exists. This binds a substitution
+   as much as an upgrade — `de440.bsp` → `de440t.bsp` at L2 step 3 re-runs step 1's full
+   `testpo.440` sweep, and reproducing 1.06 mm on the new kernel is itself worth having.
 
 ## 6. What carries over, what is dropped
 
