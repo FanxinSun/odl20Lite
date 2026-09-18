@@ -151,6 +151,18 @@ It is Fehlberg's known family property and not a defect in the transcription.
 
 ## 4. Required behaviour
 
+- **INTG-R-014.** **The 7th-order solution is the one that propagates.** An 8th-order companion
+  is computed at every step and used **only** for the estimate. Propagating with it instead —
+  *local extrapolation* — costs nothing, gains an order, and is how every modern embedded pair is
+  used. **It must not be done here without replacing the gate**: `INTG-A-004` compares accumulated
+  errors against Table XI, and that is the only check tying this tableau to *Fehlberg's* method
+  rather than merely to a valid RK7(8). Local extrapolation propagates a different solution, so
+  those errors would no longer be the quantity Table XI reports — and the gate would go on passing
+  its order-condition arm while having quietly stopped checking what it was built for. The choice
+  is recorded **next to the stepper**, not only here, because that is where someone will notice
+  the wasted order. `INTG-A-006`'s measured slope of 6.90 rather than 7.9 is what says which is
+  in use.
+
 - **INTG-R-010.** RK4, fixed step, and RKF7(8) with step-size control, both integrating
   `SPEC-dynamics`'s `StateDerivative` and nothing else. The integrator is **not aware of what a
   parameter means** (`DYN-R-026`).
@@ -237,6 +249,8 @@ a number was written into a specification and measured afterwards.
 | `INTG-A-007` | **RK4 against two-body**, and its error scaling as *h*⁴ over a step sequence | slope 4, from the measurement | R-010 | R-010 |
 | `INTG-A-008` | refusals `INTG-F-001` … `-F-005`, each fired **and shown not to fire** on the adjacent accepted input | the diagnostics | plan §4 rule 5 | F-001…F-005 |
 | `INTG-A-009` | **rejected steps are counted separately from accepted ones**, so a count is comparable with `FEHLBERG`'s | evaluations = accepted × 13 + rejected × 13 | R-012 | R-012 |
+| `INTG-A-011` | **the controller's constants change the cost and not the answer**: the same arc propagated with all four constants changed, against a **band measured from runs that differ only in the initial step** — same constants throughout, so controller participation is impossible by construction. The claim is relative and cannot be fitted | **step counts 235 and 282 — the cost moved; separation 5.65 × 10⁻⁷ m against a band of 7.02 × 10⁻⁷ m — the answer did not** | R-011, and `INTG-Q-001`'s ruling | R-011 |
+| `INTG-A-012` | **the 7th-order solution propagates**, evidenced by `INTG-A-006`'s measured slope being 6.90 and not 7.9 | slope < 7.5 | R-014 | R-014 |
 | `INTG-A-010` | **constraint 4 and constraint 8 hold**: every public signature returns `odl::Result`, and `ci.sh` gate 9's tree-wide monadic-chaining check covers these sources as it covers every other module | as stated | plan §5 constraints 4, 8 | R-013 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
@@ -279,7 +293,7 @@ must not "fix" the controller to match a number that was never a gate.
 
 | id | question |
 |---|---|
-| `INTG-Q-001` | **The step-size controller's constants are this tree's, not Fehlberg's.** He describes the procedure in prose; safety factor, growth and shrink bounds and the rejection limit are choices. They are named constants with stated values, and `INTG-A-006` measures what they produce — but they are not from the source and the specification should not imply they are. Ruling wanted on whether that is enough or whether they need their own justification. |
+| `INTG-Q-001` | The controller's constants are this tree's, not Fehlberg's — he gives the procedure in prose. | **RULED: naming and measuring is enough, with one test added, and the test is what makes it enough.** The constants may change the **cost** and must not change the **answer**, which is a property rather than an assumption and is therefore testable. `INTG-A-011`. **The first attempt at it failed**, against an absolute floor of 2 × 10⁻⁷ m carried over from a different run — and the failure was the floor, not the controller: changing **only the initial step**, with the constants held fixed and the accepted-step count unchanged at 235, separates the answer by up to **7.02 × 10⁻⁷ m**, which is *more* than changing all four constants does. So the bound is now measured from same-controller runs, where controller participation is impossible by construction, and the claim under test is relative. An absolute number chosen after seeing the separation would have been a tolerance fitted to its own result. |
 | `INTG-Q-002` | **When DP8(7) would need revisiting**, recorded so the question closes rather than lingering: if L6 or L7 needs **dense output** — a continuous extension for evaluating the state at an observation time without stepping to it. RKF7(8) has no standard one. **Stepping to each observation is a perfectly good answer and is what this tree does**; this is a condition, not a plan. |
 | `INTG-Q-003` | **RK8(9) is in the same report** (Table XII) at the same cost of transcription, and the same proof would apply. Not taken: the plan asks for one variable-order scheme and two would double the surface for no stated need. Carried. |
 

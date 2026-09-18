@@ -27,6 +27,25 @@ using Vec = std::array<double, N>;
 
 /// One RKF7(8) step. `f(x, y) -> Vec<N>`. Returns the 7th-order result and the
 /// (134) estimate; neither is combined with the other here.
+///
+/// THE 7TH-ORDER SOLUTION IS THE ONE THAT PROPAGATES, AND THAT IS A CHOICE WITH
+/// A CONSEQUENCE. An 8th-order companion is computed at every step and used only
+/// for the estimate. It is tempting to propagate with it instead -- "local
+/// extrapolation" -- which costs nothing and gains an order, and every modern
+/// embedded pair is used that way.
+///
+/// DO NOT, WITHOUT REPLACING THE GATE. SPEC-integrators INTG-A-004 compares the
+/// accumulated errors on Fehlberg's Example (53) against his Table XI, and that
+/// is the ONLY check tying this tableau to HIS method rather than merely to a
+/// valid RK7(8) pair -- the order conditions cannot distinguish those, because
+/// his derivation has free parameters that were chosen rather than forced.
+/// Local extrapolation propagates a different solution, so the accumulated
+/// errors would no longer be the quantity Table XI reports, and the gate would
+/// go on passing its order-condition arm while having quietly stopped checking
+/// the thing it was built for.
+///
+/// The measured order confirms which is in use: INTG-A-006 recovers slope 6.90
+/// from fixed steps, not 7.9.
 template <std::size_t N, class F>
 struct StepResult {
     Vec<N> y{};        ///< the propagating 7th-order solution

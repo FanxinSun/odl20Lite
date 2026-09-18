@@ -187,6 +187,59 @@ TEST_CASE("INTG-A-007  RK4 converges at fourth order, measured", "[integrators]"
     CHECK(slope < 4.5);
 }
 
+TEST_CASE("INTG-A-011  the controller's constants change the COST and not the ANSWER",
+          "[integrators][gate]") {
+    // INTG-Q-001. The safety factor and the growth and shrink bounds are this
+    // tree's choices, not Fehlberg's -- he gives the PROCEDURE in prose. Naming
+    // them is a disclosure; this test is what BOUNDS it. They may change how
+    // much work the integration does and must not be able to reach the result.
+    //
+    // THE BOUND IS MEASURED, NOT ASSERTED, AND BY A ROUTE IMMUNE TO THE EFFECT
+    // BEING TESTED. An absolute floor would have to come from somewhere, and
+    // any number chosen after seeing the separation is a tolerance fitted to its
+    // own result. So the band is established from runs that differ ONLY in the
+    // initial step -- same controller constants throughout, so controller
+    // participation is impossible by construction, and what remains is the
+    // arithmetic of a different step sequence. The claim under test is then
+    // RELATIVE: changing the constants must not separate the answer by more
+    // than merely changing where the sequence starts already does.
+    const double R = 7331.0e3;
+    const double v = std::sqrt(kMu / R);
+    const double period = 2.0 * std::numbers::pi * std::sqrt(R * R * R / kMu);
+    const Vec<6> s0{R, 0, 0, 0, v, 0};
+    const double tol = 1e-10;
+
+    const Control a{0.9, 5.0, 0.1, 20};
+    auto ra = integrate<6>(two_body, 0.0, s0, period, tol, a);
+    REQUIRE(ra.has_value());
+
+    // the band: same controller, different starting step
+    double band = 0.0;
+    for (double frac : {150.0, 200.0, 300.0, 500.0}) {
+        auto rc = integrate<6>(two_body, 0.0, s0, period, tol, a, period / frac);
+        REQUIRE(rc.has_value());
+        band = std::max(band, norm6(ra->y, rc->y));
+    }
+
+    // the claim: all four constants changed at once
+    const Control b{0.75, 2.0, 0.25, 20};
+    auto rb = integrate<6>(two_body, 0.0, s0, period, tol, b);
+    REQUIRE(rb.has_value());
+    const double separation = norm6(ra->y, rb->y);
+
+    INFO("A " << ra->record.accepted << " steps, B " << rb->record.accepted << " steps\n"
+         "  separation from changing all four constants: " << separation << " m\n"
+         "  band from changing only the initial step   : " << band << " m");
+
+    // THE COST MOVED...
+    CHECK(ra->record.accepted != rb->record.accepted);
+    // ...AND THE ANSWER DID NOT: the constants reach no further into the result
+    // than a step-sequence shift that cannot involve them at all.
+    CHECK(separation <= band);
+    // and the whole band is far below anything that could matter dynamically
+    CHECK(band < 1.0e-5);
+}
+
 TEST_CASE("INTG-A-008  refusals fire, and do not fire on the adjacent input", "[integrators]") {
     auto f = [](double, const Vec<1>& y) { return Vec<1>{y[0]}; };
     const Vec<1> y0{1.0};

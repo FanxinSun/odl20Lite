@@ -401,7 +401,7 @@ layer is open.
    and cannot be recomputed without the NRLMSIS database NRL does not ship; the paper's two
    numbered tables point at those same statistics, and its model output is in figures. *Gate:*
    the reference implementation's own output on its 17 published cases, frozen as generated
-   source with the compiler, flags and source hash recorded — see §4 rule 6 for why that ranks
+   source with the compiler, flags and source hash recorded — see §4 rule 8 for why that ranks
    as a published value here and not as an oracle — plus the header's documented total-density
    relation, which is checkable **without** the reference's arithmetic and is therefore a second
    axis rather than a second look. Out-of-range input refused with a diagnostic naming the
@@ -451,7 +451,7 @@ not a list of individually passing tools — the one that fails is the one not o
 *The gate as originally written:* every model reproduces its published reference values **where
 they exist**, and
 where they do not, the specification records the search that established their absence and names
-what stands in their place with the cost of the substitution stated (§4 rule 6); and every
+what stands in their place with the cost of the substitution stated (§4 rule 8); and every
 external table in the layer is manifest-declared with a hash.
 
 ---
@@ -505,7 +505,7 @@ grid scan.
 2. **DONE** — Integrators: RK4 and **Fehlberg's RKF7(8)**, transcribed from the page images of
    `TR R-287` because the 1968 scan's OCR renders a coefficient row as `83_ = 841 = B_I = 8sl`.
    DP8(7) via `dop853.f` was not taken — it states no licence at all, like the two sources §6
-   already dropped — but the **deciding** ground is §4 rule 6's converse: Fehlberg prints exact
+   already dropped — but the **deciding** ground is §4 rule 8's converse: Fehlberg prints exact
    rationals, so the order conditions either hold in exact rational arithmetic or do not, where a
    decimal-published source satisfies them only to rounding.
 
@@ -872,7 +872,34 @@ governs. Three rules apply to all of them:
    visibly degenerate; noise *wearing the shape of an estimate* is responded to, looks plausible,
    and announces nothing. **Group so that a degenerate quantity comes out degenerate** — which is
    also better conditioned near the degeneracy, where the naive ordering loses most.
-6. **A reference implementation is an oracle when a specification exists that it implements, and
+7. **A threshold is not chosen by whoever will be judged by it.** Three ways to satisfy that,
+   in increasing strength, and this project has now used all three.
+
+   *Weakest — state the criterion before measuring, and let the measurement set the value.* L2
+   step 4's ocean-tide truncation degree: the criterion was written into the specification first
+   and the degree came out of the measurement, because a number written first acquires authority
+   whatever the changelog says about how it got there.
+
+   *Stronger — pre-register the expected result with its reason.* L3 step 2's comparison against
+   Fehlberg's 1968 Table XI: the expected order of magnitude, the sign, and **whether the
+   leading digit should match**, all written down with the sizing argument before the first run.
+   A tolerance chosen from its own result tests nothing, and a prediction that includes what
+   should *fail* cannot be read backwards from the outcome.
+
+   *Strongest — make the threshold relative to a comparator measured in the same run, from a
+   family that cannot be affected by what is under test.* L3 step 2's controller-insensitivity
+   test is the case, and it arrived by the absolute form failing. The manager set an absolute
+   floor of 2 × 10⁻⁷ m, taken from a **single fixed-step** run's accumulated arithmetic; the test
+   failed at 5.65 × 10⁻⁷, because the separation of **two independent** round-off walks is not
+   the size of one. Adjusting the floor upward at that point would have been the exact defect the
+   instruction *stop and report rather than tighten* existed to prevent. What the executor did
+   instead was find a comparator immune to the effect under test — runs differing only in where
+   the step sequence starts, all four constants held fixed — and it turned out that **changing
+   only the initial step moves the answer more (7.02 × 10⁻⁷) than changing every constant does
+   (5.65 × 10⁻⁷)**, at the same accepted-step count. The criterion is now that relation, and
+   there is no absolute number in it that anyone could have fitted afterwards.
+
+8. **A reference implementation is an oracle when a specification exists that it implements, and
    is itself normative when none does — and the difference is a search, not a preference.** Rule
    2 ranks an oracle last because an independent description of the same computation exists to
    check it against: ERFA is an oracle precisely because the Conventions define what it computes.
@@ -982,7 +1009,7 @@ unstated → D4's own port on published vectors); png++ (no consumer); TIE-GCM t
 | # | Decision | State |
 |---|---|---|
 | D1 | **Core language** | **Decided 2026-09-18: C++20**, by the owner. Two consequences are recorded rather than quietly dropped. (a) The Rust recommendation rested partly on *structural distance* from the GNU-C++14 predecessor; C++20 does not supply that for free, so §2's "two designs, not one design twice" is now carried entirely by the architecture and is checked harder at Review — same language, same problem, so only the decomposition distinguishes them. (b) `cargo license` is unavailable, so the NOTICE generation of L0 step 5 needs a C++ equivalent driven from the manifest of L0 step 3. Specs remain language-free. |
-| D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN (L2 step 4). **"Validated on its packaged tests" was wrong — there are no packaged tests**, only 17 input cases with no expected output; established by search 2026-09-18 and corrected in §3.3 step 4. Validation is against the reference's own output on those cases, frozen with its toolchain, per §4 rule 6. |
+| D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN (L2 step 4). **"Validated on its packaged tests" was wrong — there are no packaged tests**, only 17 input cases with no expected output; established by search 2026-09-18 and corrected in §3.3 step 4. Validation is against the reference's own output on those cases, frozen with its toolchain, per §4 rule 8. |
 | D3 | Ray tracer | Decided in plan: own implementation from the papers; `photonsXforce` as cross-oracle only (L9). Owner revisits after L8. |
 | D4 | SGP4 | Decided in plan: own port from STR#3 + Vallado 2006 on the published vectors (L6 step 3). |
 | D7 | `Result<T,E>` under C++20 | **Decided 2026-09-18: stay C++20, vendor `tl::expected`** (CC0-1.0, header-only) behind a tree-local `odl::Result`. Chosen on reversibility: C++20 → C++23 later is two CMake lines and deleting the shim, while C++23 → C++20 means hunting every C++23 feature that crept in over months. The migration is near-free *here specifically* because the specs use `Result` only as a plain return type — no monadic chaining anywhere — which §5 constraint 8 now keeps true. Exceptions were excluded: a refusal that unwinds is not a diagnostic the caller must consume, which is the whole of constraint 4. |

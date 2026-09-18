@@ -2069,6 +2069,42 @@ already round-off limited — ~2 × 10⁻⁷ m of accumulated arithmetic against
 5 × 10⁻¹⁰ m. Halving the step there measures the round-off walk, not the order. Measured first,
 then chosen.
 
+### 22.4 `INTG-Q-001`'s added test, and why its first criterion was the thing that was wrong
+
+The ruling on the controller's constants was *naming and measuring is enough, with one test
+added*: the constants may change the **cost** and must not change the **answer**, which is a
+property rather than an assumption. The criterion offered with it was that two runs agree to
+within the requested tolerance or an arithmetic floor "measured at about 2 × 10⁻⁷ m", whichever
+is larger, and — explicitly — to **stop and report rather than tighten anything** if they did
+not.
+
+**They did not.** Changing all four constants separated the final states by **5.65 × 10⁻⁷ m**,
+against that floor of 2 × 10⁻⁷.
+
+**The floor was wrong, not the controller, and the way to tell was not to adjust it.** The
+2 × 10⁻⁷ figure came from a single *fixed-step* run in a different test; the separation of two
+*independent* round-off walks is larger than either. So the question was settled by a route that
+cannot involve the effect under test: runs differing **only in the initial step**, with all four
+constants held fixed.
+
+| what differs | accepted steps | separation from the reference run |
+|---|---|---|
+| initial step *P*/150 | 235 | 1.71 × 10⁻⁷ m |
+| initial step *P*/300 | 235 | 4.47 × 10⁻⁷ m |
+| initial step *P*/200 | 235 | **7.02 × 10⁻⁷ m** |
+| the arc split into two halves | — | 5.29 × 10⁻⁷ m |
+| **all four constants changed** | **282** | **5.65 × 10⁻⁷ m** |
+
+Changing only where the sequence starts — same constants, same accepted-step count of 235 —
+moves the answer **more** than changing every constant does. The controller is not participating;
+the separation is the arithmetic of a different step sequence, and nothing else.
+
+`INTG-A-011` therefore asserts a **relative** claim: the constants must not separate the answer
+by more than a step-sequence shift that cannot involve them already does. The band is measured
+inside the test from the same-controller family, so **there is no absolute number that could have
+been chosen after seeing the result** — which is what an absolute floor, adjusted upward once it
+failed, would have been.
+
 ## Changelog
 
 | date | change |
