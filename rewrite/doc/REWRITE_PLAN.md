@@ -2,7 +2,7 @@
 
 **Status:** foundations specified and adopted (`time`, `eop`, `frames` at v1.2); repository
 live at `bdd80be`; oracle frozen (27 cases). **D1 decided 2026-09-18: C++20** (§7) — implementation is unblocked.
-**Canonical:** `/home/rog/odl-self_built/doc/REWRITE_PLAN.md` — this file, and there is no other
+**Canonical:** `doc/REWRITE_PLAN.md` within this tree — this file, and there is no other
 copy or companion. It is the only plan document; the ground rules that earlier drafts held as a
 separate table are merged into the layer sequences of §3, where they are performed rather than
 recited. Rule identifiers R1–R12, cited from the specifications, are indexed in the Appendix and
@@ -193,42 +193,71 @@ still TODO, and the explanation says so. §3.11 says how any one step is execute
 
 ---
 
-### 3.1 L0 `foundation` — 2 of 7 done
+### 3.1 L0 `foundation` — **7 of 7 done; exit gate passed 2026-09-18**
 
-**Entry:** none, this is the floor. **Language: C++20** (D1, decided 2026-09-18) — steps 3–7
-are unblocked and are the live work of the tree.
+**Entry:** none, this is the floor. **Language: C++20** (D1, decided 2026-09-18).
+
+*Steps 4–7 were reordered on 2026-09-18: CI was step 4 and could not close before the things it
+runs existed. It is now last, which is what was actually executed.*
 
 1. **DONE** — Repository created with the licence in the first commit (`bdd80be`), together
    with this plan, the provenance skeleton and the P1 specifications. The licence-first
    obligation is discharged and stays discharged.
-2. **DONE** — Oracle frozen: 27 cases in `oracle/cases.tsv`, every input hashed, `capture.sh`
-   reproducing them. This is the step that lets the predecessor serve as a test oracle without
-   anyone reading it again — the numbers are captured once and the tree is finished with.
-3. **TODO** — Manifest format and fetcher. Every external input declared with URL, SHA-256 and
-   a licence note, fetched from origin into a cache. Nothing enters the tree undeclared, so
-   provenance becomes a build artefact rather than a habit. This step also fixes the C++20
-   toolchain — build system, dependency acquisition, test framework — because every later step
-   depends on it and because the acquisition mechanism must be able to honour URL-plus-hash
-   pinning rather than resolving a version range. Each choice is recorded with its licence.
-4. **TODO** — CI running the gates offline from that cache, so a green build means the frozen
-   numbers still hold and not that the network was up.
-5. **TODO** — Licence and NOTICE generation, driven from step 3's manifest and never
-   hand-maintained, because a hand-maintained NOTICE is wrong within two dependencies. D1
-   removed the `cargo license` route, so the tool is the Executor's choice and is recorded with
-   its licence like any other dependency.
-6. **TODO** — Spec-coverage checker, with its denominator pinned to OWN-PREFIX identifiers.
-   Specs cross-cite by design and a naive count gave 128 against a true 121 in hand audit:
-   small enough to look like rounding, and a script would have asserted it.
-7. **TODO** — Reproducible-build flags.
+2. **DONE** — Oracle frozen: 27 cases in `oracle/cases.tsv`, every input hashed. `capture.sh`
+   regenerates the 16 reproducible ones; the `B-*` and `E-*` rows are transcribed from recorded
+   sweeps and cited by hash (§4). The path broke when the tree moved and was repaired and
+   re-verified on 2026-09-18 — all sixteen reproduce byte-identically.
+3. **DONE** — Manifest format and fetcher: every external input declared with URL, SHA-256 and
+   a licence note, fetched from origin into a cache, nothing entering the tree undeclared. The
+   C++20 toolchain was fixed here because every later step consumes it: **CMake + Ninja**;
+   **Catch2 3.16.0** (BSL-1.0), chosen because `WithinAbs`/`WithinRel`/`WithinULP` is the
+   vocabulary the specs already state tolerances in and "bit-comparable" is `WithinULP(0)`;
+   acquisition through the manifest with CMake re-checking `URL_HASH`. vcpkg and Conan were both
+   rejected on the same ground — each can be made deterministic, but in both the archive hash is
+   something a registry holds rather than something this tree writes down, and both need
+   bootstrapping, which is a tool acquired outside the manifest in order to enforce the manifest.
+4. **DONE** — NOTICE generation from the manifest. No tool was needed: NOTICE is a pure function
+   of the manifest, and licence text is quoted verbatim out of the hash-pinned archive rather
+   than paraphrased. `cargo license`'s absence under D1 cost nothing.
+5. **DONE** — Spec-coverage checker, denominator pinned to OWN-PREFIX identifiers. Its own first
+   run was wrong — the region ran to end-of-file and swallowed §10, inflating the excused count —
+   and that was visible only because the checker prints its components rather than a verdict.
+   It prints them for that reason.
+6. **DONE** — Reproducible-build flags. The `-ffile-prefix-map` options were initially ordered
+   wrongly (GCC applies them last-specified-first), leaking the build directory name into
+   `DW_AT_comp_dir` in every object file; the reproducibility check caught it and caught it
+   legibly, artefact sizes differing by exactly the directory-name length. **115 artefacts are
+   byte-identical across two build directories and across two source trees at path lengths 27
+   and 95**, Catch2 included — stronger than the gate asked for.
+7. **DONE** — CI running the gates offline from the cache, so green means the frozen numbers
+   hold and not that the network was up. Two entry points rather than one, which is how the exit
+   gate's "one command" and this step's "offline" were reconciled without weakening either.
 
-**Exit gate:** a clean clone builds, tests and regenerates NOTICE with one command, CI green
-from cached data alone.
+**Exit gate — passed.** A clean clone builds, tests and regenerates NOTICE with one command,
+CI green from cached data alone. Verified independently 2026-09-18 from a clean copy of the
+tree: **9 of 9 tests pass**, including `boundary.undeclared_dependency_refused`.
+
+**What L0 did about C++20's structural risk, and it is the part to show a reviewer.** In C++ a
+directory is not a boundary; a link target is. Every §2 module is its own CMake target with its
+own `PUBLIC` include directory, seeing exactly what it names in `DEPENDS`, so reaching across
+the layering **fails to compile**. `tests/boundary/` proves it in both directions — declared
+compiles, undeclared is a `WILL_FAIL` compile test — because asserting that something is
+impossible needs a failing test for the same reason FRAME-A-009 does. That is the C++ recovery
+of what Rust's crate boundaries would have given free, and it is why no §2 amendment was needed.
 
 ---
 
-### 3.2 L1 `time-frames` — 0 of 3 done, all three specs adopted
+### 3.2 L1 `time-frames` — 0 of 3 done; **the open layer** — all three specs adopted
 
-**Entry:** L0 steps 1–4.
+**Entry:** L0 exit gate — **passed 2026-09-18**, so this layer is open.
+
+**Blocked on a D1 consequence.** All three specs make `Result<T,E>` the universal contract
+and it appears in every Interfaces section; it is the mechanism behind §5 constraint 4 and
+R-ERR-1. **`std::expected` is C++23, not C++20** — verified on this machine, GCC 15.2
+rejects `<expected>` under `-std=c++20` with `__cpp_lib_expected` undefined and accepts it
+under `-std=c++23`. Exceptions are not an alternative: a refusal that unwinds is not a
+diagnostic the caller must consume, which is the whole of constraint 4. Resolution is the
+owner's, recorded as D7 in §7 before implementation starts.
 
 1. **TODO** — `time`: TT/TAI/UTC/UT1/GPS/TDB. *Specification adopted v1.2* from IERS
    Conventions TN36 ch. 10, the IERS leap-second table and the ERFA documentation, carrying two
@@ -469,6 +498,11 @@ The eight points below are not a second sequence — they are what doing any one
 §3.10 consists of, and they are where the plan's former ground rules now live. A point with no
 content for a step ("Data: —") is stated, not skipped, so absence is visible.
 
+**Points 1 and 2 do not apply to L0 or L8.** Those layers are tooling and harness, not science:
+there is no published source to specify from, so there is nothing for a spec to declare and
+nothing for Review to check against. Their steps begin at point 3. Every other layer runs all
+eight, and §1's last column says which is which.
+
 1. **Spec** — write `spec/SPEC-<step>.md` from *only* the sources that step names, to
    `SPEC-template.md`: derivation declaration, an obtained-`primary/secondary/not` column on
    every source, open questions raised to the manager rather than resolved into guesses.
@@ -505,7 +539,10 @@ content for a step ("Data: —") is stated, not skipped, so absence is visible.
 ## 4. Gates — how to read the frozen numbers
 
 **The authority for every predecessor-derived number is `oracle/cases.tsv`** — 27 cases, every
-input hashed, `capture.sh` reproducing them. The plan quotes them for readability; the file
+input hashed. **`capture.sh` regenerates 16 of them**; the eleven `B-*` and `E-*` rows come from
+recorded sweeps too expensive to re-run and are cited by source hash rather than reproduced, as
+`oracle/ORACLE.md` §6 and §7 set out. Verified on 2026-09-18 after the tree moved: all sixteen
+reproduce byte-identically. The plan quotes them for readability; the file
 governs. Three rules apply to all of them:
 
 1. **Parity means matching public truth, not the predecessor bit-for-bit.** The predecessor
@@ -559,6 +596,7 @@ unstated → D4's own port on published vectors); png++ (no consumer); TIE-GCM t
 | D2 | NRLMSISE-00 route | Decided in plan: own port from the NRL public-domain FORTRAN, validated on its packaged tests (L2 step 4). |
 | D3 | Ray tracer | Decided in plan: own implementation from the papers; `photonsXforce` as cross-oracle only (L9). Owner revisits after L8. |
 | D4 | SGP4 | Decided in plan: own port from STR#3 + Vallado 2006 on the published vectors (L6 step 3). |
+| D7 | `Result<T,E>` under C++20 | **OPEN, blocks L1.** `std::expected` is C++23; D1 chose C++20. Either vendor `tl::expected` (CC0-1.0, header-only, API-compatible, so the later move is a `using` declaration) behind a tree-local `odl::Result`, or move D1 to C++23 and use the standard type directly. Exceptions are excluded — they would gut §5 constraint 4. |
 | D5 | Licence | **Done** 2026-09-18: no grant, as the owner chose — implemented as posture, not text; `LICENSE` says why the predecessor's reason must not be copied. |
 | D6 | Name | **Done** 2026-09-18: `odl/self_built`, directory `odl-self_built`. Overrides the earlier no-echo naming guidance deliberately; recorded in `LICENSE` §4. |
 | — | **Copyright holder name** | **OPEN, owner-only, thirty seconds:** `LICENSE` line 4 is a marked placeholder — the single open title item, and the first thing a counterparty reads. |
@@ -603,7 +641,7 @@ layer, and no layer claims anything the analysis did not place.
 Committed in this repository, which is **local-only with no remote, deliberately**. Keep it off
 any public remote: the predecessor's repository is public, its `NOTICE` says UCL's rights are
 unresolved, and a plan for reimplementing around those rights has no business being published —
-least of all there. A remote for `odl-self_built`, if ever wanted, is a separate and explicit
+least of all there. A remote for this tree, if ever wanted, is a separate and explicit
 owner decision.
 
 ---

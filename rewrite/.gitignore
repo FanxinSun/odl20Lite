@@ -1,7 +1,7 @@
-# Scratch and build output. The tree is specifications, provenance and frozen
-# oracle measurements; nothing here is generated yet.
-/build/
-/target/
+# Scratch and build output.
+/build*/
+# build-ci/ (tools/ci.sh) and build-repro-*/ (tools/reprocheck.py) are
+# covered by the glob above.
 *.o
 *.d
 

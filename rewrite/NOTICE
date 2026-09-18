@@ -1,0 +1,108 @@
+NOTICE — third-party components
+==============================================================================
+
+GENERATED FILE.  Do not edit.  Produced by tools/notice.py from
+manifest/manifest.json, which is the single declaration of every external
+input to this tree.  To change anything here, change the manifest and run
+    python3 tools/notice.py
+CI runs `notice.py --check` and fails if this file has drifted.
+
+This file does not describe the licence of THIS tree, which grants nothing
+for now and is stated in LICENSE.  It describes what this tree depends on.
+
+------------------------------------------------------------------------------
+SUMMARY
+------------------------------------------------------------------------------
+
+  component          version      licence          kind
+  catch2             3.16.0       BSL-1.0          code
+  python3            >=3.9        PSF-2.0          tool
+  cmake              >=3.21       BSD-3-Clause     tool
+
+  Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
+  LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
+  enforces it and CI runs it.
+
+------------------------------------------------------------------------------
+COMPONENTS COMPILED INTO OR LINKED WITH THIS TREE
+------------------------------------------------------------------------------
+
+  Fetched from origin, pinned by SHA-256, and verified twice — once by
+  tools/fetch.py and once by CMake's URL_HASH.
+
+  catch2  3.16.0
+    role      test framework
+    licence   BSL-1.0
+    url       https://github.com/catchorg/Catch2/archive/refs/tags/v3.16.0.tar.gz
+    sha256    0957cae5821b17ce07f0833aaa52b5137643a8382203221f363a8303c109af34
+    retrieved 2026-09-18
+    note      Boost Software License 1.0. Permissive; plan §5 constraint 3
+              satisfied. Chosen over doctest (MIT) and GoogleTest (BSD-3) for
+              its floating-point matcher vocabulary — WithinAbs, WithinRel,
+              WithinULP — which is the vocabulary the adopted L1
+              specifications already state their tolerances in. BSL-1.0
+              additionally does not require its notice to be reproduced in
+              machine-executable object code, which is a real convenience for
+              a tree whose own licence posture is undecided (LICENSE §2).
+
+------------------------------------------------------------------------------
+DATA INPUTS
+------------------------------------------------------------------------------
+
+  None at this revision.
+
+------------------------------------------------------------------------------
+BUILD-TIME TOOLS
+------------------------------------------------------------------------------
+
+  Present on the build host.  Not vendored, not linked, shipped in nothing.
+  Listed because an external input is an external input.
+
+  python3  >=3.9
+    role      runs tools/fetch.py, tools/notice.py and tools/speccheck.py at build time
+    licence   PSF-2.0
+    source    provided by the build host; not fetched
+    note      Python Software Foundation License 2.0, permissive and GPL-
+              compatible. Present on the build host; NOT fetched, NOT
+              vendored, NOT linked into any artefact. Declared because plan L0
+              step 3 says nothing enters the tree undeclared, and a build-time
+              tool is an external input even though it ships in nothing.
+
+  cmake  >=3.21
+    role      build system
+    licence   BSD-3-Clause
+    source    provided by the build host; not fetched
+    note      Present on the build host; not vendored, not linked. 3.21 is the
+              floor because the tree relies on string(JSON ...) (3.19) and on
+              FetchContent's SOURCE_DIR/FIND_PACKAGE_ARGS behaviour settling
+              by 3.21.
+
+------------------------------------------------------------------------------
+LICENCE TEXTS, QUOTED VERBATIM FROM THE PINNED ARCHIVES
+------------------------------------------------------------------------------
+
+--- catch2 3.16.0 — BSL-1.0 (LICENSE.txt) ------------------------------------
+
+  Boost Software License - Version 1.0 - August 17th, 2003
+  
+  Permission is hereby granted, free of charge, to any person or organization
+  obtaining a copy of the software and accompanying documentation covered by
+  this license (the "Software") to use, reproduce, display, distribute,
+  execute, and transmit the Software, and to prepare derivative works of the
+  Software, and to permit third-parties to whom the Software is furnished to
+  do so, all subject to the following:
+  
+  The copyright notices in the Software and this entire statement, including
+  the above license grant, this restriction and the following disclaimer,
+  must be included in all copies of the Software, in whole or in part, and
+  all derivative works of the Software, unless such copies or derivative
+  works are solely in the form of machine-executable object code generated by
+  a source language processor.
+  
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO EVENT
+  SHALL THE COPYRIGHT HOLDERS OR ANYONE DISTRIBUTING THE SOFTWARE BE LIABLE
+  FOR ANY DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,
+  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+  DEALINGS IN THE SOFTWARE.

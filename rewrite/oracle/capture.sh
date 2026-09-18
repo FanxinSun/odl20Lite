@@ -26,7 +26,13 @@
 # a predictable size, and agreement would be the failure. See ORACLE.md §4.
 
 set -u
-OLD=/home/rog/odl20lite
+# The predecessor is this repository's root: since the 2026-09-18 merge the
+# rewrite lives in rewrite/ inside it, rather than in a tree of its own. Resolved
+# RELATIVELY so that moving the tree cannot break this again - it already did
+# once, and a frozen cases.tsv whose capture script exits 1 is an authority with
+# no route back to what produced it. ODL_PREDECESSOR overrides, for the case
+# where the two are split apart again.
+OLD=${ODL_PREDECESSOR:-$(cd "$(dirname "$0")/../.." && pwd)}
 OUT=${1:-$(cd "$(dirname "$0")" && pwd)}
 CASES=$OUT/cases.tsv
 ENVF=$OUT/environment.txt

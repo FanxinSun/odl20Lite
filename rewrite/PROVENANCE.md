@@ -34,6 +34,18 @@ rather than asserted later.
 | 2026-09-18 | `spec/SPEC-template.md`, `spec/SPEC-time.md`, `spec/SPEC-frames.md`, `spec/SPEC-eop.md` | Written from the sources in §4 below and from no implementation of the modules concerned. **No file under `/home/rog/odl20lite` was opened, read, listed, searched or otherwise inspected** during their preparation — not the source, not `res/`, not `analysis/`, and not `REVIVAL.md` or `PROVENANCE.md`. | executor session `odl Executor`, under handover `~/.claude/handover/2026-09-18-odl-rewrite-r1-p1-specs.md` |
 
 
+**The clean-room discipline ended on 2026-09-18, deliberately.** The rewrite was merged into
+the predecessor's own repository at the owner's instruction — one folder, one repository — and a
+wall that held because the two trees were separate cannot hold inside one. The declaration above
+stands for the four documents it names: they were written before the merge, and nothing reaches
+backwards into how they were derived.
+
+**Nothing written after the merge carries that declaration, and none is claimed.** The L0
+foundation work below (§11) was written with the predecessor one `ls` away, and says so. It
+costs nothing there — build systems, a manifest fetcher and a licence generator derive from no
+one's science — and it is stated because the value of §0.1 is that it is exact about its scope.
+It begins to matter at L1.
+
 ### 0.2 Disclosed context exposure
 
 
@@ -143,9 +155,17 @@ test case recorded in §5. A transcription that fails its test case is a build f
 
 ## 3. Dependency register (rule R7)
 
+**The register is generated, not maintained.** `NOTICE` is a pure function of
+`manifest/manifest.json` (`tools/notice.py`), CI fails if it has drifted, and the licence text
+of each component is quoted verbatim out of the hash-pinned archive rather than paraphrased.
+The table below is the human summary; the manifest governs.
+
 | dependency | version | licence | multi-licensed? | chosen option | notes |
 |---|---|---|---|---|---|
-| **ERFA** (Essential Routines for Fundamental Astronomy) | **v2.0.1**, released 2023-10-13, tracking SOFA "20231011" | **BSD 3-clause** | no | — | Mandated by plan R7. Chosen over SOFA specifically to avoid SOFA's rename clause; ERFA is derived from SOFA with the SOFA board's permission, recorded in its `LICENSE`. |
+| **Catch2** | **3.16.0**, sha256 `0957cae5…af34` | **BSL-1.0** | no | — | Test framework, adopted at L0 step 3. Chosen over doctest (MIT) and GoogleTest (BSD-3) because its matcher vocabulary — `WithinAbs`, `WithinRel`, `WithinULP` — is the vocabulary the adopted L1 specifications already state their tolerances in: "< 1 mm", "relative 1e-6", "bit-comparable". `tests/toolchain_smoke.cpp` tests that correspondence rather than asserting it. BSL-1.0 additionally exempts machine-executable object code from the notice requirement, which is a convenience for a tree whose own posture is undecided. |
+| **CMake** | ≥ 3.21 (4.2.3 in use) | BSD-3-Clause | no | — | Build system, host-provided. The floor is 3.21 because the tree reads its manifest with `string(JSON …)` (3.19) and relies on `FetchContent` behaviour settled by 3.21. |
+| **Python 3** | ≥ 3.9 (3.13 in use) | PSF-2.0 | no | — | Runs the four build-time tools. Host-provided, linked into nothing. Stdlib only, deliberately: a fetcher that needs a package installed before it can fetch is a bootstrapping regress. |
+| **ERFA** (Essential Routines for Fundamental Astronomy) | **v2.0.1**, released 2023-10-13, tracking SOFA "20231011" | **BSD 3-clause** | no | — | Mandated by plan R7. Chosen over SOFA specifically to avoid SOFA's rename clause; ERFA is derived from SOFA with the SOFA board's permission, recorded in its `LICENSE`. **Not yet acquired** — ERFA enters at L1, which does not open until L0's gate passes. |
 
 Routines this tree calls, and does not call:
 
@@ -375,7 +395,13 @@ disagreement rather than an error:
 | case | the two answers | the difference |
 |---|---|---|
 | Spec coverage count, 2026-09-18 | 121 against 128 requirements and refusals | own-prefix identifiers against all identifiers appearing in the file, which include cross-references to other specs |
-| Blind block recovery, 2026-09-18 | 9.6–13.9 σ against 11.3–20.8 σ, same data, neither side in error | pooled standard deviation (an effect size) against standard error of the means (a *t*-statistic) — a factor of about 1.5 apart. The historical figure was pooled-SD. |
+| Blind block recovery, 2026-09-18 | **14.1 σ against 20.8 σ** for BLOCKIIF vs BLOCKIIR-A, and **9.8 σ against 11.3 σ** for BLOCKIIF vs BLOCKIIIA — same data, neither side in error | pooled standard deviation, `\|m1−m2\| / sqrt(((n1−1)s1²+(n2−1)s2²)/(n1+n2−2))`, an effect size; against standard error of the means, `\|m1−m2\| / sqrt(s1²/n1 + s2²/n2)`, a *t*-statistic. About 1.5× apart. The historical figure was pooled-SD. Both definitions are frozen with their formulas in `oracle/cases.tsv` rows `B-IIF-IIRA-pooled` / `-sem` and `B-IIF-IIIA-pooled` / `-sem`. |
+
+An earlier revision of this note stated the block-recovery case as "9.6–13.9 σ against
+11.3–20.8 σ", which pairs a historical *range* against a recomputed *range* whose endpoints come
+from different satellite-block pairs. That is not wrong but it is not a like-for-like comparison,
+and a note whose whole subject is unstated denominators had no business making one. The table
+above now compares one pair at a time, with both formulas written out.
 
 Neither was a mistake in arithmetic; both were two correct answers to two different questions
 wearing the same notation. Both were caught by a person looking twice, and neither would have
@@ -393,13 +419,16 @@ one it means.
 | 2026-09-18 | P1 specifications reviewed and adopted by the manager? | **yes** — all three module specs adopted at v1.1; see §0.3 |
 | 2026-09-18 | Context exposure about the predecessor disclosed, not only "not read"? | **yes** — three items registered in §0.2, none used to derive a requirement |
 | 2026-09-18 | Every requirement and refusal discharged by an acceptance test, or listed as uncovered with a reason (`SPEC-template.md` §6)? | **yes**, at v1.2 — 105 of 121 tested, all 16 remaining listed explicitly. **No** at v1.0–v1.1; see §0.3 |
-| — | Espacenet: "Ziebart" / "University College London" / "radiation pressure" (rule R9) | **pending** — required before phase P7 (ray tracer), not before P1 |
+| 2026-09-18 | Espacenet: "Ziebart" / "University College London" / "radiation pressure" (rule R9) | **clear**, brought forward from its P7 gate — assignee "University College London" + "solar radiation pressure": 0 hits; "Ziebart" + radiation pressure: 13 hits, none in orbital mechanics. *(This row was stranded below the changelog as a broken table fragment; moved here, where §9 is the place anyone would look for it.)* |
 | 2026-09-18 | Every P1 normative source obtained in primary form? | **no** — four gaps, one of which a requirement depends on. See §4. |
 | 2026-09-18 | Any GPL / LGPL / AGPL dependency in the P1 design (rule R7)? | **no** |
 | 2026-09-18 | Any file copied from the predecessor's tree (rule R6)? | **no** — no file under `/home/rog/odl20lite` was read at all |
 | 2026-09-18 | Licence chosen and in the tree at commit one (rule R8, decision D5)? | **yes** — `LICENSE`, a bare copyright notice granting nothing, present at `bdd80be` |
 | 2026-09-18 | Does `LICENSE` avoid asserting the predecessor's *reason* for granting nothing? | **yes** — §1 states both postures and why they differ. Copying the predecessor's reason would have asserted UCL origin for work written from the IERS Conventions |
 | 2026-09-18 | Name chosen (decision D6)? | **yes** — `odl/self_built`, with the overridden guidance recorded in `LICENSE` §4 |
+| 2026-09-18 | L0 steps 3–7 passed their gates? | **yes** — 8 gates, run offline from the cache in 32 s; see §11 |
+| 2026-09-18 | Does any build step reach for the network? | **no** — proved, not assumed: `tools/ci.sh --prove-offline` re-runs every gate with all proxy variables pointed at a closed port |
+| 2026-09-18 | Is the build reproducible? | **yes** — 115 artefacts byte-identical across two build directories, and across two *source* trees at paths 27 and 95 characters long |
 | **open** | **Is the copyright holder named?** | **NO** — `LICENSE` carries the placeholder `Copyright (c) 2026 <OWNER — …>`. Everything else about title in this ledger is in order, and this one line is not. It is the first thing a counterparty will read and the only edit the file needs. **For the owner.** |
 
 ---
@@ -426,15 +455,73 @@ source gap), `FRAME-Q-004` (the neglected Q̇ velocity term), `EOP-Q-003` (free 
 
 ---
 
+## 11. L0 `foundation` — the toolchain and the data layer
+
+**No derivation declaration attaches to anything in this section.** It was written after the
+merge that ended the clean-room separation (§0.1), with the predecessor one `ls` away. That
+costs nothing here — a build system, a manifest fetcher and a licence generator derive from
+nobody's science — and it is stated because a ledger that quietly let the declaration's scope
+creep would be worth less than one that does not.
+
+### 11.1 The toolchain, decided at step 3
+
+| decision | choice | licence | why, and what was rejected |
+|---|---|---|---|
+| Build system | **CMake ≥ 3.21 + Ninja** | BSD-3 | The obvious answer, and it earns its place for a specific reason: `string(JSON …)` lets CMake read the manifest natively, so the manifest format needs no parser dependency. |
+| Dependency acquisition | **the manifest, consumed from a local cache, hash re-checked by CMake** | — | The binding requirement was URL-plus-hash pinning rather than version-range resolution. **vcpkg manifest mode** and **Conan 2** were judged against it and rejected: both *can* be made deterministic (a baseline commit, a lockfile), but in both the hash of the actual source archive is something a registry holds, not something this tree writes down, and re-resolution is their default rather than an error. Both would also need bootstrapping — a tool acquired outside the manifest in order to enforce the manifest. |
+| Test framework | **Catch2 v3.16.0** | BSL-1.0 | See §3. doctest and GoogleTest both qualify on licence; the matcher vocabulary decided it. |
+| NOTICE generation | **`tools/notice.py`, no dependency at all** | — | D1 removed the `cargo license` route and C++ has no equivalent. It needs none: the manifest already carries a licence and a note per entry because step 3 requires it, so NOTICE is a pure function of the manifest. Better than a scanner, which *infers* licences, where this *reads the declaration the fetcher already enforces*. |
+
+### 11.2 What each step produced
+
+| step | artefact | gate, and how it was shown |
+|---|---|---|
+| 3 | `manifest/manifest.json`, `manifest/MANIFEST.md`, `tools/fetch.py`, `cmake/OdlManifest.cmake`, `cmake/OdlModule.cmake`, `cmake/OdlWarnings.cmake`, `CMakeLists.txt` | Manifest verifies offline; a corrupted cache is **refused** with both hashes named; 20 fetcher checks including every refusal path; the build configures, builds and tests. |
+| 4 | `tools/ci.sh`, `tools/bootstrap.sh`, `.github/workflows/rewrite-ci.yml` | 8 gates green with every proxy pointed at a closed port. Fetching is a separate job; the gates never touch the network. |
+| 5 | `tools/notice.py`, `NOTICE` | `notice.py --check` is a gate; licence text is quoted verbatim out of the hash-pinned archive. |
+| 6 | `tools/speccheck.py` | Reproduces the hand audit exactly: **121** requirements and refusals, 105 tested, 19 excused, 0 uncovered, 0 dangling. |
+| 7 | `cmake/OdlReproducible.cmake`, `tools/reprocheck.py` | 115 artefacts byte-identical across two build paths, and across two source trees 27 and 95 characters long. |
+
+**Exit gate, L0:** *a clean clone builds, tests and regenerates NOTICE with one command, CI
+green from cached data alone.* Shown from a genuine clean copy with no cache and no build tree,
+at an unrelated path: `tools/bootstrap.sh`, 36 s, 8/8.
+
+### 11.3 The §2 layering, made a link boundary
+
+D1 chose C++20 over Rust, and part of the Rust case was structural distance from a GNU-C++14
+predecessor. With the same language and the same problem, **the decomposition is the only thing
+left that distinguishes the two trees**, so §2's layering cannot remain a description.
+
+In C++ a directory is not a boundary; a link target is. `cmake/OdlModule.cmake` therefore makes
+every §2 module its own target with its own PUBLIC include directory, seeing exactly the modules
+it names in `DEPENDS` and nothing else. A module that reaches across the layering fails to
+compile. That is what Rust's crate boundaries would have given free and what a flat `src/` +
+`include/` tree would have given up, and `tests/boundary/` proves it **both ways** — a declared
+dependency compiles, an undeclared one is a compile failure asserted by a `WILL_FAIL` test.
+
+### 11.4 Two things the toolchain now pins that the specifications assumed
+
+`tests/toolchain_smoke.cpp` checks platform properties that the *adopted* specifications already
+rest on, so that a toolchain change which would invalidate a spec fails a test instead of going
+unnoticed:
+
+- **`double` is IEEE 754 binary64 and there is no excess intermediate precision.** Every
+  precision claim in `SPEC-time.md` §4.2 depends on it.
+- **The representation arithmetic of `SPEC-time.md` §4.2 holds on this platform.** The spacing
+  near JD 2.46 × 10⁶ is 2⁻³¹ d — 40.2 µs, 0.302 m at LEO — and near MJD 6.1 × 10⁴ is 2⁻³⁷ d,
+  0.629 µs. Both disqualifications are now measured by a test rather than computed once in prose.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
-| 2026-09-18 | D5/D6 recorded; tree moved to `/home/rog/odl-self_built` and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
+| 2026-09-18 | **L0 steps 3–7 executed and gated.** §11 added: the toolchain decisions with the rejected alternatives, what each step produced, the layering-as-link-boundary decision, and the platform properties now pinned by test. §3 dependency register populated and marked generated-not-maintained. §0.1 records that the clean-room discipline ended with the merge and that nothing written after it carries a derivation declaration. §8.10's block-recovery example restated one pair at a time with both formulas, having previously compared two ranges whose endpoints came from different block pairs. Moved the stranded R9 patent-search result into §9. |
+| 2026-09-18 | Tree merged into the predecessor's repository at the owner's instruction: `/home/rog/odl-self_built` → `/home/rog/odl20Lite/rewrite`, one folder and one repository. Standalone history preserved at `doc/.history/odl-self_built.bundle`. |
+| 2026-09-18 | D5/D6 recorded; tree created at `/home/rog/odl-self_built` (since merged, see above) and committed at `bdd80be`; oracle pointer added to §6; the unstated-denominator rule recorded at §8.10 and added to `SPEC-template.md` §8; the unnamed copyright holder raised as the one open title item. |
 | 2026-09-18 | §8.9 closed: the plan moved into this tree as the canonical and only copy, resolving the stale-copy hazard structurally. Verified its contents; its absence from the predecessor tree is taken on report, because verifying it is the thing this session may not do. |
 | 2026-09-18 | Manager audit of the v1.2 self-fix passed; denominator of 121 confirmed. Recorded the **R2 corollary** at §8.8 and flagged the stale local plan copy at §8.9. |
 | 2026-09-18 | Acceptance coverage completed at spec v1.2 — twenty tests added, complete §8 coverage tables, no requirement changed. |
 | 2026-09-18 | Manager verdict recorded: specs adopted at v1.1; §0 split into declarations, **disclosed context exposure** and adoption; plan rules **R11** and **R12** added at §8.6–8.7; the Horizons determination added to the oracle log; decision register added at §10; D5/D6 marked escalated. |
 | 2026-09-18 | Seeded from `doc/REWRITE_PLAN.md` §8; populated for the P1 specification tranche. |
-
-| 2026-09-18 | Patent search (R9), brought forward from its P7 gate | **clear** — assignee "University College London" + "solar radiation pressure" = 0 hits; "Ziebart" + radiation pressure = 13 hits, none in orbital mechanics |

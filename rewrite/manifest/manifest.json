@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "note": "The manifest of every external input to this tree, code and data alike. Nothing enters the tree undeclared (plan L0 step 3). Entries are pinned by URL and SHA-256, never by version range, because rule R11 applies to code for the same reason it applies to data: upstream is mutable and a resolver hides that. See MANIFEST.md for the format.",
+  "cache": "data/cache",
+  "entries": [
+    {
+      "id": "catch2",
+      "kind": "code",
+      "role": "test framework",
+      "version": "3.16.0",
+      "url": "https://github.com/catchorg/Catch2/archive/refs/tags/v3.16.0.tar.gz",
+      "filename": "Catch2-3.16.0.tar.gz",
+      "sha256": "0957cae5821b17ce07f0833aaa52b5137643a8382203221f363a8303c109af34",
+      "unpack": "tar.gz",
+      "unpacked_root": "Catch2-3.16.0",
+      "licence": "BSL-1.0",
+      "licence_file": "LICENSE.txt",
+      "licence_note": "Boost Software License 1.0. Permissive; plan §5 constraint 3 satisfied. Chosen over doctest (MIT) and GoogleTest (BSD-3) for its floating-point matcher vocabulary — WithinAbs, WithinRel, WithinULP — which is the vocabulary the adopted L1 specifications already state their tolerances in. BSL-1.0 additionally does not require its notice to be reproduced in machine-executable object code, which is a real convenience for a tree whose own licence posture is undecided (LICENSE §2).",
+      "upstream_mutable": false,
+      "upstream_mutable_note": "A GitHub release tag archive is immutable in practice but not by guarantee; the SHA-256 is the identity, not the tag.",
+      "retrieved": "2026-09-18"
+    },
+    {
+      "id": "python3",
+      "kind": "tool",
+      "role": "runs tools/fetch.py, tools/notice.py and tools/speccheck.py at build time",
+      "version": ">=3.9",
+      "url": null,
+      "filename": null,
+      "sha256": null,
+      "licence": "PSF-2.0",
+      "licence_note": "Python Software Foundation License 2.0, permissive and GPL-compatible. Present on the build host; NOT fetched, NOT vendored, NOT linked into any artefact. Declared because plan L0 step 3 says nothing enters the tree undeclared, and a build-time tool is an external input even though it ships in nothing.",
+      "upstream_mutable": false,
+      "provided_by_host": true,
+      "retrieved": null
+    },
+    {
+      "id": "cmake",
+      "kind": "tool",
+      "role": "build system",
+      "version": ">=3.21",
+      "url": null,
+      "filename": null,
+      "sha256": null,
+      "licence": "BSD-3-Clause",
+      "licence_note": "Present on the build host; not vendored, not linked. 3.21 is the floor because the tree relies on string(JSON ...) (3.19) and on FetchContent's SOURCE_DIR/FIND_PACKAGE_ARGS behaviour settling by 3.21.",
+      "upstream_mutable": false,
+      "provided_by_host": true,
+      "retrieved": null
+    }
+  ]
+}
