@@ -794,6 +794,20 @@ governs. Three rules apply to all of them:
    is running `ctest` or one binary against an old build directory, and that happens outside CI
    by definition. Every guard in this tree is demonstrated **both ways** before it counts:
    passing when it should, and failing when the thing it guards against is injected.
+
+   **And a guard that enumerates what is permitted beats one that searches for what is
+   forbidden.** Three times now: the licence **denylist** passed CeCILL because it carried no
+   GPL string, and the allowlist catches it by construction; `test_one_secular_pole` searched for
+   constants, was narrowed twice, and was fixed only by replacing the discriminator; and L3's
+   crossing gate, worded in §3.4 as a search for km↔m scalings, was **measured before being
+   built** — 15 literals of the 1000 family in 62 production sources, of which **14 are not
+   crossings and the one that is, is the definition the gate must permit.** Fourteen false
+   positives to one true positive, today, before L4 adds a dozen forces each with its own
+   constants. The repair is a **register**: every such literal either lives in `core/units.hpp`
+   or carries an annotation naming what it converts; the gate prints the whole register with its
+   denominator and fails on a literal that is neither. A search converges on flagging nothing; a
+   register converges on accounting for everything, and it makes the permitted set **legible as a
+   set**, which is what lets a reader see that nothing is hiding in it.
 6. **A reference implementation is an oracle when a specification exists that it implements, and
    is itself normative when none does — and the difference is a search, not a preference.** Rule
    2 ranks an oracle last because an independent description of the same computation exists to
