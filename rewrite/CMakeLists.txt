@@ -150,6 +150,7 @@ add_subdirectory(modules/atmosphere)
 add_subdirectory(modules/shadow)
 add_subdirectory(modules/integrators)
 add_subdirectory(modules/dynamics)
+add_subdirectory(modules/macromodel)
 
 # --------------------------------------------------------------------------- #
 
