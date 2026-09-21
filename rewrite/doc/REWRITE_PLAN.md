@@ -1126,7 +1126,12 @@ governs. Three rules apply to all of them:
    So the rule has two halves. **Where a step's gate names a form of evidence, the first thing
    its specification does is say whether the source prints that form** — and **a finding of
    absence is recorded with the search that established it**, the terms and the count, the way
-   a statistic is recorded with its formula under rule 3. "The source does not print X" earns
+   a statistic is recorded with its formula under rule 3. **The count comes from the search, not
+   from a listing of it.** At L4 step 2 the manager told the executor that an error "went into
+   neither document" on a `grep … | head -6` whose seventh hit was that error, with a pattern
+   that did not include the other document's wording, *a factor of 3*. A truncated listing
+   establishes nothing about what it cut off; `grep -c` would have said two where one had been
+   accounted for. "The source does not print X" earns
    the same scrutiny as "the source prints X = 1.333 × 10⁻⁹", because a gate is weakened as
    surely by evidence not looked for as by evidence read wrong. A gate reworded from the source
    is a correction to this plan and is recorded as one; a gate quietly satisfied by something
