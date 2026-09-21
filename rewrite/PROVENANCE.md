@@ -2874,6 +2874,66 @@ regardless of surface count (§1); `srp_force` takes `sun_direction_body` as giv
 surface or several. And no real GPS satellite's dimensions or optical properties are stated,
 cited, or pinned anywhere in this commit — `RS14`'s Tables 1–2 remain L5's, in full.
 
+### 27.7 Composition cannot see the law it composes, and a tessellated sphere can
+
+§27.6 closed box-wing with a composition gate and called it done. It was not: `SRPA-A-009`'s
+two sides call the identical per-surface code, so a bug **in** `flat_force` appears
+identically on both sides of the comparison and cancels — a wiring check, correctly, and
+a wiring check cannot see the law it wires together. `SRPA-A-004`, the only single-surface
+flat-plate test, made the gap worse than it looked: `sun_pointing` and black, so cos θ ≡ 1
+and ρ = δ = 0 collapse every structural feature of Eq. (6) — the *e*ᴰ/*e*ᴺ split, and the
+*extra* power of cos θ the specular term carries — onto one number. Found by the manager,
+not by this session; the check is added here, `SRPA-R-009`, `-R-010`, `SRPA-A-011`…`-A-013`.
+
+**Two closed-form single-plate checks, verified before being written into the gate.** A pure
+absorber at oblique incidence gives *P A* cos θ along −*e*ᴰ; a pure specular reflector gives
+2*P A* cos²θ along −*e*ᴺ. Both are re-derivable from the same momentum bookkeeping `SRPA-R-002`
+already used (an absorbed photon transfers *p* = *E*/*c*; the flux crossing a tilted surface
+is itself reduced by cos θ; a specular bounce off a tilted mirror reflects with an OUTGOING
+angle equal to the incoming one, so the NORMAL component of momentum transferred per photon
+carries a second cos θ, and the flux reduction a third — cos³θ per photon count, but the
+recoil is along the normal and the flux-weighted count restores one power, giving cos²θ net
+along −*e*ᴺ, the standard result for a tilted mirror). `SRPA-A-011`/`-A-012` check both
+magnitude **and direction** exactly, since a term/direction swap (e.g. the absorber's force
+accidentally computed along −*e*ᴺ) would leave a magnitude-only check unable to tell the
+difference.
+
+**The tessellated-sphere cross-check's discretisation error was measured before the gate was
+written**, not assumed (plan §4 rule 7's middle form). A latitude/longitude grid of *n* polar
+bands, each facet's normal at its cell centre and its area the cell's exact solid angle,
+gives empirically **second-order** convergence — doubling *n* quarters the relative error,
+measured at the sharpest (pure specular) case over five consecutive doublings:
+
+| *n* (facets) | rel. error | error(*n*)/error(2*n*) |
+|---|---|---|
+| 4 (32) | 8.24 × 10⁻² | — |
+| 8 (128) | 1.96 × 10⁻² | 4.21 |
+| 16 (512) | 4.84 × 10⁻³ | 4.05 |
+| 32 (2048) | 1.21 × 10⁻³ | 4.01 |
+| 64 (8192) | 3.01 × 10⁻⁴ | 4.00 |
+| 128 (32768) | 7.53 × 10⁻⁵ | 4.00 |
+
+The ratio settles to 4.00 and stays there; pure-diffuse and mixed triples reproduce the same
+table to three figures. `SRPA-A-013` uses *n* = 32 and 64 — inside the range this was
+checked over, not beyond it — and asserts both the absolute error against a margin above
+the prediction **and** the ratio against [3.0, 5.0]. The C++ gate's own numbers at *n* = 32
+matched this Python prototype's to five decimal places (diffuse: 1.08265 × 10⁻³ both ways;
+mixed: 1.15884 × 10⁻³ both ways) — an independent-language cross-check of the prediction
+itself, before it was ever used to bound a test.
+
+**The guard was proven by making it fire, in the place it fires from** (plan §4 rule 5).
+`e_N_coeff`'s `rho * cos_theta` was changed to `rho` — dropping exactly the power of cos θ
+the manager's rule-4 analysis named — and every other file left untouched. Result:
+`SRPA-A-012` (the single-plate check) failed with a 2.86× magnitude error at one angle,
+directly. `SRPA-A-013` (the tessellated sphere) failed both ways at once: pure-specular error
+at *n* = 32 was 0.3344 — matching the hand-derived 1 + ρ/3 = 4/3 prediction (§27.6) to four
+figures — **and** the convergence ratio collapsed from the predicted ~4.0 to 1.00, because a
+bug in the LAW does not shrink with discretisation resolution the way genuine discretisation
+error does; both resolutions carry the same ~33 % error, so their ratio is ~1. Either
+assertion alone would have caught this specific bug; together they do not depend on which one
+a different bug might happen to dodge. Reverted immediately after (`diff` against a saved
+copy confirmed byte-identical restoration) and the full suite re-run clean, 92 636 assertions.
+
 ---
 
 ## Changelog
@@ -2881,6 +2941,7 @@ cited, or pinned anywhere in this commit — `RS14`'s Tables 1–2 remain L5's, 
 | date | change |
 |---|---|
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
+| 2026-09-22 | §27.7 added, SPEC-srp-analytic to v1.2: composition (SRPA-A-009/010) cannot see a bug in the per-surface law itself, since both sides call identical code and a shared bug cancels. Closed with two closed-form single-plate checks at oblique incidence (magnitude AND direction, from momentum bookkeeping) and a tessellated-sphere cross-check whose discretisation error was measured -- empirically second-order, ratio 4.00 -- BEFORE the gate was written (rule 7's middle form). Proved by injection (rule 5): dropping the specular term's cos(theta) power gave the single-plate check a direct 2.86x magnitude error and collapsed the tessellation's convergence ratio from ~4.0 to ~1.0, since a law-level bug does not shrink with resolution the way discretisation error does; reverted and the suite re-run clean. |
 | 2026-09-22 | §27 added, SPEC-macromodel to v2.0, SPEC-srp-analytic v1.1: step 2 reviewed, step 3 continued with box-wing. srp_force moved out of the schema module to modules/srp_analytic (PERT-Q-001's precedent); the schema gained its own force-free round-trip gate (MCRM-A-011/012). MCRM-A-005 corrected: it tested the flat-plate/sphere gap only at rho=0, where the gap is smallest (<=0.22); the dominant term is rho, not delta -- 1.90 at a specular sail (rho=0.9), the shape of this project's one confirmed real-data error (LightSail-2). The "factor of 3" on the diffuse term was itself wrong (it is 1.5) and had reached the committed spec and provenance text, not only a message; corrected. The swing-ratio figure (SS25.10) was corrected twice -- 376x to 367x on the tool's first run, then back to ~376x once a resolution check was extended to the row that needed one, which the extreme-row check alone had missed; the second correction is the one that stands, with a five-point convergence study behind it. RS14 had been described as pinned before the manifest entry actually existed; added and verified. Box-wing (SRPA-Q-001) needs no new force law -- srp_force already sums over N surfaces; SRPA-A-009/010 prove the summation itself, since no test had exercised more than one surface before. |
 | 2026-09-22 | §26 added: L4 step 2, the macromodel schema. RHS12 (the plan's own cited paper) reprinted in full in the author's open dissertation, no account needed. Two force laws re-derived independently (momentum bookkeeping for the flat plate, hemisphere integration for the sphere) and Monte Carlo-checked before being trusted; the sphere's coefficient 1+4delta/9 has no rho term, unlike the flat plate's 1+rho+2delta/3, confirming the plan's own "factor of two" warning is two compounding simplifications, not one. FlatSurface redesigned mid-implementation to two named factories after finding a plain struct would let NormalMode and its optional normal disagree. Gated entirely on two degenerate configurations (a spherical cannonball, a black sun-pointing sail), nothing read from RS14's real GPS tables, which stay for L5. |
 | 2026-09-22 | §25.11 added, SPEC-shadow to v1.2 (R-031 re-derived, R-033 added): the 99.9 % cancellation figure was a property of ONE traversal (LEO, circular, beta=0), now named. Measured with an actual two-body propagator rather than assumed further: a beta angle within ~1 degree of the eclipse cutoff breaks it substantially (48-75% cancels there); genuine off-apsis eccentricity breaks it modestly (99.4-99.8%); eccentricity AT an apse does not break it at all, exactly, because the two-body problem is time-symmetric about apsis passage regardless of e — the configuration the phrase "an eccentric orbit" most naturally suggests turned out to be the wrong hypothesis, not a smaller effect. SHDW-Q-005 ruled: defer on NEED, not gateability, unlike Q-003. Four faults in the search tool itself along the way, all caught before the numbers were recorded. |

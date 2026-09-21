@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `SRPA` |
-| **Status** | **draft** 2026-09-22, for review (v1.1 adds §4.1: box-wing is composition, `SRPA-Q-001` closed) |
-| **Version** | 1.1 |
+| **Status** | **draft** 2026-09-22, for review (v1.1 adds §4.1: box-wing is composition; v1.2 closes the oblique-incidence gap v1.1's composition check could not see, with two single-plate checks and a pre-registered tessellated-sphere cross-check) |
+| **Version** | 1.2 |
 | **Date** | 2026-09-22 |
 | **Layer** | L4 `forces-analytic`, step 3 (`doc/REWRITE_PLAN.md` §3.5) |
 | **Depends on** | `core`, `macromodel` |
@@ -162,6 +162,38 @@ what plan rule 8's converse offers here — box-wing has an independent specific
 against arithmetic that does not involve `RHS12` at all. What `RHS12` could still add is
 only the specific numbers, and those — Tables 1–2 — remain L5's.
 
+**But composition alone does not reach the flat-plate law's own oblique-incidence
+structure**, and this matters because box-wing's bus surfaces are oblique for most of an
+orbit. `SRPA-A-004`, the one single-surface flat-plate test, is `sun_pointing` and black:
+cos θ ≡ 1, so *e*ᴺ ≡ *e*ᴰ, and α = 1 so ρ = δ = 0. Every structural feature of R-001 —
+the split between the *e*ᴰ-aligned term (α + δ) and the *e*ᴺ-aligned term (2ρ cos θ +
+2δ/3), and the *extra* power of cos θ the specular term carries through the leading
+scale factor — is either zero or collapsed onto one vector there; any force law of the
+right general shape gives the same answer. `SRPA-A-009`'s composition check does exercise
+oblique incidence, but both sides of that comparison call the identical per-surface code,
+so a bug *in* that code appears identically on both sides and cancels — a wiring check,
+correctly, and it cannot see the law it wires together.
+
+- **SRPA-R-009.** Two closed-form single-plate checks, from momentum rather than from
+  Eq. (6) itself (the same independent route R-002 already used for normal incidence):
+  a pure absorber (α=1) at incidence θ gives force exactly *P A* cos θ along **−*e*ᴰ**,
+  independent of *e*ᴺ; a pure specular reflector (ρ=1) gives force exactly 2*P A* cos²θ
+  along **−*e*ᴺ**, where *P* = *S*₀/*c*. Each isolates one term of R-001 and one power
+  of cos θ, and a term/direction swap fails one without moving the other.
+- **SRPA-R-010.** A **tessellated sphere** — many small `body_fixed` `FlatSurface`s
+  whose normals tile a sphere — cross-checks R-001 against R-003 by an independent
+  route: `srp_force` summing the *flat* law at every incidence angle from 0° to 90°
+  over the tessellation must converge, as facet count grows, to the *spherical* law's
+  closed form (1 + 4δ/9), which was itself derived by integrating R-001 analytically —
+  independently of any per-facet code — and checked by Monte Carlo (`SRPA-P-1`) before
+  being trusted. Plan rule 8's converse: an independent property the composition must
+  satisfy. **The sharpest case is pure specular** (ρ=1, δ=0): the closed form is exactly
+  1, with **no ρ dependence**, so any bug that gives the specular term the wrong power
+  of cos θ is not a rounding-level disagreement. Verified by re-deriving the hemisphere
+  integral with that specific bug substituted in (`PROVENANCE.md` §27.7): a specular
+  term carrying cos θ instead of cos²θ integrates to 1 + ρ/3, **1.333 at ρ = 1** — a
+  33 % error, not a subtle one.
+
 ---
 
 ## 5. Interfaces, stated language-free
@@ -186,6 +218,29 @@ only the specific numbers, and those — Tables 1–2 — remain L5's.
 - **SRPA-P-2.** No physical constant here carries a tolerance of its own:
   *S*₀ and *c* are stated exactly as `RHS12` and `core` give them, and both force laws are
   evaluated in closed form with no quadrature. *(Was `MCRM-P-2`.)*
+- **SRPA-P-3.** **Pre-registered before `SRPA-A-013`'s gate was written** (plan §4 rule
+  7's middle form — the criterion stated before measuring, with its reason): the
+  tessellated-sphere cross-check's discretisation error, for a latitude/longitude grid
+  of *n* polar bands (2*n* azimuthal, each facet's normal at its cell centre, each
+  facet's area its cell's *exact* solid angle), is **empirically second order in *n*** —
+  doubling *n* quarters the relative error in the recovered coefficient. Measured before
+  the gate existed, at the sharpest (pure specular) case, five consecutive doublings:
+
+  | *n* (facets) | rel. error | error(*n*)/error(2*n*) |
+  |---|---|---|
+  | 4 (32) | 8.24 × 10⁻² | — |
+  | 8 (128) | 1.96 × 10⁻² | 4.21 |
+  | 16 (512) | 4.84 × 10⁻³ | 4.05 |
+  | 32 (2048) | 1.21 × 10⁻³ | 4.01 |
+  | 64 (8192) | 3.01 × 10⁻⁴ | 4.00 |
+  | 128 (32768) | 7.53 × 10⁻⁵ | 4.00 |
+
+  the same to three figures for pure-diffuse and mixed triples. **The gate uses *n* = 32
+  and *n* = 64** (predicted error 1.2 × 10⁻³ and 3.0 × 10⁻⁴), asserting both against a
+  tolerance with margin above the prediction, **and** the ratio between them against
+  [3.0, 5.0] — bracketing the measured 4.00 generously while still excluding the 33 %
+  a term/power bug would produce at *either* resolution, which is the property this
+  check exists for, not the exact constant.
 
 ---
 
@@ -223,6 +278,9 @@ in substance but renumbered along with everything around it.
 | `SRPA-A-008` | (was `MCRM-A-009`) constraint 8, `odl::Result` throughout, via `ci.sh` gate 9 | as stated | plan §5 constraint 8 | — | R-006 |
 | `SRPA-A-009` | **composition**: a multi-surface `Macromodel` (3–4 `FlatSurface`s, stated areas/optical properties/normals, a mix of `body_fixed` and `sun_pointing`) evaluated by `srp_force`, against the VECTOR SUM of `srp_force` on each surface evaluated alone (as its own one-surface `Macromodel`) — proving R-006's sum is correct for *N* > 1, which no row through `SRPA-A-008` exercised | the multi-surface force equals the sum of the single-surface forces, at several Sun directions | R-001, R-003 (linearity of the sum itself) | 1×10⁻¹² relative | R-006, R-008 |
 | `SRPA-A-010` | **mixed lit/shadowed composition**: a multi-surface `Macromodel` at a STATED Sun direction under which at least one surface is lit (cos θ > 0) and at least one is not (cos θ < 0) — asserting the total equals the sum of ONLY the lit surfaces' individual forces, and that at least one surface's own contribution really is zero at that direction (so the case is not vacuous) | total matches the lit-only sum; at least one surface contributes exactly zero | R-001's domain, composed | exact / 1×10⁻¹² relative | R-001, R-008a |
+| `SRPA-A-011` | **pure absorber at oblique incidence**: a single `body_fixed` α=1 `FlatSurface`, several STATED incidence angles strictly between 0° and 90°, force checked against *P A* cos θ **exactly along −*e*ᴰ** (both magnitude and direction, not magnitude alone) | matches to rounding; direction exactly −*e*ᴰ | momentum bookkeeping (independent of R-001's algebra) | 1×10⁻¹² relative | R-009 |
+| `SRPA-A-012` | **pure specular reflector at oblique incidence**: a single `body_fixed` ρ=1 `FlatSurface`, the same stated angles, force checked against 2*P A* cos²θ **exactly along −*e*ᴺ** | matches to rounding; direction exactly −*e*ᴺ | momentum bookkeeping | 1×10⁻¹² relative | R-009 |
+| `SRPA-A-013` | **the tessellated-sphere cross-check**, gated on `SRPA-P-3`'s pre-registered prediction: a latitude/longitude-tessellated sphere (*n* = 32 and *n* = 64 polar bands) summing the FLAT law over every facet, at pure-specular (ρ=1, sharpest), pure-diffuse and mixed triples, against the SPHERICAL law's closed form — both resolutions' error within the predicted margin, **and** their ratio in [3.0, 5.0] | *n*=32 error < 5×10⁻³, *n*=64 error < 1.5×10⁻³, ratio ∈ [3.0, 5.0] | `SRPA-P-3`'s prediction, itself route 2 (R-003's algebraic derivation) cross-checked by an independent numerical route | as stated | R-009, R-010 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 

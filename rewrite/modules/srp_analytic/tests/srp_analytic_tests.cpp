@@ -14,6 +14,8 @@
 
 #include <array>
 #include <cmath>
+#include <numbers>
+#include <vector>
 
 using namespace odl;
 using namespace odl::macromodel;
@@ -417,4 +419,179 @@ TEST_CASE("SRPA-A-010  mixed lit/shadowed composition: only the lit surfaces con
     INFO("relative deviation of (3-surface combined force) from (sum of the two LIT surfaces "
          "alone) = " << rel);
     CHECK(rel < 1.0e-12);
+}
+
+TEST_CASE("SRPA-A-011  pure absorber at oblique incidence: force exactly P*A*cos(theta) "
+          "along -e_D", "[srp_analytic][gate]") {
+    // alpha=1 is the ONLY configuration this file had not tried at oblique
+    // incidence: SRPA-A-004 used alpha=1 too, but sun_pointing (cos theta=1
+    // always, e_N=e_D always). Here the surface is body_fixed with a STATED
+    // normal, genuinely different from e_D, so cos theta is genuinely < 1 and
+    // the -e_D/-e_N split (invisible in A-004) is exercised for the first time.
+    constexpr double kArea = 3.3;
+    const Triple black{1.0, 0.0, 0.0};
+    const auto normal = must_dir(0.0, 0.0, 1.0);
+    auto area = cited(kArea, "test-stated");
+    auto al = cited(black.alpha, "test-stated");
+    auto rh = cited(black.rho, "test-stated");
+    auto de = cited(black.delta, "test-stated");
+    REQUIRE(area.has_value());
+    auto fs = flat_surface_body_fixed(*area, normal, *al, *rh, *de);
+    REQUIRE(fs.has_value());
+    auto model = many_surfaces({Surface{*fs}});
+
+    int checked = 0;
+    double worst_mag_rel = 0.0, worst_dir_dev = 0.0;
+    for (double theta_deg : {15.0, 30.0, 45.0, 60.0, 75.0}) {
+        const double theta = theta_deg * std::numbers::pi / 180.0;
+        // e_D at angle theta from the z-axis normal, in the x-z plane
+        const auto e_D = must_dir(std::sin(theta), 0.0, std::cos(theta));
+        auto f = srp_force(model, e_D);
+        REQUIRE(f.has_value());
+
+        const double P = kS0 / kC;
+        const double expected_mag = P * kArea * std::cos(theta);
+        const Vec3 expected_dir{-e_D.vec().x, -e_D.vec().y, -e_D.vec().z};   // exactly -e_D
+
+        const double mag_rel = std::abs(f->norm() - expected_mag) / expected_mag;
+        const Vec3 got_dir = (1.0 / f->norm()) * (*f);
+        const double dir_dev = (got_dir - expected_dir).norm();
+        worst_mag_rel = std::max(worst_mag_rel, mag_rel);
+        worst_dir_dev = std::max(worst_dir_dev, dir_dev);
+        ++checked;
+    }
+    INFO("checked " << checked << " oblique incidence angles; worst magnitude relative error "
+         << worst_mag_rel << "; worst direction deviation from exactly -e_D: " << worst_dir_dev);
+    CHECK(checked == 5);
+    CHECK(worst_mag_rel < 1.0e-12);
+    CHECK(worst_dir_dev < 1.0e-12);
+}
+
+TEST_CASE("SRPA-A-012  pure specular reflector at oblique incidence: force exactly "
+          "2*P*A*cos^2(theta) along -e_N", "[srp_analytic][gate]") {
+    constexpr double kArea = 2.1;
+    const Triple mirror{0.0, 1.0, 0.0};
+    const Vec3 n_vec{0.0, 0.0, 1.0};
+    const auto normal = must_dir(n_vec.x, n_vec.y, n_vec.z);
+    auto area = cited(kArea, "test-stated");
+    auto al = cited(mirror.alpha, "test-stated");
+    auto rh = cited(mirror.rho, "test-stated");
+    auto de = cited(mirror.delta, "test-stated");
+    REQUIRE(area.has_value());
+    auto fs = flat_surface_body_fixed(*area, normal, *al, *rh, *de);
+    REQUIRE(fs.has_value());
+    auto model = many_surfaces({Surface{*fs}});
+
+    int checked = 0;
+    double worst_mag_rel = 0.0, worst_dir_dev = 0.0;
+    for (double theta_deg : {15.0, 30.0, 45.0, 60.0, 75.0}) {
+        const double theta = theta_deg * std::numbers::pi / 180.0;
+        const auto e_D = must_dir(std::sin(theta), 0.0, std::cos(theta));
+        auto f = srp_force(model, e_D);
+        REQUIRE(f.has_value());
+
+        const double P = kS0 / kC;
+        const double expected_mag = 2.0 * P * kArea * std::cos(theta) * std::cos(theta);
+        const Vec3 expected_dir{-n_vec.x, -n_vec.y, -n_vec.z};   // exactly -e_N, NOT -e_D
+
+        const double mag_rel = std::abs(f->norm() - expected_mag) / expected_mag;
+        const Vec3 got_dir = (1.0 / f->norm()) * (*f);
+        const double dir_dev = (got_dir - expected_dir).norm();
+        worst_mag_rel = std::max(worst_mag_rel, mag_rel);
+        worst_dir_dev = std::max(worst_dir_dev, dir_dev);
+        ++checked;
+    }
+    INFO("checked " << checked << " oblique incidence angles; worst magnitude relative error "
+         << worst_mag_rel << "; worst direction deviation from exactly -e_N: " << worst_dir_dev);
+    CHECK(checked == 5);
+    CHECK(worst_mag_rel < 1.0e-12);
+    CHECK(worst_dir_dev < 1.0e-12);
+}
+
+namespace {
+
+/// A latitude/longitude tessellation of a unit sphere into n*(2n) body-fixed
+/// FlatSurfaces, each normal at its cell's centre and each area its cell's
+/// EXACT solid angle -- SRPA-P-3's own scheme, whose discretisation error was
+/// measured (not assumed) before this test was written.
+Macromodel tessellated_sphere(int n_theta, const Triple& t) {
+    std::vector<Surface> facets;
+    facets.reserve(static_cast<std::size_t>(n_theta) * static_cast<std::size_t>(2 * n_theta));
+    const int n_phi = 2 * n_theta;
+    for (int i = 0; i < n_theta; ++i) {
+        const double theta_lo = std::numbers::pi * i / n_theta;
+        const double theta_hi = std::numbers::pi * (i + 1) / n_theta;
+        const double theta_c = 0.5 * (theta_lo + theta_hi);
+        const double dphi = 2.0 * std::numbers::pi / n_phi;
+        const double cell_area = (std::cos(theta_lo) - std::cos(theta_hi)) * dphi;   // exact solid angle
+        for (int j = 0; j < n_phi; ++j) {
+            const double phi_c = (j + 0.5) * dphi;
+            const Vec3 n{std::sin(theta_c) * std::cos(phi_c), std::sin(theta_c) * std::sin(phi_c),
+                        std::cos(theta_c)};
+            auto normal = body_direction(n);
+            REQUIRE(normal.has_value());
+            auto area = cited(cell_area, "test-stated: exact solid angle of this lat/lon cell");
+            auto al = cited(t.alpha, "test-stated");
+            auto rh = cited(t.rho, "test-stated");
+            auto de = cited(t.delta, "test-stated");
+            REQUIRE(area.has_value());
+            auto fs = flat_surface_body_fixed(*area, *normal, *al, *rh, *de);
+            REQUIRE(fs.has_value());
+            facets.push_back(Surface{*fs});
+        }
+    }
+    return many_surfaces(std::move(facets));
+}
+
+}  // namespace
+
+TEST_CASE("SRPA-A-013  the tessellated-sphere cross-check, against SRPA-P-3's pre-registered "
+          "convergence prediction", "[srp_analytic][gate]") {
+    // SRPA-P-3: empirically second-order in n_theta, measured BEFORE this test
+    // was written, at n_theta up to 128. The gate uses n=32 and n=64, well
+    // inside the range the prediction was checked over, and reasserts the
+    // convergence RATIO rather than trusting either resolution alone -- a bug
+    // giving the specular term the wrong power of cos(theta) would move BOTH
+    // resolutions' error to ~33% and the ratio check would still catch it even
+    // if, by coincidence, one resolution's absolute error passed.
+    const auto e_D = must_dir(0.0, 0.0, 1.0);
+    struct Case { Triple t; double closed_form; const char* label; };
+    const Case cases[] = {
+        {{0.0, 1.0, 0.0}, 1.0, "pure specular (sharpest: no rho cancellation cushion)"},
+        {{0.0, 0.0, 1.0}, 1.0 + 4.0 / 9.0, "pure diffuse"},
+        {{0.2, 0.5, 0.3}, 1.0 + 4.0 * 0.3 / 9.0, "mixed"},
+    };
+
+    int checked = 0;
+    for (const auto& c : cases) {
+        auto model_32 = tessellated_sphere(32, c.t);
+        auto model_64 = tessellated_sphere(64, c.t);
+        auto f_32 = srp_force(model_32, e_D);
+        auto f_64 = srp_force(model_64, e_D);
+        REQUIRE(f_32.has_value());
+        REQUIRE(f_64.has_value());
+
+        const double coeff_32 = f_32->norm() / (kS0 / kC * std::numbers::pi);   // /(P * pi*r^2), r=1
+        const double coeff_64 = f_64->norm() / (kS0 / kC * std::numbers::pi);
+        const double err_32 = std::abs(coeff_32 - c.closed_form) / c.closed_form;
+        const double err_64 = std::abs(coeff_64 - c.closed_form) / c.closed_form;
+        const double ratio = err_32 / err_64;
+
+        INFO(c.label << ": closed form " << c.closed_form << ", n=32 coeff " << coeff_32
+             << " (err " << err_32 << "), n=64 coeff " << coeff_64 << " (err " << err_64
+             << "), ratio " << ratio << " [SRPA-P-3 predicts ~4.0]");
+        CHECK(err_32 < 5.0e-3);
+        CHECK(err_64 < 1.5e-3);
+        CHECK(ratio > 3.0);
+        CHECK(ratio < 5.0);
+        // direction check: the tessellated force must point along -e_D, same
+        // as the smooth sphere's (SRPA-R-005) -- a swapped e_D/e_N term would
+        // fail this even if some accidental magnitude cancellation hid in the
+        // coefficient comparison above.
+        const double dir_cos = f_32->dot(e_D.vec()) / f_32->norm();
+        CHECK_THAT(dir_cos, Catch::Matchers::WithinAbs(-1.0, 1.0e-9));
+        ++checked;
+    }
+    INFO("checked " << checked << " optical triples, each at two tessellation resolutions");
+    CHECK(checked == 3);
 }
