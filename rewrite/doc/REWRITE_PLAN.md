@@ -696,10 +696,16 @@ the MVP needs.
    samples and independently by quadrature, and δ = ν(1 − μ) recovers the (9 + 4ν(1 − μ))/9 this
    plan quoted.
 
-   *And the reproducibility rule caught a figure on its first run.* `tools/penumbral_cancellation.py`
-   regenerates step 1's recorded cancellation numbers, and in doing so found that PROVENANCE's
-   "376 × the net" is 367.3 — a transposition that no gate could have seen, because the number
-   was recorded and never recomputed.
+   *And the reproducibility rule's first catch was a false alarm, which this plan recorded as a
+   real one.* `tools/penumbral_cancellation.py` regenerates step 1's cancellation numbers, and at
+   its default resolution it printed a swing of 367.3 against PROVENANCE's "376 × the net". The
+   manager called that a transposition and had it "fixed" to 367; the executor attributed it to
+   resolution sensitivity and applied the fix. **Both were wrong about the number.** A
+   convergence study — 201×100 → 3201×1600 samples, swings 367.6, 370.8, 371.7, 375.7, 375.6,
+   the two finest agreeing to 0.03% — puts the converged value at **≈ 376: the original was
+   right**, and the tool's default was under-resolved. The swing is a ratio to a net that is a
+   0.14% residual of near-cancelling integrals, so it is the most resolution-sensitive figure in
+   its table, and the one the tool's resolution check had not been pointed at.
 3. **TODO** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
    Rodríguez-Solano et al. 2012. The coefficient convention is stated per model and tested — a
    sphere's (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρ_s, and conflating them is a factor of
@@ -965,7 +971,12 @@ governs. Three rules apply to all of them:
    tree able to regenerate them, which is `oracle/capture.sh`'s defect after the merge — frozen
    figures with no route back to what made them. **Excused from the gate is not excused from
    reproducibility**: the tool that produced a recorded number is committed under `tools/`, run by
-   hand, and named next to the number.
+   hand, and named next to the number. **And a regenerator is authoritative only once it has converged.** A
+   regenerator disagreeing with a recorded number says that one of them is wrong, not which: the
+   first time this rule fired, the record was right and the unconverged regenerator was not, and
+   treating the tool as ground truth "corrected" a correct figure. So a regenerated figure that is
+   a residual, a ratio to a residual, or anything else resolution-sensitive carries its
+   convergence study, and a disagreement with the record is a question to resolve, not a verdict.
 
    **A correction re-derives the whole statement; it does not patch one term of it.** Twice a
    review here has fixed one part of a claim and carried the rest of it across unchecked: the
