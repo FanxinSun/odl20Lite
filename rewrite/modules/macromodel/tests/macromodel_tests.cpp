@@ -1,10 +1,10 @@
 // macromodel_tests.cpp — SPEC-macromodel §8, L4 step 2's gate.
 //
-// GATED ON A CANNONBALL ROUND-TRIP, per the plan's own words for this step.
-// Every geometry and every optical triple below is STATED IN THIS FILE -- no
-// manifest entry, no library, nothing read from L5's (not-yet-existing)
-// population. That is what keeps this layer's exit gate satisfiable with what
-// this layer and the ones below it have (plan §5 constraint 7).
+// SCHEMA AND VALIDATION ONLY.  L4 step 2's review moved `srp_force` and every
+// test that computed a force out to modules/srp_analytic (SPEC-srp-analytic
+// SRPA-A-001..007) -- this file keeps exactly what is left: construction,
+// citation enforcement, and the round trip a pure data type owes its own gate
+// once the force that used to exercise it indirectly is gone.
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -12,203 +12,81 @@
 #include <odl/macromodel/macromodel.hpp>
 
 #include <cmath>
-#include <numbers>
 
 using namespace odl;
 using namespace odl::macromodel;
 
-namespace {
+TEST_CASE("MCRM-A-011  the cannonball round-trip: store one spherical surface, read back every "
+          "field with its citation, and get back exactly what was put in", "[macromodel][gate]") {
+    // ADDED after the force law left this module (plan §5 constraint 7's own
+    // point applied to a schema rather than a layer): the schema needs a gate
+    // that does not depend on any force law existing at all, since a value
+    // this general -- N surfaces of either kind -- could otherwise be fully
+    // exercised only indirectly, through whichever consumer happens to call
+    // it. A pure identity round trip is the schema's own cannonball.
+    auto area = cited(2.5, "test-stated area");
+    auto alpha = cited(0.2, "test-stated alpha");
+    auto rho = cited(0.3, "test-stated rho");
+    auto delta = cited(0.5, "test-stated delta");
+    REQUIRE(area.has_value());
+    REQUIRE(alpha.has_value());
+    REQUIRE(rho.has_value());
+    REQUIRE(delta.has_value());
+    SphericalSurface sph{*area, *alpha, *rho, *delta};
 
-constexpr double kS0 = 1367.0;           // matches macromodel.cpp's own constant
-constexpr double kC = 299792458.0;
-
-BodyDirection must_dir(double x, double y, double z) {
-    const double n = std::sqrt(x * x + y * y + z * z);
-    auto d = body_direction(Vec3{x / n, y / n, z / n});
-    REQUIRE(d.has_value());
-    return *d;
-}
-
-/// Five (alpha, rho, delta) triples spanning pure-absorbing, pure-specular,
-/// pure-diffuse and two mixed cases -- the same five MCRM-P-1's Monte Carlo
-/// check used, so the acceptance gate and the derivation's own corroboration
-/// examine the same points.
-struct Triple { double alpha, rho, delta; };
-const Triple kTriples[] = {{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
-                           {0.5, 0.3, 0.2}, {0.2, 0.5, 0.3}};
-
-Macromodel one_sphere(double area_m2, const Triple& t) {
-    auto a = cited(area_m2, "test-stated");
-    auto al = cited(t.alpha, "test-stated");
-    auto rh = cited(t.rho, "test-stated");
-    auto de = cited(t.delta, "test-stated");
-    REQUIRE(a.has_value());
-    REQUIRE(al.has_value());
-    REQUIRE(rh.has_value());
-    REQUIRE(de.has_value());
-    SphericalSurface sph{*a, *al, *rh, *de};
-
-    MacromodelBuilder b;
-    b.add_surface(sph);
-    auto mass = cited(1.0, "test-stated");   // 1 kg: MCRM-R-005 returns FORCE, not
-                                              // acceleration, so mass does not enter
-                                              // the quantity these tests check
-    auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
+    auto mass = cited(1234.5, "test-stated mass");
+    auto com = cited(Vec3{0.1, -0.2, 0.3}, "test-stated centre of mass");
     REQUIRE(mass.has_value());
     REQUIRE(com.has_value());
-    b.set_mass(*mass).set_centre_of_mass(*com);
-    auto m = std::move(b).build();
-    REQUIRE(m.has_value());
-    return *m;
-}
-
-Macromodel one_sun_pointing_flat(double area_m2, const Triple& t) {
-    auto a = cited(area_m2, "test-stated");
-    auto al = cited(t.alpha, "test-stated");
-    auto rh = cited(t.rho, "test-stated");
-    auto de = cited(t.delta, "test-stated");
-    REQUIRE(a.has_value());
-    auto fs = flat_surface_sun_pointing(*a, *al, *rh, *de);
-    REQUIRE(fs.has_value());
 
     MacromodelBuilder b;
-    b.add_surface(*fs);
-    auto mass = cited(1.0, "test-stated");
-    auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
-    b.set_mass(*mass).set_centre_of_mass(*com);
-    auto m = std::move(b).build();
-    REQUIRE(m.has_value());
-    return *m;
+    b.add_surface(sph).set_mass(*mass).set_centre_of_mass(*com);
+    auto model = std::move(b).build();
+    REQUIRE(model.has_value());
+
+    REQUIRE(model->surfaces().size() == 1);
+    const auto* read_back = std::get_if<SphericalSurface>(&model->surfaces().front());
+    REQUIRE(read_back != nullptr);   // the kind survived the round trip
+
+    CHECK(read_back->cross_section_area_m2.value() == 2.5);
+    CHECK(read_back->cross_section_area_m2.citation() == "test-stated area");
+    CHECK(read_back->absorptivity.value() == 0.2);
+    CHECK(read_back->absorptivity.citation() == "test-stated alpha");
+    CHECK(read_back->specular.value() == 0.3);
+    CHECK(read_back->specular.citation() == "test-stated rho");
+    CHECK(read_back->diffuse.value() == 0.5);
+    CHECK(read_back->diffuse.citation() == "test-stated delta");
+
+    CHECK(model->mass_kg().value() == 1234.5);
+    CHECK(model->mass_kg().citation() == "test-stated mass");
+    CHECK(model->centre_of_mass_m().value().x == 0.1);
+    CHECK(model->centre_of_mass_m().value().y == -0.2);
+    CHECK(model->centre_of_mass_m().value().z == 0.3);
+    CHECK(model->centre_of_mass_m().citation() == "test-stated centre of mass");
 }
 
-}  // namespace
+TEST_CASE("MCRM-A-012  the flat-surface round trip, both normal modes", "[macromodel][gate]") {
+    auto area = cited(4.0, "test-stated");
+    auto alpha = cited(0.4, "test-stated");
+    auto rho = cited(0.1, "test-stated");
+    auto delta = cited(0.5, "test-stated");
+    REQUIRE(area.has_value());
+    REQUIRE(alpha.has_value());
+    REQUIRE(rho.has_value());
+    REQUIRE(delta.has_value());
 
-TEST_CASE("MCRM-A-001  the cannonball round-trip: sphere against the closed form",
-          "[macromodel][gate]") {
-    constexpr double kArea = 2.5;   // m^2, stated in the test, not from any table
-    int checked = 0;
-    double worst_rel = 0.0;
-    for (const auto& t : kTriples) {
-        auto model = one_sphere(kArea, t);
-        for (auto dir : {std::array{1.0, 0.0, 0.0}, std::array{0.0, 1.0, 0.0},
-                         std::array{0.0, 0.0, 1.0}, std::array{1.0, 1.0, 1.0}}) {
-            const auto e_D = must_dir(dir[0], dir[1], dir[2]);
-            auto f = srp_force(model, e_D);
-            REQUIRE(f.has_value());
-            const double expected_mag = (kArea * kS0 / kC) * (1.0 + 4.0 * t.delta / 9.0);
-            const double got_mag = f->norm();
-            const double rel = std::abs(got_mag - expected_mag) / expected_mag;
-            worst_rel = std::max(worst_rel, rel);
-            // and it must point OPPOSITE the Sun direction (radiation pushes away)
-            CHECK(f->dot(e_D.vec()) < 0.0);
-            ++checked;
-        }
-    }
-    INFO("checked " << checked << " (triple, direction) combinations; worst relative "
-         "deviation from the closed form " << worst_rel);
-    CHECK(checked == 20);
-    CHECK(worst_rel < 1.0e-12);
-}
+    auto sp = flat_surface_sun_pointing(*area, *alpha, *rho, *delta);
+    REQUIRE(sp.has_value());
+    CHECK(sp->normal_mode() == NormalMode::sun_pointing);
+    CHECK_FALSE(sp->body_fixed_normal().has_value());   // MCRM-R-002's pairing: no normal stored
 
-TEST_CASE("MCRM-A-002  a sphere's force does not depend on rho", "[macromodel][gate]") {
-    // Hold alpha+delta fixed at their kTriples[3] values and trade rho against
-    // alpha alone -- MCRM-R-007 has no rho term, so the force must not move.
-    constexpr double kArea = 3.0;
-    constexpr double kDelta = 0.2;
-    const auto e_D = must_dir(0.3, 0.4, std::sqrt(1.0 - 0.09 - 0.16));
-    double reference = -1.0;
-    int checked = 0;
-    for (double rho : {0.0, 0.1, 0.3, 0.5, 0.7, 1.0 - kDelta}) {
-        const Triple t{1.0 - kDelta - rho, rho, kDelta};
-        auto model = one_sphere(kArea, t);
-        auto f = srp_force(model, e_D);
-        REQUIRE(f.has_value());
-        if (reference < 0.0) {
-            reference = f->norm();
-        } else {
-            CHECK_THAT(f->norm(), Catch::Matchers::WithinRel(reference, 1.0e-12));
-        }
-        ++checked;
-    }
-    INFO("checked " << checked << " rho values, force magnitude held at " << reference << " N");
-    CHECK(checked == 6);
-}
-
-TEST_CASE("MCRM-A-003  a sphere's force is attitude-independent", "[macromodel][gate]") {
-    // The SAME inertial Sun direction, expressed as if the body frame were
-    // rotated several different ways -- since a sphere has no normal, the
-    // computed force must be identical to rounding regardless of "attitude",
-    // which for an all-spherical macromodel is not even a meaningful concept.
-    constexpr double kArea = 1.7;
-    const Triple t{0.4, 0.3, 0.3};
-    auto model = one_sphere(kArea, t);
-    Vec3 reference{};
-    bool have_reference = false;
-    int checked = 0;
-    for (auto dir : {std::array{1.0, 0.0, 0.0}, std::array{0.0, 0.0, 1.0},
-                     std::array{0.6, 0.8, 0.0}, std::array{-0.5, 0.5, std::sqrt(0.5)}}) {
-        const auto e_D = must_dir(dir[0], dir[1], dir[2]);
-        auto f = srp_force(model, e_D);
-        REQUIRE(f.has_value());
-        // rotate the RESULT back by aligning on e_D so magnitudes compare directly:
-        // the force is always -magnitude*e_D, so magnitude alone is the invariant.
-        if (!have_reference) { reference = *f; have_reference = true; }
-        CHECK_THAT(f->norm(), Catch::Matchers::WithinRel(reference.norm(), 1.0e-12));
-        CHECK_THAT(f->dot(e_D.vec()) / f->norm(), Catch::Matchers::WithinAbs(-1.0, 1.0e-12));
-        ++checked;
-    }
-    INFO("checked " << checked << " differently-oriented Sun directions");
-    CHECK(checked == 4);
-}
-
-TEST_CASE("MCRM-A-004  the flat-plate degenerate case, and agreement with the sphere at alpha=1",
-          "[macromodel][gate]") {
-    constexpr double kArea = 4.0;
-    const Triple black{1.0, 0.0, 0.0};   // fully absorbing: the textbook case
-    auto flat_model = one_sun_pointing_flat(kArea, black);
-    auto sphere_model = one_sphere(kArea, black);
-
-    int checked = 0;
-    double worst_rel_textbook = 0.0, worst_diff_cross = 0.0;
-    for (auto dir : {std::array{1.0, 0.0, 0.0}, std::array{0.0, 1.0, 0.0},
-                     std::array{-0.4, 0.4, std::sqrt(1.0 - 0.16 - 0.16)}}) {
-        const auto e_D = must_dir(dir[0], dir[1], dir[2]);
-        auto f_flat = srp_force(flat_model, e_D);
-        auto f_sphere = srp_force(sphere_model, e_D);
-        REQUIRE(f_flat.has_value());
-        REQUIRE(f_sphere.has_value());
-
-        const double textbook = kArea * kS0 / kC;   // f = S0*A/c, alpha=1
-        worst_rel_textbook = std::max(worst_rel_textbook,
-            std::abs(f_flat->norm() - textbook) / textbook);
-        worst_diff_cross = std::max(worst_diff_cross, std::abs(f_flat->norm() - f_sphere->norm()));
-        CHECK(f_flat->dot(e_D.vec()) < 0.0);
-        ++checked;
-    }
-    INFO("checked " << checked << " Sun directions; worst |flat - S0*A/c|/  (S0*A/c) = "
-         << worst_rel_textbook << "; worst |flat - sphere| at alpha=1 = " << worst_diff_cross << " N");
-    CHECK(checked == 3);
-    CHECK(worst_rel_textbook < 1.0e-12);
-    CHECK(worst_diff_cross < 1.0e-9);
-}
-
-TEST_CASE("MCRM-A-005  the sphere and flat-plate diffuse coefficients genuinely differ",
-          "[macromodel][gate]") {
-    // At the SAME delta, rho=0: flat-plate normal incidence is 1+2*delta/3,
-    // sphere is 1+4*delta/9. MCRM-R-008: these must NOT be equal, and the gap
-    // is exactly 2*delta/9 -- the guard against silently substituting one
-    // model's coefficient for the other's.
-    int checked = 0;
-    for (double delta : {0.1, 0.3, 0.5, 0.8, 1.0}) {
-        const double flat_coeff = 1.0 + 2.0 * delta / 3.0;
-        const double sphere_coeff = 1.0 + 4.0 * delta / 9.0;
-        const double gap = flat_coeff - sphere_coeff;
-        INFO("delta=" << delta << " flat=" << flat_coeff << " sphere=" << sphere_coeff);
-        CHECK(gap > 0.0);
-        CHECK_THAT(gap, Catch::Matchers::WithinAbs(2.0 * delta / 9.0, 1.0e-12));
-        ++checked;
-    }
-    CHECK(checked == 5);
+    auto n = body_direction(Vec3{0.0, 0.0, 1.0});
+    REQUIRE(n.has_value());
+    auto bf = flat_surface_body_fixed(*area, *n, *alpha, *rho, *delta);
+    REQUIRE(bf.has_value());
+    CHECK(bf->normal_mode() == NormalMode::body_fixed);
+    REQUIRE(bf->body_fixed_normal().has_value());
+    CHECK(bf->body_fixed_normal()->vec().z == 1.0);
 }
 
 TEST_CASE("MCRM-A-006  citation enforcement fires, one case per field, and not on the adjacent "
@@ -253,8 +131,8 @@ TEST_CASE("MCRM-A-006  citation enforcement fires, one case per field, and not o
     }
 }
 
-TEST_CASE("MCRM-A-007  non-unit BodyDirection and sun-direction inputs are refused, and unit "
-          "ones are not", "[macromodel][gate]") {
+TEST_CASE("MCRM-A-007  a non-unit BodyDirection is refused, and a unit one is not",
+          "[macromodel][gate]") {
     auto not_unit = body_direction(Vec3{1.0, 1.0, 0.0});   // norm = sqrt(2)
     REQUIRE_FALSE(not_unit.has_value());
     CHECK(not_unit.error().id == "MCRM-F-002");
@@ -266,50 +144,4 @@ TEST_CASE("MCRM-A-007  non-unit BodyDirection and sun-direction inputs are refus
     // and it does NOT fire on the adjacent unit input
     auto unit = body_direction(Vec3{0.0, 0.0, 1.0});
     CHECK(unit.has_value());
-}
-
-TEST_CASE("MCRM-A-008  srp_force refuses an empty macromodel", "[macromodel][gate]") {
-    MacromodelBuilder b;
-    auto mass = cited(100.0, "test-stated");
-    auto com = cited(Vec3{0, 0, 0}, "test-stated");
-    REQUIRE(mass.has_value());
-    REQUIRE(com.has_value());
-    b.set_mass(*mass).set_centre_of_mass(*com);   // no surfaces added
-    auto m = std::move(b).build();
-    REQUIRE(m.has_value());
-
-    const auto e_D = must_dir(1.0, 0.0, 0.0);
-    auto f = srp_force(*m, e_D);
-    REQUIRE_FALSE(f.has_value());
-    CHECK(f.error().id == "MCRM-F-004");
-}
-
-TEST_CASE("MCRM-A-010  a body-fixed flat surface facing away from the Sun contributes nothing",
-          "[macromodel][gate]") {
-    // Not a numbered acceptance row on its own -- folded into R-005's own
-    // domain statement -- but the cos(theta) < 0 branch is code with no other
-    // test reaching it, and a guard with no test is a guard nobody has proven.
-    constexpr double kArea = 5.0;
-    const Triple t{0.5, 0.3, 0.2};
-    auto area = cited(kArea, "test-stated");
-    auto al = cited(t.alpha, "test-stated");
-    auto rh = cited(t.rho, "test-stated");
-    auto de = cited(t.delta, "test-stated");
-    auto normal = must_dir(0.0, 0.0, 1.0);
-    auto fs = flat_surface_body_fixed(*area, normal, *al, *rh, *de);
-    REQUIRE(fs.has_value());
-
-    MacromodelBuilder b;
-    b.add_surface(*fs);
-    auto mass = cited(1.0, "test-stated");
-    auto com = cited(Vec3{0, 0, 0}, "test-stated");
-    b.set_mass(*mass).set_centre_of_mass(*com);
-    auto model = std::move(b).build();
-    REQUIRE(model.has_value());
-
-    // Sun BEHIND the surface: e_D . e_N < 0
-    const auto e_D = must_dir(0.0, 0.0, -1.0);
-    auto f = srp_force(*model, e_D);
-    REQUIRE(f.has_value());
-    CHECK(f->norm() == 0.0);
 }

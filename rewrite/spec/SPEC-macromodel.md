@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `MCRM` |
-| **Status** | **draft** 2026-09-22, for review |
-| **Version** | 1.0 |
+| **Status** | **draft** 2026-09-22, for review (v2.0: `srp_force` and the two force laws relocated to `SPEC-srp-analytic`, per the manager's verdict on v1.0 — `doc/REWRITE_PLAN.md`'s L4 step list, step 2's entry) |
+| **Version** | 2.0 |
 | **Date** | 2026-09-22 |
 | **Layer** | L4 `forces-analytic`, step 2 (`doc/REWRITE_PLAN.md` §3.5) |
 | **Depends on** | `core` only |
@@ -34,12 +34,14 @@ consumer (`srp-analytic`, step 3) exists to shape it by negotiation.
 - **Real satellite data.** No area, mass, or optical coefficient for any actual spacecraft
   is stated or pinned here. `SPEC-macromodel` owns the *type*; the L5 library owns the
   *values*.
-- **The box-wing force model itself** — the full multi-surface accumulation used by
-  `srp-analytic`, including nominal attitude and the D/Y/B frame. `SPEC-srp-analytic`
-  (step 3) owns that; this spec's evaluator is exercised only by the two degenerate,
-  citation-free configurations §8 states, both chosen so that "designed general, gated
-  on a cannonball" (the plan's own phrase for this step) is provably true rather than
-  asserted.
+- **Every force law.** v1.0 of this document defined `srp_force` and both the flat-surface
+  and spherical-surface force formulas here. Review found that wrong: it put physics in
+  what L5 designs as data, and made every consumer of the macromodel schema link an SRP
+  force whether it needed one or not (`PERT-Q-001`'s own precedent, applied here). Both
+  force laws, `srp_force` itself, and every test that computes a force now live in
+  `SPEC-srp-analytic` / `modules/srp_analytic`, which depends on this module — this module
+  does not depend on it. What stays here is *why* the schema has two surface kinds (§3's
+  note on the two force laws differing), not the laws themselves.
 - **Attitude determination.** Every body-fixed quantity here is expressed **in the
   satellite's own body frame**; rotating a body-frame vector into or out of an inertial
   frame is the caller's problem, using whatever attitude source that caller has. `MCRM`
@@ -65,11 +67,14 @@ terms could not be established, and the entry records the search rather than a c
 (plan §4 rule 4). Retrieval needed no account and no request form: `mediatum.ub.tum.de`
 serves the PDF directly over HTTPS with no authentication.
 
-**Both formulas this spec relies on are re-derived, not only cited** (§4), and independently
-checked by Monte Carlo numerical integration before being trusted (`PROVENANCE.md` §26,
-once this step lands). Rule 8's converse applies to each: an independent, closed-form
-derivation exists for both the flat-surface and the spherical-surface force laws, so an
-implementation's legibility does not matter and none was sought.
+**Both force laws are re-derived, not only cited, in `SPEC-srp-analytic` §4** (relocated
+there in v2.0 of this document; not restated here — see that spec), and independently
+checked by Monte Carlo numerical integration before being trusted (`PROVENANCE.md` §26).
+Rule 8's converse applies to each: an independent, closed-form derivation exists for both
+the flat-surface and the spherical-surface force laws, so an implementation's legibility
+does not matter and none was sought. `RS14` is read here only for §3's own purpose — that
+the schema needs two surface kinds because two different force laws exist — not for its
+Tables 1–2, which are `SPEC-srp-analytic` and L5's concern.
 
 ---
 
@@ -100,11 +105,9 @@ implementation's legibility does not matter and none was sought.
   discussing Eq. 7): the adjustable model deliberately allows α+ρ+δ ≠ 1 as extra degrees
   of freedom when *fitting* real tracking data. This schema stores the three
   independently for the same reason — the constraint belongs to a fit, not to the type.
-- **Fliegel's (ν, μ) notation**, used by the sources `RHS12` cites for Block I/II/IIA/IIR
-  a priori values, relates to (α, ρ, δ) by α = 1−ν, ρ = μν, δ = ν(1−μ) [`RHS12` §3, citing
-  Fliegel et al. 1992]. Not used by this schema's own interface — only recorded here
-  because §4's cannonball formula is usually printed in that notation and a reader
-  comparing the two needs the dictionary.
+Fliegel's (ν, μ) optical-property notation is not used by this schema and is not defined
+here; `SPEC-srp-analytic` §3 carries it, since that is the spec whose cannonball formula is
+usually printed in it.
 
 ---
 
@@ -131,69 +134,16 @@ implementation's legibility does not matter and none was sought.
   the type, not by a check a caller could skip. §7's refusal is what firing that
   enforcement looks like.
 
-### 4.2 The flat-surface force law
+### 4.2 The round trip
 
-- **MCRM-R-005.** For a `FlatSurface` illuminated at incidence angle θ (cos θ = *e*ᴰ·*e*ᴺ,
-  and the surface receives no force when cos θ < 0 — it faces away from the Sun):
-
-  > ***f*** = −(*A S*₀/*c*) cos θ [(1−ρ) *e*ᴰ + 2(δ/3 + ρ cos θ) *e*ᴺ]  [`RHS12` Eq. (6)]
-
-  where *A* is the surface's stated area. This is stated exactly as `RHS12` prints it,
-  including that it omits the mass division present in `RHS12`'s Eq. (9) variant (which
-  folds in re-radiated heat and is `srp-analytic`'s concern, not this schema's); this
-  spec's evaluator returns **force**, and dividing by the macromodel's own cited mass to
-  get an acceleration is left to the caller, because the caller may want the force for
-  other purposes (torque, e.g.) first.
-- **MCRM-R-006.** At normal incidence (cos θ = 1, always true for a `sun_pointing`
-  surface, since there *e*ᴺ ≡ *e*ᴰ by definition), Eq. (6) collapses to a scalar times
-  *e*ᴰ: ***f*** = −*A S*₀/*c* · (1 + ρ + 2δ/3) · *e*ᴰ. **Re-derived independently from
-  momentum bookkeeping, not only algebra on Eq. (6)**: an absorbed photon transfers
-  momentum *p* = *E*/*c* (coefficient 1); a specularly-reflected photon bounces straight
-  back, transferring 2*p* (coefficient 2); a diffusely-scattered photon is absorbed and
-  then Lambertian-re-emitted, whose emission carries a mean recoil of (2/3)*p* along the
-  outward normal, on top of the *p* already transferred by absorbing it (coefficient
-  1 + 2/3 = 5/3). Weighted by α, ρ, δ: α·1 + ρ·2 + δ·5/3 = (α+ρ+δ) + ρ + 2δ/3 = 1 + ρ +
-  2δ/3 when α+ρ+δ = 1 — the same coefficient, by an independent route.
-
-### 4.3 The spherical-surface force law
-
-- **MCRM-R-007.** For a `SphericalSurface`, the **net** force (the transverse components
-  of every surface element's contribution cancel by the sphere's own symmetry, leaving
-  only the component along *e*ᴰ) is
-
-  > ***f*** = −(*A* *S*₀/*c*) (1 + 4δ/9) *e*ᴰ
-
-  where *A* is the stated cross-sectional area. **Derived here** by integrating Eq. (6)
-  over a sphere's illuminated hemisphere (surface element at polar angle φ from the
-  sub-solar point, cos θ = cos φ, *e*ᴺ(φ,λ) varying with position): the transverse
-  components of ∫*e*ᴺ integrate to zero over the full azimuth, the ρ-dependent terms
-  cancel exactly (∫₀¹ [−ρ*x* + 2ρ*x*³] d*x* = −ρ/2 + ρ/2 = 0, *x* = cos φ), and what
-  remains is ∫₀¹ [*x* + (2δ/3)*x*²] d*x* = 1/2 + 2δ/9, giving the factor above after the
-  2π azimuthal integral and dividing by the hemisphere's π steradian... arithmetic in
-  `PROVENANCE.md` §26. **ρ does not appear**: a perfectly specularly-reflecting sphere
-  and a perfectly absorbing one exert the same net force, which is why `MCRM-A-002`
-  varies ρ alone and asserts the result does not move.
-- **MCRM-R-008.** Fliegel's printed cannonball coefficient, (9 + 4ν(1−µ))/9, is the same
-  formula in his notation: substituting δ = ν(1−µ) (§3) gives 1 + 4ν(1−µ)/9 =
-  (9 + 4ν(1−µ))/9 exactly. **This is why the plan's own aside — "a sphere's
-  (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρₛ" — is correct and not a coincidence of
-  notation**: the two formulas differ in their δ-dependence (4δ/9 for a sphere, 2δ/3 for
-  a flat plate at normal incidence — a factor of 3 apart on the diffuse term alone) and
-  the flat-plate form `1 + ρₛ` additionally assumes δ = 0 outright, which is a second,
-  separate simplification. Conflating a sphere's coefficient with a flat plate's is not
-  one error but a compounding of two, and `MCRM-A-001`/`-A-002` gate each formula
-  separately so neither can be silently substituted for the other.
-- **MCRM-R-009.** A `SphericalSurface`'s force **does not depend on the satellite's
-  attitude**, because it has no normal to be sensitive to one. A macromodel consisting
-  only of spherical surfaces gives the same force for *any* body-frame orientation of
-  *e*ᴰ that corresponds to the same *inertial* Sun direction.
-
-### 4.4 Evaluation
-
-- **MCRM-R-010.** `srp_force(macromodel, e_D_body) -> Result<BodyDirection-scaled force,
-  Diagnostic>` sums MCRM-R-005/007 over every surface, in the body frame throughout, per
-  §3's convention. No monadic chaining (plan §5 constraint 8); the sum is a loop, not a
-  pipeline.
+- **MCRM-R-012.** Fresh in v2.0 — R-005 through R-010 are retired along with the force
+  laws they described (see the Retired identifiers table below), not reused here for
+  something unrelated.
+  **Reading back a constructed `Macromodel` returns exactly what was put in** — every
+  surface, in the kind and order it was added; every `Cited<T>`'s value and citation
+  unchanged; the mass and centre of mass unchanged. This is the schema's own gate once
+  §1's force laws left: a value this general (N surfaces of either kind) needs a check
+  that does not depend on any consumer existing to exercise it indirectly.
 
 ---
 
@@ -207,33 +157,33 @@ implementation's legibility does not matter and none was sought.
   is already unit length and body-frame; construction from a non-unit vector is refused
   (§7), because a silently-renormalised "unit vector" is exactly the kind of plausible
   wrong number plan §5 constraint 4 refuses rather than approximates.
-- `NormalMode`: a sum type, `BodyFixed(BodyDirection)` or `SunPointing` (no payload).
-- `FlatSurface { area_m2: Cited<double>, normal: NormalMode, absorptivity: Cited<double>,
-  specular: Cited<double>, diffuse: Cited<double> }` — **immutable after construction**.
+- `NormalMode`: a sum type, `BodyFixed` or `SunPointing`.
+- `FlatSurface`: **opaque**, constructed only through `flat_surface_body_fixed(area,
+  normal, absorptivity, specular, diffuse)` or `flat_surface_sun_pointing(area,
+  absorptivity, specular, diffuse)` — two named factories, one per `NormalMode`, rather
+  than a struct pairing a mode with an independent optional normal that the two could
+  disagree about. Read accessors: `.area_m2()`, `.normal_mode()`,
+  `.body_fixed_normal()` (populated iff the mode is `BodyFixed`), `.absorptivity()`,
+  `.specular()`, `.diffuse()`. **Immutable after construction**.
 - `SphericalSurface { cross_section_area_m2: Cited<double>, absorptivity: Cited<double>,
-  specular: Cited<double>, diffuse: Cited<double> }` — **immutable after construction**.
+  specular: Cited<double>, diffuse: Cited<double> }` — **immutable after construction**;
+  a plain aggregate is safe here because every field is a `Cited<T>` with no default, so
+  aggregate initialisation cannot omit one.
 - `Surface`: a sum type of the two above.
 - `Macromodel { surfaces: list<Surface>, mass_kg: Cited<double>, centre_of_mass_m:
-  Cited<BodyDirection-like 3-vector, NOT required unit length> }` — **immutable after
-  construction**; built via a builder that validates every citation before the
-  `Macromodel` exists, so a partially-cited value is never observable, not even
-  transiently.
-- `srp_force(model: &Macromodel, sun_direction_body: BodyDirection) -> Result<Vec3
-  [newtons, body frame], Diagnostic>` — §4.4.
+  Cited<3-vector, NOT required unit length> }` — **immutable after construction**; built
+  only through `MacromodelBuilder`, which validates that mass and centre of mass were
+  both set before `build()` succeeds, so a partially-specified value is never observable,
+  not even transiently.
+- No force-computing function is declared here. `SPEC-srp-analytic` §5 has `srp_force`.
 
 ---
 
 ## 6. Precision
 
-- **MCRM-P-1.** MCRM-R-007's coefficient is checked by Monte Carlo numerical integration
-  of Eq. (6) over a sphere (4 × 10⁶ samples, five (α, ρ, δ) triples spanning pure-
-  absorbing, pure-specular, pure-diffuse and two mixed cases) **before** being trusted,
-  matching the closed form to 3–4 significant figures at that sample count — a
-  self-consistency check (plan §template §8's route 4), corroborating but not replacing
-  the algebraic derivation of R-007, which is route 2, the stronger of the two.
-- **MCRM-P-2.** No physical constant here carries a tolerance of its own: `S₀` and `c`
-  are stated exactly as `RHS12` and `core` give them, and the force law is evaluated in
-  closed form with no quadrature.
+No physical constant or numerical tolerance is stated by this schema; every number this
+document once carried in that role (`MCRM-P-1`, `-P-2` in v1.0) belonged to a force law
+and moved with it. `SPEC-srp-analytic` §6.
 
 ---
 
@@ -243,9 +193,13 @@ implementation's legibility does not matter and none was sought.
 |---|---|---|---|
 | `MCRM-F-001` | `cited()` called with an empty or whitespace-only citation | which value was being cited | silently accepting an empty citation, or substituting a placeholder string |
 | `MCRM-F-002` | a `BodyDirection` constructed from a non-unit vector | the vector and its actual norm | silently renormalising |
-| `MCRM-F-003` | a `Macromodel` builder asked to finish with any surface, the mass, or the centre of mass not yet cited | which field(s) are missing | defaulting the citation to empty and proceeding |
-| `MCRM-F-004` | `srp_force` given a macromodel with zero surfaces | that there is nothing to evaluate | returning a zero force silently, which is indistinguishable from a correct answer at zero incidence |
-| `MCRM-F-005` | `srp_force` given a non-unit `sun_direction_body` | the vector and its norm | silently renormalising (same discipline as F-002, at the call boundary instead of construction) |
+| `MCRM-F-003` | a `Macromodel` builder asked to finish with the mass or the centre of mass not yet set | which field(s) are missing | defaulting the citation to empty and proceeding |
+
+**`MCRM-F-004` and `-F-005` are retired, not relocated.** Both were about `srp_force`'s
+own refusals; that function is no longer declared by this module, so there is nothing
+here for them to guard. `SPEC-srp-analytic` §7 (`SRPA-F-001`) carries the surviving one;
+the other (a non-unit sun direction) turned out to guard a state `BodyDirection`'s own
+type already makes unreachable, and is not carried forward at all — see that spec's §7.
 
 ---
 
@@ -253,33 +207,56 @@ implementation's legibility does not matter and none was sought.
 
 | id | what is checked | expected value | source of the expected value | tolerance | discharges |
 |---|---|---|---|---|---|
-| `MCRM-A-001` | **the cannonball round-trip**: a `Macromodel` with exactly one `SphericalSurface` (area, α, ρ, δ **stated in the test**, no library read), evaluated at several Sun directions and several (α, ρ, δ) triples spanning the five MCRM-P-1 cases, against the closed form 1 + 4δ/9 | force matches `−(A S₀/c)(1+4δ/9) e_D` to rounding | closed-form derivation, `MCRM-R-007` (route 2) | 1 × 10⁻¹² relative | R-001, R-003, R-007, R-010 |
-| `MCRM-A-002` | **ρ does not move a sphere's force**: holding α+δ fixed and varying ρ alone (trading it against α) leaves the computed force unchanged | force constant to rounding across the sweep | `MCRM-R-007`'s derivation, which has no ρ term | 1 × 10⁻¹² relative | R-007 |
-| `MCRM-A-003` | **attitude independence**: a spherical-only macromodel evaluated with the SAME *e*ᴰ expressed in several different (arbitrarily rotated) body-frame conventions gives the same force magnitude and the same direction relative to *e*ᴰ | identical to rounding across rotations | `MCRM-R-009` | 1 × 10⁻¹² relative | R-009 |
-| `MCRM-A-004` | **the flat-plate degenerate case**: a `Macromodel` with exactly one `SunPointing` `FlatSurface` (α=1, ρ=0, δ=0 — a black, fully-absorbing sail — stated in the test), evaluated at several Sun directions, against the textbook radiation-pressure identity *f* = *S*₀*A*/*c* | force matches to rounding, **and matches `MCRM-A-001`'s α=1 spherical case of the same area to rounding** (both reduce to the same textbook identity) | closed-form derivation, `MCRM-R-006`; cross-checked against `MCRM-A-001`'s α=1 row | 1 × 10⁻¹² relative | R-002, R-005, R-006, R-010 |
-| `MCRM-A-005` | **the two coefficients genuinely differ**: at a stated δ > 0, ρ = 0, the flat-plate normal-incidence coefficient (1 + 2δ/3) and the sphere's (1 + 4δ/9) are computed from the SAME δ and asserted **not equal** — the guard against silently substituting one for the other (`MCRM-R-008`) | `\|(1+2δ/3) − (1+4δ/9)\| > 0`, and specifically equal to 2δ/9 | algebra on R-006 and R-007 | exact | R-008 |
-| `MCRM-A-006` | citation enforcement fires: `cited()` refused on an empty string, and a `Macromodel` builder refused when any one of {a surface's area, its α, its ρ, its δ, the mass, the centre of mass} is left uncited — one case per field, **and shown not to fire** when all are cited | the diagnostics, and success on the adjacent fully-cited input | the refusal catalogue | — | F-001, F-003 |
-| `MCRM-A-007` | `BodyDirection` and `srp_force`'s sun-direction argument refuse a non-unit vector, **and do not refuse** a genuinely unit one adjacent to it | the diagnostics | the refusal catalogue | — | F-002, F-005 |
-| `MCRM-A-008` | `srp_force` on an empty-surfaces macromodel refuses | the diagnostic | the refusal catalogue | — | F-004 |
-| `MCRM-A-009` | constraint 8, `odl::Result` throughout, no monadic chaining, via `ci.sh` gate 9 | as stated | plan §5 constraint 8 | — | R-010 |
-| `MCRM-A-010` | **the cos θ < 0 domain, fired**: a body-fixed flat surface with the Sun placed exactly behind it contributes nothing — the branch R-005 states but no other row exercises, and a domain restriction with no test reaching it is the same fault as a guard that cannot fire | force exactly zero | R-005's own stated domain | exact | R-005 |
+| `MCRM-A-011` | **the cannonball round-trip, schema-only**: a `Macromodel` built from exactly one `SphericalSurface`, its mass and its centre of mass, every field with a DISTINCT stated citation — read back and compared field by field, value and citation both | every value and every citation matches exactly what was constructed | identity — the strongest of the plan §template §8 routes when it applies at all | exact | R-001, R-003, R-004, R-012 |
+| `MCRM-A-012` | **the flat-surface round trip, both `NormalMode`s**: `flat_surface_sun_pointing` carries no normal; `flat_surface_body_fixed` carries exactly the one supplied | `.normal_mode()` and `.body_fixed_normal()` agree with which factory was called, in both directions | `MCRM-R-002`'s stated pairing | exact | R-002, R-012 |
+| `MCRM-A-006` | citation enforcement fires: `cited()` refused on an empty string, and a `Macromodel` builder refused when the mass or the centre of mass is left unset — **and shown not to fire** when both are set | the diagnostics, and success on the adjacent fully-cited input | the refusal catalogue | — | F-001, F-003 |
+| `MCRM-A-007` | `BodyDirection` refuses a non-unit vector, **and does not refuse** a genuinely unit one adjacent to it | the diagnostics | the refusal catalogue | — | F-002 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
 | id | why no test |
 |---|---|
-| `MCRM-R-004` | The type-level guarantee itself (`Cited<T>` uncomstructible with an empty citation) is discharged by `MCRM-A-006`; the *documentation* half of R-004 — that this is a deliberate reading of the plan's "load error, not a warning" instruction — has no test of its own beyond A-006 firing. |
-| `MCRM-R-011` | A documentation obligation: `PROVENANCE.md` must record the retrieval route, that `RHS12` and `RS14`'s Chapter P-II are the same text, and both force-law derivations with their checks. Discharged by §9 and the entry a reviewer reads, the same pattern as `SHDW-R-020`. |
+| `MCRM-R-011` | A documentation obligation: `PROVENANCE.md` must record the retrieval route for `RS14`, that `RHS12` is reprinted in full within it, and the relocation this version records — what moved, why, and what the review found while it moved. Discharged by §9 and the entry a reviewer reads, the same pattern as `SHDW-R-020`. |
+| `MCRM-R-005`, `MCRM-R-006`, `MCRM-R-007`, `MCRM-R-008`, `MCRM-R-009`, `MCRM-R-010`, `MCRM-F-004`, `MCRM-F-005` | **Retired, not live requirements of this document.** Each moved to `SPEC-srp-analytic` in v2.0 (`MCRM-F-005` alone was retired outright); the Retired identifiers table below names where. Listed here only so the tool's own denominator — which counts every `-R-`/`-F-` row the Retired table's format necessarily defines — does not report them as uncovered live requirements; none is discharged by a test IN THIS document because none is a requirement OF this document any longer. |
 
 ---
 
 ## 9. Provenance obligations
 
-- **MCRM-R-011.** `PROVENANCE.md` records: the retrieval route for `RS14` (mediaTUM, no
-  account, hash pinned), that `RHS12` is reprinted in full within it (so the paper the
-  plan names and the dissertation chapter read are the same text), the two force-law
-  derivations with their Monte Carlo corroboration, and the momentum-bookkeeping
-  cross-check of MCRM-R-006.
+- **MCRM-R-011.** `PROVENANCE.md` records the retrieval route for `RS14` (mediaTUM, no
+  account, hash pinned), that `RHS12` is reprinted in full within it, and — distinct from
+  `SPEC-srp-analytic`'s own provenance entry, which keeps the force laws' derivation
+  story — this version's relocation: what `v1.0` got wrong, what moved, and the
+  `FlatSurface` redesign this review's own scrutiny found before any test found it.
+
+---
+
+## Retired identifiers
+
+Kept so that a reference in a changelog, a review note or an earlier draft resolves rather
+than dangling — the same discipline `SPEC-eop.md` established for exactly this situation.
+Every row below moved to `SPEC-srp-analytic` in v2.0 unless its "why" says otherwise.
+
+| id | retired | replaced by | why |
+|---|---|---|---|
+| `MCRM-R-005` | v2.0 | `SRPA-R-001` | The flat-surface force law. Physics, not schema. |
+| `MCRM-R-006` | v2.0 | `SRPA-R-002` | The flat-surface law's normal-incidence case. |
+| `MCRM-R-007` | v2.0 | `SRPA-R-003` | The spherical-surface force law. |
+| `MCRM-R-008` | v2.0 | `SRPA-R-004` | The two laws' coefficient comparison — corrected in its new home (§4's own note). |
+| `MCRM-R-009` | v2.0 | `SRPA-R-005` | A sphere's attitude-independence, a property of the force law. |
+| `MCRM-R-010` | v2.0 | `SRPA-R-006` | `srp_force` itself. |
+| `MCRM-F-004` | v2.0 | `SRPA-F-001` | `srp_force`'s empty-macromodel refusal; the function moved with it. |
+| `MCRM-F-005` | v2.0 | *(none)* | `srp_force`'s non-unit-sun-direction refusal. Not carried forward: `BodyDirection`'s own type already makes that state unreachable (`MCRM-F-002`), so a second check at the call boundary guarded nothing a caller could actually produce. |
+| `MCRM-P-1` | v2.0 | `SRPA-P-1` | The sphere coefficient's Monte Carlo corroboration. |
+| `MCRM-P-2` | v2.0 | `SRPA-P-2` | The force laws' own precision statement. |
+| `MCRM-A-001` | v2.0 | `SRPA-A-001` | The cannonball round-trip *against a force*. `MCRM-A-011` (§8) is this schema's own, force-free replacement. |
+| `MCRM-A-002` | v2.0 | `SRPA-A-002` | ρ-invariance of a sphere's force. |
+| `MCRM-A-003` | v2.0 | `SRPA-A-003` | Attitude-independence of a sphere's force. |
+| `MCRM-A-004` | v2.0 | `SRPA-A-004` | The flat-plate degenerate force case. |
+| `MCRM-A-005` | v2.0 | `SRPA-A-005` | **Corrected**, not only moved: v1.0 tested only ρ = 0, where the gap the plan warns about is smallest; `SRPA-A-005` adds ρ = 0.9. |
+| `MCRM-A-008` | v2.0 | `SRPA-A-006` | `srp_force`'s empty-macromodel test. |
+| `MCRM-A-009` | v2.0 | `SRPA-A-008` | The constraint-8 discharge for `srp_force`. |
+| `MCRM-A-010` | v2.0 | `SRPA-A-007` | The flat surface's cos θ < 0 domain test. |
 
 ---
 

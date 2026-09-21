@@ -584,6 +584,20 @@
       "upstream_mutable": false,
       "verify_note": "Both human-facing routes 403; the manuscript is reachable only through the path the open-access metadata names. It prints the FULL derivation of both models -- the SECM (spherical Earth conical model) and the new PPM -- as closed-form geometry, so an independent specification exists for both halves (plan rule 8). Table 2 gives 16 eclipse events for GRACE-A on 2007-01-20 with penumbra entry/exit in GPS time to the second; reproducing them needs GRACE-A's ephemeris for that day, which the paper does NOT print. Tables 3/4 take PPM_atm as the truth, so they measure model against model.",
       "retrieved": "2026-09-18"
+    },
+    {
+      "id": "rodriguez-solano-2014-dissertation",
+      "kind": "literature",
+      "role": "Rodríguez Solano (2014), doctoral dissertation, TU München. Reprints RHS12 (Rodríguez-Solano, Hugentobler & Steigenberger 2012, the paper the plan names for L4 step 3) in full as Chapter P-II, and carries Tables 1-2's a priori box-wing optical properties for GPS Block II/IIA and Block IIR. L4 steps 2-3.",
+      "version": "TU München doctoral dissertation, defended 2014-06-27; mediaTUM record 1188612",
+      "url": "https://mediatum.ub.tum.de/doc/1188612/719708.pdf",
+      "filename": "719708.pdf",
+      "sha256": "3dd56f8d1b54c195962c2c7b33045db53306adeecc365b88f1eb7198dd2f96cf",
+      "terms": "NOT ESTABLISHED. The search, recorded rather than its conclusion (plan rule 4): neither the PDF's own text (title page, CV page, or the reprinted P-II chapter's own header) nor the mediaTUM landing page (mediatum.ub.tum.de/1188612) contains 'creative commons', 'CC BY', 'CC-BY', 'all rights reserved', or any structured access-rights/usage-terms field. The landing page's 18 occurrences of the word 'copyright' are all the SAME repeated HTML-comment template boilerplate -- '(C) since 2007, Technical University of Munich (TUM) and mediaTUM authors', with an AGPL-3 SPDX identifier -- describing the mediaTUM REPOSITORY SOFTWARE, not the dissertation's own content; none is a statement about the thesis's licence. TUM's institutional deposit terms were not sought beyond what the page and file print, per the standing prohibition on contacting anybody.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY, the same reasoning as li-ziebart-2019-shadow: nothing derived from this dissertation is a copy of it, and it is pinned so a future reader can fetch the same hash and get the same bytes RHS12 and Tables 1-2 were read from.",
+      "upstream_mutable": false,
+      "verify_note": "Retrieved with no account and no request form: mediatum.ub.tum.de serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). 144 pages. Chapter P-II (pp. 85-101) reprints Rodríguez-Solano, Hugentobler & Steigenberger (2012), Adv. Space Res. 49(7):1113-1128, doi:10.1016/j.asr.2012.01.016 in full and unaltered -- confirmed by comparing the reprint's own header, which states the journal, volume, pages and DOI. Chapter 5 (pp. 59-67) and the reprinted P-II's Tables 1-2 (p. 93) carry a priori box-wing dimensions and optical properties for GPS Block I, IIA, IIR, IIF, GLONASS, GLONASS-M and GLONASS-K, sourced in turn from Fliegel et al. (1992) and Fliegel & Gallini (1996).",
+      "retrieved": "2026-09-22"
     }
   ]
 }

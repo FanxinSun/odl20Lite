@@ -168,13 +168,4 @@ private:
     std::optional<Cited<Vec3>> com_m_;
 };
 
-/// MCRM-R-010, MCRM-R-005/006/007.  Both in the body frame throughout
-/// (SPEC-macromodel §3): `sun_direction_body` is the Sun direction AS SEEN IN
-/// THE SATELLITE'S OWN BODY FRAME, which the caller supplies -- this module
-/// never touches attitude -- and the returned force is in that same frame.
-/// Newtons, not an acceleration: dividing by the macromodel's own cited mass
-/// is left to the caller (SPEC-macromodel MCRM-R-005's header note).
-[[nodiscard]] odl::Result<Vec3, MacromodelError>
-srp_force(const Macromodel& model, const BodyDirection& sun_direction_body);
-
 }  // namespace odl::macromodel

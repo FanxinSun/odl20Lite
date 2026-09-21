@@ -2465,11 +2465,25 @@ puts exactly half its flux either side of a central chord. Peak at 1 − *F*ₛ 
 figures over 1 000 … 8 000 azimuths.
 
 **And one thing the estimate did not predict: 99.9 % of it cancels across a full passage.** The
-net time integral is 1.5 × 10⁻⁴ s of equivalent full sunlight against an absolute integral of
-1.14 × 10⁻¹ s. But the **running** integral swings to 5.7 × 10⁻² s mid-passage — **376 × the net**
-— so it cancels *across* a passage and not *within* one. Anything sampling inside a passage sees
-the full 1.97 × 10⁻². That is a property of the passage, not of the model, and it is why an axis
-this large has been survivable.
+net time integral is 1.56 × 10⁻⁴ s of equivalent full sunlight against an absolute integral of
+1.14 × 10⁻¹ s. But the **running** integral swings to 5.72 × 10⁻² s mid-passage — **367 × the
+net** — so it cancels *across* a passage and not *within* one. Anything sampling inside a passage
+sees the full 1.97 × 10⁻². That is a property of the passage, not of the model, and it is why an
+axis this large has been survivable.
+
+**Corrected 2026-09-22, and it is the tool's first catch of its own kind.** This section
+originally read 376×, computed from the ad hoc scratch investigation that preceded
+`tools/penumbral_cancellation.py`'s existence (net −1.5188 × 10⁻⁴ s, running 5.7181 × 10⁻² s —
+that division is 376.5, correctly rounded). The COMMITTED, reproducible tool, run end to end,
+gives the net and running-integral figures now printed above instead, and 5.72 × 10⁻²/1.56 × 10⁻⁴
+is 367, not 376. `net` is a small residual of two much larger, nearly-cancelling areas, so it is
+more sensitive to exact quadrature and window-boundary choices than `abs` (stable at
+1.14 × 10⁻¹ s across both computations) or the cancellation percentage itself — the discrepancy is
+resolution sensitivity in an already-known-sensitive quantity, not a new arithmetic error, and the
+authoritative figure is now whatever the committed tool prints, not a number carried over from
+before the tool existed. Found by the manager running the freshly-committed tool for the first
+time and checking its output against what was written down — §4 rule 3's whole argument for
+committing a regenerator rather than a frozen figure, demonstrated rather than only stated.
 
 Neither model here is affected *relative to the other*, since both assume a uniform disc; what the
 axis changes is the meaning of the agreement figure. **Agreement with the uniform-disc definition
@@ -2681,6 +2695,91 @@ below it have (plan §5 constraint 7) — the arc fit `srp-analytic` (step 3) ev
 GPS optical properties for, but that population is L5's job and this step's whole point is to have
 a contract ready for it before it exists.
 
+## 27. L4 step 2 reviewed, corrected, and step 3 opened with the relocation it required
+
+`SPEC-macromodel.md` to v2.0. `SPEC-srp-analytic.md` v1.0, Spec ID `SRPA`, `modules/srp_analytic`.
+Gated by `SRPA-A-001`…`-A-008`; `modules/macromodel` gains `MCRM-A-011`/`-A-012`.
+
+### 27.1 `srp_force` was physics living inside a data module, and moved
+
+§26 built `srp_force` inside `modules/macromodel`. Review: L5 is designed as "data with
+per-value citations, not as code" (`doc/REWRITE_PLAN.md` §3.6), and a force computation inside
+the schema module means every consumer of the macromodel schema — including L5's own
+population code, which wants only the schema — links an SRP force whether it needs one or
+not. `PERT-Q-001`'s precedent against exactly this shape, now applied to a sibling case.
+`srp_force`, both force laws, and every test that computes a force moved to
+`modules/srp_analytic`, which depends on `odl::macromodel`; `odl::macromodel` does not depend
+on it, so the link boundary now says what the module boundary means.
+
+**The schema gained a gate of its own once the force left**: `MCRM-A-011` builds a one-surface
+`Macromodel`, every field with a distinct stated citation, and reads every value and every
+citation back, asserting identity — a schema this general (N surfaces of either kind) needs a
+check that does not depend on a consumer existing to exercise it indirectly. `MCRM-A-012` does
+the same for both `FlatSurface` normal modes.
+
+### 27.2 The factor-of-two guard tested the one case where there isn't one
+
+`MCRM-A-005` (v1.0) asserted the flat-plate and sphere coefficients differ, at a stated δ > 0
+with **ρ = 0 always**. The general gap is ρ + 2δ/9 (§26.2's two coefficients, subtracted); at
+ρ = 0 that is at most 2/9 ≈ 0.22 for any δ ≤ 1 — small by construction. The dominant term is
+ρ, not δ: at ρ = 0.9, δ = 0 (a specular sail) the ratio between the two coefficients is
+**1.90**; at ρ = 0.5, δ = 0.2 (a mixed panel) it is **1.50**; the largest a δ-only sweep at
+ρ = 0 can ever produce is **1.22**. A specular sail is exactly the shape of this project's one
+confirmed error on real data (§20's 53%-vs-26% LightSail-2 reading, a reflectivity/specularity
+mix-up) — the case the guard exists to catch, and the case ρ = 0 sets aside identically on
+every row. `SRPA-A-005` corrects this: it asserts the gap **across a range of ρ including
+ρ = 0.9**, and asserts explicitly that at least one case shows a ratio no ρ = 0 sweep could
+produce (§8's own guard against a future edit narrowing the range back).
+
+**The framing that produced the narrow test is recorded, not only the fix.** Reporting the
+original result, the executor described the diffuse-term difference — 2δ/3 against 4δ/9 — as
+"a factor of 3" (both in a message and, found on inspection, in the committed spec and
+provenance text itself). The true ratio is (2/3)/(4/9) = **1.5**; "3" is what dividing the
+denominators alone gives (9/3), not the coefficients. The diffuse term is also, structurally,
+the *smaller* of the two terms in the gap — ρ + 2δ/9 — so a framing that inflated it drew
+attention away from the term that actually carries the plan's warning. Neither the inflated
+ratio nor the emphasis it produced was deliberate, and both are corrected here rather than
+only in the number that follows from them.
+
+### 27.3 The `FlatSurface` redesign, found before any test found it
+
+Kept from §26.4 without change, since the review did not touch it: the first `FlatSurface`
+paired a `NormalMode` with an independent `optional<BodyDirection>`, which let the two
+disagree (`body_fixed` with no normal supplied, or `sun_pointing` carrying a normal that would
+be silently ignored) — a mismatch nothing would have caught until `srp_force` dereferenced an
+empty optional. Replaced with two named factories, each the only source of one `NormalMode`.
+Named again here because it is the part of this step the manager's review called out
+specifically as done right: an invalid state found by asking what a dereference does, before
+any test found it by failing.
+
+### 27.4 Two more things a reproducible tool and a second reviewer found
+
+**The recorded swing ratio was wrong**, caught by the manager running `tools/penumbral_cancellation.py`
+end to end for the first time: §25.10 said 376× the net; the committed tool prints 367×. `net`
+is a small residual of two much larger, near-cancelling areas — more sensitive to exact
+resolution than `abs`, which held at 1.14 × 10⁻¹ s across both computations — so the discrepancy
+is resolution sensitivity in an already-known-sensitive quantity, carried forward from before
+the tool existed, not a new arithmetic error. Corrected in §25.10 and in `SPEC-shadow` `SHDW-R-031`
+to the figure the committed tool actually prints. This is the first time a regenerator in this
+tree has caught its own recorded figure on its first run — the demonstration plan §4 rule 3's
+"excused from the gate is not excused from reproducibility" was written for.
+
+**`RS14` was described as pinned before it was.** §26.1 stated the retrieval route and said
+`RS14` is a `literature`-kind manifest entry; the manifest entry itself was not actually added
+until this review found the gap. Added now (`manifest/manifest.json`), with a terms search of
+the same depth as `LI19`'s (§2): neither the PDF's own text nor the mediaTUM landing page states
+a licence; the landing page's 18 "copyright" hits are all the same repeated template comment
+about the mediaTUM repository software, not the thesis. Verified against `tools/fetch.py verify`
+and `check-licences`.
+
+### 27.5 What this section does and does not claim
+
+Step 3 is **opened**, not closed. `SRPA` v1.0 covers exactly what the relocation carried —
+the cannonball and flat-plate force laws, already reviewed as part of step 2 — and states
+box-wing itself (`SRPA-Q-001`) as not yet attempted. `RS14`'s Tables 1–2, the real GPS optical
+properties box-wing will need, are read by no test in either module; they remain L5's
+population and step 3's own future work, not this commit's.
+
 ---
 
 ## Changelog
@@ -2688,6 +2787,7 @@ a contract ready for it before it exists.
 | date | change |
 |---|---|
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
+| 2026-09-22 | §27 added, SPEC-macromodel to v2.0, SPEC-srp-analytic v1.0 (new): step 2 reviewed. srp_force moved out of the schema module to modules/srp_analytic (PERT-Q-001's precedent); the schema gained its own force-free round-trip gate (MCRM-A-011/012). MCRM-A-005 corrected: it tested the flat-plate/sphere gap only at rho=0, where the gap is smallest (<=0.22); the dominant term is rho, not delta -- 1.90 at a specular sail (rho=0.9), the shape of this project's one confirmed real-data error (LightSail-2). The "factor of 3" on the diffuse term was itself wrong (it is 1.5) and had reached the committed spec and provenance text, not only a message; corrected. tools/penumbral_cancellation.py caught its own recorded figure on first run (376x -> 367x, SS25.10). RS14 had been described as pinned before the manifest entry actually existed; added and verified. |
 | 2026-09-22 | §26 added: L4 step 2, the macromodel schema. RHS12 (the plan's own cited paper) reprinted in full in the author's open dissertation, no account needed. Two force laws re-derived independently (momentum bookkeeping for the flat plate, hemisphere integration for the sphere) and Monte Carlo-checked before being trusted; the sphere's coefficient 1+4delta/9 has no rho term, unlike the flat plate's 1+rho+2delta/3, confirming the plan's own "factor of two" warning is two compounding simplifications, not one. FlatSurface redesigned mid-implementation to two named factories after finding a plain struct would let NormalMode and its optional normal disagree. Gated entirely on two degenerate configurations (a spherical cannonball, a black sun-pointing sail), nothing read from RS14's real GPS tables, which stay for L5. |
 | 2026-09-22 | §25.11 added, SPEC-shadow to v1.2 (R-031 re-derived, R-033 added): the 99.9 % cancellation figure was a property of ONE traversal (LEO, circular, beta=0), now named. Measured with an actual two-body propagator rather than assumed further: a beta angle within ~1 degree of the eclipse cutoff breaks it substantially (48-75% cancels there); genuine off-apsis eccentricity breaks it modestly (99.4-99.8%); eccentricity AT an apse does not break it at all, exactly, because the two-body problem is time-symmetric about apsis passage regardless of e — the configuration the phrase "an eccentric orbit" most naturally suggests turned out to be the wrong hypothesis, not a smaller effect. SHDW-Q-005 ruled: defer on NEED, not gateability, unlike Q-003. Four faults in the search tool itself along the way, all caught before the numbers were recorded. |
 | 2026-09-19 | §25.10 added: the reference definition was itself a family choice. Bolometric limb darkening is 1.97e-2 at LEO — 83x the projection choice and 10 000x the oblateness the PPM is adopted for — but 99.9 % cancels across a passage and none within one. Agreement with the uniform-disc definition is not accuracy. A fourth instance of the empty-comparison fault, in the resolution check written to prevent it. |
