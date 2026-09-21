@@ -216,7 +216,12 @@ effect on *F*ₛ:
     apse inherits that symmetry regardless of *e*. Measured at *e* = 0, 0.3, 0.5, 0.7, 0.85, all
     99.84–99.90 %, statistically indistinguishable from the circular baseline. **This is the
     configuration "an eccentric orbit breaks it" first suggests, and it does not break it at
-    all** — a corrected hypothesis, not a smaller effect.
+    all** — a corrected hypothesis, not a smaller effect. **A null result here is not evidence of
+    absence**, and is recorded as such rather than as a clean negative: the first attempt at this
+    whole measurement used exactly this configuration, found nothing, and was right for a reason
+    that meant it could not have found anything. That is the sibling of §4 rule 5's diagnostic —
+    where a result *better* than the method can produce means the method did not run, a result a
+    configuration *cannot fail* to produce means the configuration did not test.
   - *Eccentricity, eclipse OFF an apse* — genuine non-zero radial velocity at the crossing, the
     configuration actually behind "entry and exit at different angles." Measurably worse, but
     **modestly**: 99.37–99.84 % across *e* up to 0.85 and an apse offset up to 90°, an order of

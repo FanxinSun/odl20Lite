@@ -2556,9 +2556,18 @@ correctly, then diluted resolution by spreading samples over the **whole** eclip
 twenty minutes of flat umbra dwell contributing nothing; its third made an eccentric orbit's
 closest approach to the antisolar direction land inside the Earth, an unphysical orbit, caught by
 comparing the reported radius to *R*ₑ by hand; and a fourth undershot the search window for an
-off-apsis crossing by not accounting for how much of an eccentric orbit's period the last few
-degrees before periapsis actually take. Four faults, in the tool built to state one number
-precisely, each caught before the number reached this document rather than after.
+off-apsis crossing — **stated backwards in the first draft of this sentence**, caught by the
+manager: it is not the last few degrees before periapsis that take the missing time, that is
+exactly where the motion is fastest (at *e* = 0.85 the last 5° take 0.06 % of the period, the
+last 10° take 0.12 %). What takes the time is **reaching** that point at all, going forward from
+the previous periapsis through the slow apoapsis arc — nu = −121° is not passed until 96.0 % of
+the period has elapsed, at *e* = 0.85, because everything but the final ~121° of true anomaly is
+swept slowly. The window search, going forward from t = 0, needed to run that long to reach it,
+not merely past 90 %. Five faults, not four, in the tool built to state one number precisely: the
+fifth being this sentence's own first draft, caught after the number it belonged to had already
+been checked and was correct — the description of *why* the search needed fixing was wrong, not
+the fix. Each caught before reaching a reader who would have taken it as the reason rather than
+checking it.
 
 ---
 
