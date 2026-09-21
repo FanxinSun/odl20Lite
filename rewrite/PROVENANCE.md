@@ -2477,15 +2477,88 @@ is not accuracy**, and `SPEC-shadow` now says so wherever the figure appears. Th
 insensitive to the coefficient: over *u* ∈ [0.3, 0.9] the peak runs 8.8 × 10⁻³ … 3.4 × 10⁻², and
 this axis dominates at every value.
 
-Nothing implements it. Recorded as `SHDW-Q-005`: adding a brightness law changes the model, wants
-a bolometric law with its own provenance rather than Eddington's approximation, and wants a gate —
-and an ungated brightness law would be the same mistake as an ungated sixth atmospheric case.
+Nothing implements it. **Ruled: defer** (`SHDW-Q-005`) — and, the manager was careful to specify,
+**not for the reason `SHDW-Q-003` was refused**. `Q-003` had no published case to gate an
+extension against; a bolometric limb-darkening law does not have that problem, since published
+coefficients exist in quantity. The deferral is about **need**: nothing in this plan yet samples
+*inside* a penumbra passage, which is the only regime §25.11 below finds the effect surviving in.
+When a consumer that does exists — accelerometry or high-rate tracking, at L6/L7, or an L8
+campaign — it is implemented against a published bolometric law with its own provenance and its
+own gate, and Eddington becomes the cross-check rather than the source.
 
 **A fourth instance of §25.7's fault, in the check written to prevent it.** The resolution study
 for the peak first sampled a fixed fraction of the sweep window that landed **deep in the umbra**,
 where both models return 0, and reported differences of 10⁻¹⁴ across four grids — a converged
 agreement between two things that were not being compared. It now samples the recorded peak
 location. The fault survives being named; only asserting what was compared kills it.
+
+### 25.11 The 99.9 % figure was a property of one traversal, and now the traversal is named
+
+The manager would not let the cancellation figure stand unqualified: *"the antisymmetry is in the
+shadow function against occulted fraction; the integral that matters is over time. Those agree
+only if the traversal is near-symmetric."* Right, and the passage behind §25.10's numbers had
+never been named — LEO, *r* = 7331 km, **circular**, the shadow axis in the orbital plane
+(β = 0°), one side of the penumbral transition, 12.0 s. That geometry is symmetric for two
+reasons that happen to coincide there: a circular orbit crosses at exactly constant angular rate,
+and β = 0 puts the crossing exactly on the sun-Earth line. Four candidate mechanisms were named as
+capable of breaking it — high beta, a shallow crossing, an eccentric orbit, entry and exit at
+different angles — and each was **measured**, with an actual two-body Kepler propagator (bisection
+for Kepler's equation, not an approximation), rather than reasoned about by hand a second time
+after the visible-band limb-darkening estimate had already shown where that goes wrong.
+
+**Orbital-plane tilt, swept from β = 0 to the eclipse's own cutoff angle *a*ₑ.** The degradation is
+**smooth**, not a cliff, and confined to a narrow band right at the cutoff:
+
+| β/*a*ₑ | 0 | 0.3 | 0.6 | 0.8 | 0.9 | 0.95 | 0.97 | 0.98 | 0.99 | 0.995 | 0.998 | 0.9995 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| cancels | 99.87% | 99.85% | 99.75% | 99.49% | 98.94% | 97.83% | 96.35% | 94.47% | 88.66% | 74.68% | 65.33% | 48.32% |
+
+Nine-tenths of that range (β up to 0.9*a*ₑ) barely moves the figure; the **last one percent**
+before the exact grazing tangent is where it fails. β/*a*ₑ = 0.99 is **half a degree** short of
+the cutoff at LEO — the dawn-dusk / eclipse-season-edge regime, not "high beta" in general, where
+the 99.9 % figure is undisturbed. The two most extreme rows (74.68 %, 48.32 %) were checked by a
+four-fold refinement in both time-sample count and azimuthal resolution and did not move past the
+fourth decimal place before being recorded — §4 rule 5's diagnostic, applied before either number
+went in the document rather than after a challenge.
+
+**Eccentricity, eclipse at an apse — and this is where "an eccentric orbit breaks it" turned out
+to be the wrong hypothesis, not a smaller effect.** Held at LEO perigee (*r* = 7331 km) with the
+eclipse centred exactly on periapsis, cancellation across *e* = 0, 0.3, 0.5, 0.7, 0.85 measured
+99.84–99.90 % — statistically indistinguishable from the circular baseline, at every eccentricity
+tried, including a Molniya-like 0.85. The reason is not empirical: **an unperturbed two-body orbit
+is exactly time-symmetric about apsis passage**, *r*(−*t*) = *r*(*t*) identically, for any *e*, so
+an eclipse that happens to sit on an apse inherits that symmetry regardless of how eccentric the
+orbit is. The first attempt at this measurement used exactly this configuration and found nothing
+— which is correct, not a failed stress test, once the reason is seen: it was never actually
+testing what it was built to test.
+
+**Eccentricity, eclipse OFF an apse — the configuration actually behind "entry and exit at
+different angles".** With the eclipse point offset from periapsis by 45° or 90° (genuine non-zero
+radial velocity there, perigee held at a safe 600 km altitude so the orbit stays physical),
+cancellation measured 99.37–99.84 % across *e* up to 0.85 and both offsets — **measurably worse
+than the on-apsis case, but an order of magnitude short of the near-cutoff effect above.**
+
+**So of the four candidates, one dominates, and it is a narrow one.** A beta angle within about a
+degree of an orbit's own eclipse cutoff breaks the cancellation substantially; genuine eccentricity
+away from an apse breaks it modestly; eccentricity at an apse — the configuration the phrase most
+naturally suggests — does not break it at all, exactly, for a reason that is a fact about the
+two-body problem rather than a property of this module. `SHDW-R-031` now states the one traversal
+it measured; `SHDW-R-033` states what was found to move it and by how much. Neither is asserted by
+a gated test — carrying a two-body propagator permanently to check a deferred feature's magnitude
+would be its own kind of over-building — so both are recorded in `SPEC-shadow` §8's Coverage
+exceptions rather than claimed as gated.
+
+**The search itself needed the same discipline the whole investigation was about.** Its first
+version centred the sampling window on the point of deepest occultation with a window far too
+narrow to reach the penumbra at all (11.9 s of pure umbra, both models exactly 0, "cancellation"
+of a comparison between nothing and nothing); its second, widened to find the transition
+correctly, then diluted resolution by spreading samples over the **whole** eclipse including
+twenty minutes of flat umbra dwell contributing nothing; its third made an eccentric orbit's
+closest approach to the antisolar direction land inside the Earth, an unphysical orbit, caught by
+comparing the reported radius to *R*ₑ by hand; and a fourth undershot the search window for an
+off-apsis crossing by not accounting for how much of an eccentric orbit's period the last few
+degrees before periapsis actually take. Four faults, in the tool built to state one number
+precisely, each caught before the number reached this document rather than after.
 
 ---
 
@@ -2494,6 +2567,7 @@ location. The fault survives being named; only asserting what was compared kills
 | date | change |
 |---|---|
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
+| 2026-09-22 | §25.11 added, SPEC-shadow to v1.2 (R-031 re-derived, R-033 added): the 99.9 % cancellation figure was a property of ONE traversal (LEO, circular, beta=0), now named. Measured with an actual two-body propagator rather than assumed further: a beta angle within ~1 degree of the eclipse cutoff breaks it substantially (48-75% cancels there); genuine off-apsis eccentricity breaks it modestly (99.4-99.8%); eccentricity AT an apse does not break it at all, exactly, because the two-body problem is time-symmetric about apsis passage regardless of e — the configuration the phrase "an eccentric orbit" most naturally suggests turned out to be the wrong hypothesis, not a smaller effect. SHDW-Q-005 ruled: defer on NEED, not gateability, unlike Q-003. Four faults in the search tool itself along the way, all caught before the numbers were recorded. |
 | 2026-09-19 | §25.10 added: the reference definition was itself a family choice. Bolometric limb darkening is 1.97e-2 at LEO — 83x the projection choice and 10 000x the oblateness the PPM is adopted for — but 99.9 % cancels across a passage and none within one. Agreement with the uniform-disc definition is not accuracy. A fourth instance of the empty-comparison fault, in the resolution check written to prevent it. |
 | 2026-09-18 | §25 added: L4 step 1, both halves. The hyperbolic silhouette is the normal case at LEO — the opposite of the annular branch, and recorded beside it. An unnamed sixth family choice is worth 99× the oblateness the PPM is adopted for. LI19's five atmospheric cases do not cover the geometry above 1 983 km, which includes Galileo. Three faults found, all of them checks that examined nothing. |
 | 2026-09-18 | **Four specification amendments applied**, at the manager's verdict, all three module specs to v1.3: `EOP-A-003` to TN36 §8.2's published tolerance; `FRAME-R-030` corrected to require the kinematic equation-of-equinoxes terms and `FRAME-A-001` restated at 25 mm with the unexplained z-rotation left recorded; `TIME-R-021a` for `eraDtdb`'s UT1 argument; and the prediction/leap-horizon interaction as `SPEC-eop` §4.6 and `SPEC-time` §4.9. §1 and §12.5 corrected: the ITRF-path agreement is **not** "the same algorithm" but two different algorithms whose model difference cancels because each is corrected onto the observed pole, and the kinematic terms are 4 % of T-01 rather than its cause. |
