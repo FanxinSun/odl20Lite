@@ -611,7 +611,7 @@ reason the second clause of that sentence is a gate and not a description.
 
 ---
 
-### 3.5 L4 `forces-analytic` — 1 of 7 done; **the open layer**
+### 3.5 L4 `forces-analytic` — 2 of 7 done; **the open layer**
 
 Every non-gravitational force that can be written in closed form. The ray-traced treatment of
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
@@ -672,12 +672,34 @@ the MVP needs.
    branches carry real orbits, and `SHDW-A-008` asserts **3 hyperbolic and 6 elliptical** so a run
    that exercised one branch cannot pass. Two branches that read identically in the source and
    are not alike at all.
-2. **TODO** — **Macromodel schema** (moved from L5 step 1 on the decomposition adopted above):
+2. **DONE** — **Macromodel schema** (moved from L5 step 1 on the decomposition adopted above):
    surfaces, areas, normals, optical coefficients, mass, centre of mass, each value carrying a
    citation field; a value without a citation is a load error, not a warning. **Designed** for the
    general case and **gated** on a **cannonball round-trip**, which proves the schema does not
    *require* what a cannonball has not got — the trivial force's argument, one layer up. Frozen
    before `srp-analytic` so that it is not shaped by its first client.
+
+   *Accepted with two things carried into step 3.* An SRP force was built **inside** the schema
+   module (`srp_force` in `macromodel.hpp`), which puts physics in what L5 designs as data and
+   makes every consumer of the library link a force — PERT-Q-001's precedent against it. It moves
+   to the `srp-analytic` module as step 3's first act, and the schema gains a pure round-trip
+   test of its own. And the guard the plan calls *an acceptance test, not a comment* —
+   `MCRM-A-005`, flat plate against sphere — was tested at **ρ = 0**, where the two differ by
+   only 2δ/9 (ratio 1.06). The gap is ρ + 2δ/9, so the factor of two lives in the **specular**
+   term: ratio 1.90 for a specular sail at ρ = 0.9, which is the case this project has already
+   got wrong on real data. The guard could not see the error it existed for; step 3 tests it
+   across ρ > 0.
+
+   *The sphere's coefficient is derived, not cited* — `RHS12` does not print it. Integrating the
+   flat-plate law over the lit hemisphere gives **1 + 4δ/9 with no ρ dependence at all**: a sphere
+   does not care whether it reflects specularly or absorbs. Checked against 4 × 10⁶ Monte Carlo
+   samples and independently by quadrature, and δ = ν(1 − μ) recovers the (9 + 4ν(1 − μ))/9 this
+   plan quoted.
+
+   *And the reproducibility rule caught a figure on its first run.* `tools/penumbral_cancellation.py`
+   regenerates step 1's recorded cancellation numbers, and in doing so found that PROVENANCE's
+   "376 × the net" is 367.3 — a transposition that no gate could have seen, because the number
+   was recorded and never recomputed.
 3. **TODO** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
    Rodríguez-Solano et al. 2012. The coefficient convention is stated per model and tested — a
    sphere's (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρ_s, and conflating them is a factor of
