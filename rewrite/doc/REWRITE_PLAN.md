@@ -611,7 +611,7 @@ reason the second clause of that sentence is a gate and not a description.
 
 ---
 
-### 3.5 L4 `forces-analytic` — 2 of 7 done; **the open layer**
+### 3.5 L4 `forces-analytic` — 3 of 7 done; **the open layer**
 
 Every non-gravitational force that can be written in closed form. The ray-traced treatment of
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
@@ -706,10 +706,23 @@ the MVP needs.
    right**, and the tool's default was under-resolved. The swing is a ratio to a net that is a
    0.14% residual of near-cancelling integrals, so it is the most resolution-sensitive figure in
    its table, and the one the tool's resolution check had not been pointed at.
-3. **TODO** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
+3. **DONE** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
    Rodríguez-Solano et al. 2012. The coefficient convention is stated per model and tested — a
    sphere's (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρ_s, and conflating them is a factor of
    two in a recovered area. That is an acceptance test, not a comment.
+   *Closed on a tessellated sphere, because nothing else checked the flat plate at an angle.* The
+   only single-plate test was a Sun-facing black plate — cos θ = 1, s = n, ρ = δ = 0 — where every
+   structural feature of the law is multiplied by zero or collapsed onto s; and the box-wing
+   composition test runs the same per-plate code on both sides, so a wrong law cancels out of it.
+   A sphere built from flat facets sums the law at every incidence from 0° to 90° against the
+   closed form 1 + 4δ/9 derived independently, sharpest at ρ = 1 where the facets must sum to
+   exactly 1. Pre-registered from a prototype: second-order convergence, ratios settling at 4.00,
+   reproduced here by a third implementation. **Proved by injecting the bug it targets** —
+   dropping the specular term's cos θ puts the coefficient at 4/3 *and* collapses the convergence
+   ratio from 4 to 1, two independent signatures, because a discretisation error shrinks at the
+   method's order and a wrong law does not. The single-plate absorber and mirror checks assert
+   direction as well as magnitude.
+
 4. **TODO** — `drag`: the drag force over L2's atmosphere, with the drag coefficient a
    **registered parameter from the first commit**, never a constant. Gate: published ballistic
    coefficient cases, and the parameter's sensitivity column against finite differences.
@@ -1084,6 +1097,14 @@ governs. Three rules apply to all of them:
    the band is 1.96 × 10⁻⁶ against a best agreement of 1.98 × 10⁻⁸. So the family is chosen from
    a prediction made before the run, by the middle form above, and a threshold is not fitted at
    one level by being made relative at another.
+
+   *And a convergence ratio separates a discretisation error from a wrong model, which a single
+   tolerance cannot.* Where a discretised computation is gated against a closed form, assert the
+   error's **ratio** under refinement as well as its size: discretisation error shrinks at the
+   method's order, and an error in the law being discretised does not shrink at all. L4 step 3's
+   tessellated sphere is the case — an injected law error left the ratio at 1.00 where the
+   prediction was 4 — and L4 step 5's Earth radiation pressure, an integral over the visible
+   Earth, has the same structure.
 
 8. **A reference implementation is an oracle when a specification exists that it implements, and
    is itself normative when none does — and the difference is a search, not a preference.** Rule
