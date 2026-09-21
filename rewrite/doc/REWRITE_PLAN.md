@@ -935,6 +935,16 @@ governs. Three rules apply to all of them:
    counting, 128 vs 121; block separation, 20.8σ vs 14.1σ). L8's block gate names
    its definition for exactly this reason.
 
+   **Gated and reproducible are different properties, and a recorded number needs the second
+   even when it does not warrant the first.** A characterisation of a deferred feature — L4 step
+   1's measurement of where the penumbral cancellation breaks — is rightly kept out of CI:
+   carrying a two-body propagator in the suite to assert the magnitude of something not built is
+   over-building. But the numbers it produced went into the specification with nothing in the
+   tree able to regenerate them, which is `oracle/capture.sh`'s defect after the merge — frozen
+   figures with no route back to what made them. **Excused from the gate is not excused from
+   reproducibility**: the tool that produced a recorded number is committed under `tools/`, run by
+   hand, and named next to the number.
+
    **A correction re-derives the whole statement; it does not patch one term of it.** Twice a
    review here has fixed one part of a claim and carried the rest of it across unchecked: the
    manager recorded "chapter 6 prints no worked examples" into this plan while writing the rule
