@@ -275,3 +275,146 @@ TEST_CASE("SRPA-A-007  a body-fixed flat surface facing away from the Sun contri
     REQUIRE(f.has_value());
     CHECK(f->norm() == 0.0);
 }
+
+namespace {
+
+/// Builds a Macromodel from an already-constructed list of surfaces, sharing
+/// the same test-stated 1 kg mass and origin centre of mass every other
+/// helper in this file uses (irrelevant to srp_force, which returns force).
+Macromodel many_surfaces(std::vector<Surface> surfaces) {
+    MacromodelBuilder b;
+    for (auto& s : surfaces) b.add_surface(std::move(s));
+    auto mass = cited(1.0, "test-stated");
+    auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
+    REQUIRE(mass.has_value());
+    REQUIRE(com.has_value());
+    b.set_mass(*mass).set_centre_of_mass(*com);
+    auto m = std::move(b).build();
+    REQUIRE(m.has_value());
+    return *m;
+}
+
+Surface flat_body_fixed(double area, const Vec3& normal_dir, const Triple& t) {
+    auto a = cited(area, "test-stated");
+    auto al = cited(t.alpha, "test-stated");
+    auto rh = cited(t.rho, "test-stated");
+    auto de = cited(t.delta, "test-stated");
+    auto n = must_dir(normal_dir.x, normal_dir.y, normal_dir.z);
+    REQUIRE(a.has_value());
+    auto fs = flat_surface_body_fixed(*a, n, *al, *rh, *de);
+    REQUIRE(fs.has_value());
+    return Surface{*fs};
+}
+
+Surface flat_sun_pointing(double area, const Triple& t) {
+    auto a = cited(area, "test-stated");
+    auto al = cited(t.alpha, "test-stated");
+    auto rh = cited(t.rho, "test-stated");
+    auto de = cited(t.delta, "test-stated");
+    REQUIRE(a.has_value());
+    auto fs = flat_surface_sun_pointing(*a, *al, *rh, *de);
+    REQUIRE(fs.has_value());
+    return Surface{*fs};
+}
+
+}  // namespace
+
+TEST_CASE("SRPA-A-009  box-wing composition: a multi-surface force equals the sum of its "
+          "surfaces' own forces", "[srp_analytic][gate]") {
+    // A small RHS12-SHAPED macromodel -- one sun-pointing solar panel plus
+    // three body-fixed bus faces (+X, +Z, -Z; SRPA-R-008a's own convention) --
+    // with areas and optical properties STATED HERE, not read from RS14's
+    // Tables 1-2: this gate is composition, not a populated library.
+    const Triple panel{0.7, 0.05, 0.25}, plusX{0.5, 0.1, 0.4}, plusZ{0.44, 0.11, 0.45},
+        minusZ{0.58, 0.08, 0.34};
+    const double a_panel = 11.0, a_x = 2.7, a_z = 2.9, a_mz = 2.9;
+
+    std::vector<double> areas{a_panel, a_x, a_z, a_mz};
+    std::vector<Triple> triples{panel, plusX, plusZ, minusZ};
+    std::vector<Vec3> normals{{}, {1, 0, 0}, {0, 0, 1}, {0, 0, -1}};   // panel's is unused
+
+    int checked = 0;
+    double worst_rel = 0.0;
+    for (auto dir : {std::array{1.0, 0.0, 0.0}, std::array{0.3, 0.3, std::sqrt(1.0 - 0.09 - 0.09)},
+                     std::array{-0.2, 0.6, std::sqrt(1.0 - 0.04 - 0.36)}}) {
+        const auto e_D = must_dir(dir[0], dir[1], dir[2]);
+
+        std::vector<Surface> all;
+        all.push_back(flat_sun_pointing(a_panel, panel));
+        all.push_back(flat_body_fixed(a_x, normals[1], plusX));
+        all.push_back(flat_body_fixed(a_z, normals[2], plusZ));
+        all.push_back(flat_body_fixed(a_mz, normals[3], minusZ));
+        auto combined = many_surfaces(std::move(all));
+        auto f_combined = srp_force(combined, e_D);
+        REQUIRE(f_combined.has_value());
+
+        Vec3 summed{0.0, 0.0, 0.0};
+        // panel alone
+        {
+            auto m = many_surfaces({flat_sun_pointing(a_panel, panel)});
+            auto f = srp_force(m, e_D);
+            REQUIRE(f.has_value());
+            summed = summed + *f;
+        }
+        for (int i = 1; i <= 3; ++i) {
+            auto m = many_surfaces({flat_body_fixed(areas[static_cast<std::size_t>(i)],
+                                                     normals[static_cast<std::size_t>(i)],
+                                                     triples[static_cast<std::size_t>(i)])});
+            auto f = srp_force(m, e_D);
+            REQUIRE(f.has_value());
+            summed = summed + *f;
+        }
+
+        const double diff = (*f_combined - summed).norm();
+        const double scale = f_combined->norm();
+        const double rel = scale > 0.0 ? diff / scale : diff;
+        worst_rel = std::max(worst_rel, rel);
+        ++checked;
+    }
+    INFO("checked " << checked << " Sun directions on a 4-surface box-wing-shaped macromodel; "
+         "worst relative deviation of (combined force) from (sum of individual forces) = " << worst_rel);
+    CHECK(checked == 3);
+    CHECK(worst_rel < 1.0e-12);
+}
+
+TEST_CASE("SRPA-A-010  mixed lit/shadowed composition: only the lit surfaces contribute, "
+          "within a sum", "[srp_analytic][gate]") {
+    // Sun along +X. +X bus faces it (cos theta = 1); -X-facing would not, but
+    // SRPA-R-008a's own convention has no -X surface -- so this uses +Z and
+    // -Z instead, at a Sun direction that lights +Z and shadows -Z exactly by
+    // construction (e_D has no -Z component to speak of, but -Z's own normal
+    // is (0,0,-1), giving e_D.e_N = -e_D.z < 0 whenever e_D.z > 0).
+    const Triple plusX{0.5, 0.1, 0.4}, plusZ{0.44, 0.11, 0.45}, minusZ{0.58, 0.08, 0.34};
+    const double a_x = 2.7, a_z = 2.9, a_mz = 2.9;
+    const auto e_D = must_dir(0.6, 0.0, 0.8);   // e_D.z = 0.8 > 0: lights +Z, shadows -Z
+
+    std::vector<Surface> all;
+    all.push_back(flat_body_fixed(a_x, Vec3{1, 0, 0}, plusX));
+    all.push_back(flat_body_fixed(a_z, Vec3{0, 0, 1}, plusZ));
+    all.push_back(flat_body_fixed(a_mz, Vec3{0, 0, -1}, minusZ));   // shadowed at this e_D
+    auto combined = many_surfaces(std::move(all));
+    auto f_combined = srp_force(combined, e_D);
+    REQUIRE(f_combined.has_value());
+
+    auto m_x = many_surfaces({flat_body_fixed(a_x, Vec3{1, 0, 0}, plusX)});
+    auto m_z = many_surfaces({flat_body_fixed(a_z, Vec3{0, 0, 1}, plusZ)});
+    auto m_mz = many_surfaces({flat_body_fixed(a_mz, Vec3{0, 0, -1}, minusZ)});
+    auto f_x = srp_force(m_x, e_D);
+    auto f_z = srp_force(m_z, e_D);
+    auto f_mz = srp_force(m_mz, e_D);
+    REQUIRE(f_x.has_value());
+    REQUIRE(f_z.has_value());
+    REQUIRE(f_mz.has_value());
+
+    INFO("-Z's own contribution at this Sun direction: " << f_mz->norm() << " N (must be exactly 0)");
+    CHECK(f_mz->norm() == 0.0);   // the case is not vacuous: -Z really is shadowed here
+    CHECK(f_x->norm() > 0.0);     // and +X, +Z really are lit
+    CHECK(f_z->norm() > 0.0);
+
+    const Vec3 lit_only_sum = *f_x + *f_z;   // deliberately excludes f_mz, which is zero anyway
+    const double diff = (*f_combined - lit_only_sum).norm();
+    const double rel = diff / f_combined->norm();
+    INFO("relative deviation of (3-surface combined force) from (sum of the two LIT surfaces "
+         "alone) = " << rel);
+    CHECK(rel < 1.0e-12);
+}

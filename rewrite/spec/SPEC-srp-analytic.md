@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `SRPA` |
-| **Status** | **draft** 2026-09-22, for review — **cannonball and flat plate only**; box-wing is `SRPA-Q-001` |
-| **Version** | 1.0 |
+| **Status** | **draft** 2026-09-22, for review (v1.1 adds §4.1: box-wing is composition, `SRPA-Q-001` closed) |
+| **Version** | 1.1 |
 | **Date** | 2026-09-22 |
 | **Layer** | L4 `forces-analytic`, step 3 (`doc/REWRITE_PLAN.md` §3.5) |
 | **Depends on** | `core`, `macromodel` |
@@ -31,14 +31,29 @@ ruling that the original test could not see the error it existed for.
 
 ## 1. Purpose and scope
 
-The direct solar radiation pressure force, for the two macromodel configurations this step
-covers: a **spherical cannonball** and a **single flat plate**. Both are closed forms over
-a `macromodel::Macromodel` (`SPEC-macromodel`).
+The direct solar radiation pressure force, over a `macromodel::Macromodel`
+(`SPEC-macromodel`) of any number of surfaces. v1.0 covered the **spherical cannonball**
+and a **single flat plate** — both closed forms over one surface. v1.1 answers
+`SRPA-Q-001`: **box-wing needs no new force law**, because `srp_force` already sums
+`SRPA-R-001`/`-R-003` over every surface a `Macromodel` holds, and RHS12's box-wing —
+"a satellite bus (box shape) and solar panels" — *is* several `FlatSurface`s under one
+`Macromodel`. What v1.0 had not done was prove that summation correct for more than one
+surface; `SRPA-R-008` states the claim and `SRPA-A-009`/`-A-010` prove it.
 
 **Not in scope:**
 
-- **Box-wing** — summing several flat and/or spherical surfaces under a real satellite's
-  nominal attitude, with the D/Y/B Sun-fixed frame `RHS12` Fig. 1 defines. `SRPA-Q-001`.
+- **The nominal attitude law.** RHS12's box-wing assumes an ideal Sun-tracking yaw
+  attitude and the D/Y/B Sun-fixed frame (Fig. 1) to derive *which* body-fixed direction
+  each bus surface's normal points at a given orbit position. This spec's `srp_force`
+  takes `sun_direction_body` as given (§3's own convention, unchanged): computing *that*
+  vector from an orbit position and an attitude law is a different module's job, not
+  this one's, whether the macromodel has one surface or several.
+- **Real satellite data.** No test in this spec's v1.1 reads `RS14`'s Tables 1–2 as a
+  library entry. §4.2's rule-4 finding is why: `RHS12` prints no closed-form force-level
+  expected value from stated a-priori inputs — Fig. 11's reconstructed acceleration uses
+  **fitted**, not a-priori, optical parameters, and is a graph, not a printed number — so
+  there is no category-1 published test case for box-wing to gate against, and the values
+  that would make one wait for L5 (`doc/REWRITE_PLAN.md` §3.6).
 - **Eclipse scaling** — `SPEC-shadow`'s *F*ₛ is not applied here; this spec's force laws
   assume full sunlight throughout, and a caller multiplying by *F*ₛ is composing two
   modules' outputs, not something either module does internally (plan §5 constraint 8's
@@ -112,6 +127,41 @@ as a note about provenance and not as part of the requirement's own identifying 
   R-001/R-003 over every surface, body frame throughout, no monadic chaining. *(Was
   `MCRM-R-010`.)*
 
+### 4.1 Box-wing, answering `SRPA-Q-001`
+
+- **SRPA-R-008.** RHS12's box-wing model — "a satellite bus (box shape) and solar
+  panels" — **is** a `Macromodel` of several `FlatSurface`s: a `sun_pointing` one for
+  the solar panels, and `body_fixed` ones for the bus. It needs **no separate force
+  law**: R-006 already sums R-001/R-003 over every surface a `Macromodel` holds, for
+  any count. What v1.0 left unproven is that the sum is correct for more than one
+  surface — every acceptance row through `SRPA-A-008` used exactly one.
+  - **SRPA-R-008a.** RHS12's own bus convention uses **four** surfaces, not six: Table 1
+    and Table 2 list only *solar panels*, *+X bus*, *+Z bus*, *−Z bus* — no *−X* or
+    *±Y* row. Under the nominal Sun-tracking yaw attitude Fig. 1 defines, −X and both Y
+    faces never face the Sun, so they contribute nothing through R-001's own cos θ < 0
+    domain and RHS12 omits stating optical properties for surfaces that would always be
+    multiplied by zero. This schema does not need to know that: a caller who supplies a
+    `Macromodel` with only four `FlatSurface`s gets exactly this convention for free,
+    because R-001's domain already excludes any surface that happens to face away.
+
+**Rule 4's first half, applied to `RHS12` before designing this section's gate:** does
+it print a closed-form, force-level expected value — an acceleration for a stated
+geometry, from stated a-priori inputs — that a box-wing implementation could be checked
+against directly? **No.** §8 "Reconstruction of SRP acceleration" (Fig. 11) plots
+reconstructed accelerations for two named satellites at a stated β₀, but that
+reconstruction combines Table 1/2's a-priori *dimensions* with **parameters estimated by
+fitting real GPS tracking data** (Fig. 5) — not the a-priori optical properties alone —
+and gives the result only as a graph, not a printed number. Every other quantity in §§6–8
+is an orbit-level residual (pseudo-stochastic pulses, orbit overlap/prediction error, SLR
+bias) several steps downstream of a raw force, through a full numerical orbit
+integration this layer does not perform. **There is no category-1 test case for
+box-wing.** The gate is therefore composition (`SRPA-A-009`, `-A-010`): box-wing's force
+equals the sum of its surfaces' individually-derived-and-tested forces, which is exactly
+what plan rule 8's converse offers here — box-wing has an independent specification by
+*construction*, being a sum of a law already derived from first principles, checkable
+against arithmetic that does not involve `RHS12` at all. What `RHS12` could still add is
+only the specific numbers, and those — Tables 1–2 — remain L5's.
+
 ---
 
 ## 5. Interfaces, stated language-free
@@ -171,6 +221,8 @@ in substance but renumbered along with everything around it.
 | `SRPA-A-006` | (was `MCRM-A-008`) `srp_force` on an empty-surfaces macromodel refuses | the diagnostic | refusal catalogue | — | F-001 |
 | `SRPA-A-007` | (was `MCRM-A-010`) the cos θ < 0 domain, fired: a body-fixed flat surface facing away from the Sun contributes nothing | force exactly zero | R-001's stated domain | exact | R-001 |
 | `SRPA-A-008` | (was `MCRM-A-009`) constraint 8, `odl::Result` throughout, via `ci.sh` gate 9 | as stated | plan §5 constraint 8 | — | R-006 |
+| `SRPA-A-009` | **composition**: a multi-surface `Macromodel` (3–4 `FlatSurface`s, stated areas/optical properties/normals, a mix of `body_fixed` and `sun_pointing`) evaluated by `srp_force`, against the VECTOR SUM of `srp_force` on each surface evaluated alone (as its own one-surface `Macromodel`) — proving R-006's sum is correct for *N* > 1, which no row through `SRPA-A-008` exercised | the multi-surface force equals the sum of the single-surface forces, at several Sun directions | R-001, R-003 (linearity of the sum itself) | 1×10⁻¹² relative | R-006, R-008 |
+| `SRPA-A-010` | **mixed lit/shadowed composition**: a multi-surface `Macromodel` at a STATED Sun direction under which at least one surface is lit (cos θ > 0) and at least one is not (cos θ < 0) — asserting the total equals the sum of ONLY the lit surfaces' individual forces, and that at least one surface's own contribution really is zero at that direction (so the case is not vacuous) | total matches the lit-only sum; at least one surface contributes exactly zero | R-001's domain, composed | exact / 1×10⁻¹² relative | R-001, R-008a |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -192,4 +244,4 @@ in substance but renumbered along with everything around it.
 
 | id | question |
 |---|---|
-| `SRPA-Q-001` | **Box-wing itself** — summing several surfaces under `RHS12`'s nominal D/Y/B attitude — is the rest of step 3 and is not attempted here. This spec's version 1.0 is deliberately the smaller, already-reviewed cannonball/flat-plate content the relocation carries, not a claim that step 3 is complete. |
+| `SRPA-Q-001` | **Closed in v1.1.** Box-wing needed no new force law (§4.1, `SRPA-R-008`): `srp_force` already sums over every surface, and RHS12's box-wing is several `FlatSurface`s under one `Macromodel`. Rule 4's first half found no force-level published case (`RHS12` prints only fitted-parameter reconstructions as a graph, and orbit-level residuals) — plan rule 8's converse answers it instead: a sum of an already-derived law has an independent specification by construction. `SRPA-A-009`/`-A-010` gate the composition. The nominal D/Y/B attitude LAW remains out of scope (§1) — this spec takes `sun_direction_body` as given regardless of surface count, and computing it from an orbit position is a different module's job. |

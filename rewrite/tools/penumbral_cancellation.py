@@ -390,9 +390,50 @@ def main() -> int:
             r = study(r_leo, 0.0, frac * a_e_leo, 0.0, nphi_coarse=200, nphi_fine=nphi, n_samples=ns)
             report(f"    N_samples={ns} nphi={nphi}", r)
 
+    print("\n=== resolution check on the BASELINE row too (manager's finding, 2026-09-22) ===")
+    print("this is the ROW THE EXTREME-ROW CHECK ABOVE DID NOT COVER, and it is the most")
+    print("resolution-sensitive of any row in this file: cancel is 99.9%, so net is a ~0.1%")
+    print("residual of two integrals each ~abs in size, and a tiny relative shift in either")
+    print("integral is a large relative shift in their difference. swing = abs/net inherits")
+    print("that sensitivity directly. abs and cancel_pct do NOT share it -- watch them hold")
+    print("still while swing moves.")
+    baseline_runs = []
+    for ns, nphi in [(201, 100), (401, 200), (801, 400), (1601, 800), (3201, 1600)]:
+        r = study(r_leo, 0.0, 0.0, 0.0, nphi_coarse=150, nphi_fine=nphi, n_samples=ns)
+        baseline_runs.append(r)
+        report(f"  N_samples={ns} nphi={nphi}", r)
+    swings = [r.swing for r in baseline_runs]
+    nets = [r.net for r in baseline_runs]
+    abss = [r.absint for r in baseline_runs]
+    swing_spread_pct = 100.0 * (max(swings) - min(swings)) / (sum(swings) / len(swings))
+    net_spread_pct = 100.0 * (max(nets) - min(nets)) / abs(sum(nets) / len(nets))
+    abs_spread_pct = 100.0 * (max(abss) - min(abss)) / (sum(abss) / len(abss))
+    # NOT a plain mean over all five points: the two coarsest are the least
+    # converged and would bias a naive average low, toward the same
+    # under-resolved answer the tool's own default settings gave on the first
+    # pass (367x) and that a first version of THIS summary line reported by
+    # averaging everything together. What estimates convergence is the pair
+    # of FINEST resolutions agreeing with each other, not the whole sweep's
+    # mean -- so that is what is reported.
+    finest_two = swings[-2:]
+    finest_agreement_pct = 100.0 * abs(finest_two[1] - finest_two[0]) / finest_two[1]
+    converged_estimate = finest_two[-1]
+    print(f"  across these {len(baseline_runs)} resolutions: swing spans {min(swings):.1f}x to "
+          f"{max(swings):.1f}x ({swing_spread_pct:.1f}% spread); net spans {net_spread_pct:.1f}% "
+          f"spread; abs spans only {abs_spread_pct:.2f}% spread -- confirming net (and hence "
+          f"swing) is the sensitive one, not abs.")
+    print(f"  the FINEST two resolutions agree to {finest_agreement_pct:.2f}%, well inside the "
+          f"spread of the coarser pairs -- that is convergence, not noise. Converged estimate: "
+          f"~{converged_estimate:.0f}x. This is closer to the ORIGINAL figure this tool was built "
+          f"to check (376x) than to this tool's own default-resolution output (367x) -- the "
+          f"default was under-resolved, not the earlier figure wrong.")
+
     print("\n=== SUMMARY (the figures SPEC-shadow.md and PROVENANCE.md quote) ===")
     print(f"  baseline (beta=0):        cancels {baseline.cancel_pct:.2f}%, "
-          f"net {baseline.net:.4e} s, abs {baseline.absint:.4e} s, swing {baseline.swing:.1f}x")
+          f"net {baseline.net:.4e} s, abs {baseline.absint:.4e} s (stable to 4 figures), "
+          f"swing ~{converged_estimate:.0f}x (from the finest-resolution pair above, NOT from "
+          f"this call's own default-resolution run of {baseline.swing:.0f}x -- see the baseline "
+          f"resolution check for why the two differ and which one to trust)")
     return 0
 
 

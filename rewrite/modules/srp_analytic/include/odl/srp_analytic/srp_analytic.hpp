@@ -25,6 +25,12 @@ using SrpError = odl::Diagnostic;
 /// body frame (the caller's attitude, not this module's), and the returned
 /// force is in that same frame, in newtons -- dividing by the macromodel's
 /// own cited mass to get an acceleration is the caller's.
+///
+/// THIS IS ALSO BOX-WING'S ENTIRE FORCE LAW (SRPA-R-008): RHS12's box-wing is
+/// a satellite bus (several body-fixed FlatSurfaces) plus solar panels (a
+/// sun-pointing FlatSurface), and this function already sums over however
+/// many surfaces a Macromodel holds. Box-wing needed no new physics, only the
+/// proof that summation is correct for N > 1 -- SRPA-A-009 and SRPA-A-010.
 [[nodiscard]] odl::Result<Vec3, SrpError>
 srp_force(const macromodel::Macromodel& model, const macromodel::BodyDirection& sun_direction_body);
 

@@ -2465,25 +2465,46 @@ puts exactly half its flux either side of a central chord. Peak at 1 − *F*ₛ 
 figures over 1 000 … 8 000 azimuths.
 
 **And one thing the estimate did not predict: 99.9 % of it cancels across a full passage.** The
-net time integral is 1.56 × 10⁻⁴ s of equivalent full sunlight against an absolute integral of
-1.14 × 10⁻¹ s. But the **running** integral swings to 5.72 × 10⁻² s mid-passage — **367 × the
-net** — so it cancels *across* a passage and not *within* one. Anything sampling inside a passage
-sees the full 1.97 × 10⁻². That is a property of the passage, not of the model, and it is why an
-axis this large has been survivable.
+net time integral is a few × 10⁻⁴ s of equivalent full sunlight against an absolute integral of
+**1.142 × 10⁻¹ s, stable to four figures under refinement**. But the **running** integral swings
+to **≈ 5.72 × 10⁻² s** mid-passage — **≈ 376× the net** — so it cancels *across* a passage and
+not *within* one. Anything sampling inside a passage sees the full 1.97 × 10⁻². That is a
+property of the passage, not of the model, and it is why an axis this large has been survivable.
 
-**Corrected 2026-09-22, and it is the tool's first catch of its own kind.** This section
-originally read 376×, computed from the ad hoc scratch investigation that preceded
-`tools/penumbral_cancellation.py`'s existence (net −1.5188 × 10⁻⁴ s, running 5.7181 × 10⁻² s —
-that division is 376.5, correctly rounded). The COMMITTED, reproducible tool, run end to end,
-gives the net and running-integral figures now printed above instead, and 5.72 × 10⁻²/1.56 × 10⁻⁴
-is 367, not 376. `net` is a small residual of two much larger, nearly-cancelling areas, so it is
-more sensitive to exact quadrature and window-boundary choices than `abs` (stable at
-1.14 × 10⁻¹ s across both computations) or the cancellation percentage itself — the discrepancy is
-resolution sensitivity in an already-known-sensitive quantity, not a new arithmetic error, and the
-authoritative figure is now whatever the committed tool prints, not a number carried over from
-before the tool existed. Found by the manager running the freshly-committed tool for the first
-time and checking its output against what was written down — §4 rule 3's whole argument for
-committing a regenerator rather than a frozen figure, demonstrated rather than only stated.
+**This swing ratio was corrected twice, and the second correction is the one that stands.**
+First (2026-09-22): the section originally read 376×, from the ad hoc scratch investigation
+that preceded `tools/penumbral_cancellation.py`'s existence. The manager ran the freshly
+committed tool end to end — the first time a regenerator in this tree caught its own recorded
+figure on its first run, §4 rule 3's own argument demonstrated rather than stated — and it
+printed 367× at its default resolution, which this section then adopted.
+
+**That adoption was itself premature, and the manager's own follow-up review caught it**: `net`
+is a residual of two much larger, near-cancelling half-integrals, which makes it — and the
+swing ratio built from it — far more sensitive to resolution than `abs` is, and the tool's
+*default* resolution is not the tool's *converged* one. Extending the resolution check to this
+baseline row (which the original check, run only on the two most extreme β rows, had not
+covered) across five resolutions up to 3 200 samples × 1 600 azimuths gives:
+
+| samples × azimuths | net (× 10⁻⁴ s) | abs (× 10⁻¹ s) | swing |
+|---|---|---|---|
+| 201 × 100 | −1.556 | 1.1427 | 367.6× |
+| 401 × 200 | −1.543 | 1.1424 | 370.8× |
+| 801 × 400 | −1.539 | 1.1423 | 371.7× |
+| 1 601 × 800 | −1.522 | 1.1423 | 375.7× |
+| 3 201 × 1 600 | −1.523 | 1.1423 | 375.6× |
+
+`abs` is stable to four figures throughout (0.04 % spread); `net` and the swing ratio are not
+(2.2 % spread) — but the two **finest** resolutions agree with each other to 0.03 %, far
+tighter than any coarser pair, which is the signature of genuine convergence rather than noise.
+**The converged value is ≈ 376×, not 367×**: the tool's own default (401 samples) sits near the
+*low* end of the swept range, closer to where 367× came from than to where the sequence settles.
+So the figure this document now carries is the original 376×, restored — but restored with a
+five-point convergence study behind it, where before there was a single unchecked run. The
+right general lesson is not "prefer the tool's default," it is **"a regenerator's own default
+resolution needs the same convergence check any other quadrature does before its output is
+quoted to more figures than it has earned"** — the same discipline `SHDW-A-003`'s original
+2 000-azimuth grid needed and got, applied here to a tool built after that lesson was learned
+and not, this time, before being trusted.
 
 Neither model here is affected *relative to the other*, since both assume a uniform disc; what the
 axis changes is the meaning of the agreement figure. **Agreement with the uniform-disc definition
@@ -2752,17 +2773,24 @@ Named again here because it is the part of this step the manager's review called
 specifically as done right: an invalid state found by asking what a dereference does, before
 any test found it by failing.
 
-### 27.4 Two more things a reproducible tool and a second reviewer found
+### 27.4 Two more things a reproducible tool and a second reviewer found, and one of the two took two passes
 
-**The recorded swing ratio was wrong**, caught by the manager running `tools/penumbral_cancellation.py`
-end to end for the first time: §25.10 said 376× the net; the committed tool prints 367×. `net`
-is a small residual of two much larger, near-cancelling areas — more sensitive to exact
-resolution than `abs`, which held at 1.14 × 10⁻¹ s across both computations — so the discrepancy
-is resolution sensitivity in an already-known-sensitive quantity, carried forward from before
-the tool existed, not a new arithmetic error. Corrected in §25.10 and in `SPEC-shadow` `SHDW-R-031`
-to the figure the committed tool actually prints. This is the first time a regenerator in this
-tree has caught its own recorded figure on its first run — the demonstration plan §4 rule 3's
-"excused from the gate is not excused from reproducibility" was written for.
+**The recorded swing ratio, caught twice.** The manager ran `tools/penumbral_cancellation.py`
+end to end for the first time — the first time a regenerator in this tree has caught its own
+recorded figure on its own first run, the demonstration plan §4 rule 3's "excused from the gate
+is not excused from reproducibility" was written for — and found §25.10's 376× did not match
+the committed tool's default-resolution output, 367×. That correction was adopted, and it was
+itself premature: `net` is a residual of two much larger, near-cancelling half-integrals, far
+more sensitive to resolution than `abs` (stable to four figures throughout), so a tool's
+*default* resolution is not automatically its *converged* one. The manager's own follow-up
+review said so directly and asked for the baseline row's own resolution check, which the
+original check — run only on the two most extreme β rows — had not covered. Extended to five
+resolutions up to 3 200 samples × 1 600 azimuths (§25.10's table), the two **finest** agree to
+0.03 %, far tighter than any coarser pair: the converged value is **≈ 376×**, restoring the
+original figure — now with a convergence study behind it rather than a single unchecked run
+either time. Corrected in §25.10 and in `SPEC-shadow` `SHDW-R-031` to the resolution-supported
+figure, with the caveat both now carry that `net` and the swing ratio built from it should never
+be quoted to more precision than a convergence check has actually earned.
 
 **`RS14` was described as pinned before it was.** §26.1 stated the retrieval route and said
 `RS14` is a `literature`-kind manifest entry; the manifest entry itself was not actually added
@@ -2772,13 +2800,79 @@ a licence; the landing page's 18 "copyright" hits are all the same repeated temp
 about the mediaTUM repository software, not the thesis. Verified against `tools/fetch.py verify`
 and `check-licences`.
 
-### 27.5 What this section does and does not claim
+### 27.5 What v1.0 of this section claimed, and what changed
 
-Step 3 is **opened**, not closed. `SRPA` v1.0 covers exactly what the relocation carried —
-the cannonball and flat-plate force laws, already reviewed as part of step 2 — and states
-box-wing itself (`SRPA-Q-001`) as not yet attempted. `RS14`'s Tables 1–2, the real GPS optical
-properties box-wing will need, are read by no test in either module; they remain L5's
-population and step 3's own future work, not this commit's.
+`SRPA` v1.0 covered exactly what the relocation carried — the cannonball and flat-plate
+force laws, already reviewed as part of step 2 — and stated box-wing itself (`SRPA-Q-001`)
+as not yet attempted. §27.6 closes it. `RS14`'s Tables 1–2, the real GPS optical properties
+a *populated* box-wing macromodel will need, are still read by no test in either module;
+they remain L5's population, not step 3's.
+
+### 27.6 Box-wing needed no new force law, because it needed no new physics
+
+`SRPA` v1.1. `SRPA-Q-001` closed: `SRPA-R-008`, `SRPA-A-009`, `SRPA-A-010`.
+
+**Rule 4's first half, applied to `RHS12` before writing a single line of gate.** Does the
+paper print a closed-form, force-level expected value — a number, from stated a-priori
+inputs, at a stated geometry — that a box-wing implementation could be checked against
+directly? Read in full (§25.1's route, all of Chapter P-II, pp. 85–101): **no.** §8
+"Reconstruction of SRP acceleration" (Fig. 11) plots reconstructed accelerations for PRN06
+(Block IIA, doy 102) and PRN17 (Block IIR, doy 104) at β₀ ≈ 15° — the closest the paper comes
+— but that reconstruction combines Table 1/2's a-priori *dimensions* with parameters
+**estimated by fitting one year of real GPS tracking data** (Fig. 5), not the a-priori
+optical properties alone, and states the result only as a graph, with no printed numeric
+value to transcribe. Everything else in §§6–8 — pseudo-stochastic pulse reduction, orbit
+overlap and 7-day prediction error, SLR-GPS radial bias — is an **orbit-level** residual,
+several steps downstream of a raw force through a full numerical integration and a
+comparison against independently-determined "truth," which this layer does not perform and
+should not reach for just to manufacture a test case. **There is no category-1 published
+test case for box-wing**, and none was invented.
+
+**So the gate is composition, per plan rule 8's converse.** RHS12's own definition — "a
+satellite bus (box shape) and solar panels" — is, in this schema, simply a `Macromodel` with
+several `FlatSurface`s: one `sun_pointing` (the panels) and several `body_fixed` (the bus).
+`srp_force` already sums its two force laws over every surface a `Macromodel` holds, for any
+count — that loop was written generally in step 2 and had never been exercised past *N* = 1.
+Box-wing is a sum of a law already derived from first principles and already gated
+(`SRPA-A-001`…`-A-008`), which gives it an independent specification **by construction**:
+checkable against arithmetic that involves no citation to `RHS12` at all, only to this
+module's own already-reviewed R-001/R-003.
+
+**Two composition properties, both closed-form identities (route 2), not self-consistency
+checks (route 4):**
+
+1. **Linearity** (`SRPA-A-009`): a 4-surface box-wing-shaped macromodel (one sun-pointing
+   panel, three body-fixed bus faces — areas and optical properties stated in the test,
+   loosely shaped like Table 1's Block IIA row but not equal to it, and not cited to
+   `RS14`, precisely so a reader cannot mistake this for L5's population) evaluated whole,
+   against the vector sum of the same four surfaces evaluated one at a time as their own
+   single-surface macromodels. Exact to the bit at every Sun direction tried — unsurprising,
+   since both routes execute the identical floating-point sum in the same order, but the
+   **structural** claim (that the *N*-surface loop is not, say, silently short-circuiting,
+   double-counting, or dividing by count instead of summing) is what a test with only
+   single-surface macromodels before this step could not have shown.
+2. **Mixed-domain composition** (`SRPA-A-010`): three body-fixed bus faces (+X, +Z, −Z —
+   `SRPA-R-008a`'s own four-surface convention, minus the sun-pointing panel) at a Sun
+   direction chosen so +X and +Z are lit and −Z is not, asserting the whole equals the sum
+   of the two lit surfaces alone. **Not vacuous**: −Z's own isolated contribution is
+   asserted exactly zero and +X's and +Z's are asserted strictly positive, in the same test,
+   so a version of this test that accidentally lit every surface (or shadowed all of them)
+   would fail its own precondition checks before ever reaching the composition assertion.
+
+**Why RHS12's box-wing uses four surfaces and not six** (`SRPA-R-008a`): Tables 1 and 2 list
+only *solar panels*, *+X bus*, *+Z bus*, *−Z bus* — no *−X* or *±Y* row. Under the nominal
+Sun-tracking yaw attitude `RHS12` Fig. 1 defines, −X and both Y faces never face the Sun, so
+they would be multiplied by zero at every evaluation and the paper simply does not state
+optical properties for them. This schema did not need to be told that separately: a caller
+who supplies only four `FlatSurface`s already gets this convention, because `SRPA-R-001`'s
+own cos θ < 0 domain excludes whatever happens to face away, for any surface count.
+
+**What this still does not claim.** The nominal attitude LAW — which body-fixed direction
+each bus surface's normal points at a given orbit position, as a function of the D/Y/B
+Sun-fixed frame `RHS12` Fig. 1 defines — is not implemented and is out of this spec's scope
+regardless of surface count (§1); `srp_force` takes `sun_direction_body` as given, one
+surface or several. And no real GPS satellite's dimensions or optical properties are stated,
+cited, or pinned anywhere in this commit — `RS14`'s Tables 1–2 remain L5's, in full.
 
 ---
 
@@ -2787,7 +2881,7 @@ population and step 3's own future work, not this commit's.
 | date | change |
 |---|---|
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
-| 2026-09-22 | §27 added, SPEC-macromodel to v2.0, SPEC-srp-analytic v1.0 (new): step 2 reviewed. srp_force moved out of the schema module to modules/srp_analytic (PERT-Q-001's precedent); the schema gained its own force-free round-trip gate (MCRM-A-011/012). MCRM-A-005 corrected: it tested the flat-plate/sphere gap only at rho=0, where the gap is smallest (<=0.22); the dominant term is rho, not delta -- 1.90 at a specular sail (rho=0.9), the shape of this project's one confirmed real-data error (LightSail-2). The "factor of 3" on the diffuse term was itself wrong (it is 1.5) and had reached the committed spec and provenance text, not only a message; corrected. tools/penumbral_cancellation.py caught its own recorded figure on first run (376x -> 367x, SS25.10). RS14 had been described as pinned before the manifest entry actually existed; added and verified. |
+| 2026-09-22 | §27 added, SPEC-macromodel to v2.0, SPEC-srp-analytic v1.1: step 2 reviewed, step 3 continued with box-wing. srp_force moved out of the schema module to modules/srp_analytic (PERT-Q-001's precedent); the schema gained its own force-free round-trip gate (MCRM-A-011/012). MCRM-A-005 corrected: it tested the flat-plate/sphere gap only at rho=0, where the gap is smallest (<=0.22); the dominant term is rho, not delta -- 1.90 at a specular sail (rho=0.9), the shape of this project's one confirmed real-data error (LightSail-2). The "factor of 3" on the diffuse term was itself wrong (it is 1.5) and had reached the committed spec and provenance text, not only a message; corrected. The swing-ratio figure (SS25.10) was corrected twice -- 376x to 367x on the tool's first run, then back to ~376x once a resolution check was extended to the row that needed one, which the extreme-row check alone had missed; the second correction is the one that stands, with a five-point convergence study behind it. RS14 had been described as pinned before the manifest entry actually existed; added and verified. Box-wing (SRPA-Q-001) needs no new force law -- srp_force already sums over N surfaces; SRPA-A-009/010 prove the summation itself, since no test had exercised more than one surface before. |
 | 2026-09-22 | §26 added: L4 step 2, the macromodel schema. RHS12 (the plan's own cited paper) reprinted in full in the author's open dissertation, no account needed. Two force laws re-derived independently (momentum bookkeeping for the flat plate, hemisphere integration for the sphere) and Monte Carlo-checked before being trusted; the sphere's coefficient 1+4delta/9 has no rho term, unlike the flat plate's 1+rho+2delta/3, confirming the plan's own "factor of two" warning is two compounding simplifications, not one. FlatSurface redesigned mid-implementation to two named factories after finding a plain struct would let NormalMode and its optional normal disagree. Gated entirely on two degenerate configurations (a spherical cannonball, a black sun-pointing sail), nothing read from RS14's real GPS tables, which stay for L5. |
 | 2026-09-22 | §25.11 added, SPEC-shadow to v1.2 (R-031 re-derived, R-033 added): the 99.9 % cancellation figure was a property of ONE traversal (LEO, circular, beta=0), now named. Measured with an actual two-body propagator rather than assumed further: a beta angle within ~1 degree of the eclipse cutoff breaks it substantially (48-75% cancels there); genuine off-apsis eccentricity breaks it modestly (99.4-99.8%); eccentricity AT an apse does not break it at all, exactly, because the two-body problem is time-symmetric about apsis passage regardless of e — the configuration the phrase "an eccentric orbit" most naturally suggests turned out to be the wrong hypothesis, not a smaller effect. SHDW-Q-005 ruled: defer on NEED, not gateability, unlike Q-003. Four faults in the search tool itself along the way, all caught before the numbers were recorded. |
 | 2026-09-19 | §25.10 added: the reference definition was itself a family choice. Bolometric limb darkening is 1.97e-2 at LEO — 83x the projection choice and 10 000x the oblateness the PPM is adopted for — but 99.9 % cancels across a passage and none within one. Agreement with the uniform-disc definition is not accuracy. A fourth instance of the empty-comparison fault, in the resolution check written to prevent it. |
