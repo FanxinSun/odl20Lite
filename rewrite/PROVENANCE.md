@@ -2569,6 +2569,118 @@ been checked and was correct — the description of *why* the search needed fixi
 the fix. Each caught before reaching a reader who would have taken it as the reason rather than
 checking it.
 
+## 26. L4 step 2 — the macromodel schema, and two force laws checked two ways each
+
+`SPEC-macromodel.md` v1.0, Spec ID `MCRM`. `modules/macromodel`. Gated by `MCRM-A-001`…`-A-010`.
+
+### 26.1 The same paper the plan names, reprinted in full where it could be read without an account
+
+The plan cites Rodríguez-Solano, Hugentobler & Steigenberger (2012), *Adjustable box-wing model
+for solar radiation pressure impacting GPS satellites*, Adv. Space Res. **49**(7):1113–1128 —
+`RHS12`. The publisher copy sits behind ScienceDirect; ResearchGate's copies need an account. The
+paper's **first author's own 2014 doctoral dissertation** at TU München reprints it in full,
+unaltered, as Chapter P-II (pp. 85–101), and TUM's own repository (`mediatum.ub.tum.de`) serves
+the PDF directly over HTTPS with no login and no request form. Retrieved as `RS14`, pinned by
+hash, `literature` kind — the same footing as `LI19` (§25.1): a provenance record, not a
+dependency, terms not established, the search recorded rather than a conclusion.
+
+**This is also where Tables 1 and 2 live** — real, citable a priori optical properties and
+dimensions for GPS Block II/IIA and Block IIR — which L5 will use to populate this schema and
+which this step deliberately does not read into anything: `SPEC-macromodel` states no satellite's
+actual mass, area or optical coefficient. The schema and the physics that RHS12's a priori tables
+and this step's cannonball gate both rest on are the same; the populated values are L5's alone.
+
+### 26.2 Two force laws, both re-derived rather than only cited
+
+`RHS12` Eq. (6), the flat-surface law, is stated exactly as printed. Its **normal-incidence
+special case**, needed for the sun-pointing solar-panel degenerate test, was re-derived
+independently by momentum bookkeeping before being trusted algebraically: an absorbed photon
+transfers momentum *p* = *E*/*c* (coefficient 1); a specularly-reflected one bounces straight
+back, transferring 2*p* (coefficient 2); a diffusely-scattered one is absorbed then
+Lambertian-re-emitted, carrying a mean recoil of (2/3)*p* along the outward normal on top of the
+*p* already transferred by absorbing it (coefficient 1 + 2/3 = 5/3). Weighted by α, ρ, δ and using
+α+ρ+δ = 1: α·1 + ρ·2 + δ·(5/3) = 1 + ρ + 2δ/3 — the same coefficient Eq. (6) gives at cos θ = 1,
+by an independent route.
+
+**The sphere's coefficient is not in `RHS12` at all and was derived here.** Integrating Eq. (6)
+over a sphere's illuminated hemisphere (surface element at polar angle φ from the sub-solar
+point, cos θ = cos φ, the local normal *e*ᴺ(φ,λ) varying with position): the transverse components
+of ∫*e*ᴺ vanish over the full azimuth by symmetry, the ρ-dependent terms cancel **exactly**
+(∫₀¹[−ρ*x* + 2ρ*x*³] d*x* = −ρ/2 + ρ/2 = 0, *x* = cos φ), and what survives is
+∫₀¹[*x* + (2δ/3)*x*²] d*x* = 1/2 + 2δ/9, giving
+
+> ***f*** = −(*A S*₀/*c*)(1 + 4δ/9) *e*ᴰ.
+
+**ρ does not appear.** A perfectly specularly-reflecting sphere and a perfectly absorbing one
+exert the same net force — the tangential components of specular reflection cancel around the
+curved surface the same way a diffuse re-emission's do not, since Lambertian re-emission has a
+genuine outward bias a specular bounce does not.
+
+**Checked against Monte Carlo before being trusted**: 4 000 000-sample integration of Eq. (6) over
+the hemisphere, at five (α, ρ, δ) triples spanning pure-absorbing, pure-specular, pure-diffuse and
+two mixed cases, matched the closed form to 3–4 significant figures at every triple (pure-diffuse:
+MC 1.4446, closed form 1.4444; the other four agree as closely). Substituting Fliegel's
+δ = ν(1−µ) (§3, `RHS12`'s own notation dictionary) reproduces the plan's quoted
+`(9 + 4ν(1−µ))/9` **exactly** — confirmation, not coincidence, since both formulas descend from
+the same Milani et al. (1987) law `RHS12` states as its Eq. (6), integrated differently.
+
+### 26.3 Why the plan's own aside is right, and not only by notation
+
+The plan: *"a sphere's (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρₛ, and conflating them is a
+factor of two in a recovered area."* With both formulas now derived: the sphere's diffuse
+coefficient is 4δ/9; the flat plate's at normal incidence is 2δ/3 — **three times larger on the
+diffuse term alone** — and the flat-plate form `1 + ρₛ` additionally assumes δ = 0 outright, a
+second, separate simplification stacked on the first. Conflating a sphere's coefficient with a
+flat plate's is not one error but two compounding, and `MCRM-A-005` asserts the gap between them
+is exactly 2δ/9 at every δ tried, so neither can be silently substituted for the other in this
+tree.
+
+### 26.4 The schema: two surface kinds, and a mismatch a plain struct would have allowed
+
+A macromodel is any number of surfaces, each a `FlatSurface` (a normal, either a stored
+body-fixed constant or `sun_pointing` — defined to equal the Sun direction at every evaluation,
+because a sun-tracking solar panel's whole point is that its normal follows the Sun by
+construction, and storing a separate value for it would be a second, competing definition of the
+same quantity) or a `SphericalSurface` (no normal field at all, because none exists), plus one
+mass and one centre of mass. Every area, every optical coefficient, the mass and the centre of
+mass are `Cited<T>`: constructible only through `cited()`, which refuses an empty or
+whitespace-only citation, so "a value without a citation is a load error" is the type rather than
+a comment next to it.
+
+**`FlatSurface` itself went through a second pass.** The first version stored `NormalMode`
+alongside an independent `optional<BodyDirection>` — a plain aggregate that let the two disagree:
+`body_fixed` mode with no normal ever supplied, or `sun_pointing` mode carrying a stored normal
+that would then be silently ignored. Nothing would have caught the mismatch until `srp_force`
+dereferenced an empty optional, on some input a test happened not to construct. Replaced with two
+named factories, `flat_surface_body_fixed` and `flat_surface_sun_pointing`, each the only source
+of one `NormalMode` value — the pairing is a constructor-time fact instead of an invariant a
+reader has to trust across two independent fields. Caught during implementation, before any test
+was written against the first version, by asking what `flat->body_fixed_normal->vec()` does when
+the optional is empty rather than assuming a caller would never do that.
+
+### 26.5 The gate: two degenerate configurations, stated in the test, no library read
+
+`MCRM-A-001`: a one-surface spherical cannonball, area and (α, ρ, δ) stated in the test, matches
+the derived closed form to 1 × 10⁻¹² relative across five optical triples and four Sun directions
+(20 combinations) — and points opposite the Sun at every one, the physical sign check a magnitude
+comparison alone would miss. `MCRM-A-002` holds α+δ fixed and trades ρ alone across six values;
+the force does not move, matching §26.2's finding that ρ has no term. `MCRM-A-003` evaluates the
+same sphere at four differently-oriented "body-frame" Sun directions and finds the same magnitude
+at every one — meaningless for a sphere, and proven meaningless rather than asserted so. `MCRM-A-004`
+builds a one-surface sun-pointing black sail (α=1, ρ=0, δ=0) and checks it against the textbook
+*f* = *S*₀*A*/*c* identity **and** against `MCRM-A-001`'s α=1 spherical case of the same area —
+both reduce to the same identity, and agree to 10⁻⁹ N. `MCRM-A-005` is §26.3's assertion, gated.
+`MCRM-A-006`/`-A-007` fire citation and unit-vector refusals one field at a time and show them not
+firing on the adjacent valid input, this tree's standing refusal-testing discipline. `MCRM-A-010`
+fires the cos θ < 0 branch specifically — a domain restriction with no test reaching it is the
+same fault as a guard that cannot fire, in a different shape.
+
+**None of this needs `RS14`'s Tables 1–2.** Every number in the gate is stated in the test file
+itself, which is what keeps this layer's exit gate satisfiable with what this layer and the layers
+below it have (plan §5 constraint 7) — the arc fit `srp-analytic` (step 3) eventually needs real
+GPS optical properties for, but that population is L5's job and this step's whole point is to have
+a contract ready for it before it exists.
+
 ---
 
 ## Changelog
@@ -2576,6 +2688,7 @@ checking it.
 | date | change |
 |---|---|
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
+| 2026-09-22 | §26 added: L4 step 2, the macromodel schema. RHS12 (the plan's own cited paper) reprinted in full in the author's open dissertation, no account needed. Two force laws re-derived independently (momentum bookkeeping for the flat plate, hemisphere integration for the sphere) and Monte Carlo-checked before being trusted; the sphere's coefficient 1+4delta/9 has no rho term, unlike the flat plate's 1+rho+2delta/3, confirming the plan's own "factor of two" warning is two compounding simplifications, not one. FlatSurface redesigned mid-implementation to two named factories after finding a plain struct would let NormalMode and its optional normal disagree. Gated entirely on two degenerate configurations (a spherical cannonball, a black sun-pointing sail), nothing read from RS14's real GPS tables, which stay for L5. |
 | 2026-09-22 | §25.11 added, SPEC-shadow to v1.2 (R-031 re-derived, R-033 added): the 99.9 % cancellation figure was a property of ONE traversal (LEO, circular, beta=0), now named. Measured with an actual two-body propagator rather than assumed further: a beta angle within ~1 degree of the eclipse cutoff breaks it substantially (48-75% cancels there); genuine off-apsis eccentricity breaks it modestly (99.4-99.8%); eccentricity AT an apse does not break it at all, exactly, because the two-body problem is time-symmetric about apsis passage regardless of e — the configuration the phrase "an eccentric orbit" most naturally suggests turned out to be the wrong hypothesis, not a smaller effect. SHDW-Q-005 ruled: defer on NEED, not gateability, unlike Q-003. Four faults in the search tool itself along the way, all caught before the numbers were recorded. |
 | 2026-09-19 | §25.10 added: the reference definition was itself a family choice. Bolometric limb darkening is 1.97e-2 at LEO — 83x the projection choice and 10 000x the oblateness the PPM is adopted for — but 99.9 % cancels across a passage and none within one. Agreement with the uniform-disc definition is not accuracy. A fourth instance of the empty-comparison fault, in the resolution check written to prevent it. |
 | 2026-09-18 | §25 added: L4 step 1, both halves. The hyperbolic silhouette is the normal case at LEO — the opposite of the annular branch, and recorded beside it. An unnamed sixth family choice is worth 99× the oblateness the PPM is adopted for. LI19's five atmospheric cases do not cover the geometry above 1 983 km, which includes Galileo. Three faults found, all of them checks that examined nothing. |
