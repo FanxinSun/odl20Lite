@@ -2936,10 +2936,218 @@ copy confirmed byte-identical restoration) and the full suite re-run clean, 92 6
 
 ---
 
+## 28. L4 step 4 — drag, and a Jacobian bug a finite difference caught that the closed form's own author could not see in it
+
+`SPEC-drag.md` v1.0, Spec ID `DRAG`, `modules/drag`. Gated by `DRAG-A-001`…`-A-010`. Depends
+on `core`, `time`, `eop`, `frames`, `atmosphere`, `dynamics`; nothing later built yet.
+
+### 28.1 What was built, and the order it was built in
+
+The drag force over L2's atmosphere (`atmosphere::for_drag`), with the drag coefficient a
+**registered parameter** (`dyn::ParameterKind::drag_coefficient`, declared at L3 step 1 — before
+this module existed, confirmed present by inspection rather than assumed) and never a compiled-in
+constant. Two module-local utilities this module needed and no existing one provided, checked by
+grep before being written: `geodetic::itrs_to_geodetic`/`geodetic_to_itrs` (Bowring's iterative
+method, WGS84) and `detail::day_of_year` (the Gregorian cumulative-month-day calculation).
+
+**Recorded plainly:** this step's implementation and test suite were written before
+`SPEC-drag.md` itself, the reverse of every other L4 step's order. The design reasoning the
+spec's §4/§9 describe — the Jacobian derivations, the co-rotating-atmosphere identity, the
+provenance-carrying discipline — happened alongside the code, not as a separate checkpoint
+before it. Flagged in the spec's own header and here, not smoothed over.
+
+### 28.2 The rule-4 search: no clean published ballistic-coefficient case, and what was found instead
+
+Before the gate was designed, per the manager's explicit instruction. Searched for a published,
+force-level drag test case — a stated ballistic coefficient, atmosphere and state producing a
+citable acceleration a test could assert equality against, the shape `RHS12`'s box-wing case
+turned out NOT to have at step 3. Drag has the same absence, for the same reason: a real
+satellite's drag acceleration is a fitted campaign result, not a closed-form published number.
+DTIC's two named alternatives (ADA285118, AD0464391) both returned HTTP 403 — out of reach under
+the no-contact-anybody constraint, not merely unread.
+
+**What was found instead:** Sengers, Lin Wang, Kamgar-Parsi & Dorfman (2014), arXiv:1404.7826,
+"Kinetic Theory of Drag on Objects in Nearly Free Molecular Flow." Table 4 prints the
+free-molecular sphere drag coefficient *C*₀(*S*) as a function of speed ratio *S*, for
+*S* = 0 … 50 and the *S* → ∞ limit (stated in the paper's own text to be exactly 2). This is a
+genuine published drag-*model* case, but not a case THIS tree's force law can be checked
+against directly: the paper characterises an idealised sphere in free-molecular flow in general,
+not any specific satellite's macromodel, so no single printed number is "the" answer a force-law
+test could assert equality against. Used instead as `DRAG-P-2`'s plausibility range (2.0–2.4 for
+the LEO regime) on `DRAG-A-002`'s own **stated** *C*_D — a sanity check on the test's input, not
+a registered test value, and named as such rather than dressed up as more than it is.
+
+**The terms search found something, for the first time in this tree's three literature
+entries.** `li-ziebart-2019-shadow` and `rodriguez-solano-2014-dissertation` both searched and
+found nothing — no licence statement anywhere reachable. This one's search reached
+arXiv's abstract page, which links "view license" to the standard arXiv non-exclusive
+distribution license; that license's own text (fetched directly, not assumed from its name)
+grants **only arXiv.org** the right to distribute, nothing to a third party. The exemption
+(pinned by hash, bytes never redistributed) rests on the same footing as the other two entries,
+now stated explicitly rather than inferred from an absence. Manifest entry
+`sengers-2014-drag-coefficient`, `data/literature/sengers-2014-drag-coefficient/1404.7826.pdf`,
+SHA-256 `614efc89…5d9f7c`.
+
+### 28.3 The velocity Jacobian, verified by direct differentiation
+
+`DRAG-R-003` claims ∂/∂*v*ⱼ(*vᵢ*|**v**|) = δᵢⱼ|**v**| + *vᵢvⱼ*/|**v**|. Verified here by direct
+differentiation, not assumed from its stated form (the code comment's own promise): with
+*f* = *vᵢ*|**v**| and |**v**| = √(*vₖvₖ*),
+
+> ∂*vᵢ*/∂*vⱼ* = δᵢⱼ (trivially), ∂|**v**|/∂*vⱼ* = *vⱼ*/|**v**| (the standard derivative of a
+> Euclidean norm), so by the product rule
+> ∂*f*/∂*vⱼ* = (∂*vᵢ*/∂*vⱼ*)|**v**| + *vᵢ*(∂|**v**|/∂*vⱼ*) = δᵢⱼ|**v**| + *vᵢvⱼ*/|**v**|.
+
+Since **a** = coeff · **v**_rel|**v**_rel| with coeff independent of **v**_rel (density is not a
+function of velocity — the whole of the velocity dependence is through this one product), this
+tensor times coeff is the *entire* velocity Jacobian, no approximation. `DRAG-A-004` checks it
+against a central finite difference on the *C*_D column (a different, independently-checkable
+column of the same `ParameterJacobian`/`StateJacobian` machinery) to 1.18 × 10⁻⁸ relative or
+better; the tensor form itself was additionally hand-verified component-by-component against
+this derivation before being trusted.
+
+### 28.4 The position Jacobian's missing factor of |v_rel| — found by the finite difference this step's own coverage gap forced into existence
+
+`tools/speccheck.py`, re-run after the spec was written, reported `DRAG-R-004` (the position
+Jacobian) **uncovered** — no acceptance row's `discharges` column named it. `DRAG-A-005`
+(Liouville) was not, despite appearances, a substitute: `tr(A)` for the augmented 6×6 matrix
+`[[0, I], [da/dr, da/dv]]` picks up only the **diagonal** blocks, and `da/dr` sits **off** the
+diagonal — Liouville is structurally blind to the position Jacobian's correctness. Nothing before
+this point had actually exercised `DRAG-R-004` at all.
+
+`DRAG-A-010` was written to close the gap: perturb the satellite's GCRS position by ±10 m along
+the radial direction (the same physical direction in GCRS and ITRS, since the two frames share
+an origin and differ only by a rotation), take a central finite difference of the **real**
+`acceleration()` call, and compare against `Drag::accel`'s own reported `d_state.d_position()`
+applied to that direction.
+
+**First run: 99.99 % relative deviation — the two vectors agreed on essentially nothing.**
+The finite difference's *y*-component was 4.669 × 10⁻¹⁰ s⁻²; the analytic prediction's was
+6.374 × 10⁻¹⁴ s⁻² — a factor of **≈ 7330** too small. The orbital speed at the test's 300 km
+case is ≈ 7726 m s⁻¹. Those two numbers are close enough that the ratio itself was the
+diagnosis, not merely a symptom of one: `drag.cpp`'s `a_direction` (the factor `dadr_itrs` is
+built from, meant to be ∂**a**/∂ρ) read
+
+```cpp
+const Vec3 a_direction = (coeff / rho) * v_rel;
+```
+
+with the comment "a = coeff*rho*v_rel, so d(a)/d(rho) = a/rho = coeff*v_rel" — but the actual
+force law (`acceleration()`, and `coeff`'s own definition three lines above this one in the same
+function) is **a** = coeff · |**v**_rel| · **v**_rel, not coeff · **v**_rel: `coeff` was
+deliberately defined *without* a speed factor, for the velocity-Jacobian tensor's convenience
+(§28.3), and that same bare `coeff` was reused here without reinstating the factor the
+*different* derivative needs. Since ρ enters **a** only through `coeff`, linearly,
+∂**a**/∂ρ = (coeff/ρ) · |**v**_rel| · **v**_rel — missing exactly the `* speed` this draft
+omitted. Fixed by adding it; the comment's own false premise ("a = coeff\*rho\*v_rel") corrected
+alongside the code, per rule 3 — the error was in the stated relationship the code followed, not
+only in one term of the code.
+
+**After the fix: 1.18 × 10⁻² relative deviation**, same sign, comfortably inside a tolerance
+(5 × 10⁻²) chosen with a 4× margin above the measured value rather than loosened to whatever the
+first passing run happened to produce. This residual is not itself a defect: a true finite
+difference of `acceleration()` also picks up a channel `DRAG-R-004`'s analytic form does not
+model at all — **v**_rel has its own weak dependence on position (the GCRS↔ITRS velocity
+transform's transport term depends on **r**), which bumping only altitude at fixed **v**_rel
+cannot see. §28.5 gives what can honestly be said about that residual's size.
+
+**What this is, named plainly:** a real defect in a closed form the executor derived, wrote, and
+found plausible on inspection, caught only because a finite difference of the actual running
+code was compared against it rather than trusted by construction — and caught only because
+`speccheck.py`'s coverage accounting forced the comparison to be written at all. Rule 4's own
+register question — is the bar for an entry met — is met without qualification here: the
+guard existed, was wrong, was silent (no test exercised it), and the wrongness was large (three
+orders of magnitude, not a rounding disagreement).
+
+### 28.5 The position Jacobian's two neglected terms, bounded rather than left uncharacterised
+
+Two channels `DRAG-R-004`'s radial-only, fixed-**v**_rel approximation does not model, named in
+the spec as neglected rather than silently assumed zero:
+
+- **The lateral (latitude/longitude/local-time) density gradient.** Not measured directly here
+  (no test perturbs the position laterally), but bounded by an order-of-magnitude comparison of
+  length scales: the vertical density scale height at LEO altitudes is of order 50–70 km: `for_drag`
+  itself, over the tessellated cases this tree's own atmosphere tests exercise, shows density
+  falling by roughly a factor of *e* every 50–70 km of altitude. The horizontal (local-time)
+  variation is far gentler — a day/night density ratio of order 2–5× is typical over a full
+  half-orbit of local-time change, i.e. an angular scale of order π radians, which at a 6700 km
+  radius is on the order of 10⁴ km of arc length for a comparable relative change. The ratio of
+  these two scales — a ~60 km vertical *e*-folding distance against a ~10⁴ km horizontal one —
+  puts the neglected lateral gradient roughly **two orders of magnitude smaller** than the
+  retained radial term, for a perturbation of comparable physical size. An order-of-magnitude
+  argument, not a measurement, and stated as one.
+- **v_rel's own weak dependence on position** (§28.4's residual channel). `DRAG-A-010`'s
+  post-fix residual, 1.18 × 10⁻² relative, is the best empirical bound this tree has on it today,
+  for that test's specific 300 km/equatorial geometry — an upper bound on this channel plus the
+  finite-difference method's own (much smaller, 10 m step against a 60 km scale) truncation
+  error, not a clean isolation of the one term alone.
+
+Neither bound is asserted as a gate — `DRAG-R-004` states the approximation and its omissions;
+this section is where the size lives, so a later reader does not have to re-derive it to know
+whether it matters for a given case.
+
+### 28.6 DRAG-A-005's own history: an orbit too high to show what it was built to show
+
+The first draft of the Liouville test used this tree's usual 7331 km test radius (the same one
+`stm_tests.cpp`'s own `Setup`, `l2_floors.cpp`, and every other L4 step's tests use). At that
+altitude (≈ 953 km) `DRAG-A-002` independently measured ρ ≈ 2 × 10⁻¹⁵ kg m⁻³ — thin enough that
+even a deliberately aggressive 5 m² kg⁻¹ area-to-mass ratio left `det(Phi)` at 1 − 10⁻⁷ after
+300–900 s of propagation, indistinguishable from the integrator's own 10⁻¹¹ tolerance without a
+much longer run. The test was rebuilt at 300 km — a genuinely low, dense orbit — rather than the
+threshold loosened to accept the thin-atmosphere result: `det(Phi)` then reads 0.999129 at 300 s
+and lower at 900 s, a decay several orders of magnitude clear of integration noise, and a
+monotonicity check (longer propagation, more decay) was added once the signal was large enough
+for that comparison to mean something. The same discipline §27.6's bug-injection proof and
+`SRPA-P-3`'s pre-registered convergence study already applied: a test whose passing condition the
+configuration cannot fail to produce has not tested anything (plan rule 5's sibling, named this
+session before drag existed).
+
+### 28.7 Smaller things, caught before or during the run
+
+- **A frame mismatch in this module's own test code, not in `drag.cpp`.** `DRAG-A-002`'s first
+  draft compared `result->acceleration_m_s2` (GCRS, `DragResult`'s own stated convention)
+  directly against an "expected direction" built from `v_rel` in the **ITRS** frame the force
+  law is actually evaluated in — two different frames wearing the same units, differing by
+  whatever the GCRS↔ITRS rotation happens to be at the test's epoch (effectively an arbitrary
+  angle, the Earth having rotated many full turns since any fixed reference). `dir_dev` came
+  back at 1.40, nowhere near the two vectors actually agreeing. Fixed by rotating the expected
+  direction through the same `M`ᵀ `drag.cpp` itself uses before comparing — now stated as this
+  module's own convention in `SPEC-drag` §3, so a future test does not repeat it.
+- **The `dyn::` namespace, not `dynamics::`.** `modules/dynamics/include/odl/dynamics/*.hpp` all
+  declare `namespace odl::dyn`, despite the module and directory being named `dynamics`. Caught
+  by the compiler (≈15 errors) before anything ran, from a first draft written from memory of
+  the module's shape rather than its headers.
+- **A km/metre crossing, caught before building.** `frames::State<F>::position()`/`velocity()`
+  return plain `Vec3` in **kilometres** (not a `Position<F>`/`Vector<F>` sub-object with its own
+  `.metres()` accessor, which is `frames::Position<F>`'s and `frames::Acceleration<F>`'s shape,
+  not `State<F>`'s); a first draft read them as if they were the latter. `DYN-R-011`'s own
+  discipline — a named crossing at every site — is what made the mismatch visible on inspection
+  rather than as a silent factor-of-1000. Fixed at both crossing sites in `drag.cpp` before the
+  module was built.
+- **Two tool summary lines, mislabelling every literature entry, including this step's new
+  one.** `tools/fetch.py check-licences` and `tools/literaturecheck.py` both derive a literature
+  entry's printed terms-summary from `e.get("licence", ...)` — a field literature entries never
+  carry (they carry `terms`) — so both always printed the fallback ("none established"/"NOT
+  established") regardless of what the entry's `terms` field actually said. Harmless for the
+  two pre-existing entries, where "nothing found" happened to be the true state; actively
+  misleading for `sengers-2014-drag-coefficient`, whose search **did** find and quote an
+  explicit (non-open) licence. Both tools corrected to read `terms` and distinguish the two
+  states this tree's entries actually have; no gate logic changed, only what the summary line
+  says. Found only because this step's own new entry gave the pre-existing bug a case where its
+  wrong answer was visibly wrong.
+- **A citation corrected against the spec it was borrowed from, not re-derived.**
+  `geodetic.hpp`'s comment cited WGS84's semi-minor axis *b* to "Table 3.1"; `SPEC-gravity`'s
+  own §9 provenance register — the tree's existing, already-verified citation for the same
+  constant — gives Table 3.6. Corrected to match rather than left as a second, disagreeing
+  citation of the same number.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-22 | §28 added, SPEC-drag v1.0 adopted, modules/drag built and gated (DRAG-A-001..-A-010). C_D consumed as the ParameterKind::drag_coefficient registered at L3 step 1, never a constant. Rule-4 search found no clean published ballistic-coefficient case; Sengers et al. (2014, arXiv:1404.7826) Table 4 used instead as a plausibility range, not a registered value -- its terms search FOUND an explicit non-open arXiv distribution licence, the first of this tree's three literature entries where the search found something rather than nothing. DRAG-A-010, written only because speccheck.py flagged DRAG-R-004 (the position Jacobian) as discharged by no test, found a real defect: `a_direction` was missing a factor of \|v_rel\| (~7.7 km/s), a ~7300x error a finite difference caught that inspection of the closed form had not; fixed, and the residual after the fix (1.18e-2) is now the tree's own empirical bound on the terms the approximation still neglects. DRAG-A-005 (Liouville with real drag) needed rebuilding at 300 km after the tree's usual 7331 km test radius proved too thin an atmosphere to move det(Phi) measurably. Two smaller tool bugs fixed in passing: fetch.py and literaturecheck.py both mislabelled every literature entry's terms-summary from a field literature entries never carry. |
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
 | 2026-09-22 | §27.7 added, SPEC-srp-analytic to v1.2: composition (SRPA-A-009/010) cannot see a bug in the per-surface law itself, since both sides call identical code and a shared bug cancels. Closed with two closed-form single-plate checks at oblique incidence (magnitude AND direction, from momentum bookkeeping) and a tessellated-sphere cross-check whose discretisation error was measured -- empirically second-order, ratio 4.00 -- BEFORE the gate was written (rule 7's middle form). Proved by injection (rule 5): dropping the specular term's cos(theta) power gave the single-plate check a direct 2.86x magnitude error and collapsed the tessellation's convergence ratio from ~4.0 to ~1.0, since a law-level bug does not shrink with resolution the way discretisation error does; reverted and the suite re-run clean. |
 | 2026-09-22 | §27 added, SPEC-macromodel to v2.0, SPEC-srp-analytic v1.1: step 2 reviewed, step 3 continued with box-wing. srp_force moved out of the schema module to modules/srp_analytic (PERT-Q-001's precedent); the schema gained its own force-free round-trip gate (MCRM-A-011/012). MCRM-A-005 corrected: it tested the flat-plate/sphere gap only at rho=0, where the gap is smallest (<=0.22); the dominant term is rho, not delta -- 1.90 at a specular sail (rho=0.9), the shape of this project's one confirmed real-data error (LightSail-2). The "factor of 3" on the diffuse term was itself wrong (it is 1.5) and had reached the committed spec and provenance text, not only a message; corrected. The swing-ratio figure (SS25.10) was corrected twice -- 376x to 367x on the tool's first run, then back to ~376x once a resolution check was extended to the row that needed one, which the extreme-row check alone had missed; the second correction is the one that stands, with a five-point convergence study behind it. RS14 had been described as pinned before the manifest entry actually existed; added and verified. Box-wing (SRPA-Q-001) needs no new force law -- srp_force already sums over N surfaces; SRPA-A-009/010 prove the summation itself, since no test had exercised more than one surface before. |

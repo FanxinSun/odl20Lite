@@ -702,7 +702,22 @@ def cmd_check_licences(root: Path, doc: dict, args) -> int:
         print(f"         {n_lit} literature entr{'y' if n_lit == 1 else 'ies'}, exempt by plan §5 "
               "constraint 3 and each carrying a terms record:")
         for e in lit:
-            print(f"           {e['id']:<24} {e.get('licence', '(none established)')}")
+            # Literature entries carry `terms`, never `licence` — a bare
+            # `e.get("licence", ...)` here always falls through to the
+            # default, mislabelling every entry "(none established)" even
+            # one whose terms search found and quoted an explicit,
+            # non-open licence (sengers-2014-drag-coefficient). The two
+            # states this project's own entries actually distinguish are
+            # "the search found nothing" (recorded terms text starting
+            # "NOT ESTABLISHED", the convention set by li-ziebart-2019-shadow
+            # and rodriguez-solano-2014-dissertation) and "the search found
+            # something" — summarised here, not paraphrased, since prose
+            # long enough to need paraphrasing belongs in the terms field
+            # itself, not compressed into a status line.
+            terms = e.get("terms", "")
+            summary = "(none established)" if terms.upper().startswith("NOT ESTABLISHED") \
+                else "(found — see its terms field)"
+            print(f"           {e['id']:<24} {summary}")
     return OK
 
 

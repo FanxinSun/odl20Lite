@@ -77,7 +77,20 @@ def main() -> int:
         for e in lit:
             print(f"  {e['id']}")
             print(f"    fetched to  {lit_root}/{e['id']}/{e['filename']}")
-            print(f"    terms       {'established' if e.get('licence') else 'NOT established — see the entry'}")
+            # A literature entry carries `terms`, never `licence` — the same
+            # slip fetch.py's check-licences summary had (fixed alongside
+            # this): `e.get('licence')` is always falsy here, so this always
+            # printed "NOT established" even for an entry whose terms search
+            # found and quoted an explicit licence (sengers-2014-drag-
+            # coefficient). Read the recorded search instead, distinguishing
+            # the same two states this project's entries already do: found
+            # nothing (terms text starting "NOT ESTABLISHED", the convention
+            # li-ziebart-2019-shadow and rodriguez-solano-2014-dissertation
+            # set) versus found something, pointed at rather than paraphrased.
+            terms = e.get("terms", "")
+            established = "NOT established — see the entry" \
+                if terms.upper().startswith("NOT ESTABLISHED") else "found — see the entry"
+            print(f"    terms       {established}")
     print(f"\n  literature entries              {len(lit):5d}")
     print(f"  build inputs searched           {len(inputs):5d}")
     print(f"  build inputs REACHING one       {len(hits):5d}")

@@ -598,6 +598,20 @@
       "upstream_mutable": false,
       "verify_note": "Retrieved with no account and no request form: mediatum.ub.tum.de serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). 144 pages. Chapter P-II (pp. 85-101) reprints Rodríguez-Solano, Hugentobler & Steigenberger (2012), Adv. Space Res. 49(7):1113-1128, doi:10.1016/j.asr.2012.01.016 in full and unaltered -- confirmed by comparing the reprint's own header, which states the journal, volume, pages and DOI. Chapter 5 (pp. 59-67) and the reprinted P-II's Tables 1-2 (p. 93) carry a priori box-wing dimensions and optical properties for GPS Block I, IIA, IIR, IIF, GLONASS, GLONASS-M and GLONASS-K, sourced in turn from Fliegel et al. (1992) and Fliegel & Gallini (1996).",
       "retrieved": "2026-09-22"
+    },
+    {
+      "id": "sengers-2014-drag-coefficient",
+      "kind": "literature",
+      "role": "Sengers, Lin Wang, Kamgar-Parsi & Dorfman (2014), 'Kinetic Theory of Drag on Objects in Nearly Free Molecular Flow'. Table 4's printed sphere drag coefficient C_0(S) as a function of speed ratio S -- the published case SPEC-drag's force-law sanity check (DRAG-A-002) is measured against, per plan rule 4's search for a published drag case before the gate was designed. L4 step 4.",
+      "version": "arXiv:1404.7826 [physics.flu-dyn], submitted 2014-06-28; no subsequent journal citation found in the document itself",
+      "url": "https://arxiv.org/pdf/1404.7826",
+      "filename": "1404.7826.pdf",
+      "sha256": "614efc8914b142353cc44e74f0da32bb0ec6243778265d73dd9fd1bfef5d9f7c",
+      "terms": "FOUND, AND IT DOES NOT AUTHORISE REDISTRIBUTION. arxiv.org/abs/1404.7826 links 'view license' to http://arxiv.org/licenses/nonexclusive-distrib/1.0/ -- the standard arXiv distribution license, not a Creative Commons one. That license's own text, fetched directly, is the submitter's grant that 'I grant arXiv.org a perpetual, non-exclusive license to distribute this article': it names arXiv.org as the licensee, grants nothing to a third party, and leaves the author holding copyright. Unlike li-ziebart-2019-shadow and rodriguez-solano-2014-dissertation, where no license statement could be found at all, this one was found and is explicit on the point that matters here: it does not authorise this tree to redistribute the PDF. The PDF's own text was also checked and contains zero occurrences of 'creative commons', 'CC BY', 'copyright' or 'all rights reserved'.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY, the same reasoning as this tree's other two literature entries: nothing derived from this paper is a copy of it, and it is pinned so a future reader can fetch the same hash and get the same bytes Table 4 was read from. The exemption rests on this tree not redistributing, which the terms search above makes an explicit requirement here rather than an absence-based inference: the repository holds this URL and this hash and never the bytes, and tools/literaturecheck.py fails if any build input can reach it.",
+      "upstream_mutable": false,
+      "verify_note": "Retrieved with no account and no request form: arxiv.org/pdf/1404.7826 serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). 30 pages. Table 4 (p. 26), 'Drag coefficient of a sphere in the nearly free molecular flow regime as a function of the speed ratio S', prints C_0(S) at S = 0, 0.1, 0.3, 0.5, 0.75, 1.0, 2.0, 3.5, 5.0, 7.5, 10, 15, 20, 30, 40, 50, and the S -> infinity limit, which the paper's own text states is exactly 2. This is cited as a plausibility RANGE for C_D in DRAG-A-002, not as a registered test value: the paper characterises free-molecular flow over an idealised sphere in general, not any specific satellite, so no single printed number is 'the' answer a force-law test can assert equality against -- recorded per plan rule 4 alongside the search's other finding, that the DTIC alternatives named in the plan (ADA285118, AD0464391) return HTTP 403 and are out of reach under the no-contact-anybody constraint.",
+      "retrieved": "2026-09-22"
     }
   ]
 }
