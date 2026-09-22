@@ -609,6 +609,18 @@ surface carries a trivial test force end to end, sensitivities included, with no
 integrator aware of what the parameter means — which was **false when step 4 opened** and is the
 reason the second clause of that sentence is a gate and not a description.
 
+> **Correction found at L4 step 4: the surface was frozen without a provenance channel.**
+> `ForceEvaluation` carries an acceleration and two Jacobians and nothing else, so the first force
+> whose result carries provenance — drag, with the space-weather snapshot identity and the
+> verification flag that `ATMO-R-031` requires in *every* result — has to drop it at the plugin
+> boundary, and everything estimated through the plugin loses it. The requirement was on the books
+> at L2 step 4, **before** this surface was frozen, and the manager's L3 handover did not carry it
+> into the surface's design. Freezing against a trivial force could not have revealed it, and that
+> is the honest limit of the strategy: a trivial force proves a surface does not **require** what
+> a trivial force lacks, and cannot reveal what a real force must **carry**. Amended additively at
+> L4 step 4 — a typed provenance field, empty for forces that have none — with every existing
+> force and test unchanged, on the same terms as `DYN-Q-001`'s edit of closed layers.
+
 ---
 
 ### 3.5 L4 `forces-analytic` — 3 of 7 done; **the open layer**
@@ -723,7 +735,7 @@ the MVP needs.
    method's order and a wrong law does not. The single-plate absorber and mirror checks assert
    direction as well as magnitude.
 
-4. **TODO** — `drag`: the drag force over L2's atmosphere, with the drag coefficient a
+4. **IMPLEMENTED, GATE NOT YET CLOSED** — `drag`: the drag force over L2's atmosphere, with the drag coefficient a
    **registered parameter from the first commit**, never a constant. Gate: published ballistic
    coefficient cases, and the parameter's sensitivity column against finite differences.
 5. **TODO** — `erp`: Earth albedo and infrared radiation pressure. Sources: Knocke et al. 1988;
