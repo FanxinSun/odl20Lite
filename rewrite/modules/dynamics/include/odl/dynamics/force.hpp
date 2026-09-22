@@ -81,11 +81,43 @@ private:
     std::vector<Vec3> cols_;
 };
 
-/// What a force returns.
+/// What upstream data a force's evaluation drew on, when the force has one to
+/// declare. Added at L4 step 4 (DYN-Q-001's own terms for amending a closed
+/// layer additively): `atmosphere::EvaluationRecord` carries a verification
+/// flag and a snapshot identity (SPEC-atmosphere ATMO-R-031), and a force
+/// that samples it and has nowhere to put that on the way to its own result
+/// makes the mechanism decorative — exactly the failure `ForceEvaluation`'s
+/// own original three fields, frozen before any force with provenance to
+/// carry existed, could not have revealed (a trivial force proves a surface
+/// does not REQUIRE what the trivial force lacks; it cannot reveal what a
+/// real force must CARRY).
+///
+/// Deliberately narrow rather than atmosphere-shaped: `source_id` and
+/// `source_sha256` name WHAT was sampled, `verified_against_issuer` says
+/// whether that sample was checked against its issuing authority — the part
+/// of `atmosphere::EvaluationRecord` a consumer's own pass/fail decision
+/// (`require_verified`, `DRAG-F-001`-shaped) actually needs, not every field
+/// atmosphere's own record carries for atmosphere's own reasons. A future
+/// force with a differently-shaped provenance (an ephemeris kernel id, a
+/// coefficient-set id) is a reason to widen this type when it arrives, not a
+/// reason to guess its shape now (plan §5 constraint 7's own argument, one
+/// level up from a module to this interface).
+struct Provenance {
+    std::string source_id;
+    std::string source_sha256;
+    bool verified_against_issuer = false;
+};
+
+/// What a force returns. `provenance` is ABSENT (not a default-constructed
+/// `Provenance`) for a force with none to declare — the same "absent means
+/// declared absent, not zero and not forgotten" discipline `StateJacobian`'s
+/// `d_velocity()` already uses (DYN-R-027), applied to this field so that
+/// omission and "just doesn't have one" cannot be confused.
 struct ForceEvaluation {
     frames::Acceleration<frames::Frame::GCRS> acceleration;
     StateJacobian d_state;
     ParameterJacobian d_parameters;
+    std::optional<Provenance> provenance{};
 };
 
 /// A force's own identity, so the registry can attribute contributions.

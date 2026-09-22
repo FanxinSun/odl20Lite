@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Spec ID** | `DYN` |
-| **Status** | **draft** 2026-09-18, for review |
-| **Version** | 1.0 |
-| **Date** | 2026-09-18 |
+| **Status** | **adopted** 2026-09-18 (v1.1, all three §10 questions ruled the same day); **amended** 2026-09-22 for L4 step 4's provenance field (`DYN-R-051`, `DYN-Q-001`'s own terms for a closed-layer edit) |
+| **Version** | 1.2 |
+| **Date** | 2026-09-18; amended 2026-09-22 |
 | **Layer** | L3 `dynamics`, step 1 (`doc/REWRITE_PLAN.md` §3.4) |
 | **Depends on** | `SPEC-frames.md` (`State`, `Position`, `Acceleration`), `SPEC-time.md` (`Epoch`), `core` |
 | **Depended on by** | every force in L4, the integrators (step 2), the STM (step 3), the registry (step 4), estimation (L7) |
@@ -252,6 +252,23 @@ crossing and `FRAME-R-062` requires that no other site perform it — a requirem
   parameters; extending that to the state is consistency rather than expansion, and it is the
   same data under two names.
 
+- **DYN-R-051.** `ForceEvaluation` carries an **optional, typed `provenance`** field
+  (`dyn::Provenance{source_id, source_sha256, verified_against_issuer}`), **absent** for a force
+  with none to declare — added additively at L4 step 4 (`SPEC-drag` `DRAG-R-007`), under the terms
+  `DYN-Q-001` already set for editing this closed layer: nothing existing changed, and the reason
+  is re-derived here rather than assumed. `ForceEvaluation`'s original three fields were frozen
+  before any force with upstream provenance to carry existed (§1, "gated with a TRIVIAL force so
+  the surface is not shaped by its first client"); that trial by triviality proves a surface does
+  not *require* what the trivial force lacks, and cannot reveal what a *real* force — one drawing
+  on another layer's own verification flag and snapshot identity — must *carry*. A force that
+  samples such data and has nowhere to put it on the way to its own result makes the source
+  layer's own provenance mechanism decorative (the exact failure `SPEC-atmosphere` `ATMO-R-031`
+  was written against). Absence, not a default-valued `Provenance`, for the same reason
+  `DYN-R-027`'s neglected-velocity bound is a declared quantity and not a silent zero: "this force
+  has no provenance to declare" and "provenance was dropped in transit" must not be the same
+  value. No new refusal accompanies it: this is additive data, and a force that populates it
+  incorrectly is a defect in that force's own implementation, not in this surface.
+
 - **DYN-R-027.** **A force declaring no velocity dependence records the magnitude it is
   neglecting.** The declaration is not a boolean; it carries a bound, so that "no velocity
   dependence" cannot come to mean "nobody looked". The bound is a budget row, which gate 8
@@ -384,6 +401,7 @@ vehicles.
 |---|---|
 | `DYN-R-050` | A documentation obligation, not a behaviour: `PROVENANCE.md` must record §0's enumeration as the measurement that shaped the gate. Discharged by §9 and by the entry a reviewer can read. Listed rather than silently omitted, because the alternative — a test grepping `PROVENANCE.md` for a phrase — would pass on the phrase and not on the measurement. |
 | `DYN-R-026` | *The integrator is not aware of what a parameter means* is **L3's exit gate**, and there is no integrator until step 2 and no second parameter until step 4. Testing it here would test a stub. It is a requirement on **this** step because the surface is what makes it possible or impossible, and `DYN-A-002` and `DYN-A-004` together are the part of it that is checkable now: no positional access exists and no width is fixed. The whole of it is step 4's own gate — *registering a second parameter requires no change to the integrator* — which this specification does not give an identifier to, because inventing a forward identifier for a test another step will write is how a dangling reference becomes a discharged-looking one. This row exists so the obligation is carried rather than quietly dropped between steps. |
+| `DYN-R-051` | This module has no force with provenance to populate — `TwoBody`-shaped test doubles are the only forces this suite's own tests construct, and every one declares none (`provenance` stays absent, its own default). The field's actual population, and a consumer reading it back, are exercised where a real provenance-bearing force exists: `SPEC-drag` `DRAG-A-006` (both directions of the verification flag, through this exact field) and `DRAG-A-007` (`require_verified` refusing through the plugin because of what this field's absence would otherwise hide). Testing a structural amendment here, against a force with nothing to put in it, would show only that an `optional` defaults to empty — true, and not the property that matters. |
 
 ### What these gates can and cannot catch
 
@@ -492,5 +510,6 @@ mismatch — a term that a patch would have carried across unexamined.
 
 | version | date | change |
 |---|---|---|
+| 1.2 | 2026-09-22 | **`ForceEvaluation` amended additively**, `DYN-R-051`: an optional, typed `provenance` field (`dyn::Provenance{source_id, source_sha256, verified_against_issuer}`), absent for a force with none. Found necessary at L4 step 4: `Drag::accel` samples `atmosphere`'s own verification flag and snapshot identity and, before this amendment, had nowhere to carry them through the `Force` plugin surface — every consumer reaching this force only through `ForceEvaluation` (L7's estimator among them) would have lost that provenance in transit, making `SPEC-atmosphere` `ATMO-R-031`'s mechanism decorative past this boundary. Ruled under `DYN-Q-001`'s own terms (annotation/addition only, re-derived from the actual need rather than the earlier enumeration, full suite re-run — 236 assertions in dynamics' own tests unchanged). The header's own Status/Version were also corrected here: v1.1's ruling had already happened per this changelog but was never reflected in the front-matter table. |
 | 1.1 | 2026-09-18 | **All three questions ruled; register built and wired as `ci.sh` gate 10.** (1) The 14 annotations are in, each **re-derived from its own line**, which found that four of them convert nothing at all and produced `DYN-R-040`'s **second marker** — labelling a date radix or a sentinel as a conversion would have made the register say something false. (2) `DYN-R-041` added after the gate passed an injected km↔m scaling that was *honestly annotated*: an annotation is not a permit, and no conversion outside `core/units.hpp` may name kilometres. (3) `∂a/∂state` **split** into two named 3×3 blocks, with `DYN-R-027` requiring a neglected velocity dependence to carry a **bound**. (4) `DYN-P-3`/`DYN-P-4` measured: the SRP-versus-drag figure offered for the split compares a **sail's SRP against a compact satellite's drag**; like for like, drag's velocity derivative is 1078× SRP's at 953 km and 0.20× at GNSS altitude — a regime rather than a coincidence, and a better argument than the one it replaces. (5) `DYN-R-028`: `gradient()` is **additive**, decided from `SPEC-gravity` §5's existing interface. |
 | 1.0 | 2026-09-18 | First draft, for review. Leads with §0: the crossing gate as the plan words it would fire on **15 literals of which 14 are unrelated** and one is the definition it must permit, measured before being specified. Replaced by a **register** — every factor of a thousand either in `core/units.hpp` or annotated with what it converts — which is the licence allowlist's shape rather than the secular-pole guard's, and which this layer has just twice watched fail by narrowing. |

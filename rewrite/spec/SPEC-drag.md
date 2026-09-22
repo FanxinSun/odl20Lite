@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `DRAG` |
-| **Status** | **draft** 2026-09-22, for review |
-| **Version** | 1.0 |
+| **Status** | **draft** 2026-09-22, for review; **amended the same day** on the manager's review of v1.0: `DYN-Q-001` and `DRAG-Q-002` ruled, `DRAG-R-004` corrected |
+| **Version** | 1.1 |
 | **Date** | 2026-09-22 |
 | **Layer** | L4 `forces-analytic`, step 4 (`doc/REWRITE_PLAN.md` §3.5) |
 | **Depends on** | `core`, `time`, `eop`, `frames`, `atmosphere`, `dynamics` |
@@ -102,7 +102,10 @@ Inherits, entire, and redefines none of:
   them is a named call to `km_from_metres`/`metres_from_km`, not an implicit conversion).
 - `SPEC-dynamics` §3's `Force`/`ForceEvaluation`/`StateJacobian`/`ParameterJacobian` surface,
   frozen before this module existed (`SPEC-dynamics` §1). This module supplies one
-  implementation of it; it does not extend or reinterpret it.
+  implementation of it and does not reinterpret it — the one exception, `ForceEvaluation`'s
+  additive `provenance` field (`DYN-R-051`), was proposed by this module's own need but is
+  `SPEC-dynamics`'s own amendment, ruled under `DYN-Q-001`'s terms, not a private extension this
+  spec grants itself.
 - `SPEC-atmosphere` §3's `SpaceWeather`, `Place`, `DragDensity`, `EvaluationRecord`,
   `Verification` and `DataClass` — this module is a consumer, never a second definition.
 
@@ -146,14 +149,33 @@ different frames wearing the same units (found and fixed in this module's own te
   *M*ᵀ · (∂**a**/∂**v**)_ITRS · *M*, *M* the GCRS→ITRS rotation `frames::gcrs_to_itrs` returns
   (velocity transforms at fixed position under a pure rotation this way; `SPEC-frames` §4.1's
   own composed chain). Verified by direct differentiation, not assumed (§9).
-- **DRAG-R-004.** The position Jacobian's **radial** part is a **named approximation**: a
-  locally exponential atmosphere, scale height *H* = −ρ/(dρ/d(altitude)), with dρ/d(altitude)
-  itself estimated by **one** extra `atmosphere::for_drag` call at altitude + 1 km
-  (`DRAG-P-1`'s pre-registered step size). The **lateral** (latitude/longitude/local-time)
-  gradient is **neglected**, named as neglected rather than silently taken as zero (§9 records
-  its rough size). If the bumped-altitude call itself refuses, the position Jacobian's block is
-  zero — **a declared, visible degradation** (`DRAG-A-005`'s own un-bumped call is asserted to
-  succeed at the altitude that test uses, so this fallback is not silently exercised there).
+- **DRAG-R-004.** The position Jacobian is **two channels**, not one, and both are checked
+  against a real finite difference of `acceleration()` rather than trusted from their closed
+  forms (§8's own finding — v1.0 of this row described one channel and an untested tolerance,
+  corrected below).
+
+  **Channel 1, radial, via density's altitude dependence.** A locally exponential atmosphere,
+  scale height *H* = −ρ/(dρ/d(altitude)), with dρ/d(altitude) estimated by a **central**
+  difference of two extra `atmosphere::for_drag` calls at altitude ± `DRAG-P-1`'s registered
+  half-step. The **lateral** (latitude/longitude/local-time) gradient is **neglected**, named as
+  neglected rather than silently taken as zero (§9 records its rough size). If either bumped
+  call refuses, this channel's contribution is zero — **a declared, visible degradation**
+  (`DRAG-A-005`'s and `DRAG-A-010`'s own bumped calls are asserted to succeed at the altitudes
+  those tests use).
+
+  **Channel 2, the velocity-transport term.** **v**_rel = **v**_ITRS itself depends on
+  **r**_ITRS, through the same transport term the GCRS↔ITRS state transform carries
+  (**v**_ITRS = *M*·**v**_GCRS − **ω**×**r**_ITRS, at fixed epoch and **v**_GCRS) — a channel a
+  radial-altitude-only bump cannot see at all. **Exact and free**: no extra atmosphere call,
+  since ∂**a**/∂**v**_rel is already `DRAG-R-003`'s own tensor and ∂**v**_rel/∂**r**_ITRS =
+  −[**ω**]ₓ (the cross-product matrix) is constant at fixed epoch, so this channel is
+  ∂**a**/∂**v**_rel · (−[**ω**]ₓ) by the chain rule. **ω** is `frames::gcrs_to_itrs`'s own
+  `omega_rad_s`, used as if already expressed in ITRS components though it is strictly in the
+  intermediate (TIRS) frame the full state transform forms it in — the sub-arcsecond
+  polar-motion misalignment this introduces was itself checked (§9) rather than assumed
+  negligible, by isolating this channel from channel 1 (holding ρ fixed, differencing only
+  **a**(**v**_ITRS(**r**)) through the exact, non-approximated `to_itrs` velocity output) and
+  finding this formula matches to 6 significant figures at that resolution.
 - **DRAG-R-005.** ∂**a**/∂*C*_D is **exact**: **a** is linear in *C*_D, so ∂**a**/∂*C*_D =
   **a**/*C*_D, computed directly from the already-evaluated acceleration rather than by a
   division that would blow up as *C*_D → 0 (a value that is never physically valid, but the
@@ -168,14 +190,25 @@ different frames wearing the same units (found and fixed in this module's own te
   not asking the parameter system for one; `Drag::accel()` is the only path that resolves it
   from a `ParameterSet`.
 - **DRAG-R-007.** `atmosphere::for_drag`'s own `EvaluationRecord` — verification flag and
-  snapshot identity — is carried into `DragResult::atmosphere_record` **unchanged**, not
-  summarised or re-derived. `require_verified` (default `false`) refuses (`DRAG-F-001`, naming
-  the same reason `SPEC-atmosphere` `ATMO-F-015` refuses a direct `sample()` call) rather than
-  computing silently, when set and the sample's `verification` is not
-  `verified_against_issuer`. This makes `SPEC-atmosphere`'s provenance mechanism reachable
-  *through* a force, not only through a direct call to `atmosphere::for_drag` — the property
-  that keeps it from becoming, in the manager's words, "the decorative field it was designed not
-  to be."
+  snapshot identity — reaches **both** of this module's surfaces, unchanged, not summarised or
+  re-derived: `DragResult::atmosphere_record` for a caller of `acceleration()` directly, and
+  `dyn::ForceEvaluation::provenance` (mapped into `dyn::Provenance`'s narrower shape — source id,
+  source hash, a verified/not-verified flag) for a caller through the `Force` plugin.
+  **The plugin surface did not carry this in v1.0** — `ForceEvaluation` had no field for it, and
+  a caller reaching drag only through the plugin (L7's estimator among them) would have lost the
+  snapshot identity and verification flag entirely, exactly the "decorative field" failure this
+  requirement exists to prevent, at exactly the boundary it was found to be missing from.
+  Corrected by amending `SPEC-dynamics` `ForceEvaluation` additively (`DYN-R-051`, `DYN-Q-001`'s
+  own terms for a closed-layer edit) rather than working around the gap in this module alone.
+- **DRAG-R-011.** `require_verified` is reachable through **both** surfaces, not only the free
+  function: a plain argument on `acceleration()` (`DRAG-F-001`, naming the same reason
+  `SPEC-atmosphere` `ATMO-F-015` refuses a direct `sample()` call), and a **construction-time**
+  option on `Drag` (default `false`, so every pre-existing construction call stays valid
+  unchanged), so a consumer needing verified inputs sets it once rather than per call. **v1.0's
+  `Drag` had no such option** — `accel()` called the free function at its fixed default, so
+  `DRAG-F-001` was structurally unreachable through the plugin regardless of what a caller
+  wanted (`DRAG-Q-001`, ruled: closed by adding the option, not by declaring the free function
+  the only route to the strict check).
 - **DRAG-R-008.** This module's own precision claim is bounded by, and never exceeds,
   `SPEC-atmosphere`'s class-A tolerance (`ATMO-P-1`: 7.6706 × 10⁻⁶ worst-case relative, on total
   mass density, over every comparison that can affect a drag calculation at all). No figure in
@@ -204,26 +237,41 @@ different frames wearing the same units (found and fixed in this module's own te
 
 - `acceleration(t: Epoch, r_gcrs_m: Vec3, v_gcrs_m_per_s: Vec3, c_d: f64, area_m2: f64,
   mass_kg: f64, sw: atmosphere::SpaceWeather, eop: EopRecord, leaps: LeapTable,
-  require_verified: bool = false) -> Result<DragResult, Diagnostic>` — the core computation,
+  require_verified: bool = false) -> Result<DragResult, DragError>` — the core computation,
   taking *C*_D as a plain value (`DRAG-R-006`).
   - `DragResult { acceleration_m_s2: Vec3 [GCRS], atmosphere_record: atmosphere::EvaluationRecord }`.
+  - `DragError { id: str, message: str, cause: Option<Diagnostic> }` — this module's own error
+    type, not `dyn::DynError` (`SPEC-dynamics`'s frozen, shared one). `cause`, when present,
+    carries the UNDERLYING module's own diagnostic as data, not only folded into `message`'s
+    free text (plan §5 constraint 10) — `DRAG-F-003`'s own three nominal causes are the reason
+    this exists (`DRAG-Q-002`).
 - `Drag` implements `dyn::Force` (`SPEC-dynamics` §3): bound at construction to one
   `ParameterId` (the *C*_D this instance resolves from a `ParameterSet`), one area, one mass, one
-  `SpaceWeather`, one `EopRecord`, one `LeapTable` — the shape every other fixed-physical-constant
-  force in this tree already takes, since `ForceEvaluation` (frozen before this module existed)
-  has no room for them. `consumes()` returns exactly the one `ParameterId`. `accel()` resolves
-  *C*_D, calls `acceleration()` internally (with `require_verified` at its default — `DRAG-Q-001`
-  records the open question this leaves), and additionally returns `DRAG-R-003`/`-R-004`/`-R-005`'s
-  Jacobians.
+  `SpaceWeather`, one `EopRecord`, one `LeapTable`, and one `require_verified: bool = false`
+  (`DRAG-R-011`) — the first five the shape every other fixed-physical-constant force in this
+  tree already takes, since `ForceEvaluation` (frozen before this module existed, now amended
+  additively — `DYN-R-051`) had no room for them. `consumes()` returns exactly the one
+  `ParameterId`. `accel()` resolves *C*_D, calls `acceleration()` internally with its own
+  construction-time `require_verified`, maps the result's `atmosphere_record` into
+  `dyn::Provenance` for `ForceEvaluation::provenance`, and additionally returns
+  `DRAG-R-003`/`-R-004`/`-R-005`'s Jacobians.
 
 ---
 
 ## 6. Precision
 
-- **DRAG-P-1.** The position Jacobian's altitude step (`DRAG-R-004`) is **1 km**,
-  pre-registered before `DRAG-A-004`/`DRAG-A-005` were run, not fitted to make either pass —
-  small relative to the scale heights this tree's LEO test cases occupy (tens of km), and large
-  relative to the metre-level rounding `atmosphere::for_drag`'s own arithmetic carries.
+- **DRAG-P-1.** The position Jacobian's altitude half-step (`DRAG-R-004`'s channel 1) is
+  **0.1 km**, revised from an initial 1 km by a measurement, not a preference. A step sweep
+  (1, 0.5, 0.25, 0.1, 0.05 km), run after `DRAG-A-010` first measured a central difference's
+  error an order of magnitude above the textbook (Δ/*H*)²/6 prediction, found channel 1's true
+  error **non-monotonic** across 1–0.25 km and only stably small at 0.1 km and below — the
+  signature of `atmosphere`'s own fitted cubic-spline structure in altitude (`SPEC-atmosphere`
+  §3.1), not smooth Taylor truncation, at the coarser scale. 0.1 km sits stably past that
+  structure (measured error ≈ 1.2 × 10⁻⁶ relative at this test's own case) and well below the
+  ~1 % the still-neglected lateral gradient already costs this Jacobian, so a smaller step would
+  buy precision this approximation cannot use. `DRAG-A-010`'s own stability check — comparing
+  channel 1 at the registered step against half of it — is what would catch a return to the
+  non-monotonic regime, and is the property a fixed formula-based tolerance could not.
 - **DRAG-P-2.** `SENG14` Table 4 gives the free-molecular sphere drag coefficient *C*₀(*S*) in
   the range 2.0–2.4 for the speed ratios *S* typical of atomic oxygen at LEO altitudes.
   `DRAG-A-002` asserts its own **stated** *C*_D (2.2) lies in [2.0, 2.5] as a plausibility check
@@ -247,7 +295,7 @@ different frames wearing the same units (found and fixed in this module's own te
 |---|---|---|---|
 | `DRAG-F-001` | `require_verified=true` and the space-weather sample's `verification` is not `verified_against_issuer` | the same reason `ATMO-F-015` refuses a direct `sample()` call | computing silently on an unverified sample |
 | `DRAG-F-002` | mass or area not strictly positive (either, same id) | which one and its value | a silent zero-force or a divide producing `inf`/`NaN` |
-| `DRAG-F-003` | the GCRS↔ITRS transform or rotation fails, **or** the epoch fails to render to a UTC calendar (three internal call sites, one id — the attached message names which; `DRAG-Q-002` records whether this should split) | the underlying `frames`/`time` diagnostic's own message | a garbage acceleration from an unchecked transform result |
+| `DRAG-F-003` | the GCRS↔ITRS transform fails, **or** the epoch fails to render to a UTC calendar, **or** the GCRS↔ITRS rotation fails (three internal call sites, one id, matching `DRAG-F-002`'s own precedent for mass/area — ruled sufficient, `DRAG-Q-002`) | the underlying `frames`/`time` diagnostic's own message, **and** that same diagnostic carried structured as `DragError::cause` (not only in the message text — plan §5 constraint 10) | a garbage acceleration from an unchecked transform result |
 | `DRAG-F-004` | the ITRS-frame relative speed is not strictly positive | that drag has no well-defined direction at zero relative velocity | a `NaN` direction from dividing by zero |
 | `DRAG-F-005` | `atmosphere::for_drag` itself refuses (e.g. `ATMO-F-001`, negative geodetic altitude) | the atmosphere module's own refusal message | proceeding with a stale or default density |
 | `DRAG-F-006` | (`Drag::accel` only) the given `ParameterSet` carries no value for this instance's *C*_D `ParameterId` | that the parameter is unset, naming the underlying `DYN-F-002`-shaped cause | defaulting *C*_D to any constant (`DRAG-R-006`'s entire point) |
@@ -263,11 +311,11 @@ different frames wearing the same units (found and fixed in this module's own te
 | `DRAG-A-003` | drag opposes relative velocity (dot product strictly negative), checked in the ITRS frame the force is built from | negative | R-001's stated direction | exact sign | R-001 |
 | `DRAG-A-004` | *C*_D is registered (`DYN`-shaped refusal fires when unset, `DRAG-F-006`) and its Jacobian column matches a central finite difference | refusal fires; analytic and FD agree | R-005, R-006; `DRAG-P-3` | 1×10⁻⁸ relative | R-005, R-006, F-006 |
 | `DRAG-A-005` | **Liouville with real drag**: a `TwoBody` + `Drag` `ForceSet`, at a **low, dense** orbit (300 km altitude — the file's usual 7331 km test radius measured too thin an atmosphere to move the determinant meaningfully), `det(Phi)` by direct Gaussian elimination against `exp(integral tr A dt)`; the integral strictly negative (dissipative, unlike every conservative force this tree had before); the determinant below 1 − 10⁻⁵ (four orders of margin above the integrator's own 10⁻¹¹ tolerance); a longer propagation showing strictly more decay than a shorter one | the two routes to `det(Phi)` agree to 1×10⁻⁷ relative; integral < 0; det < 1 − 10⁻⁵; monotonic in propagation time | `SPEC-stm` `STM-A-005b`'s own generalised form; R-001, R-003 | as stated | R-001, R-003 |
-| `DRAG-A-006` | atmosphere provenance reaches `DragResult` in both directions: a pre-2004 epoch carries `unverified_redistribution` and a `require_verified=true` call on it refuses `DRAG-F-001`; a post-2004 epoch carries `verified_against_issuer` and the same call does not refuse | as stated, both directions | R-007; `SPEC-atmosphere` `ATMO-R-031`/`ATMO-A-021`'s own pattern | exact | R-007, F-001 |
-| `DRAG-A-007` | `require_verified` through the `Force` plugin: `Drag::accel` calls the free function at its default (`false`), so an unverified sample does **not** refuse through this path — the boundary stated precisely rather than left to be discovered (`DRAG-Q-001`) | succeeds (does not refuse) | R-007's stated default | — | documents a boundary, discharges nothing new |
-| `DRAG-A-008` | the refusal catalogue, fired on genuine adjacent-valid inputs, not contrived ones: `DRAG-F-002` (negative mass, zero area); `DRAG-F-003` (an `EopRecord` with `subdaily_applied=false`, `FRAME-F-003`'s own trigger); `DRAG-F-005` (a satellite below the WGS84 ellipsoid, reached via `geodetic_to_itrs`→`to_gcrs`, a real negative-altitude `Place`, `ATMO-F-001`'s own trigger); and the adjacent valid input does **not** refuse. `DRAG-F-004` is **not** fired: its guard is exact-zero ITRS relative speed, which no honest orbital state reaches (a physical near-geostationary state lands at a small but nonzero residual — the *correct* non-refusing answer, not a gap), recorded as an acknowledged absence (plan rule 4) rather than a contrived pass | each names its id; the valid case succeeds | F-002, F-003, F-005; `SPEC-atmosphere` `ATMO-F-001`; `SPEC-frames` `FRAME-F-003` | exact (id match) | F-002, F-003, F-005 |
+| `DRAG-A-006` | atmosphere provenance reaches **both** surfaces, in both directions: a pre-2004 epoch carries `unverified_redistribution` in `DragResult` and a `require_verified=true` free-function call on it refuses `DRAG-F-001`, **and** `Drag::accel`'s `ForceEvaluation::provenance` carries the same unverified flag and source id; a post-2004 epoch carries `verified_against_issuer` on both surfaces and the free-function call does not refuse | as stated, both directions, both surfaces | R-007; `SPEC-atmosphere` `ATMO-R-031`/`ATMO-A-021`'s own pattern; `DYN-R-051` | exact | R-007, F-001, DYN-R-051 |
+| `DRAG-A-007` | `require_verified` as a **construction-time** option of `Drag`, through the `Force` plugin: the default (`false`) does not refuse an unverified sample, matching the pre-existing behaviour; constructed with `require_verified=true`, refuses `DRAG-F-001` through `accel()` on the same unverified sample; constructed the same way on a verified sample, does not refuse — shown adjacent per this project's refusal-catalogue discipline | as stated, all three cases | R-011 (ruled, `DRAG-Q-001`) | — | R-011, F-001 |
+| `DRAG-A-008` | the refusal catalogue, fired on genuine adjacent-valid inputs, not contrived ones, with `DRAG-F-003`'s structured `cause` checked where it fires: `DRAG-F-002` (negative mass, zero area); `DRAG-F-003` via the transform (an `EopRecord` with `subdaily_applied=false`, `cause.id == FRAME-F-003`); `DRAG-F-005` (a satellite below the WGS84 ellipsoid, reached via `geodetic_to_itrs`→`to_gcrs`, a real negative-altitude `Place`, `ATMO-F-001`'s own trigger); and the adjacent valid input does **not** refuse. `DRAG-F-003`'s other two nominal causes are demonstrated absent, not merely untried: the **rotation** cause is checked directly against `transform.cpp`'s own source (`to_itrs` calls `gcrs_to_itrs` internally with identical arguments before this module's own separate call is ever reached, so the second call cannot fail if the first succeeded); the **calendar** cause is checked by construction (a pre-1972 epoch, built by `Duration` arithmetic since `from_calendar` itself refuses to construct one) — refuses `DRAG-F-003`, but with `cause.id == TIME-F-002` (the transform's own UT1 need, which runs first), not a calendar-conversion id, demonstrating the shadowing directly. `DRAG-F-004` is **not** fired: its guard is exact-zero ITRS relative speed, which no honest orbital state reaches, recorded as an acknowledged absence (plan rule 4) | each names its id and, where structured, its cause; the valid case succeeds | F-002, F-003 (both causes), F-005; `SPEC-atmosphere` `ATMO-F-001`; `SPEC-frames` `FRAME-F-003`; `SPEC-time` `TIME-F-002` | exact (id and cause.id match) | F-002, F-003, F-005 |
 | `DRAG-A-009` | `detail::day_of_year` against the Gregorian rule's three branches, called directly (1900 not leap, 2000 leap, 2100 not leap, 2004 ordinary-leap, plus ordinary-year and both leap/non-leap year-end boundaries), **and** the wiring end-to-end at a representable date (no spurious `ATMO-F-002`) | every case matches the hand-computed day-of-year exactly; the end-to-end call succeeds | R-010 | exact | R-010 |
-| `DRAG-A-010` | the position Jacobian's radial part against a real finite difference of the full `acceleration()` call (a genuine radial GCRS perturbation, not a synthetic one), at the same 300 km orbit `DRAG-A-005` uses; **found a real defect before this row could pass**: the first draft's `a_direction` omitted a factor of `\|`**v**_rel`\|` (~7.7 km/s at this case), a ~7300× error caught by comparing against the finite difference rather than trusting the closed form — fixed in `drag.cpp`, recorded in `PROVENANCE.md` | relative deviation 1.18×10⁻² after the fix (was 1.0, i.e. no agreement, before it); same-sign | R-004; a real finite difference of R-001 | 5×10⁻² relative, dot product > 0 | R-004 |
+| `DRAG-A-010` | the **full** position Jacobian (both channels) against a real finite difference of the full `acceleration()` call (a genuine radial GCRS perturbation, not a synthetic one), at the same 300 km orbit `DRAG-A-005` uses, **plus a stability check**: channel 1 alone, recomputed independently at the registered 0.1 km step and at half of it, must closely agree — the property whose *absence* this row's own review caught at the coarser 1–0.25 km steps (`DRAG-P-1`). **Found two real defects across two review rounds, not a tolerance question**: (1) the first draft's `a_direction` omitted a factor of `\|`**v**_rel`\|` (the CO-ROTATING-frame relative speed, ~7.24 km/s at this case, not the ~7.73 km/s inertial orbital speed), a ~7330× error; (2) the first fix's own tolerance was set from a passing forward-difference residual (rule 7's defect), which review caught by a falsifiable step-halving prediction and which led to the channel-1/channel-2 split and the step-size finding above. Both recorded in full in `PROVENANCE.md` §28.4 | relative deviation < 1×10⁻⁴ (measured 1.2×10⁻⁶); stability between the two internal steps < 1×10⁻³ (measured ≈0); same-sign | R-004 (both channels); a real finite difference of R-001 | as stated | R-004 |
 
 **Coverage.** Every requirement above is discharged by a row, except:
 
@@ -305,6 +353,30 @@ different frames wearing the same units (found and fixed in this module's own te
   Liouville check — and the test was rebuilt at 300 km rather than the threshold loosened to fit
   the weak result, the same discipline `SPEC-srp-analytic`'s box-wing gap and this session's
   earlier steps have applied throughout.
+- `DRAG-A-010`'s full history across two review rounds: the `\|`**v**_rel`\|` defect (found by
+  comparing the analytic Jacobian against a real finite difference rather than trusting the
+  closed form); the FIRST fix's own tolerance found wanting (set from a passing forward-difference
+  residual, rule 7's defect in its plainest form — a threshold chosen from the result it judges);
+  the falsifiable step-halving prediction that caught it; the step sweep (1, 0.5, 0.25, 0.1,
+  0.05 km) that found channel 1's error non-monotonic across the coarser steps and traced it to
+  `atmosphere`'s own fitted cubic-spline structure, not smooth truncation; and the exact,
+  independently-verified channel-2 formula (matched to 6 figures against a rho-held-fixed
+  isolation) that the first "fix" omitted entirely. The two candidate explanations offered for
+  the residual before the true cause was found (the neglected lateral gradient; the channel-2
+  omega approximation) are recorded as REJECTED, with the reasoning that ruled each out, not
+  quietly dropped once the real cause was found.
+- The `ForceEvaluation` provenance-boundary gap (`DRAG-R-007`, `DYN-R-051`) as its own finding,
+  distinct from the mechanism it fixes: v1.0 built the free function's `DragResult` carefully but
+  left the `Force` plugin surface — the ONLY surface L7's estimator will ever see — with no way
+  to carry the same information, an omission a trivial-force-gated interface (`SPEC-dynamics`
+  §1) could not have revealed and only a real, provenance-bearing force could.
+- `DRAG-Q-002`'s resolution: `DRAG-F-003`'s three nominal causes reduce, in practice, to ONE
+  independently reachable trigger (the transform's own `EopRecord.subdaily_applied` check) and
+  TWO that are structurally shadowed by that same earlier, stronger check — the rotation cause
+  by `to_itrs`'s own internal delegation to `gcrs_to_itrs` with identical arguments, and the
+  calendar cause because `to_itrs` needs UT1, which needs the same UTC rendering
+  `.calendar(UTC, leaps)` performs, and runs first. Both demonstrated, not merely argued
+  (`DRAG-A-008`).
 
 ---
 
@@ -312,5 +384,5 @@ different frames wearing the same units (found and fixed in this module's own te
 
 | id | question |
 |---|---|
-| `DRAG-Q-001` | `Drag::accel` calls `acceleration()` at `require_verified`'s default (`false`), so `DRAG-F-001` is **not** reachable through the `Force` plugin surface today (`DRAG-A-007` documents this precisely rather than leaving it to be discovered). Should `Drag` gain a variant, or a constructor flag, that requests the refusal through this path too — matching `SPEC-atmosphere`'s own point that the mechanism must be reachable "through the force," which today it only half is — or is direct use of the free function the intended route for a caller that needs the strict check? |
-| `DRAG-Q-002` | `DRAG-F-003` covers three internally distinct causes (GCRS↔ITRS transform failure, epoch-to-UTC-calendar failure, GCRS↔ITRS rotation failure) under one diagnostic id, distinguished only by the attached free-text message — the same shape `DRAG-F-002` already takes for mass/area. Is one id sufficient here (matching precedent), or does a caller need to distinguish these three programmatically, which would mean splitting the id? |
+| `DRAG-Q-001` | **RULED: give `Drag` a construction-time flag.** `require_verified` is now a `Drag` constructor parameter (default `false`, every existing call site unchanged), and `accel()` passes it to the free function it wraps. `DRAG-R-011`, `DRAG-A-007`. Closed together with the `ForceEvaluation` provenance gap this same review found (`DRAG-R-007`, `DYN-R-051`): the construction-time flag alone would have let a caller REQUEST the refusal without giving that caller anywhere to read the verification flag on the SUCCEEDING path, which is the more common case. |
+| `DRAG-Q-002` | **RULED: one id, with the underlying cause carried structured.** `DragError` gained a `cause: Option<Diagnostic>` field (plan §5 constraint 10), populated at all three `DRAG-F-003` sites. Investigating the three causes to test them found two are structurally shadowed by the transform call's own stronger precondition, not merely hard to trigger (§9, `DRAG-A-008`) — a finding the ruling's own "fire each cause or record its absence" condition surfaced, not merely a formatting change. |

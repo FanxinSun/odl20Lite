@@ -8,7 +8,7 @@
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 4 (`doc/REWRITE_PLAN.md` §3.3) |
 | **Depends on** | `SPEC-time.md` (the epoch and the day-of-year), `SPEC-frames.md` (geodetic latitude, altitude above the ellipsoid), `SPEC-gravity.md` (the reference ellipsoid), `core` |
-| **Depended on by** | the drag force (L4, plan §3.5 step 3), the density campaign (L8 step 5) |
+| **Depended on by** | the drag force (L4, plan §3.5 step 4), the density campaign (L8 step 5) |
 
 **Derivation declaration (plan R1).** This specification was written from the documents listed
 in §2 and from no implementation of this module. The NRL reference FORTRAN is itself one of
@@ -126,7 +126,7 @@ last — `SPEC-drag`'s coefficient literature and L9's ray-tracing papers are th
 ### Not in scope
 
 * **The drag force itself** — the coefficient, the area, the relative-wind velocity, the
-  co-rotating atmosphere. That is L4, plan §3.5 step 3, and it consumes this module.
+  co-rotating atmosphere. That is L4, plan §3.5 step 4, and it consumes this module.
 * **DTM-2013 and JB2008.** Named in the plan's L2 source column as alternatives; neither is
   taken at this step. `ATMO-Q-006`.
 * **Winds** (HWM) and the **ionosphere** (IRI). NRLMSISE-00 is neutral-density only.

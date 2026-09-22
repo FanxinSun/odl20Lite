@@ -2938,8 +2938,9 @@ copy confirmed byte-identical restoration) and the full suite re-run clean, 92 6
 
 ## 28. L4 step 4 — drag, and a Jacobian bug a finite difference caught that the closed form's own author could not see in it
 
-`SPEC-drag.md` v1.0, Spec ID `DRAG`, `modules/drag`. Gated by `DRAG-A-001`…`-A-010`. Depends
-on `core`, `time`, `eop`, `frames`, `atmosphere`, `dynamics`; nothing later built yet.
+`SPEC-drag.md` v1.1, Spec ID `DRAG`, `modules/drag`. Gated by `DRAG-A-001`…`-A-010`.
+`SPEC-dynamics.md` amended to v1.2 (`DYN-R-051`, §28.8). Depends on `core`, `time`, `eop`,
+`frames`, `atmosphere`, `dynamics`; nothing later built yet.
 
 ### 28.1 What was built, and the order it was built in
 
@@ -3059,32 +3060,76 @@ register question — is the bar for an entry met — is met without qualificati
 guard existed, was wrong, was silent (no test exercised it), and the wrongness was large (three
 orders of magnitude, not a rounding disagreement).
 
-### 28.5 The position Jacobian's two neglected terms, bounded rather than left uncharacterised
+**This was not the end of the story.** The 1.18 × 10⁻² residual and the 5 × 10⁻² tolerance set
+from it (below, §28.5's original text) were themselves reviewed and found wanting — a second
+defect, in the check rather than in `drag.cpp`. §28.5 is corrected, not silently replaced: what
+it said, and why it was wrong, are both kept.
 
-Two channels `DRAG-R-004`'s radial-only, fixed-**v**_rel approximation does not model, named in
-the spec as neglected rather than silently assumed zero:
+### 28.5 §28.4's own tolerance, corrected: what "1.18e-2, comfortably inside 5e-2" actually was, and what channel 2 turned out to require
 
-- **The lateral (latitude/longitude/local-time) density gradient.** Not measured directly here
-  (no test perturbs the position laterally), but bounded by an order-of-magnitude comparison of
-  length scales: the vertical density scale height at LEO altitudes is of order 50–70 km: `for_drag`
-  itself, over the tessellated cases this tree's own atmosphere tests exercise, shows density
-  falling by roughly a factor of *e* every 50–70 km of altitude. The horizontal (local-time)
-  variation is far gentler — a day/night density ratio of order 2–5× is typical over a full
-  half-orbit of local-time change, i.e. an angular scale of order π radians, which at a 6700 km
-  radius is on the order of 10⁴ km of arc length for a comparable relative change. The ratio of
-  these two scales — a ~60 km vertical *e*-folding distance against a ~10⁴ km horizontal one —
-  puts the neglected lateral gradient roughly **two orders of magnitude smaller** than the
-  retained radial term, for a perturbation of comparable physical size. An order-of-magnitude
-  argument, not a measurement, and stated as one.
-- **v_rel's own weak dependence on position** (§28.4's residual channel). `DRAG-A-010`'s
-  post-fix residual, 1.18 × 10⁻² relative, is the best empirical bound this tree has on it today,
-  for that test's specific 300 km/equatorial geometry — an upper bound on this channel plus the
-  finite-difference method's own (much smaller, 10 m step against a 60 km scale) truncation
-  error, not a clean isolation of the one term alone.
+**What v1.0 of this section said**, kept for the record: two channels `DRAG-R-004`'s
+radial-only, fixed-**v**_rel approximation did not model — the lateral density gradient, bounded
+by an order-of-magnitude length-scale argument at roughly two orders of magnitude below the
+retained radial term; and **v**_rel's own weak dependence on position, for which "`DRAG-A-010`'s
+post-fix residual, 1.18 × 10⁻² relative, is the best empirical bound this tree has on it today."
+**That framing was the defect.** The residual was read as a bound on an unmodelled channel,
+when it was in fact dominated by something neither named channel was.
 
-Neither bound is asserted as a gate — `DRAG-R-004` states the approximation and its omissions;
-this section is where the size lives, so a later reader does not have to re-derive it to know
-whether it matters for a given case.
+**The manager's review, in order.** (1) A residual that had not moved from a forward difference
+(the very first, `\|`**v**_rel`\|`-missing draft's own comparator) to this fix was suspicious on
+its face: switching to a central difference should have landed near the textbook
+(Δ/*H*)²/6 ≈ 1 × 10⁻⁴ at Δ = 1 km, an order of magnitude below what was measured and attributed
+to "the channel this test cannot isolate." (2) The channel-2 (**v**_rel-transport) term's own
+expected size, 2*ω H*/|**v**_rel| ≈ 8 × 10⁻⁴, did not match either explanation cleanly. (3) The
+falsifiable test offered — halve the step; a first-order term should roughly halve — was run
+before anything else, per instruction, and measured 3.79 × 10⁻³, not the ~5.9 × 10⁻³ a clean
+first-order model predicts but a clear, large drop consistent with SOME step-dependent
+mechanism, not a fixed floor.
+
+**Isolating the two channels properly settled it.** Channel 2 was verified independently of
+channel 1 — hold ρ fixed at its base value (no atmosphere re-sampling) and finite-difference
+only **a**(**v**_ITRS(**r**)) through the REAL, non-approximated `to_itrs` velocity output — and
+the analytic formula ∂**a**/∂**v**_rel · (−[**ω**]ₓ) matched this isolated true value to **6
+significant figures**, settling that channel 2's own formula is exact, not merely small. A
+direct comparison of `(gap = fd_da − channel1_computed)` against channel 2's computed prediction,
+naively expected to explain the gap, instead showed the two roughly ANTI-aligned and channel 2
+computed ~10× LARGER than the gap — the tell that channel 1's own estimate, not channel 2, still
+carried an error large enough to matter.
+
+**A step sweep at 1, 0.5, 0.25, 0.1 and 0.05 km, on channel 1 alone (isolated the same way),
+found why**, and it is not what either original explanation assumed. Channel 1's true error is
+**non-monotonic**: 9.50 × 10⁻⁴ at 1 km, **worse** at 0.5 km (1.74 × 10⁻³) and 0.25 km
+(3.47 × 10⁻³), then dropping sharply to 1.19 × 10⁻⁶ at 0.1 km and 2.97 × 10⁻⁷ at 0.05 km. Smooth
+Taylor truncation is monotonic in the step by construction; this is not smooth truncation. The
+match is `SPEC-atmosphere` §3.1's own description of NRLMSISE-00: a **fitted cubic spline** in
+altitude. A 0.25–1 km step spans enough of that spline's own structure to alias against it; a
+0.1 km step sits stably past it, past this Jacobian's own dominant remaining approximation (the
+lateral gradient, still ~1 % by the order-of-magnitude argument above, kept from v1.0
+unchanged), so refining further buys nothing this Jacobian can use.
+
+**Fixed at the source, in `drag.cpp`, not by loosening the test.** Channel 1's altitude step
+became a **central** difference at a 0.1 km half-step (`DRAG-P-1`, revised); channel 2 (the
+**v**_rel-transport term, verified above) was added to the production Jacobian, not left as an
+unmodelled bound. `DRAG-A-010` was rebuilt around a **stability check** — channel 1 recomputed
+independently at the registered step and at half of it must closely agree — in place of the
+formula-based prediction that turned out not to describe the real profile: stability is
+operationally what "past the spline structure" means, and it is exactly the property whose
+ABSENCE the 1–0.25 km sweep exhibited.
+
+**Post-fix, both channels together, against the real finite difference: 1.19 × 10⁻⁶ relative
+deviation** — four orders of magnitude tighter than the 1.18 × 10⁻² this section's own v1.0
+called "comfortably inside" its tolerance, and consistent with channel 1's own isolated
+0.1 km-step error (1.19 × 10⁻⁶, this section's own step-sweep figures above) to three
+significant figures, meaning channel 2's contribution to the residual is not separately visible
+at this precision —
+the isolated 6-figure match above is the stronger statement about channel 2 on its own. The
+stability check (0.1 km against 0.05 km) measured 8.95 × 10⁻⁷ relative difference, comfortably
+inside its own 1 × 10⁻³ bound and nowhere near the ~10⁻¹-to-1 scale the non-converged 1–0.25 km
+regime showed.
+
+**The lateral-gradient bound (v1.0's other channel) is unchanged** by this correction: it was
+never the residual's own explanation (a purely radial test perturbation at the equator cannot
+excite it, argued geometrically, not merely by omission), and nothing in this review touched it.
 
 ### 28.6 DRAG-A-005's own history: an orbit too high to show what it was built to show
 
@@ -3141,12 +3186,110 @@ session before drag existed).
   constant — gives Table 3.6. Corrected to match rather than left as a second, disagreeing
   citation of the same number.
 
+### 28.8 The provenance boundary stopped at the L3 plugin, and that was not this module's own gap to find alone
+
+`ForceEvaluation` — `{acceleration, d_state, d_parameters}`, frozen before this module existed —
+had no field for what a force's evaluation drew on. `DragResult::atmosphere_record` existed on
+`acceleration()`, the free function; `Drag::accel`, the `Force`-plugin surface, had nowhere to
+put the same information. Every consumer reaching drag only through the plugin — and L7's
+estimator, when it is built, is exactly such a consumer, since it only ever sees a
+`ForceEvaluation` — would have lost the snapshot identity and the verification flag entirely on
+the way through, making `SPEC-atmosphere` `ATMO-R-031`'s mechanism decorative past this one
+boundary. `DRAG-A-007`'s own v1.0 row documented the gap precisely rather than hiding it
+("`Drag::accel` calls the free function with its default `require_verified=false`... a caller
+wanting the refusal through the Force interface would need a variant that requests it") — visible
+enough to raise as `DRAG-Q-001`, not visible enough, on its own, to be recognised as reaching all
+the way back to a frozen L3 type.
+
+**Why a trivial-force gate could not have caught this**, stated as the general lesson, not only
+this instance: `SPEC-dynamics` §1 gates `Force` "with a TRIVIAL force so the surface is not shaped
+by its first client." A trivial force proves a surface does not *require* what the trivial force
+lacks — `ForceEvaluation`'s three original fields sufficed for a force with no parameters, no
+provenance, nothing external to declare, and every test built against that trivial force passed.
+It cannot prove the converse: that the surface *can carry* what a *real* force, drawing on another
+layer's own provenance, must carry. That gap is invisible until a force exists that needs the
+thing the trivial force never asked for — exactly the shape `DYN-R-026`'s own coverage-exclusion
+row already named for the integrator ("there is no integrator until step 2... testing it here
+would test a stub"), now found again one layer up, in the surface itself rather than in a
+downstream consumer of it.
+
+**Fixed additively**, under `DYN-Q-001`'s own already-ruled terms for editing a closed layer:
+`SPEC-dynamics` `ForceEvaluation` gains an `optional<Provenance> provenance` field (`Provenance`
+= `{source_id, source_sha256, verified_against_issuer}`), absent by default — `DYN-R-051`. Every
+existing `ForceEvaluation{...}` construction site (six, all in `modules/dynamics/tests/`, all
+3-argument aggregate initialisation) compiles unchanged, and the full `dynamics` suite was
+re-run: 236 assertions, 17 test cases, behaviour unmoved. `Drag::accel` populates it from the
+same `atmosphere_record` `acceleration()` already carries — one mapping, at the one place the
+free function's richer record meets the plugin's narrower field, not a second computation.
+
+**`require_verified` closed the same way, and for the same reason it had to close together with
+the field rather than separately.** A construction-time `bool require_verified = false` was added
+to `Drag`'s constructor (default preserves every existing call site); `Drag::accel` now calls the
+free function with its own stored value instead of the free function's own default. A
+construction-time flag ALONE — reachable refusal, without a readable field — would have let a
+caller demand `DRAG-F-001` on the failing path while still losing the verification flag on the
+far more common SUCCEEDING one; the provenance field alone would have carried the flag without
+giving a caller any way to make the refusal itself reachable. Ruled and fixed together
+(`DRAG-Q-001`), not as two independent tickets, because the review that found one found the other
+by asking the same question of the same boundary: *what does a caller who only ever sees a
+`ForceEvaluation` actually get?*
+
+`DRAG-A-006` and `DRAG-A-007` were rewritten to test the closed boundary directly: `DRAG-A-006`
+now checks `ForceEvaluation::provenance` in both the pre-2004/unverified and post-2004/verified
+directions, alongside the free function's own `DragResult`; `DRAG-A-007` constructs `Drag` with
+`require_verified=true` and asserts `DRAG-F-001` fires **through `accel()`**, not only through
+the free function — the exact path `DRAG-Q-001` found unreachable.
+
+### 28.9 DRAG-F-003's three causes, and what asking to test each of them actually found
+
+`DRAG-Q-002` asked whether `DRAG-F-003`'s one id, covering three internally distinct failure
+sites, needed to carry its cause as more than free text, and whether each of the three could
+actually be fired. Both halves of the question changed something.
+
+**The structured half.** `DragError` — this module's own error type on `acceleration()`, never
+`dyn::DynError` (`SPEC-dynamics`'s frozen, shared one, left untouched) — gained a
+`cause: Option<Diagnostic>` field, populated at all three `DRAG-F-003` sites with the underlying
+`frames`/`time` diagnostic, structured rather than only folded into `message`'s prose (plan §5
+constraint 10).
+
+**The "fire each cause" half found that two of the three cannot be fired, for a reason worth
+having looked for rather than assumed.** Read directly against `transform.cpp`'s own source: `
+to_itrs(state, eop, leaps)` computes `gcrs_to_itrs(state.epoch(), eop, leaps)` **internally**,
+with those exact arguments, before doing anything else. `acceleration()` calls `to_itrs` first
+(line ~78) and, much later (line ~120), calls `gcrs_to_itrs(t, eop, leaps)` again, directly, with
+the identical `t`/`eop`/`leaps` — a deterministic function of arguments already proven to
+succeed. The "rotation failed" cause is **provably unreachable**, not merely untried, as long as
+that internal delegation holds.
+
+The "calendar failed" cause looked, before checking, like it might be independently reachable —
+build a pre-1972 `Epoch` by `Duration` arithmetic on an otherwise-valid one (since
+`Epoch::from_calendar` itself refuses to construct one directly), bypassing the constructor's own
+range check, and see whether `.calendar(UTC, leaps)` fails on its own. It does refuse — but
+`acceleration()` never reaches that line: `to_itrs`, called first, needs UT1 (= UTC + ΔUT1) for
+its own precession/polar-motion chain, which needs the identical TAI↔UTC rendering
+`.calendar(UTC, leaps)` performs, and fails there first. Checked directly (`DRAG-A-008`), not
+assumed from the rotation case's own reasoning: a pre-1972 epoch through `acceleration()` refuses
+`DRAG-F-003` with `cause.id == "TIME-F-002"` — the transform's own cause — never a
+calendar-conversion id.
+
+**So `DRAG-F-003`'s three nominal causes are, in this module's own current control flow, one.**
+Both nominally-separate causes are shadowed by the same earlier, at-least-as-strict check the
+transform call performs before either later site is ever reached. `DRAG-Q-002`'s own second
+condition — fire each cause in a test, or record its absence with a reason — is satisfied by
+demonstrating the shadowing directly rather than by writing two tests that could never have
+passed for the reason they were meant to test. Recorded here, and in `SPEC-drag` §9, as a
+structural finding about the code as written, not a permanent property of the problem: a future
+refactor that reorders these calls, or that gives `to_itrs` a narrower internal requirement than
+`.calendar()`'s own, would reopen exactly the question this section closes, which is why the
+reasoning is written out in full rather than left as a one-line "unreachable."
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-22 | §28.8-28.9 added, SPEC-drag to v1.1, SPEC-dynamics to v1.2. Manager's review of v1.0 found two more things: (1) ForceEvaluation (frozen at L3, gated only by a trivial force that could not reveal what a REAL force must carry) had nowhere for Drag::accel to put atmosphere's provenance, silently losing it for any caller reaching drag only through the Force plugin -- fixed additively (DYN-R-051, DYN-Q-001's own terms), with require_verified made a Drag construction-time option in the same fix, closed together because one found the other. (2) DRAG-A-010's own 1.18e-2 "residual as empirical bound on the unmodelled v_rel(r) channel" was itself wrong: isolating channel 2 (holding rho fixed, differencing through the real to_itrs velocity) proved its formula exact to 6 figures and roughly 10x SMALLER than the gap it was blamed for; a step sweep on channel 1 alone found its true error NON-MONOTONIC across 1-0.25 km, then stably ~1e-6 at 0.1 km and below -- NRLMSISE-00's own fitted-spline structure aliasing against a too-coarse step, not smooth truncation. Fixed at the source (central difference at 0.1 km, channel 2 added exactly) and re-verified by an operational stability check rather than the formula-based prediction that turned out not to describe the real profile: post-fix full-Jacobian deviation 1.19e-6, four orders tighter than the number this section previously called comfortable. DRAG-Q-002 ruled: DragError gained a structured `cause` field, and asking to fire each of DRAG-F-003's three nominal causes found two are provably shadowed by the transform call's own stronger precondition, not merely hard to trigger. |
 | 2026-09-22 | §28 added, SPEC-drag v1.0 adopted, modules/drag built and gated (DRAG-A-001..-A-010). C_D consumed as the ParameterKind::drag_coefficient registered at L3 step 1, never a constant. Rule-4 search found no clean published ballistic-coefficient case; Sengers et al. (2014, arXiv:1404.7826) Table 4 used instead as a plausibility range, not a registered value -- its terms search FOUND an explicit non-open arXiv distribution licence, the first of this tree's three literature entries where the search found something rather than nothing. DRAG-A-010, written only because speccheck.py flagged DRAG-R-004 (the position Jacobian) as discharged by no test, found a real defect: `a_direction` was missing a factor of \|v_rel\| (~7.7 km/s), a ~7300x error a finite difference caught that inspection of the closed form had not; fixed, and the residual after the fix (1.18e-2) is now the tree's own empirical bound on the terms the approximation still neglects. DRAG-A-005 (Liouville with real drag) needed rebuilding at 300 km after the tree's usual 7331 km test radius proved too thin an atmosphere to move det(Phi) measurably. Two smaller tool bugs fixed in passing: fetch.py and literaturecheck.py both mislabelled every literature entry's terms-summary from a field literature entries never carry. |
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |
 | 2026-09-22 | §27.7 added, SPEC-srp-analytic to v1.2: composition (SRPA-A-009/010) cannot see a bug in the per-surface law itself, since both sides call identical code and a shared bug cancels. Closed with two closed-form single-plate checks at oblique incidence (magnitude AND direction, from momentum bookkeeping) and a tessellated-sphere cross-check whose discretisation error was measured -- empirically second-order, ratio 4.00 -- BEFORE the gate was written (rule 7's middle form). Proved by injection (rule 5): dropping the specular term's cos(theta) power gave the single-plate check a direct 2.86x magnitude error and collapsed the tessellation's convergence ratio from ~4.0 to ~1.0, since a law-level bug does not shrink with resolution the way discretisation error does; reverted and the suite re-run clean. |

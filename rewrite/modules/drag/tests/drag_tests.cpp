@@ -379,7 +379,13 @@ TEST_CASE("DRAG-A-005  Liouville with the real drag force: det(Phi) = exp(integr
 // The atmosphere's provenance reaches the force's own result
 
 TEST_CASE("DRAG-A-006  the atmosphere's verification flag and snapshot identity survive into "
-          "the drag result, in both directions", "[drag][gate]") {
+          "the drag result AND into the Force plugin's ForceEvaluation, in both directions",
+          "[drag][gate]") {
+    ParameterRegistry reg;
+    auto c_d_id = reg.declare(ParameterDeclaration{ParameterKind::drag_coefficient, "1", "C_D", "t"});
+    ParameterSet params(reg);
+    REQUIRE(params.set(c_d_id, 2.2).has_value());
+
     // pre-2004: unverified
     {
         const auto when = epoch_at(2000, 1, 1, 0.0);
@@ -397,6 +403,16 @@ TEST_CASE("DRAG-A-006  the atmosphere's verification flag and snapshot identity 
                                     zero_eop(), leaps(), /*require_verified=*/true);
         REQUIRE_FALSE(refused.has_value());
         CHECK(refused.error().id == "DRAG-F-001");
+
+        // the SAME sample, through the Force plugin: ForceEvaluation::provenance
+        // carries the same identity and the same (un)verified flag.
+        Drag drag(c_d_id, 10.0, 500.0, sw, zero_eop(), leaps());
+        auto plugin_result = drag.accel(when, frames::Position<Frame::GCRS>{odl::metres_from_km(st.position())},
+                                        odl::metres_from_km(st.velocity()), params, reg);
+        REQUIRE(plugin_result.has_value());
+        REQUIRE(plugin_result->provenance.has_value());
+        CHECK_FALSE(plugin_result->provenance->verified_against_issuer);
+        CHECK(plugin_result->provenance->source_id == sw.snapshot_id);
     }
     // post-2004: verified, and require_verified does NOT refuse
     {
@@ -413,27 +429,62 @@ TEST_CASE("DRAG-A-006  the atmosphere's verification flag and snapshot identity 
                                         odl::metres_from_km(st.velocity()), 2.2, 10.0, 500.0, sw,
                                         zero_eop(), leaps(), /*require_verified=*/true);
         CHECK(not_refused.has_value());
+
+        Drag drag(c_d_id, 10.0, 500.0, sw, zero_eop(), leaps());
+        auto plugin_result = drag.accel(when, frames::Position<Frame::GCRS>{odl::metres_from_km(st.position())},
+                                        odl::metres_from_km(st.velocity()), params, reg);
+        REQUIRE(plugin_result.has_value());
+        REQUIRE(plugin_result->provenance.has_value());
+        CHECK(plugin_result->provenance->verified_against_issuer);
     }
 }
 
-TEST_CASE("DRAG-A-007  require_verified reaches through the Force plugin too, not only the "
-          "free function", "[drag][gate]") {
+TEST_CASE("DRAG-A-007  require_verified is a construction-time option of Drag, and reaches "
+          "through the Force plugin, not only the free function", "[drag][gate]") {
     ParameterRegistry reg;
     auto c_d_id = reg.declare(ParameterDeclaration{ParameterKind::drag_coefficient, "1", "C_D", "t"});
     ParameterSet params(reg);
     REQUIRE(params.set(c_d_id, 2.2).has_value());
-    const auto when = epoch_at(2000, 1, 1, 0.0);
-    const auto x0 = leo_state(when);
-    const auto sw = quiet_sw(atmosphere::Verification::unverified_redistribution);
-    Drag drag(c_d_id, 10.0, 500.0, sw, zero_eop(), leaps());
-    auto r = drag.accel(when, frames::Position<Frame::GCRS>{odl::metres_from_km(x0.position())},
-                        odl::metres_from_km(x0.velocity()), params, reg);
-    // Drag::accel calls the free function with its default require_verified=false,
-    // so this one SUCCEEDS -- documenting the boundary precisely, since a
-    // caller wanting the refusal through the Force interface would need a
-    // variant that requests it, which this version does not yet offer (open
-    // question, PROVENANCE.md §28).
-    CHECK(r.has_value());
+    const auto unverified_epoch = epoch_at(2000, 1, 1, 0.0);
+    const auto unverified_state = leo_state(unverified_epoch);
+    const auto unverified_sw = quiet_sw(atmosphere::Verification::unverified_redistribution);
+    const auto verified_epoch = epoch_at(2015, 6, 21, 12.0);
+    const auto verified_state = leo_state(verified_epoch);
+    const auto verified_sw = quiet_sw(atmosphere::Verification::verified_against_issuer);
+
+    // require_verified=false (the default): does NOT refuse, even on an
+    // unverified sample -- the pre-existing, unchanged behaviour, now
+    // correctly framed as the DEFAULT rather than the only reachable one.
+    {
+        Drag drag(c_d_id, 10.0, 500.0, unverified_sw, zero_eop(), leaps());
+        auto r = drag.accel(unverified_epoch,
+                            frames::Position<Frame::GCRS>{odl::metres_from_km(unverified_state.position())},
+                            odl::metres_from_km(unverified_state.velocity()), params, reg);
+        CHECK(r.has_value());
+    }
+    // require_verified=true, constructed once: refuses DRAG-F-001 through
+    // accel() on the unverified sample -- the boundary DRAG-A-006's older
+    // draft found unreachable, now closed (dyn::Provenance's own review,
+    // PROVENANCE.md §28).
+    {
+        Drag drag(c_d_id, 10.0, 500.0, unverified_sw, zero_eop(), leaps(), /*require_verified=*/true);
+        auto r = drag.accel(unverified_epoch,
+                            frames::Position<Frame::GCRS>{odl::metres_from_km(unverified_state.position())},
+                            odl::metres_from_km(unverified_state.velocity()), params, reg);
+        REQUIRE_FALSE(r.has_value());
+        CHECK(r.error().id == "DRAG-F-001");
+    }
+    // require_verified=true, on a verified sample: does NOT refuse -- shown
+    // adjacent to the refusing case per this project's own refusal-catalogue
+    // discipline (a refusal fired is only informative next to the same
+    // configuration NOT firing on valid input).
+    {
+        Drag drag(c_d_id, 10.0, 500.0, verified_sw, zero_eop(), leaps(), /*require_verified=*/true);
+        auto r = drag.accel(verified_epoch,
+                            frames::Position<Frame::GCRS>{odl::metres_from_km(verified_state.position())},
+                            odl::metres_from_km(verified_state.velocity()), params, reg);
+        CHECK(r.has_value());
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -457,12 +508,53 @@ TEST_CASE("DRAG-A-008  refusals fire on non-physical inputs, and not on the adja
     // DRAG-F-003: the GCRS<->ITRS transform itself refuses. FRAME-F-003 (read
     // in transform.hpp) refuses an EopRecord whose sub-daily corrections are
     // not applied -- a legitimate, easily-reached case (an EOP record read
-    // from a source that has not applied them), not a contrived one.
+    // from a source that has not applied them), not a contrived one. The
+    // underlying cause is now carried STRUCTURED (DRAG-Q-002, plan §5
+    // constraint 10), not only folded into the message's free text.
     odl::eop::EopRecord unprepared_eop;
     unprepared_eop.subdaily_applied = false;
     auto bad_eop = acceleration(when, r, v, 2.2, 10.0, 500.0, sw, unprepared_eop, leaps());
     REQUIRE_FALSE(bad_eop.has_value());
     CHECK(bad_eop.error().id == "DRAG-F-003");
+    REQUIRE(bad_eop.error().cause.has_value());
+    CHECK(bad_eop.error().cause->id == "FRAME-F-003");
+
+    // DRAG-F-003's other two nominal causes (the epoch-to-UTC-calendar
+    // conversion; the GCRS<->ITRS rotation) are BOTH acknowledged absences,
+    // not merely untried -- each has a structural reason, checked directly
+    // rather than assumed:
+    //
+    // The ROTATION cause can never fire: transform.cpp's own to_itrs(state,
+    // eop, leaps) computes gcrs_to_itrs(state.epoch(), eop, leaps)
+    // INTERNALLY, with these exact arguments, before this function's own
+    // later, separate gcrs_to_itrs(t, eop, leaps) call (identical t, eop,
+    // leaps) is ever reached -- so by the time that second call runs, the
+    // first (line ~78) has already proven it succeeds. Read directly in
+    // drag.cpp and transform.cpp, not inferred.
+    //
+    // The CALENDAR cause is shadowed the same way, checked here rather than
+    // assumed: a pre-1972 epoch (built by Duration arithmetic on an
+    // otherwise-valid Epoch, since Epoch::from_calendar itself refuses to
+    // construct one directly) fails at the TRANSFORM site first, not the
+    // calendar site -- to_itrs needs UT1 (= UTC + delta-UT1), which needs
+    // the SAME TAI<->UTC rendering .calendar(UTC, leaps) performs, and
+    // to_itrs runs first in this function. Demonstrated directly below,
+    // asserting WHICH id fires, not merely that refusal happens.
+    {
+        const auto base = epoch_at(1980, 1, 1, 0.0);
+        const auto pre1972 = base.add(odl::time::Duration::from_seconds(-20.0 * 365.25 * 86400.0));
+        const auto st = leo_state(pre1972);
+        auto pre1972_result = acceleration(pre1972, odl::metres_from_km(st.position()),
+                                           odl::metres_from_km(st.velocity()), 2.2, 10.0, 500.0, sw,
+                                           zero_eop(), leaps());
+        REQUIRE_FALSE(pre1972_result.has_value());
+        CHECK(pre1972_result.error().id == "DRAG-F-003");
+        REQUIRE(pre1972_result.error().cause.has_value());
+        // TIME-F-002 (the transform's own UT1/UTC need), not a calendar-
+        // conversion id: the demonstration IS that the transform site fires
+        // first, pre-empting the calendar site entirely.
+        CHECK(pre1972_result.error().cause->id == "TIME-F-002");
+    }
 
     // DRAG-F-005: atmosphere::for_drag itself refuses. ATMO-F-001 (read in
     // atmosphere.cpp) refuses a negative geodetic altitude -- reached here
@@ -546,34 +638,55 @@ TEST_CASE("DRAG-A-009  day-of-year against the Gregorian leap-year rule's own ex
 }
 
 // ---------------------------------------------------------------------------
-// The position Jacobian's radial part, against a real finite difference.
+// The position Jacobian, against a real finite difference.
 //
-// Unlike DRAG-A-004's C_D column, this is NOT a claim of near-machine-precision
-// agreement: DRAG-R-004 is a NAMED APPROXIMATION (radial scale-height only,
-// lateral gradient neglected), and a true finite difference of the full
-// acceleration() call also picks up a channel the analytic form does not
-// model at all -- v_rel itself has a weak dependence on position (the
-// GCRS<->ITRS velocity transform's transport term depends on r), which the
-// analytic dadr, built by bumping ONLY altitude at fixed v_rel, cannot see.
-// So this checks that the code correctly implements what it claims to (the
-// right order of magnitude and the right sign along the direction it says it
-// models), not that the approximation has no error -- and DRAG-A-005 was not
-// a substitute: tr(A) never touches da/dr, since that block sits off the
-// diagonal of the 6x6 Jacobian, so nothing before this test actually
-// exercised R-004 (found by speccheck.py's coverage check, not anticipated).
+// DRAG-R-004's Jacobian has two channels: channel 1 (density's altitude
+// dependence, a central difference of two atmosphere calls, lateral gradient
+// still neglected) and channel 2 (v_rel's own weak dependence on position,
+// exact and analytic). At the equator specifically (this test's own
+// geometry), a purely geocentric-radial perturbation coincides exactly with
+// the geodetic normal (the deviation of the vertical, (e^2/2) sin(2*lat), is
+// identically zero at latitude 0), so channel 1's neglected lateral gradient
+// cannot enter this comparison at all -- what CAN enter is channel 1's own
+// discretisation error and any error in channel 2's own approximation, both
+// checked below.
 //
-// THIS TEST FOUND A REAL DEFECT, not a tolerance question. drag.cpp's first
-// draft of `a_direction` (the d(a)/d(rho) factor dadr is built from) read
-// `(coeff/rho) * v_rel`; the correct expression, since a = coeff*speed*v_rel,
-// is `(coeff/rho) * speed * v_rel` -- missing exactly a factor of |v_rel|.
-// Before the fix this test measured a 7300x discrepancy (v_rel at this LEO
-// case is ~7.7 km/s, matching the missing factor almost exactly) and a near-
-// zero dot product; after it, 1.18e-2, well inside the tolerance below.
-// Recorded in full in PROVENANCE.md.
+// THIS TEST FOUND TWO REAL DEFECTS, not a tolerance question, across two
+// rounds of review.
+//
+// (1) drag.cpp's first draft of `a_direction` (the d(a)/d(rho) factor
+// channel 1 is built from) read `(coeff/rho) * v_rel`; the correct
+// expression, since a = coeff*speed*v_rel, is `(coeff/rho) * speed * v_rel`
+// -- missing exactly a factor of |v_rel| (the CO-ROTATING-frame relative
+// speed, ~7.24 km/s at this case, not the ~7.73 km/s inertial orbital speed
+// -- the co-rotating figure is what the measured ~7330x discrepancy actually
+// matched). PROVENANCE.md §28.4.
+//
+// (2) The FIRST FIX's tolerance was itself found wanting by review: a
+// one-sided (forward) altitude difference measured 1.18e-2, and "5e-2 keeps
+// a 4x margin" was set from that passing number -- rule 7's own defect, a
+// threshold chosen from the result it judges. Caught by a falsifiable
+// prediction (halving the step should roughly halve a first-order
+// truncation term): it dropped to 3.8e-3, confirming step-dependent
+// truncation, not the neglected lateral gradient this test's own comment had
+// blamed it on. Switching to a CENTRAL difference (second-order truncation)
+// and adding the exact channel-2 term should have landed near the textbook
+// (Delta/H)^2/6 (~1e-4 at 1 km) -- it measured ~9.5e-4 instead, an order of
+// magnitude off that formula. A STEP SWEEP (1, 0.5, 0.25, 0.1, 0.05 km),
+// with channel 1 and channel 2 isolated from each other (channel 2 verified
+// separately by holding rho fixed and finite-differencing a(v_itrs(r))
+// through the real to_itrs velocity, matching the analytic formula to 6
+// figures), found why: channel 1's own error is NON-MONOTONIC across
+// 1-0.25 km, then drops sharply and stably at 0.1 km and below -- the
+// signature of NRLMSISE-00's own fitted cubic-spline structure in altitude
+// (SPEC-atmosphere §3.1), not smooth Taylor truncation, at the coarser
+// scale. drag.cpp's step is now 0.1 km (DRAG-P-1, revised); this test
+// verifies the STABILITY that step sweep found, not a formula that turned
+// out not to describe the real profile. PROVENANCE.md §28.5.
 
-TEST_CASE("DRAG-A-010  the position Jacobian's radial part against a finite difference "
-          "of the real acceleration, to the precision the approximation itself claims",
-          "[drag][gate]") {
+TEST_CASE("DRAG-A-010  the position Jacobian against a finite difference of the real "
+          "acceleration, with a stability check standing in for a formula that "
+          "turned out not to describe the real profile", "[drag][gate]") {
     ParameterRegistry reg;
     auto c_d_id = reg.declare(ParameterDeclaration{ParameterKind::drag_coefficient, "1",
                                                    "C_D", "test satellite"});
@@ -587,7 +700,9 @@ TEST_CASE("DRAG-A-010  the position Jacobian's radial part against a finite diff
     // acceleration change over a metres-scale radial step) is close enough
     // to the atmosphere model's and the integrator's own rounding floor that
     // the comparison would be noise-dominated rather than approximation-
-    // dominated -- the wrong thing to be measuring here.
+    // dominated -- the wrong thing to be measuring here. Equatorial, per the
+    // comment above: the point this test's own lateral-gradient argument
+    // relies on.
     const auto x0 = circular_state(when, 6678.0e3);
     Drag drag(c_d_id, 10.0, 500.0, sw, zero_eop(), leaps());
 
@@ -600,13 +715,10 @@ TEST_CASE("DRAG-A-010  the position Jacobian's radial part against a finite diff
     // A radial GCRS step. GCRS and ITRS share an origin and differ by a pure
     // rotation, so "radially outward" is the SAME physical direction in
     // both frames -- perturbing r_gcrs along r_gcrs/|r_gcrs| is exactly the
-    // altitude-only perturbation DRAG-R-004's own derivation assumes (the
-    // induced geodetic-latitude shift from Earth's oblateness, at this step
-    // size over this radius, is smaller than the effect being measured by
-    // several more orders of magnitude than the tolerance below needs).
+    // altitude-only perturbation channel 1's own derivation assumes.
     const double r_norm = r0.norm();
     const Vec3 r_hat = (1.0 / r_norm) * r0;
-    constexpr double kStepM = 10.0;   // metres; small against a ~60 km scale height
+    constexpr double kStepM = 10.0;   // metres; small against a ~40 km scale height
 
     auto eval_at = [&](double sign) {
         const Vec3 r = r0 + (sign * kStepM) * r_hat;
@@ -625,16 +737,64 @@ TEST_CASE("DRAG-A-010  the position Jacobian's radial part against a finite diff
     INFO("finite-difference d(a)/d(r_hat) = " << fd_da.x << "," << fd_da.y << "," << fd_da.z
          << "; analytic-Jacobian prediction = " << predicted_da.x << "," << predicted_da.y
          << "," << predicted_da.z << "; relative deviation " << rel);
-    // Order-of-magnitude and sign agreement, not near-machine precision: see
-    // the test-case comment above for why exact agreement is not expected.
-    // Measured at 1.18e-2 for this test's own geometry (the v_rel(r) channel
-    // the analytic form omits, plus the FD step's own truncation) -- 5e-2
-    // keeps a 4x margin above the measured value without loosening so far
-    // that a real regression (this test's own first draft was off by
-    // ~7300x, a missing factor of |v_rel| -- see the test-case comment) could
-    // hide inside the tolerance.
-    CHECK(rel < 0.05);
+    // Measured 1.19e-6 at drag.cpp's registered 0.1 km step. 1e-4 keeps
+    // three orders of margin -- not chosen to fit this one number, but
+    // because it is comfortably above what the STABILITY check just below
+    // would let through: if channel 1 were back in the 1-0.25 km regime's
+    // non-monotonic ~1e-3 error (a wrong step, a reverted fix, a changed
+    // atmosphere pin shifting the spline structure), that check fails first
+    // and names the reason; this bound is the coarser, whole-Jacobian
+    // backstop.
+    CHECK(rel < 1.0e-4);
     // and the two vectors must at least point the same general way -- a
     // sign flip in the radial direction would pass a magnitude-only check
     CHECK(fd_da.dot(predicted_da) > 0.0);
+
+    // THE STABILITY CHECK. Independently reconstruct the Place drag.cpp
+    // itself builds (DRAG-A-002's own pattern) and recompute channel 1 ALONE
+    // (the density-altitude term only, not channel 2) at drag.cpp's own
+    // registered step AND at half of it, from the same kind of atmosphere
+    // calls drag.cpp makes internally. The two must closely agree: that is
+    // what "past the spline structure, in the smooth/converged regime"
+    // MEANS, operationally, and it is exactly the property whose ABSENCE
+    // this test's own review caught at the coarser 1-0.25 km steps.
+    {
+        auto itrs = frames::to_itrs(x0, zero_eop(), leaps());
+        REQUIRE(itrs.has_value());
+        const auto geo = itrs_to_geodetic(odl::metres_from_km(itrs->position()));
+        auto cal = when.calendar(odl::time::TimeScale::UTC, leaps());
+        REQUIRE(cal.has_value());
+        atmosphere::Place place;
+        place.day_of_year = 172;   // 2015-06-21, DRAG-A-002's own stated cross-check
+        place.seconds_of_day = cal->hour * 3600.0 + cal->minute * 60.0 + cal->second;
+        place.geodetic_latitude_deg = geo.latitude_rad * 180.0 / std::numbers::pi;
+        place.longitude_deg = geo.longitude_rad * 180.0 / std::numbers::pi;
+        place.altitude_km = geo.altitude_m / 1000.0;
+
+        auto channel1_slope = [&](double stepKm) -> odl::Result<double, atmosphere::AtmoError> {
+            atmosphere::Place up = place, down = place;
+            up.altitude_km += stepKm;
+            down.altitude_km -= stepKm;
+            auto rho_up = atmosphere::for_drag(up, sw);
+            if (!rho_up.has_value()) return odl::err(rho_up.error());
+            auto rho_down = atmosphere::for_drag(down, sw);
+            if (!rho_down.has_value()) return odl::err(rho_down.error());
+            return (rho_up->total_mass_kg_m3 - rho_down->total_mass_kg_m3) /
+                   (2.0 * odl::metres_from_km(stepKm));
+        };
+        constexpr double kProductionStepKm = 0.1;   // matching DRAG-P-1 exactly
+        auto slope_full = channel1_slope(kProductionStepKm);
+        auto slope_half = channel1_slope(kProductionStepKm / 2.0);
+        REQUIRE(slope_full.has_value());
+        REQUIRE(slope_half.has_value());
+        const double stability_rel = std::abs(*slope_full - *slope_half) / std::abs(*slope_full);
+        INFO("channel 1 d(rho)/d(alt): at 0.1 km step = " << *slope_full << ", at 0.05 km step = "
+             << *slope_half << "; relative difference " << stability_rel);
+        // 1e-3: comfortably above rounding, comfortably below the ~1e-1 to
+        // 1 scale the review's own step sweep measured for the NON-converged
+        // 1-0.25 km regime -- tight enough to fail if that regime returned,
+        // loose enough not to chase the atmosphere model's own last-digit
+        // noise.
+        CHECK(stability_rel < 1.0e-3);
+    }
 }

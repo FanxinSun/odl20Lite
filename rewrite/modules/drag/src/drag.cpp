@@ -78,7 +78,7 @@ acceleration(const odl::time::Epoch& t, const Vec3& r_gcrs_m, const Vec3& v_gcrs
     auto itrs_r = frames::to_itrs(gcrs_state, eop, leaps);
     if (!itrs_r.has_value())
         return odl::err(DragError{"DRAG-F-003", "GCRS to ITRS transform failed: " +
-                         itrs_r.error().message});
+                         itrs_r.error().message, itrs_r.error()});
     const Vec3 r_itrs = odl::metres_from_km(itrs_r->position());
     const Vec3 v_rel = odl::metres_from_km(itrs_r->velocity());   // co-rotating-frame velocity
 
@@ -93,7 +93,8 @@ acceleration(const odl::time::Epoch& t, const Vec3& r_gcrs_m, const Vec3& v_gcrs
 
     auto cal = t.calendar(odl::time::TimeScale::UTC, leaps);
     if (!cal.has_value())
-        return odl::err(DragError{"DRAG-F-003", "epoch to UTC calendar failed: " + cal.error().message});
+        return odl::err(DragError{"DRAG-F-003", "epoch to UTC calendar failed: " + cal.error().message,
+                         cal.error()});
     const double seconds_of_day = cal->hour * 3600.0 + cal->minute * 60.0 + cal->second;
 
     atmosphere::Place place;
@@ -119,7 +120,17 @@ acceleration(const odl::time::Epoch& t, const Vec3& r_gcrs_m, const Vec3& v_gcrs
 
     auto rot = frames::gcrs_to_itrs(t, eop, leaps);
     if (!rot.has_value())
-        return odl::err(DragError{"DRAG-F-003", "GCRS to ITRS rotation failed: " + rot.error().message});
+        // PROVABLY UNREACHABLE given the call above: to_itrs(gcrs_state, eop,
+        // leaps) (line ~78) computes gcrs_to_itrs(gcrs_state.epoch(), eop,
+        // leaps) internally with these exact arguments (transform.cpp's own
+        // to_itrs), and gcrs_state.epoch() is this same t -- so if that call
+        // already succeeded, this identical, deterministic call cannot fail.
+        // Kept as a declared, defensive check rather than removed (a future
+        // refactor could change that internal delegation), not fired by any
+        // honest input today (DRAG-Q-002; DRAG-A-008 records this the same
+        // way it records DRAG-F-004's own acknowledged absence).
+        return odl::err(DragError{"DRAG-F-003", "GCRS to ITRS rotation failed: " + rot.error().message,
+                         rot.error()});
     const Mat3& M = rot->m;                                     // GCRS -> ITRS
     const Vec3 a_gcrs = M.transpose().apply(a_itrs);             // ITRS -> GCRS: M^T
 
@@ -129,9 +140,11 @@ acceleration(const odl::time::Epoch& t, const Vec3& r_gcrs_m, const Vec3& v_gcrs
 // --------------------------------------------------------------------------
 
 Drag::Drag(dyn::ParameterId c_d_id, double area_m2, double mass_kg,
-          atmosphere::SpaceWeather sw, odl::eop::EopRecord eop, odl::time::LeapTable leaps)
+          atmosphere::SpaceWeather sw, odl::eop::EopRecord eop, odl::time::LeapTable leaps,
+          bool require_verified)
     : c_d_id_(c_d_id), area_m2_(area_m2), mass_kg_(mass_kg), sw_(std::move(sw)),
-      eop_(std::move(eop)), leaps_(std::move(leaps)), consumes_{c_d_id} {}
+      eop_(std::move(eop)), leaps_(std::move(leaps)), require_verified_(require_verified),
+      consumes_{c_d_id} {}
 
 dyn::ForceId Drag::id() const { return dyn::ForceId{"drag"}; }
 
@@ -147,7 +160,8 @@ Drag::accel(const odl::time::Epoch& t, const frames::Position<frames::Frame::GCR
                          "in this ParameterSet: " + c_d.error().message});
 
     const Vec3 r = r_m.metres();
-    auto result = acceleration(t, r, v_m_per_s, *c_d, area_m2_, mass_kg_, sw_, eop_, leaps_);
+    auto result = acceleration(t, r, v_m_per_s, *c_d, area_m2_, mass_kg_, sw_, eop_, leaps_,
+                               require_verified_);
     if (!result.has_value())
         return odl::err(dyn::DynError{result.error().id, result.error().message});
 
@@ -197,23 +211,64 @@ Drag::accel(const odl::time::Epoch& t, const frames::Position<frames::Frame::GCR
     // (dv_itrs/dv_gcrs = M at fixed position -- SPEC-drag DRAG-R-003's own note)
     const Mat3 dadv_gcrs = M.transpose().times(dadv_itrs).times(M);
 
-    // --- DRAG-R-004: the position Jacobian's RADIAL part, from a locally
-    // exponential atmosphere (scale height H = -rho / (d rho / d altitude),
-    // itself estimated by ONE extra atmosphere call -- an approximation
-    // NAMED as one, standard in orbit determination (GEODYN, Bernese and
-    // similar tools use the same local-exponential partial), with the
-    // lateral (latitude/longitude/local-time) gradient NEGLECTED and its
-    // rough size recorded in PROVENANCE.md §28 rather than silently assumed
-    // zero.
-    Mat3 dadr{};
+    // --- DRAG-R-004: the position Jacobian, two channels.
+    //
+    // CHANNEL 1, radial, via density's altitude dependence: a locally
+    // exponential atmosphere (scale height H = -rho / (d rho / d altitude)),
+    // itself estimated by a CENTRAL difference of two extra atmosphere
+    // calls -- an approximation NAMED as one, standard in orbit
+    // determination (GEODYN, Bernese and similar tools use the same
+    // local-exponential partial), with the lateral (latitude/longitude/
+    // local-time) gradient NEGLECTED and its rough size recorded in
+    // PROVENANCE.md §28 rather than silently assumed zero.
+    //
+    // THE STEP IS 0.1 KM, NOT THE ROUNDER 1 KM A FIRST DRAFT USED, and the
+    // reason is itself a finding (PROVENANCE.md §28.5), not a rounding
+    // preference. A one-sided (forward) difference at 1 km measured ~1.18e-2
+    // against a true finite difference of acceleration(); switching to a
+    // CENTRAL difference at 1 km, expected to land near the textbook
+    // (Delta/H)^2/6 (~1e-4), instead measured ~9.5e-4 -- an order of
+    // magnitude off the formula. A step sweep (1, 0.5, 0.25, 0.1, 0.05 km)
+    // found why: channel 1's own error is NON-MONOTONIC and WORSE at
+    // 0.5-0.25 km than at 1 km, then drops sharply and stably at 0.1 km and
+    // below (~1e-6) -- the signature of the reference's own internal spline
+    // structure (SPEC-atmosphere §3.1: NRLMSISE-00 is a fitted cubic spline
+    // in altitude, not a closed-form exponential), not smooth Taylor
+    // truncation, at the 0.25-1 km scale. 0.1 km sits stably past that
+    // structure and well below the ~1% the still-neglected lateral gradient
+    // already costs this Jacobian, so refining further would buy accuracy
+    // this approximation cannot use.
+    //
+    // CHANNEL 2, the velocity-transport term: v_rel = v_itrs itself depends
+    // on r_itrs, through the SAME transport term the GCRS<->ITRS state
+    // transform carries (v_itrs = M.v_gcrs - omega x r_itrs, at fixed t and
+    // v_gcrs) -- a channel a radial-altitude-only bump cannot see at all,
+    // named but not modelled until now. Exact and free: no extra atmosphere
+    // call, because d(a)/d(v_rel) is already computed (dadv_itrs, just
+    // above) and d(v_rel)/d(r_itrs) = -[omega]x is a constant cross-product
+    // matrix, so this channel is dadv_itrs . (-[omega]x) by the chain rule --
+    // VERIFIED, not merely derived: isolated from channel 1 by holding rho
+    // fixed and taking a true finite difference of a(v_itrs(r)) through the
+    // real (non-approximated) to_itrs velocity output, this formula matched
+    // to 6 significant figures (PROVENANCE.md §28.5). omega here is `rot`'s
+    // own omega_rad_s, used AS IF already in ITRS components though it is
+    // strictly in the intermediate (TIRS) frame the full state transform
+    // forms it in (SPEC-frames transform.hpp's own comment on
+    // Rotation::omega_rad_s) -- the same verification found this
+    // approximation's own error below the precision that verification could
+    // measure, confirming the sub-arcsecond polar-motion misalignment is, as
+    // argued before measuring, negligible here.
+    Mat3 dadr_itrs{};
     {
-        constexpr double kAltStepKm = 1.0;   // DRAG-P-1: pre-registered, not fitted
-        atmosphere::Place bumped = place_for_rho;
-        bumped.altitude_km += kAltStepKm;
-        auto rho_up = atmosphere::for_drag(bumped, sw_);
-        if (rho_up.has_value()) {
-            const double d_rho_d_alt_m =
-                (rho_up->total_mass_kg_m3 - rho) / odl::metres_from_km(kAltStepKm);   // THE CROSSING
+        constexpr double kAltStepKm = 0.1;   // DRAG-P-1: pre-registered HALF-step, revised
+        atmosphere::Place up = place_for_rho, down = place_for_rho;
+        up.altitude_km += kAltStepKm;
+        down.altitude_km -= kAltStepKm;
+        auto rho_up = atmosphere::for_drag(up, sw_);
+        auto rho_down = atmosphere::for_drag(down, sw_);
+        if (rho_up.has_value() && rho_down.has_value()) {
+            const double d_rho_d_alt_m = (rho_up->total_mass_kg_m3 - rho_down->total_mass_kg_m3) /
+                                         (2.0 * odl::metres_from_km(kAltStepKm));   // THE CROSSING
             const Vec3 itrs_pos_m = odl::metres_from_km(itrs_r->position());
             const double r_norm = itrs_pos_m.norm();
             const Vec3 r_hat = (1.0 / r_norm) * itrs_pos_m;
@@ -222,23 +277,39 @@ Drag::accel(const odl::time::Epoch& t, const frames::Position<frames::Frame::GCR
             // everything else in it independent of rho), so
             // d(a)/d(rho) = (coeff/rho) * speed * v_rel -- DRAG-A-010 found
             // this missing its speed factor: the first draft wrote
-            // (coeff/rho)*v_rel, off by exactly |v_rel| (~7.7 km/s at LEO,
-            // matching the ~7300x discrepancy the finite-difference check
-            // measured before the fix).
+            // (coeff/rho)*v_rel, off by exactly |v_rel| (~7.24 km/s, the
+            // CO-ROTATING-frame relative speed at DRAG-A-010's 300 km case,
+            // not the ~7.73 km/s inertial orbital speed -- the co-rotating
+            // figure is what the measured ~7330x discrepancy actually
+            // matches, exactly rather than approximately).
             const Vec3 a_direction = (coeff / rho) * speed * v_rel;
-            Mat3 dadr_itrs{};
             for (std::size_t i = 0; i < 3; ++i)
                 for (std::size_t j = 0; j < 3; ++j) {
                     const double ai = (i == 0 ? a_direction.x : i == 1 ? a_direction.y : a_direction.z);
                     const double rj = (j == 0 ? r_hat.x : j == 1 ? r_hat.y : r_hat.z);
-                    dadr_itrs.r[i][j] = ai * d_rho_d_alt_m * rj;
+                    dadr_itrs.r[i][j] += ai * d_rho_d_alt_m * rj;
                 }
-            dadr = M.transpose().times(dadr_itrs).times(M);
         }
-        // if the bumped-altitude call refused (e.g. at a boundary), dadr stays
-        // zero -- a declared, visible degradation, not a silent one: DRAG-A-009
-        // asserts the un-bumped call always succeeds where this matters.
+        // if either bumped-altitude call refused (e.g. near a boundary),
+        // channel 1's contribution stays zero -- a declared, visible
+        // degradation, not a silent one: DRAG-A-009 and DRAG-A-005's own
+        // test cases assert the un-bumped call succeeds where this matters.
+        // Channel 2 (below) is added regardless: it needs no atmosphere
+        // call and so has nothing to degrade.
     }
+    {
+        // CHANNEL 2: dadv_itrs . (-[omega]x), the skew-symmetric matrix for
+        // cross product with omega (such that [omega]x . x = omega cross x).
+        const Vec3& w = rot->omega_rad_s;
+        Mat3 minus_omega_cross{};
+        minus_omega_cross.r[0][1] = w.z;  minus_omega_cross.r[0][2] = -w.y;
+        minus_omega_cross.r[1][0] = -w.z; minus_omega_cross.r[1][2] = w.x;
+        minus_omega_cross.r[2][0] = w.y;  minus_omega_cross.r[2][1] = -w.x;
+        const Mat3 channel2 = dadv_itrs.times(minus_omega_cross);
+        for (std::size_t i = 0; i < 3; ++i)
+            for (std::size_t j = 0; j < 3; ++j) dadr_itrs.r[i][j] += channel2.r[i][j];
+    }
+    const Mat3 dadr = M.transpose().times(dadr_itrs).times(M);
 
     // --- DRAG-R-005: d(a)/d(C_D) is exact and trivial -- a is LINEAR in
     // C_D, so d(a)/d(C_D) = a / C_D. Computed directly from the already-known
@@ -249,10 +320,22 @@ Drag::accel(const odl::time::Epoch& t, const frames::Position<frames::Frame::GCR
     auto set_r = dparam.set_column(c_d_id_, dadc);
     if (!set_r.has_value()) return odl::err(set_r.error());
 
+    // --- the provenance boundary, closed: result->atmosphere_record is
+    // for_drag's own EvaluationRecord (already carried into DragResult by
+    // acceleration(), above); mapped here into dyn::Provenance's narrower
+    // shape so a caller through the Force plugin -- L7's estimator, which
+    // never sees a DragResult -- still sees what sample this evaluation
+    // drew on and whether it was verified (DYN-Q-001, SPEC-drag DRAG-R-007).
+    const dyn::Provenance provenance{result->atmosphere_record.snapshot_id,
+                                     result->atmosphere_record.snapshot_sha256,
+                                     result->atmosphere_record.verification ==
+                                         atmosphere::Verification::verified_against_issuer};
+
     return dyn::ForceEvaluation{
         frames::Acceleration<frames::Frame::GCRS>{result->acceleration_m_s2},
         dyn::StateJacobian::with_velocity(dadr, dadv_gcrs),
-        std::move(dparam)};
+        std::move(dparam),
+        provenance};
 }
 
 }  // namespace odl::drag
