@@ -429,6 +429,21 @@ layer is open.
    plausible. 2 020 of the 3 300 literals are **zero**, so a spot check lands on
    zero-against-zero more often than not; all 3 300 are verified, 1 280 of them non-zero.
 
+   > **Correction found at L4 step 4: NRLMSISE-00 is not smooth above 120 km.** `SPEC-atmosphere`
+   > §3.1 said the profile above `ZN1(1)` = 120 km is analytic "without a structural boundary".
+   > That is true of spline nodes and false of the model. The pinned source's `DATA ALTL` (line 587)
+   > sets **seven species-correction cutoffs above 120 km** — N₂ 160, He 200, Ar 240, O₂ 250,
+   > **O 300**, H 320, N 450 km — at each of which that species' mixing/chemistry correction stops
+   > being applied and its density is **discontinuous**; line 662's `ALTL(6)` branch is a
+   > single-species shortcut that does not touch total mass density. Found through drag's position
+   > Jacobian, whose step sweep showed the 1/Δ signature of a fixed jump; bisected to 300.000 km,
+   > relative size 4.085 × 10⁻⁵ in total mass density; and **the frozen reference jumps identically,
+   > to full double precision** — a property of NRLMSISE-00 reproduced faithfully, not a porting
+   > defect. What was wrong was an absence asserted without searching the source for it (§4 rule
+   > 4), in a specification the manager adopted; `grep ALTL` finds all seven. The step's gate, 125
+   > published cases at one ulp, could not have seen it: point values say nothing about the space
+   > between points.
+
    **Space weather is the first input in this tree that is not frozen**, and the answer needs no
    special case: pin by hash, never fetch at run time, refuse outside usable coverage naming
    *which quantity* ran out, recompute derived columns, carry the snapshot's identity into every
@@ -1023,6 +1038,13 @@ governs. Three rules apply to all of them:
    3.478 × 10⁻¹¹, and the *L*_B scaling is 5.070 × 10⁻¹⁴ — **the floor is 2.46× the smallest
    term kept**, not three orders above it and not twelve times it. This binds L4 hardest, where
    a dozen accelerations have to be ranked against each other to decide what is modelled.
+
+   **And the denominator of a point-value gate is its points.** A model checked against its
+   reference at 125 cases is checked at 125 cases and nowhere between them; a discontinuity lying
+   between two of them is invisible to the gate however tight its tolerance. Where the source is
+   piecewise, its boundaries are part of the model: they are found by searching the source, and
+   each is tested on **both sides** against the reference — NRLMSISE-00's seven `ALTL` cutoffs
+   are the case, found at L4 step 4 after L2's gate had passed at one ulp.
 
    **The same rule binds a test's own case count.** A test driven by data — rows of a file,
    segments of a kernel, constituents of a table — MUST assert how many cases it ran before it
