@@ -374,7 +374,7 @@ the MVP needs.
 3. **DONE** — `srp-analytic` → [`subplan_L4/L4-3.md`](subplan_L4/L4-3.md)
 
 4. **DONE** — `drag` → [`subplan_L4/L4-4.md`](subplan_L4/L4-4.md)
-5. **TODO** — `erp` → [`subplan_L4/L4-5.md`](subplan_L4/L4-5.md)
+5. **TODO** — `srp` and `erp` as force plugins over one photon-pressure kernel → [`subplan_L4/L4-5.md`](subplan_L4/L4-5.md)
 6. **TODO** — `thrust-yaw` → [`subplan_L4/L4-6.md`](subplan_L4/L4-6.md)
 7. **TODO** — `ecom` → [`subplan_L4/L4-7.md`](subplan_L4/L4-7.md)
 
