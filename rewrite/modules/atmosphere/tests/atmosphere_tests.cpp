@@ -51,8 +51,16 @@ std::vector<Case> published_cases() {
 
 /// The sweep, identical to tools/msis_reference.py's.  It crosses every branch
 /// boundary the model has; a sweep that never crosses one cannot fail on one.
+/// The last 14 points are close pairs straddling each of the seven species-
+/// correction cutoffs NRLMSISE-00.FOR's own DATA ALTL sets above 120 km (N2
+/// 160, He 200, Ar 240, O2 250, O 300, H 320, N 450 km) -- added when L4 step
+/// 4's own drag Jacobian found the 300 km one was a real, reference-level
+/// discontinuity and a direct read of the pinned source found the other six
+/// (SPEC-atmosphere §3.1, PROVENANCE.md §28.5/§28.10).
 const double kSweepAlt[] = {0,5,10,15,20,25,32.5,40,45,55,62.5,70,72.5,80,90,100,110,120,
-                            150,200,300,400,550,700,1000,1500,2000};
+                            150,200,300,400,550,700,1000,1500,2000,
+                            159.99,160.01, 199.99,200.01, 239.99,240.01, 249.99,250.01,
+                            299.99,300.01, 319.99,320.01, 449.99,450.01};
 struct Cond { double iyd, sec, lat, lon, fa, fd, ap; };
 const Cond kSweepCond[] = {{172,29000,60,-70,150,150,4}, {81,29000,0,0,70,70,0},
                            {355,75000,-80,170,250,300,200}, {200,43200,45,90,100,90,15}};
@@ -137,6 +145,80 @@ TEST_CASE("ATMO-A-001  the port against the reference, with its five counts", "[
     // its promoted-double build, so this is roundoff, not the 1e-5 that bounds
     // the single-precision build.
     CHECK(worst < 1.0e-12);
+}
+
+// odl maintainer's item 4: promote the drag Jacobian's own diagnostic (which
+// found the 300 km cutoff by measurement, not by reading the source) to a
+// gated test HERE, in this module's own suite, against FROZEN reference
+// output -- not the live reference binary, which CI must never need
+// (ATMO-Q-005). ATMO-A-001's general sweep already covers these 14 points
+// (they are 14 of its 181), passing at the same <1e-12 bound; this test
+// names each of the seven cutoffs explicitly rather than leaving their
+// coverage to be inferred from a count, and additionally confirms the
+// discontinuity is really THERE in the frozen values, not only that the
+// port tracks a smooth reference closely.
+TEST_CASE("ATMO-A-028  the seven species-correction cutoffs above 120 km, port against "
+          "frozen reference on both sides of each, and each cutoff genuinely jumps",
+          "[atmosphere][gate]") {
+    const auto cases = all_cases();
+    REQUIRE(cases.size() == ref::kValues.size());
+    const std::size_t published = published_cases().size();
+    constexpr std::size_t kAltCount = sizeof(kSweepAlt) / sizeof(kSweepAlt[0]);
+    constexpr std::size_t kFirstCutoffAltIdx = kAltCount - 14;   // the 14 appended last
+
+    struct Cutoff { const char* species; double alt_km; };
+    constexpr Cutoff kCutoffs[7] = {
+        {"N2", 160.0}, {"He", 200.0}, {"Ar", 240.0}, {"O2", 250.0},
+        {"O", 300.0}, {"H", 320.0}, {"N", 450.0}};
+
+    // Condition 0 (the driver's own baseline) throughout: rule 3, one place,
+    // one reference point, not one cutoff examined closely and six assumed
+    // similar (the same discipline the jump table in PROVENANCE.md §28.10
+    // applies, and the same reason it measured all seven rather than one).
+    for (std::size_t c = 0; c < 7; ++c) {
+        const std::size_t below_alt_idx = kFirstCutoffAltIdx + 2 * c;       // e.g. 159.99
+        const std::size_t above_alt_idx = kFirstCutoffAltIdx + 2 * c + 1;   // e.g. 160.01
+        const std::size_t below_idx = published + below_alt_idx;   // condition 0: no offset
+        const std::size_t above_idx = published + above_alt_idx;
+
+        // Sanity: the index arithmetic actually lands on the altitude it
+        // claims to, checked before trusting the paired reference record --
+        // Record itself carries no input fields to check this against
+        // directly (by design, ATMO-R-028's own minimal shape), so this is
+        // checked against this file's OWN case list instead.
+        REQUIRE(cases[below_idx].alt == kSweepAlt[below_alt_idx]);
+        REQUIRE(cases[above_idx].alt == kSweepAlt[above_alt_idx]);
+        REQUIRE_THAT(kSweepAlt[below_alt_idx],
+                    Catch::Matchers::WithinAbs(kCutoffs[c].alt_km - 0.01, 1.0e-9));
+        REQUIRE_THAT(kSweepAlt[above_alt_idx],
+                    Catch::Matchers::WithinAbs(kCutoffs[c].alt_km + 0.01, 1.0e-9));
+
+        const auto below_port = run7d(cases[below_idx]);
+        const auto above_port = run7d(cases[above_idx]);
+        REQUIRE(below_port.fault.ok());
+        REQUIRE(above_port.fault.ok());
+        const double below_ref = ref::kValues[below_idx].gtd7d_rho;
+        const double above_ref = ref::kValues[above_idx].gtd7d_rho;
+
+        const double rel_below = std::abs(below_port.d[5] - below_ref) / std::abs(below_ref);
+        const double rel_above = std::abs(above_port.d[5] - above_ref) / std::abs(above_ref);
+        const double ref_jump = std::abs(above_ref - below_ref) / std::abs(below_ref);
+        INFO(kCutoffs[c].species << " @ " << kCutoffs[c].alt_km << " km: port/ref below="
+             << below_port.d[5] << "/" << below_ref << " (rel " << rel_below
+             << "), above=" << above_port.d[5] << "/" << above_ref << " (rel " << rel_above
+             << "); reference's own relative jump = " << ref_jump);
+
+        // port matches the frozen reference at both sides, to the same
+        // double-precision-roundoff bound ATMO-A-001 asserts generally
+        CHECK(rel_below < 1.0e-12);
+        CHECK(rel_above < 1.0e-12);
+        // and the reference itself genuinely jumps here -- 1e-6 is three
+        // orders below the smallest of the seven measured jumps (N @ 450 km,
+        // ~5e-5, PROVENANCE.md §28.10), comfortable margin without chasing
+        // the exact per-cutoff figure a future reference re-pin might move
+        // slightly.
+        CHECK(ref_jump > 1.0e-6);
+    }
 }
 
 TEST_CASE("ATMO-A-004  total density against the species sum, not through the reference",

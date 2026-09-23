@@ -38,9 +38,26 @@ PROMOTE = "-freal-4-real-8"  # same source, every REAL widened: isolates precisi
 # §3.6): ZN3 nodes 0/10/15/20/32.5, ZN2 45/55/72.5, ZMIX 62.5, ZN1 90/100/110/120,
 # and the analytic Bates profile above.  A sweep that never crosses a boundary
 # cannot fail on a boundary.
+#
+# ABOVE 120 KM, "no structural boundary" (SPEC-atmosphere §3.1's own former
+# text) was itself a claim that had never been searched for in the source --
+# L4 step 4's own drag Jacobian found the 300 km one by measurement, and a
+# direct read of the pinned NRLMSISE-00.FOR's DATA ALTL (line 587) found the
+# other six: N2 160, He 200, Ar 240, O2 250, O 300, H 320, N 450 km, each a
+# species-correction cutoff and each a genuine discontinuity (confirmed: the
+# reference jumps identically to the port at every one, to full double
+# precision -- PROVENANCE.md §28.5/§28.10). 200 and 300 already sat in the
+# coarse grid above without being fine enough to straddle either cutoff by
+# more than a few metres; CUTOFF_STRADDLE adds a close pair either side of
+# all seven, so the sweep that is supposed to cross every boundary the model
+# has actually crosses these, rather than landing near them and calling that
+# coverage.
+CUTOFF_STRADDLE_KM = [160.0, 200.0, 240.0, 250.0, 300.0, 320.0, 450.0]
 SWEEP_ALT = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 32.5, 40.0, 45.0, 55.0, 62.5, 70.0,
              72.5, 80.0, 90.0, 100.0, 110.0, 120.0, 150.0, 200.0, 300.0, 400.0,
-             550.0, 700.0, 1000.0, 1500.0, 2000.0]
+             550.0, 700.0, 1000.0, 1500.0, 2000.0] + [
+    round(c + offset_m / 1000.0, 6) for c in CUTOFF_STRADDLE_KM for offset_m in (-10.0, 10.0)
+]
 SWEEP_COND = [  # iday,  sec,   lat,   lon, f107a, f107,  ap
     (172,  29000.0,  60.0, -70.0, 150.0, 150.0,   4.0),   # the driver's baseline
     ( 81,  29000.0,   0.0,   0.0,  70.0,  70.0,   0.0),   # equinox, equator, solar minimum, quiet
@@ -173,7 +190,11 @@ def main() -> int:
     single = run(build(src, work, False))
     double = run(build(src, work, True))
 
-    text = emit(ver, sha, *classify(single, double), double, single)
+    # The threshold-sensitivity claim (class A's worst barely moves across
+    # three decades of the materiality threshold) is measured here, each
+    # time, rather than quoted from whenever it was last checked by hand.
+    sensitivity = {t: classify(single, double, t)[0][0][0] for t in (1e-12, 1e-15, 1e-20)}
+    text = emit(ver, sha, *classify(single, double), double, single, sensitivity)
     out = ROOT / a.out
     if a.check:
         cur = out.read_text() if out.exists() else ""
@@ -189,10 +210,27 @@ def main() -> int:
 
 AMU = 1.66e-24
 SPECIES_MASS = {0: 4.0, 1: 16.0, 2: 28.0, 3: 32.0, 4: 40.0, 6: 1.0, 7: 14.0, 8: 16.0}
+SPECIES_NAME = {0: "He", 1: "O", 2: "N2", 3: "O2", 4: "Ar", 5: "rho", 6: "H", 7: "N",
+                8: "anomalous O", 9: "Tinf", 10: "T(alt)"}
 MATERIAL = 1e-15   # see classify()
 
 
-def classify(single: dict, double: dict):
+def describe(k) -> str:
+    """A worst-comparison key (kind, set, index) as a human-readable place,
+    computed from the SAME loop order run() used to build it -- not
+    hardcoded, so this description cannot go stale the way a literal
+    string did the first time the sweep grew (msis_reference_values.hpp's
+    own history, PROVENANCE.md §28.5/§28.10)."""
+    _, set_, idx = k
+    if set_ == "P":
+        return f"published case {idx}"
+    n = (idx - 1) % len(SWEEP_ALT)
+    c = (idx - 1) // len(SWEEP_ALT)
+    jd, sec, lat, lon, fa, fd, ap = SWEEP_COND[c]
+    return f"sweep alt {SWEEP_ALT[n]:g} km, condition ({jd:g},{sec:g},{lat:g},{lon:g},{fa:g},{fd:g},{ap:g})"
+
+
+def classify(single: dict, double: dict, material: float = MATERIAL):
     """Partition every comparison by whether it can affect a drag calculation.
 
     THE SWEEP CHANGED THE SHAPE OF THIS MEASUREMENT.  Over the 17 published cases
@@ -210,9 +248,11 @@ def classify(single: dict, double: dict):
     So the boundary is drawn PHYSICALLY rather than numerically: a species whose
     mass contributes less than MATERIAL of the total density cannot affect drag
     at any precision.  That threshold is not tuned — the worst material
-    difference is 7.671e-6 at 1e-12 and at 1e-15, and only reaches 1.1e-5 at
-    1e-20.  Stable across three decades is what distinguishes a principled
-    boundary from a fitted one.
+    difference moves by less than a factor of 2 across three decades of it
+    (1e-12, 1e-15, 1e-20; main() recomputes and emit() prints the current
+    figures each time, rather than a number quoted here that could go stale
+    the way the sweep's own growth once made one).  Stable across three
+    decades is what distinguishes a principled boundary from a fitted one.
     """
     mat, immat, under, zeros = [], [], [], 0
     for k, dv in double.items():
@@ -224,16 +264,20 @@ def classify(single: dict, double: dict):
                 under.append((k, j, xd)); continue
             r = abs(xs - xd) / abs(xd)
             frac = (SPECIES_MASS[j] * xd * AMU / rho) if (k[0] == "g7" and j in SPECIES_MASS) else 1.0
-            (mat if frac >= MATERIAL else immat).append((r, k, j))
+            (mat if frac >= material else immat).append((r, k, j))
     mat.sort(reverse=True); immat.sort(reverse=True)
     return mat, immat, under, zeros
 
 
-def emit(ver, sha, mat, immat, under, zeros, double, single) -> str:
+def emit(ver, sha, mat, immat, under, zeros, double, single, sensitivity) -> str:
     med = mat[len(mat)//2][0]
     rel = mat
     L = []
     w = L.append
+
+    def wc(text: str) -> None:
+        for line in textwrap.wrap(text, width=77):
+            w(f"// {line}")
     w("#pragma once")
     w("// msis_reference_values.hpp — GENERATED.  Do not edit.")
     w("//")
@@ -283,14 +327,25 @@ def emit(ver, sha, mat, immat, under, zeros, double, single) -> str:
     w("// never absorbed into a widened tolerance -- the third time this tree has met a")
     w("// quantity that exists in one precision and not another.")
     w("//")
-    w(f"// The class boundary is physical, not numerical: a species whose mass is less")
-    w(f"// than {MATERIAL:g} of the total density cannot affect drag.  It is not tuned --")
-    w("// class A's worst is 7.671e-6 at a threshold of 1e-12 and of 1e-15, and only")
-    w("// 1.1e-5 at 1e-20.")
+    wc(f"The class boundary is physical, not numerical: a species whose mass is less "
+       f"than {MATERIAL:g} of the total density cannot affect drag.  It is not tuned -- "
+       f"class A's worst is {sensitivity[1e-12]:.3e} at a threshold of 1e-12 and "
+       f"{sensitivity[1e-15]:.3e} at 1e-15, and only {sensitivity[1e-20]:.3e} at 1e-20.")
     w("//")
-    w("// The worst class-A comparison is argon at 1000 km, published case 3 -- the")
-    w("// SWEEP DOES NOT LOOSEN THE BOUND: 1056 further material comparisons across")
-    w("// every branch boundary leave it exactly where the 17 published cases put it.")
+    worst_species = SPECIES_NAME.get(mat[0][2], f"quantity {mat[0][2]}")
+    p_material = sum(1 for _, k, _ in mat if k[1] == 'P')
+    s_material = len(mat) - p_material
+    worst_among_published = max((r for r, k, _ in mat if k[1] == 'P'), default=0.0)
+    if mat[0][1][1] == 'P':
+        wc(f"The worst class-A comparison is {worst_species} at {describe(mat[0][1])} -- "
+           f"one of the 17 published cases: the {s_material} further material "
+           f"comparisons the sweep adds, across every branch boundary, do NOT exceed it.")
+    else:
+        wc(f"The worst class-A comparison is {worst_species} at {describe(mat[0][1])} -- "
+           f"a SWEEP point, not one of the 17 published cases (whose own worst is "
+           f"{worst_among_published:.3e}). THE SWEEP DOES NOT MERELY FAIL TO LOOSEN THE "
+           f"BOUND HERE, it TIGHTENS IT: the {s_material} further material comparisons "
+           f"it adds found a worse one than any of the 17 published cases did.")
     for k, j, xd in under[:6]:
         w(f"//   underflow: {k[0]} {k[1]}{k[2]} quantity {j}: single 0, double {xd:.6e}")
     if len(under) > 6:

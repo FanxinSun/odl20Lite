@@ -15,6 +15,7 @@
 #include <array>
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <memory>
 #include <numbers>
 #include <sstream>
@@ -651,8 +652,8 @@ TEST_CASE("DRAG-A-009  day-of-year against the Gregorian leap-year rule's own ex
 // discretisation error and any error in channel 2's own approximation, both
 // checked below.
 //
-// THIS TEST FOUND TWO REAL DEFECTS, not a tolerance question, across two
-// rounds of review.
+// THIS TEST FOUND THREE REAL DEFECTS, not a tolerance question, across
+// three rounds of review.
 //
 // (1) drag.cpp's first draft of `a_direction` (the d(a)/d(rho) factor
 // channel 1 is built from) read `(coeff/rho) * v_rel`; the correct
@@ -677,12 +678,272 @@ TEST_CASE("DRAG-A-009  day-of-year against the Gregorian leap-year rule's own ex
 // separately by holding rho fixed and finite-differencing a(v_itrs(r))
 // through the real to_itrs velocity, matching the analytic formula to 6
 // figures), found why: channel 1's own error is NON-MONOTONIC across
-// 1-0.25 km, then drops sharply and stably at 0.1 km and below -- the
-// signature of NRLMSISE-00's own fitted cubic-spline structure in altitude
-// (SPEC-atmosphere §3.1), not smooth Taylor truncation, at the coarser
-// scale. drag.cpp's step is now 0.1 km (DRAG-P-1, revised); this test
-// verifies the STABILITY that step sweep found, not a formula that turned
-// out not to describe the real profile. PROVENANCE.md §28.5.
+// 1-0.25 km, then drops sharply and stably at 0.1 km and below. drag.cpp's
+// step is now 0.1 km (DRAG-P-1, revised); this test verifies the STABILITY
+// that step sweep found, not a formula that turned out not to describe the
+// real profile. PROVENANCE.md §28.5.
+//
+// THAT NON-MONOTONICITY WAS FIRST READ as NRLMSISE-00's own fitted
+// cubic-spline structure in altitude aliasing against too coarse a step --
+// WRONG, caught by a later review the same way this section's own tolerance
+// defect was: checking the claim against the source instead of trusting the
+// explanation that fit. SPEC-atmosphere §3.6 -- not §3.1, which only
+// describes the model in general terms -- says plainly that no spline node
+// exists above 120 km, where this test's 299.863 km case sits. The real
+// cause: NRLMSISE-00's own DATA ALTL (line 587) sets SEVEN hard
+// species-correction cutoffs above 120 km (SPEC-atmosphere ATMO-R-037); at
+// this case the nearby one is O's, at 300 km (line 730) -- a genuine
+// discontinuity, not a structure a finer step merely resolves better.
+// error*2*step/H held CONSTANT (~4.05e-5) across 1/0.5/0.25 km -- the
+// 1/step signature of a fixed jump, not the step^2 signature smooth
+// truncation (spline-aliased or textbook) would leave, which the 0.1/0.05
+// pair's clean ~4x ratio confirms by contrast. PROVENANCE.md §28.5's own
+// correction, and §28.10, have the full mechanism and the jump table across
+// all seven cutoffs, not only this one.
+//
+// (3) THE STENCIL CAN STRADDLE A CUTOFF, for any evaluation altitude within
+// 100 m of one -- and this test's own case turns out to clear its nearest
+// cutoff (O's, 300 km) by only 37 m of margin (299.863 + 0.100 =
+// 299.963 km) this section never measured until the correction above. A
+// central difference straddling a genuine discontinuity does not converge
+// to either side's true derivative as the step shrinks; drag.cpp's channel
+// 1 now detects a straddle at runtime and switches to a one-sided,
+// second-order difference walking away from the cutoff instead
+// (DRAG-R-012), verified by DRAG-A-011 at a case chosen specifically to
+// straddle, since this test's own case cannot. PROVENANCE.md §28.10.
+
+TEST_CASE("SCRATCH: sweep rho(h) near 300 km to bracket and bisect the jump", "[.][scratch]") {
+    const auto when = epoch_at(2015, 6, 21, 12.0);
+    const auto sw = quiet_sw(atmosphere::Verification::verified_against_issuer);
+    const auto x0 = circular_state(when, 6678.0e3);
+
+    auto itrs = frames::to_itrs(x0, zero_eop(), leaps());
+    REQUIRE(itrs.has_value());
+    const auto geo = itrs_to_geodetic(odl::metres_from_km(itrs->position()));
+    auto cal = when.calendar(odl::time::TimeScale::UTC, leaps());
+    REQUIRE(cal.has_value());
+    atmosphere::Place place;
+    place.day_of_year = 172;
+    place.seconds_of_day = cal->hour * 3600.0 + cal->minute * 60.0 + cal->second;
+    place.geodetic_latitude_deg = geo.latitude_rad * 180.0 / std::numbers::pi;
+    place.longitude_deg = geo.longitude_rad * 180.0 / std::numbers::pi;
+    const double base_alt_km = geo.altitude_m / 1000.0;
+    WARN(std::setprecision(17) << "base altitude = " << base_alt_km << " km, lat="
+         << place.geodetic_latitude_deg << " lon=" << place.longitude_deg
+         << " day_of_year=" << place.day_of_year << " seconds_of_day=" << place.seconds_of_day);
+
+    auto rho_at = [&](double alt_km) -> double {
+        atmosphere::Place p = place;
+        p.altitude_km = alt_km;
+        auto r = atmosphere::for_drag(p, sw);
+        REQUIRE(r.has_value());
+        return r->total_mass_kg_m3;
+    };
+
+    // Coarse sweep, +-0.5 km, 5 m steps (200 points), looking for a single
+    // step-to-step relative change far larger than its neighbours.
+    constexpr double kSpanKm = 0.5;
+    constexpr int kN = 200;
+    const double dstep = 2.0 * kSpanKm / kN;
+    double prev_alt = base_alt_km - kSpanKm;
+    double prev_rho = rho_at(prev_alt);
+    double worst_ratio = 0.0;
+    double bracket_lo = 0.0, bracket_hi = 0.0;
+    double rho_lo = 0.0, rho_hi = 0.0;
+    for (int i = 1; i <= kN; ++i) {
+        const double alt = base_alt_km - kSpanKm + i * dstep;
+        const double rho = rho_at(alt);
+        const double rel_step = std::abs(rho - prev_rho) / prev_rho;
+        if (rel_step > worst_ratio) {
+            worst_ratio = rel_step;
+            bracket_lo = prev_alt;
+            bracket_hi = alt;
+            rho_lo = prev_rho;
+            rho_hi = rho;
+        }
+        prev_alt = alt;
+        prev_rho = rho;
+    }
+    WARN("coarse sweep (" << kN << " points, " << dstep * 1000.0 << " m step): worst "
+         "step-to-step relative change = " << worst_ratio << ", bracketed in ["
+         << bracket_lo << ", " << bracket_hi << "] km, rho_lo=" << rho_lo
+         << " rho_hi=" << rho_hi);
+
+    // Bisect within the bracket to localise the jump tightly, tracking
+    // whether the density profile is otherwise smooth on each side (compare
+    // the jump found to the SAME rel_step computed at neighbouring, non-
+    // bracketing points, to rule out this being generic smooth curvature).
+    double lo = bracket_lo, hi = bracket_hi;
+    double rlo = rho_lo, rhi = rho_hi;
+    for (int iter = 0; iter < 30 && (hi - lo) > 1.0e-9; ++iter) {
+        const double mid = 0.5 * (lo + hi);
+        const double rmid = rho_at(mid);
+        // whichever half still shows the (near-)full jump is where it lives
+        const double left_jump = std::abs(rmid - rlo) / rlo;
+        const double right_jump = std::abs(rhi - rmid) / rmid;
+        if (left_jump > right_jump) {
+            hi = mid;
+            rhi = rmid;
+        } else {
+            lo = mid;
+            rlo = rmid;
+        }
+    }
+    const double jump_altitude_km = 0.5 * (lo + hi);
+    const double jump_size_rel = std::abs(rhi - rlo) / rlo;
+    WARN("bisected: jump localises to altitude " << jump_altitude_km << " km (bracket width "
+         << (hi - lo) * 1000.0 << " m), relative size " << jump_size_rel
+         << ", offset from base altitude = " << (jump_altitude_km - base_alt_km) * 1000.0 << " m");
+
+    // Sanity: the jump should be much larger than typical smooth curvature
+    // over a comparable span, sampled well away from the bracket.
+    const double smooth_lo = rho_at(base_alt_km - 0.4);
+    const double smooth_mid = rho_at(base_alt_km - 0.39);
+    const double smooth_rel = std::abs(smooth_mid - smooth_lo) / smooth_lo;
+    WARN("for comparison, a smooth 10 m step well away from the bracket (at -0.4 km): "
+         "relative change = " << smooth_rel);
+
+    CHECK(jump_size_rel > 1.0e-6);   // just keep the test from being vacuous
+
+    // For direct comparison against the frozen FORTRAN reference at the
+    // identical (lat, lon, day, seconds_of_day, F10.7, Ap) inputs, print
+    // this port's own rho at the same 13-point altitude sweep, full precision.
+    for (double alt : {299.0, 299.5, 299.9, 299.95, 299.99, 299.999, 300.0,
+                       300.001, 300.01, 300.05, 300.1, 300.5, 301.0}) {
+        WARN(std::setprecision(17) << "port rho(" << alt << " km) = " << rho_at(alt) << " kg/m^3");
+    }
+
+    // Species breakdown right across the jump, to identify which species
+    // carries it (and confirm the others are smooth there).
+    auto species_at = [&](double alt_km) {
+        atmosphere::Place p = place;
+        p.altitude_km = alt_km;
+        auto r = atmosphere::for_drag(p, sw);
+        REQUIRE(r.has_value());
+        return r->species;
+    };
+    const auto sp_lo = species_at(299.999);
+    const auto sp_hi = species_at(300.001);
+    auto rel = [](double a, double b) { return std::abs(b - a) / a; };
+    WARN(std::setprecision(6)
+         << "species relative change 299.999->300.001 km: He="
+         << rel(sp_lo.he.mass_density_kg_m3(), sp_hi.he.mass_density_kg_m3())
+         << " O=" << rel(sp_lo.o.mass_density_kg_m3(), sp_hi.o.mass_density_kg_m3())
+         << " N2=" << rel(sp_lo.n2.mass_density_kg_m3(), sp_hi.n2.mass_density_kg_m3())
+         << " O2=" << rel(sp_lo.o2.mass_density_kg_m3(), sp_hi.o2.mass_density_kg_m3())
+         << " Ar=" << rel(sp_lo.ar.mass_density_kg_m3(), sp_hi.ar.mass_density_kg_m3())
+         << " H=" << rel(sp_lo.h.mass_density_kg_m3(), sp_hi.h.mass_density_kg_m3())
+         << " N=" << rel(sp_lo.n.mass_density_kg_m3(), sp_hi.n.mass_density_kg_m3())
+         << " anomO=" << rel(sp_lo.anomalous_o.mass_density_kg_m3(), sp_hi.anomalous_o.mass_density_kg_m3()));
+    WARN("O mass density at 299.999 km = " << sp_lo.o.mass_density_kg_m3()
+         << ", at 300.001 km = " << sp_hi.o.mass_density_kg_m3()
+         << "; O's share of total at 300.001 km = "
+         << sp_hi.o.mass_density_kg_m3() / rho_at(300.001));
+}
+
+// ---------------------------------------------------------------------------
+// The jump table (odl maintainer's item 1): every one of the seven
+// species-correction cutoffs the pinned FORTRAN source's DATA ALTL declares
+// (NRLMSISE-00.FOR line 587: 200, 300, 160, 250, 240, 450, 320, 450 km --
+// ALTL(6)=450 excluded, line 662, a single-species MASS.NE.28.AND.MASS.NE.48
+// shortcut that never fires for this tree's MASS=48 total-density path).
+// Measured, not argued: relative density jump AND the resulting drag-
+// acceleration jump for a STATED ballistic coefficient, at one reference
+// place (equatorial, this file's own epoch) per rule 3 -- one place, one
+// reference point, all seven cutoffs under it rather than one cutoff
+// examined closely and the rest assumed similar.
+
+TEST_CASE("SCRATCH: the seven-cutoff jump table", "[.][scratch]") {
+    const auto when = epoch_at(2015, 6, 21, 12.0);
+    const auto sw = quiet_sw(atmosphere::Verification::verified_against_issuer);
+    // The stated ballistic coefficient: DRAG-A-010's own C_D/area/mass,
+    // reused rather than invented, so this table sits on an already-stated
+    // case (rule 3).
+    constexpr double kCd = 2.2, kAreaM2 = 10.0, kMassKg = 500.0;
+
+    // Equatorial GCRS position at this epoch, at Earth's WGS84 semi-major
+    // axis plus the stated altitude: geodetic and geocentric coincide
+    // exactly at the equator, so this is an honest altitude, not an
+    // approximation, and lat/lon/day/seconds are IDENTICAL across every
+    // cutoff (the same epoch, the same equatorial direction) -- only
+    // altitude and orbital speed vary, which is what is being measured.
+    auto r_at_altitude_km = [&](double alt_km) {
+        return kWgs84SemiMajorM / 1000.0 + alt_km;
+    };
+
+    struct CutoffResult {
+        const char* species;
+        double alt_km;
+        double rho_rel_jump;
+        double accel_jump_m_s2;
+        double accel_rel_jump;
+    };
+    std::vector<CutoffResult> table;
+
+    for (auto [species, alt_km] : {std::pair{"N2", 160.0}, std::pair{"He", 200.0},
+                                   std::pair{"Ar", 240.0}, std::pair{"O2", 250.0},
+                                   std::pair{"O", 300.0}, std::pair{"H", 320.0},
+                                   std::pair{"N", 450.0}}) {
+        const auto x0 = circular_state(when, r_at_altitude_km(alt_km) * 1000.0);
+        const Vec3 v0 = odl::metres_from_km(x0.velocity());
+
+        // just below / just above the cutoff, 1 m on each side -- well
+        // inside the half-width any reasonable stencil would straddle, and
+        // fine enough that a smooth background contributes negligibly next
+        // to a genuine cutoff-sized jump (established by the 300 km
+        // bisection above: sub-mm localisation, smooth background many
+        // orders of magnitude smaller over a comparable span).
+        constexpr double kOffsetKm = 0.001;
+        auto accel_at = [&](double d_alt_km) -> odl::Result<DragResult, DragError> {
+            const Vec3 r = odl::metres_from_km(
+                circular_state(when, r_at_altitude_km(alt_km + d_alt_km) * 1000.0).position());
+            return acceleration(when, r, v0, kCd, kAreaM2, kMassKg, sw, zero_eop(), leaps());
+        };
+        auto below = accel_at(-kOffsetKm);
+        auto above = accel_at(+kOffsetKm);
+        REQUIRE(below.has_value());
+        REQUIRE(above.has_value());
+
+        // rho jump: re-deriving it from the acceleration jump itself is circular
+        // (acceleration is proportional to rho at fixed v_rel here, since
+        // the two evaluation points are close enough that v_rel is
+        // essentially unchanged) -- but query for_drag directly, the same
+        // way DRAG-A-010's own diagnostic does, for the density figure
+        // itself, independent of the force law.
+        auto itrs = frames::to_itrs(x0, zero_eop(), leaps());
+        REQUIRE(itrs.has_value());
+        const auto geo = itrs_to_geodetic(odl::metres_from_km(itrs->position()));
+        auto cal = when.calendar(odl::time::TimeScale::UTC, leaps());
+        REQUIRE(cal.has_value());
+        atmosphere::Place place;
+        place.day_of_year = 172;
+        place.seconds_of_day = cal->hour * 3600.0 + cal->minute * 60.0 + cal->second;
+        place.geodetic_latitude_deg = geo.latitude_rad * 180.0 / std::numbers::pi;
+        place.longitude_deg = geo.longitude_rad * 180.0 / std::numbers::pi;
+        atmosphere::Place p_below = place, p_above = place;
+        p_below.altitude_km = alt_km - kOffsetKm;
+        p_above.altitude_km = alt_km + kOffsetKm;
+        auto rho_below_r = atmosphere::for_drag(p_below, sw);
+        auto rho_above_r = atmosphere::for_drag(p_above, sw);
+        REQUIRE(rho_below_r.has_value());
+        REQUIRE(rho_above_r.has_value());
+        const double rho_rel_jump =
+            std::abs(rho_above_r->total_mass_kg_m3 - rho_below_r->total_mass_kg_m3) /
+            rho_below_r->total_mass_kg_m3;
+
+        const Vec3 a_below = below->acceleration_m_s2, a_above = above->acceleration_m_s2;
+        const double accel_jump = (a_above - a_below).norm();
+        const double accel_rel_jump = accel_jump / a_below.norm();
+
+        table.push_back({species, alt_km, rho_rel_jump, accel_jump, accel_rel_jump});
+        WARN(std::setprecision(6) << species << " @ " << alt_km << " km: rho relative jump = "
+             << rho_rel_jump << ", |a| = " << a_below.norm() << " m/s^2, accel jump = "
+             << accel_jump << " m/s^2 (" << accel_rel_jump << " relative)");
+    }
+
+    REQUIRE(table.size() == 7);
+    CHECK(true);
+}
 
 TEST_CASE("DRAG-A-010  the position Jacobian against a finite difference of the real "
           "acceleration, with a stability check standing in for a formula that "
@@ -742,9 +1003,9 @@ TEST_CASE("DRAG-A-010  the position Jacobian against a finite difference of the 
     // because it is comfortably above what the STABILITY check just below
     // would let through: if channel 1 were back in the 1-0.25 km regime's
     // non-monotonic ~1e-3 error (a wrong step, a reverted fix, a changed
-    // atmosphere pin shifting the spline structure), that check fails first
-    // and names the reason; this bound is the coarser, whole-Jacobian
-    // backstop.
+    // atmosphere pin moving a species-correction cutoff closer to this
+    // case's own altitude), that check fails first and names the reason;
+    // this bound is the coarser, whole-Jacobian backstop.
     CHECK(rel < 1.0e-4);
     // and the two vectors must at least point the same general way -- a
     // sign flip in the radial direction would pass a magnitude-only check
@@ -755,8 +1016,9 @@ TEST_CASE("DRAG-A-010  the position Jacobian against a finite difference of the 
     // (the density-altitude term only, not channel 2) at drag.cpp's own
     // registered step AND at half of it, from the same kind of atmosphere
     // calls drag.cpp makes internally. The two must closely agree: that is
-    // what "past the spline structure, in the smooth/converged regime"
-    // MEANS, operationally, and it is exactly the property whose ABSENCE
+    // what "clear of the nearest species-correction cutoff, in the
+    // smooth/converged regime" MEANS, operationally, and it is exactly the
+    // property whose ABSENCE
     // this test's own review caught at the coarser 1-0.25 km steps.
     {
         auto itrs = frames::to_itrs(x0, zero_eop(), leaps());
@@ -796,5 +1058,82 @@ TEST_CASE("DRAG-A-010  the position Jacobian against a finite difference of the 
         // loose enough not to chase the atmosphere model's own last-digit
         // noise.
         CHECK(stability_rel < 1.0e-3);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The stencil never straddles a cutoff, at runtime (odl maintainer's item 2).
+//
+// DRAG-R-004's channel 1 is a finite difference; NRLMSISE-00's own DATA ALTL
+// (NRLMSISE-00.FOR line 587) sets seven species-correction cutoffs above
+// 120 km, each a real, reference-level discontinuity (PROVENANCE.md §28.5,
+// §28.10) -- a fixed 0.1 km central-difference step straddles one whenever a
+// satellite is evaluated within 100 m of a cutoff, which DRAG-A-010's own
+// test point (137 m from 300 km) was never testing. This checks the switch
+// itself: at a point within the half-step of a cutoff, the analytic
+// Jacobian must match a TRUE, same-side finite difference of the real
+// acceleration() -- one that never crosses the cutoff -- not the straddling
+// central difference DRAG-R-004 used before this review.
+
+TEST_CASE("DRAG-A-011  the position Jacobian's stencil switches to one-sided within a "
+          "cutoff's half-step, matching a true same-side finite difference",
+          "[drag][gate]") {
+    ParameterRegistry reg;
+    auto c_d_id = reg.declare(ParameterDeclaration{ParameterKind::drag_coefficient, "1",
+                                                   "C_D", "test satellite"});
+    ParameterSet params(reg);
+    REQUIRE(params.set(c_d_id, 2.2).has_value());
+    const auto when = epoch_at(2015, 6, 21, 12.0);
+    const auto sw = quiet_sw(atmosphere::Verification::verified_against_issuer);
+    Drag drag(c_d_id, 10.0, 500.0, sw, zero_eop(), leaps());
+
+    auto r_at_altitude_km = [](double alt_km) { return kWgs84SemiMajorM / 1000.0 + alt_km; };
+
+    // 300 km (O) -- the cutoff this review found by measurement -- and
+    // 160 km (N2), the manager's own stated "one other cutoff", also the
+    // one whose integrator effect the jump table (PROVENANCE.md §28.10)
+    // found actually matters at this test's own stated ballistic
+    // coefficient.
+    for (auto [species, cutoff_km] : {std::pair{"O", 300.0}, std::pair{"N2", 160.0}}) {
+        for (double side : {-1.0, +1.0}) {   // -1 = just below, +1 = just above
+            const double eval_alt_km = cutoff_km + side * 0.05;   // within the 0.1 km half-step
+            const auto x0 = circular_state(when, r_at_altitude_km(eval_alt_km) * 1000.0);
+            const Vec3 r0 = odl::metres_from_km(x0.position());
+            const Vec3 v0 = odl::metres_from_km(x0.velocity());
+            const Vec3 r_hat = (1.0 / r0.norm()) * r0;
+
+            auto eval = drag.accel(when, frames::Position<Frame::GCRS>{r0}, v0, params, reg);
+            REQUIRE(eval.has_value());
+            const Vec3 predicted_da = eval->d_state.d_position().apply(r_hat);
+
+            // a TRUE, same-side finite difference of the real acceleration:
+            // a 10 m step stays within [eval_alt_km - 0.06, eval_alt_km +
+            // 0.04] km of the cutoff on the below side (or the mirror
+            // above), never crossing it, since 0.05 km (the distance to
+            // the cutoff) comfortably exceeds a 10 m step.
+            constexpr double kStepM = 10.0;
+            auto eval_at = [&](double sign) {
+                const Vec3 r = r0 + (sign * kStepM) * r_hat;
+                return drag.accel(when, frames::Position<Frame::GCRS>{r}, v0, params, reg);
+            };
+            auto r_plus = eval_at(+1.0);
+            auto r_minus = eval_at(-1.0);
+            REQUIRE(r_plus.has_value());
+            REQUIRE(r_minus.has_value());
+            const Vec3 fd_da = (1.0 / (2.0 * kStepM)) *
+                (r_plus->acceleration.metres_per_second_squared() -
+                 r_minus->acceleration.metres_per_second_squared());
+
+            const double rel = (fd_da - predicted_da).norm() / fd_da.norm();
+            INFO(species << " @ " << eval_alt_km << " km (" << (side < 0 ? "below" : "above")
+                 << " " << cutoff_km << " km cutoff): fd_da=" << fd_da.x << "," << fd_da.y << ","
+                 << fd_da.z << " predicted_da=" << predicted_da.x << "," << predicted_da.y << ","
+                 << predicted_da.z << " relative deviation=" << rel);
+            // Same order of tolerance DRAG-A-010 uses away from a cutoff:
+            // the one-sided stencil is still second-order, just walking one
+            // direction instead of two.
+            CHECK(rel < 1.0e-4);
+            CHECK(fd_da.dot(predicted_da) > 0.0);
+        }
     }
 }

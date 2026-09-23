@@ -157,11 +157,32 @@ different frames wearing the same units (found and fixed in this module's own te
   **Channel 1, radial, via density's altitude dependence.** A locally exponential atmosphere,
   scale height *H* = −ρ/(dρ/d(altitude)), with dρ/d(altitude) estimated by a **central**
   difference of two extra `atmosphere::for_drag` calls at altitude ± `DRAG-P-1`'s registered
-  half-step. The **lateral** (latitude/longitude/local-time) gradient is **neglected**, named as
-  neglected rather than silently taken as zero (§9 records its rough size). If either bumped
-  call refuses, this channel's contribution is zero — **a declared, visible degradation**
-  (`DRAG-A-005`'s and `DRAG-A-010`'s own bumped calls are asserted to succeed at the altitudes
-  those tests use).
+  half-step **— unless that half-step would straddle one of `SPEC-atmosphere` §3.6's seven
+  species-correction cutoffs, when a one-sided difference is used instead** (`DRAG-R-012`). The
+  **lateral** (latitude/longitude/local-time) gradient is **neglected**, named as neglected
+  rather than silently taken as zero (§9 records its rough size). If either bumped call refuses,
+  this channel's contribution is zero — **a declared, visible degradation** (`DRAG-A-005`'s and
+  `DRAG-A-010`'s own bumped calls are asserted to succeed at the altitudes those tests use).
+- **DRAG-R-012.** Channel 1's finite difference **never straddles** a cutoff. `MSIS-FOR`'s own
+  `DATA ALTL` (line 587, `SPEC-atmosphere` `ATMO-R-037`) sets seven species-correction
+  discontinuities above 120 km; where the evaluation altitude sits within `DRAG-P-1`'s half-step
+  of the nearest one, channel 1 switches from the central difference to a one-sided, second-order
+  difference walking AWAY from the cutoff —
+
+  > *f*′(*x*₀) ≈ (−3*f*₀ + 4*f*₁ − *f*₂) / (2Δ), *f*₀ already computed at *x*₀, *f*₁/*f*₂ at
+  > *x*₀ + sign·Δ / *x*₀ + sign·2Δ, sign chosen to stay on *x*₀'s own side of the cutoff
+
+  — the same two extra `atmosphere::for_drag` calls the central difference already makes, not one
+  more, and algebraically the standard forward or backward second-order formula depending on
+  which side of the cutoff the evaluation point falls. **Why this is a requirement and not merely
+  an implementation note**: a central difference straddling a genuine discontinuity does not
+  converge to either side's true derivative as the step shrinks — it converges to something
+  between the two, which is not a slope any physical atmosphere ever has, and no amount of
+  `DRAG-P-1`'s own step-size tuning fixes a stencil evaluated on the wrong side of a jump.
+  `DRAG-A-010`'s own 300 km test case does not exercise this path (it sits 137 m from the nearest
+  cutoff, 37 m outside the 100 m half-step that would straddle it — `PROVENANCE.md` §28.5's
+  correction), which is why `DRAG-A-011` exists: a case chosen specifically to straddle, not one
+  that happens not to.
 
   **Channel 2, the velocity-transport term.** **v**_rel = **v**_ITRS itself depends on
   **r**_ITRS, through the same transport term the GCRS↔ITRS state transform carries
@@ -210,7 +231,7 @@ different frames wearing the same units (found and fixed in this module's own te
   wanted (`DRAG-Q-001`, ruled: closed by adding the option, not by declaring the free function
   the only route to the strict check).
 - **DRAG-R-008.** This module's own precision claim is bounded by, and never exceeds,
-  `SPEC-atmosphere`'s class-A tolerance (`ATMO-P-1`: 7.6706 × 10⁻⁶ worst-case relative, on total
+  `SPEC-atmosphere`'s class-A tolerance (`ATMO-P-1`: 7.8881 × 10⁻⁶ worst-case relative, on total
   mass density, over every comparison that can affect a drag calculation at all). No figure in
   this spec, its tests, or its `PROVENANCE.md` entry is quoted to finer precision than that
   figure permits, because the density this module multiplies by cannot be known to better than
@@ -264,14 +285,33 @@ different frames wearing the same units (found and fixed in this module's own te
   **0.1 km**, revised from an initial 1 km by a measurement, not a preference. A step sweep
   (1, 0.5, 0.25, 0.1, 0.05 km), run after `DRAG-A-010` first measured a central difference's
   error an order of magnitude above the textbook (Δ/*H*)²/6 prediction, found channel 1's true
-  error **non-monotonic** across 1–0.25 km and only stably small at 0.1 km and below — the
-  signature of `atmosphere`'s own fitted cubic-spline structure in altitude (`SPEC-atmosphere`
-  §3.1), not smooth Taylor truncation, at the coarser scale. 0.1 km sits stably past that
-  structure (measured error ≈ 1.2 × 10⁻⁶ relative at this test's own case) and well below the
-  ~1 % the still-neglected lateral gradient already costs this Jacobian, so a smaller step would
-  buy precision this approximation cannot use. `DRAG-A-010`'s own stability check — comparing
-  channel 1 at the registered step against half of it — is what would catch a return to the
-  non-monotonic regime, and is the property a fixed formula-based tolerance could not.
+  error **non-monotonic** across 1–0.25 km and only stably small at 0.1 km and below.
+
+  **This was first read as `atmosphere`'s own fitted cubic-spline structure in altitude
+  (`SPEC-atmosphere` §3.1) aliasing against too coarse a step. That reading was wrong, and is
+  corrected here and in full in `PROVENANCE.md` §28.5/§28.10.** `SPEC-atmosphere` §3.6 — not §3.1,
+  which only describes the model in general terms — states plainly that no spline node exists
+  above 120 km, where this test's 299.863 km case sits; nothing there could alias against a step.
+  The actual cause is `ATMO-R-037`: at this test's own case the nearby one is O's species-correction
+  cutoff at 300 km (`MSIS-FOR` line 730), a genuine discontinuity, not a structure a finer step
+  merely resolves better. The discriminator is the error's own scaling with step size, not its
+  size alone: `error × 2Δ/H` is CONSTANT (≈ 4.05 × 10⁻⁵) across 1/0.5/0.25 km — the 1/Δ signature
+  of a fixed jump — while the 0.1/0.05 km pair shows a clean ≈4× ratio, the Δ² signature of
+  ordinary truncation past it.
+
+  0.1 km sits stably past **this case's own** jump, by 37 m of margin (299.863 + 0.100 = 299.963,
+  still short of the 300.000 km cutoff) that this entry did not measure until the correction —
+  not past a structure that recedes everywhere a smaller step is taken. A case whose altitude
+  sits within 100 m of a cutoff has no such margin, which is why channel 1 no longer relies on
+  0.1 km alone to clear one: `DRAG-R-012` detects a straddle at runtime and switches stencils
+  instead. 0.1 km itself remains the registered step (measured error ≈ 1.2 × 10⁻⁶ relative at
+  this test's own case) and well below the ~1 % the still-neglected lateral gradient already
+  costs this Jacobian, so a smaller step would buy precision this approximation cannot use.
+  `DRAG-A-010`'s own stability check — comparing channel 1 at the registered step against half of
+  it — remains what would catch a return to the non-monotonic regime at THIS case; it could not,
+  by itself, have told a jump from a spline, which is why the sweep-and-bisect diagnostic
+  (`PROVENANCE.md` §28.10) was run and reported before this entry was corrected rather than the
+  residual simply being re-explained.
 - **DRAG-P-2.** `SENG14` Table 4 gives the free-molecular sphere drag coefficient *C*₀(*S*) in
   the range 2.0–2.4 for the speed ratios *S* typical of atomic oxygen at LEO altitudes.
   `DRAG-A-002` asserts its own **stated** *C*_D (2.2) lies in [2.0, 2.5] as a plausibility check
@@ -315,7 +355,8 @@ different frames wearing the same units (found and fixed in this module's own te
 | `DRAG-A-007` | `require_verified` as a **construction-time** option of `Drag`, through the `Force` plugin: the default (`false`) does not refuse an unverified sample, matching the pre-existing behaviour; constructed with `require_verified=true`, refuses `DRAG-F-001` through `accel()` on the same unverified sample; constructed the same way on a verified sample, does not refuse — shown adjacent per this project's refusal-catalogue discipline | as stated, all three cases | R-011 (ruled, `DRAG-Q-001`) | — | R-011, F-001 |
 | `DRAG-A-008` | the refusal catalogue, fired on genuine adjacent-valid inputs, not contrived ones, with `DRAG-F-003`'s structured `cause` checked where it fires: `DRAG-F-002` (negative mass, zero area); `DRAG-F-003` via the transform (an `EopRecord` with `subdaily_applied=false`, `cause.id == FRAME-F-003`); `DRAG-F-005` (a satellite below the WGS84 ellipsoid, reached via `geodetic_to_itrs`→`to_gcrs`, a real negative-altitude `Place`, `ATMO-F-001`'s own trigger); and the adjacent valid input does **not** refuse. `DRAG-F-003`'s other two nominal causes are demonstrated absent, not merely untried: the **rotation** cause is checked directly against `transform.cpp`'s own source (`to_itrs` calls `gcrs_to_itrs` internally with identical arguments before this module's own separate call is ever reached, so the second call cannot fail if the first succeeded); the **calendar** cause is checked by construction (a pre-1972 epoch, built by `Duration` arithmetic since `from_calendar` itself refuses to construct one) — refuses `DRAG-F-003`, but with `cause.id == TIME-F-002` (the transform's own UT1 need, which runs first), not a calendar-conversion id, demonstrating the shadowing directly. `DRAG-F-004` is **not** fired: its guard is exact-zero ITRS relative speed, which no honest orbital state reaches, recorded as an acknowledged absence (plan rule 4) | each names its id and, where structured, its cause; the valid case succeeds | F-002, F-003 (both causes), F-005; `SPEC-atmosphere` `ATMO-F-001`; `SPEC-frames` `FRAME-F-003`; `SPEC-time` `TIME-F-002` | exact (id and cause.id match) | F-002, F-003, F-005 |
 | `DRAG-A-009` | `detail::day_of_year` against the Gregorian rule's three branches, called directly (1900 not leap, 2000 leap, 2100 not leap, 2004 ordinary-leap, plus ordinary-year and both leap/non-leap year-end boundaries), **and** the wiring end-to-end at a representable date (no spurious `ATMO-F-002`) | every case matches the hand-computed day-of-year exactly; the end-to-end call succeeds | R-010 | exact | R-010 |
-| `DRAG-A-010` | the **full** position Jacobian (both channels) against a real finite difference of the full `acceleration()` call (a genuine radial GCRS perturbation, not a synthetic one), at the same 300 km orbit `DRAG-A-005` uses, **plus a stability check**: channel 1 alone, recomputed independently at the registered 0.1 km step and at half of it, must closely agree — the property whose *absence* this row's own review caught at the coarser 1–0.25 km steps (`DRAG-P-1`). **Found two real defects across two review rounds, not a tolerance question**: (1) the first draft's `a_direction` omitted a factor of `\|`**v**_rel`\|` (the CO-ROTATING-frame relative speed, ~7.24 km/s at this case, not the ~7.73 km/s inertial orbital speed), a ~7330× error; (2) the first fix's own tolerance was set from a passing forward-difference residual (rule 7's defect), which review caught by a falsifiable step-halving prediction and which led to the channel-1/channel-2 split and the step-size finding above. Both recorded in full in `PROVENANCE.md` §28.4 | relative deviation < 1×10⁻⁴ (measured 1.2×10⁻⁶); stability between the two internal steps < 1×10⁻³ (measured ≈0); same-sign | R-004 (both channels); a real finite difference of R-001 | as stated | R-004 |
+| `DRAG-A-010` | the **full** position Jacobian (both channels) against a real finite difference of the full `acceleration()` call (a genuine radial GCRS perturbation, not a synthetic one), at the same 300 km orbit `DRAG-A-005` uses, **plus a stability check**: channel 1 alone, recomputed independently at the registered 0.1 km step and at half of it, must closely agree — the property whose *absence* this row's own review caught at the coarser 1–0.25 km steps (`DRAG-P-1`). **Found two real defects across two review rounds, not a tolerance question**: (1) the first draft's `a_direction` omitted a factor of `\|`**v**_rel`\|` (the CO-ROTATING-frame relative speed, ~7.24 km/s at this case, not the ~7.73 km/s inertial orbital speed), a ~7330× error; (2) the first fix's own tolerance was set from a passing forward-difference residual (rule 7's defect), which review caught by a falsifiable step-halving prediction and which led to the channel-1/channel-2 split and the step-size finding above. Both recorded in full in `PROVENANCE.md` §28.4–28.5 | relative deviation < 1×10⁻⁴ (measured 1.2×10⁻⁶); stability between the two internal steps < 1×10⁻³ (measured ≈0); same-sign | R-004 (both channels); a real finite difference of R-001 | as stated | R-004 |
+| `DRAG-A-011` | **the stencil switch itself** (`DRAG-R-012`): channel 1 at two cutoffs chosen to straddle — O at 300 km, N2 at 160 km, item 1's worst and best jump rows — evaluated 0.05 km to each side of the exact cutoff altitude, so the registered 0.1 km half-step would straddle it if the runtime switch did not fire. Production `Drag::accel` output compared against a **true same-side** finite difference: a 10 m step taken entirely on the evaluation altitude's own side of the cutoff, which no straddling stencil could match by construction. `DRAG-A-010`'s own case cannot exercise this path (it clears its nearest cutoff by 37 m of margin, `PROVENANCE.md` §28.5) — this is the adversarial case that path needed | relative deviation < 1×10⁻⁴ (measured ≈1.3×10⁻⁵, all four cases: 2 species × 2 sides) | `DRAG-R-012`; `SPEC-atmosphere` `ATMO-R-037` | as stated | R-012 |
 
 **Coverage.** Every requirement above is discharged by a row, except:
 
@@ -344,7 +385,7 @@ different frames wearing the same units (found and fixed in this module's own te
   atmosphere's structure to its radial fall-off rate; the exact bound belongs in this entry, not
   asserted here without the arithmetic behind it.
 - `DRAG-R-008`'s density-tolerance inheritance statement, so a later reader sees explicitly why
-  no drag figure is more precise than 7.6706 × 10⁻⁶ relative.
+  no drag figure is more precise than 7.8881 × 10⁻⁶ relative.
 - The atmosphere-provenance-propagation mechanism (`DRAG-R-007`) and why it matters: dropped at
   this module's boundary, `SPEC-atmosphere`'s verification flag becomes exactly the decorative
   field its own design was built not to be.
@@ -353,18 +394,36 @@ different frames wearing the same units (found and fixed in this module's own te
   Liouville check — and the test was rebuilt at 300 km rather than the threshold loosened to fit
   the weak result, the same discipline `SPEC-srp-analytic`'s box-wing gap and this session's
   earlier steps have applied throughout.
-- `DRAG-A-010`'s full history across two review rounds: the `\|`**v**_rel`\|` defect (found by
+- `DRAG-A-010`'s full history across three review rounds: the `\|`**v**_rel`\|` defect (found by
   comparing the analytic Jacobian against a real finite difference rather than trusting the
   closed form); the FIRST fix's own tolerance found wanting (set from a passing forward-difference
   residual, rule 7's defect in its plainest form — a threshold chosen from the result it judges);
   the falsifiable step-halving prediction that caught it; the step sweep (1, 0.5, 0.25, 0.1,
-  0.05 km) that found channel 1's error non-monotonic across the coarser steps and traced it to
-  `atmosphere`'s own fitted cubic-spline structure, not smooth truncation; and the exact,
+  0.05 km) that found channel 1's error non-monotonic across the coarser steps; the exact,
   independently-verified channel-2 formula (matched to 6 figures against a rho-held-fixed
-  isolation) that the first "fix" omitted entirely. The two candidate explanations offered for
-  the residual before the true cause was found (the neglected lateral gradient; the channel-2
-  omega approximation) are recorded as REJECTED, with the reasoning that ruled each out, not
-  quietly dropped once the real cause was found.
+  isolation) that the first "fix" omitted entirely; and the non-monotonicity's own cause, first
+  traced to `atmosphere`'s fitted cubic-spline structure and **later found wrong** — a citation
+  to the wrong section (§3.1, not §3.6) describing a structure that does not exist above 120 km —
+  and corrected to the real mechanism, `SPEC-atmosphere` `ATMO-R-037`'s seven species-correction
+  cutoffs, found by bisecting the jump, confirming it against the live reference, and reading the
+  pinned source's own `DATA ALTL` directly. **Three** candidate explanations offered for the
+  residual before the true cause was found — the neglected lateral gradient; the channel-2 omega
+  approximation; `atmosphere`'s own fitted cubic-spline structure — are recorded as REJECTED, with
+  the reasoning that ruled each out, not quietly dropped once the real cause was found.
+- **Step 4's second closing review's four items**, all recorded in full in `PROVENANCE.md`
+  §28.10: (1) the jump table — density and acceleration jump at all seven cutoffs, at the stated
+  ballistic coefficient, monotonic in altitude across four orders of magnitude in the
+  acceleration jump though the relative density jump is the same order throughout; (2) the
+  runtime stencil switch (`DRAG-R-012`) and why `DRAG-A-010`'s own case could not have exercised
+  it (37 m of unmeasured margin, not a property of the fix); (3) the 60 s-step integrator effect
+  sized against this tree's 6.7 × 10⁻⁶ m tolerance premise, finding THREE cutoffs clear it (not
+  the one a rough single-altitude estimate would suggest), left as L7's own event-location
+  question to carry, not solved inside a module with no step-control surface to solve it from;
+  (4) the promotion of the diagnosis into `modules/atmosphere`'s own gated suite (`ATMO-R-037`,
+  `ATMO-A-028`) on `DYN-Q-001`'s terms, since the false claim it corrects lived in a layer already
+  closed — and the second, unrelated stale-derived-text bug the sweep extension surfaced inside
+  `tools/msis_reference.py`'s own generator, found by the same check applied a second time in one
+  round.
 - The `ForceEvaluation` provenance-boundary gap (`DRAG-R-007`, `DYN-R-051`) as its own finding,
   distinct from the mechanism it fixes: v1.0 built the free function's `DragResult` carefully but
   left the `Force` plugin surface — the ONLY surface L7's estimator will ever see — with no way

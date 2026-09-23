@@ -265,13 +265,14 @@ published input cases (`ATMO-A-002`).
 
 - **ATMO-P-1.** Relative difference *r* = |*x*ₛ − *x*_d| / |*x*_d| between the single-precision
   build and the promoted-double build of the same source, over the 17 published cases **and a
-  sweep crossing every branch boundary of §3.6** — 125 records × 12 quantities = **1500**
+  sweep crossing every branch boundary of §3.6, including close pairs straddling each of its
+  seven species-correction cutoffs** (`ATMO-R-037`) — 181 records × 12 quantities = **2172**
   comparisons. Every one is classified by whether it can affect a drag calculation at all:
 
   | class | | count | worst *r* |
   |---|---|---|---|
-  | **A** | material | 1238 | **7.6706 × 10⁻⁶**, median 2.8108 × 10⁻⁷ |
-  | **B** | immaterial | 32 | 7.8739 × 10⁻³ |
+  | **A** | material | 1894 | **7.8881 × 10⁻⁶**, median 2.3860 × 10⁻⁷ |
+  | **B** | immaterial | 48 | 7.8739 × 10⁻³ |
   | **C** | underflowed in the reference | 18 | — (single returns exactly 0) |
   | **Z** | zero in both | 212 | — |
 
@@ -287,18 +288,26 @@ published input cases (`ATMO-A-002`).
 
   So the class boundary is drawn **physically, not numerically**: a species whose mass contributes
   less than 10⁻¹⁵ of the total density cannot affect drag at any precision. That threshold is
-  **not tuned** — class A's worst is 7.671 × 10⁻⁶ at 10⁻¹², the same at 10⁻¹⁵, and only
+  **not tuned** — class A's worst is 7.8881 × 10⁻⁶ at 10⁻¹², the same at 10⁻¹⁵, and only
   1.1 × 10⁻⁵ at 10⁻²⁰. Stable across three decades is what distinguishes a principled boundary
   from a fitted one.
 
-  And the bound did not move: **class A's worst is argon at 1000 km, published case 3** — the
-  same comparison the 17 cases alone produced. Adding 1056 material comparisons across every
-  branch boundary left it exactly where it was, which is the strongest thing the sweep could
-  have said.
+  **The bound has since moved, and that is the sweep doing its job.** At this section's original
+  125-record sweep, class A's worst was unchanged from the 17 cases alone — argon at 1000 km,
+  published case 3 — read at the time as the strongest thing the sweep could say. `SPEC-drag`
+  step 4's own Jacobian work later needed close pairs straddling each of §3.6's seven
+  species-correction cutoffs, which that smaller sweep did not yet reach; extending it to include
+  them (`ATMO-R-037`, `ATMO-A-028`) brought the total to 181 records, 2172 comparisons, and moved
+  the worst to a sweep point no published case reaches — anomalous O at 240.01 km, 7.8881 × 10⁻⁶
+  against the 17-cases-alone worst of 7.6706 × 10⁻⁶. The 1712 further material comparisons the
+  larger sweep adds do not merely fail to loosen the bound, as the smaller one did not: they
+  **tighten** it. A bound a wider sweep keeps moving is not yet a bound the sweep has finished
+  searching — the layer above found that out first, and this entry is where it is recorded for
+  this one.
 
 ### 3.3 The third regime: where the reference has a hole and a double port does not
 
-- **ATMO-P-2.** **Eighteen** of the 1500 comparisons are class C: the single build returns
+- **ATMO-P-2.** **Eighteen** of the 2172 comparisons are class C: the single build returns
   **exactly zero** where the promoted-double build does not. Two are in the published set —
   anomalous oxygen at 100 km, cases 4 and 17, returning 2.820 × 10⁻⁴² and 2.415 × 10⁻⁴² cm⁻³ —
   and the other sixteen are the same species below 120 km across the sweep, down to
@@ -378,11 +387,60 @@ caller cannot silently receive the wrong one, and L4 cannot accept the wrong one
 | `ZN3` | 32.5, 20, 15, 10, **0** | 152 |
 | `ZMIX` | 62.5 | 154 |
 
-Above `ZN1(1)` = 120 km the profile is analytic (Bates) and has **no upper node**; the model
-continues upward without a structural boundary. Below `ZN3(5)` = **0 km there is no node at
-all** — the cubic spline is being evaluated outside its own knot range, which is extrapolation
-of a fitted spline and is the one edge of the domain the source's own construction argues for.
-§4.2 uses this and nothing else.
+Above `ZN1(1)` = 120 km the profile is analytic (Bates) and has **no upper spline node**; there
+is no further cubic-spline knot for the model to be evaluated outside of. Below `ZN3(5)` =
+**0 km there is no node at all** — the cubic spline is being evaluated outside its own knot
+range, which is extrapolation of a fitted spline and is the one edge of the domain the source's
+own construction argues for. §4.2 uses this and nothing else.
+
+**§3.6 said "the model continues upward without a structural boundary." That sentence was
+false, and it was never searched for — an absence asserted, not found.** It conflated "no
+further spline node" (true) with "nothing piecewise happens" (not checked, and wrong). L4 step
+4's drag Jacobian found otherwise by measurement: a finite difference of density at 300 km
+showed the signature of a fixed discontinuity, not smooth curvature — bisected to 300.000 km,
+4×10⁻⁵ of total mass density, and confirmed to be a property of `MSIS-FOR` itself (not a
+porting defect) by running the frozen reference at identical inputs, which jumps identically to
+full double precision.
+
+- **ATMO-R-037.** `MSIS-FOR`'s own `DATA ALTL` (line 587) sets **seven** species-correction
+  cutoffs above 120 km, each a genuine discontinuity in that species' own density formula —
+  confirmed against the reference directly (`ATMO-A-028`), not assumed from the array's
+  existence:
+
+  | species | cutoff (km) | branch line | gate |
+  |---|---|---|---|
+  | N2 | 160 | 679 | `ATMO-A-028` |
+  | He | 200 | 699 | `ATMO-A-028` |
+  | Ar | 240 | 813 | `ATMO-A-028` |
+  | O2 | 250 | 775 | `ATMO-A-028` |
+  | O  | 300 | 730 | `ATMO-A-028` |
+  | H  | 320 | 844 | `ATMO-A-028` |
+  | N  | 450 | 880 | `ATMO-A-028` |
+
+  `DATA ALTL/200.,300.,160.,250.,240.,450.,320.,450./` has **eight** entries; `ALTL(6)` = 450
+  (line 662, `IF(Z.GT.ALTL(6).AND.MASS.NE.28.AND.MASS.NE.48) GO TO 17`) is **excluded** from
+  this table — a single-species shortcut gated on `MASS.NE.28.AND.MASS.NE.48`, which never
+  fires on this module's own `MASS = 48` (total density, every species) path, so it governs no
+  branch this module's output can reach. Checked against the species each branch actually
+  governs before being listed, not inferred from the array's own order.
+
+  **All seven are gated by `SW(15)`**, which this tree runs at `1` (every switch, per §1's own
+  statement) — six directly (`.OR.SW(15).EQ.0.` on the same line as the `ALTL` test), O2's
+  (line 774, one line above 775) by a separate, preceding `IF(SW(15).EQ.0.)` test rather than
+  the combined form the other six use. With `SW(15) = 1` every one of the seven is live; the
+  dependence is named here because a different switch configuration would remove some or all of
+  them, and a reader changing `SPEC-atmosphere`'s switch assumptions must know this table moves
+  with that change.
+
+  **The general form, for `SPEC-drag` and any later force**: a point-value gate's denominator is
+  its points, and a piecewise reference's boundaries must be found by reading the source and
+  tested on both sides, not discovered by whichever consumer happens to evaluate near one first.
+  `ATMO-A-001`'s 125-case (now 181-case) sweep at one ulp could not have seen a jump *between*
+  two points regardless of how many points it used — `ATMO-A-028` closes exactly that structural
+  gap, not a larger tolerance or more points at the same shape of check.
+
+Full account, including the drag-side finding that led here and the jump table across all seven
+cutoffs, in `PROVENANCE.md` §28.5/§28.10 and `SPEC-drag` §4/§9.
 
 ### 3.7 The two Ap conventions, and the switch that selects them
 
@@ -689,9 +747,9 @@ observations.
 
 - **ATMO-P-3.** **The gate's tolerance, derived from `ATMO-P-1` and nowhere else.** On class-A
   comparisons the port agrees with the promoted-double build to **10⁻¹²** relative, and with the
-  single-precision build to **10⁻⁵** — looser than class A's measured worst of 7.6706 × 10⁻⁶ by a
+  single-precision build to **10⁻⁵** — looser than class A's measured worst of 7.8881 × 10⁻⁶ by a
   factor of 1.3. Classes B, C and Z are **counted, not toleranced**: their counts are asserted
-  exactly (32, 18, 212) and their values are not compared relatively at all, because a relative
+  exactly (48, 18, 212) and their values are not compared relatively at all, because a relative
   comparison against a number the reference computed at 10⁻³⁷ compares rounding noise.
 
   **The tolerance against the single build is a property of the reference, not of the port**, and
@@ -793,9 +851,10 @@ exception, never a sentinel density, never a silently clamped input.
 
 | id | what is checked | expected value | source of the expected value | tolerance | discharges |
 |---|---|---|---|---|---|
-| `ATMO-A-001` | **THE GATE.** The port against `MSIS-FOR`, compiled from the pinned source and executed, over **the 17 published input cases** (`MSIS-FOR` lines 2438–2552: 15 from the `DO` loop + 2 with the 7-element Ap and `SW(9) = −1`) **and** a domain-spanning sweep that exercises every spline regime of §3.6, both `GTD7` and `GTD7D`. Reports its counts, not its verdict — §8's denominator paragraph | agreement | the reference implementation, which **is** the definition (§3.1) | `ATMO-P-3` | R-001, R-002, R-003, R-004 |
-| `ATMO-A-002` | **the reference's own precision, remeasured rather than trusted to this document**: the single build against the `-freal-4-real-8` build of the same source, over the 17 published cases **and the branch-crossing sweep**, classified by materiality | **1500 comparisons: A 1238 (median 2.8108 × 10⁻⁷, worst 7.6706 × 10⁻⁶ — argon, 1000 km, published case 3), B 32 (worst 7.8739 × 10⁻³), C 18, Z 212.** The worst class-A comparison is the same one the 17 cases alone give: the sweep adds 1056 material comparisons and does **not** loosen the bound | measurement, `ATMO-P-1` | the counts exactly; the relatives to 2 significant figures so a compiler change is visible | P-1 |
-| `ATMO-A-003` | **the three regimes, counted and not absorbed**: the test asserts each class's size exactly, and that **every** class-C member is anomalous oxygen at or below 120 km — the species and the altitude bound, not merely the count, because a count alone survives the class silently acquiring a member that mattered | **A 1238, B 32, C 18, Z 212, summing to 1500 = 125 × 12**; every class-C member anomalous oxygen, ≤ 120 km | measurement, `ATMO-P-2` | exact on every count | P-2 |
+| `ATMO-A-001` | **THE GATE.** The port against `MSIS-FOR`, compiled from the pinned source and executed, over **the 17 published input cases** (`MSIS-FOR` lines 2438–2552: 15 from the `DO` loop + 2 with the 7-element Ap and `SW(9) = −1`) **and** a domain-spanning sweep that exercises every spline regime of §3.6 **and every one of §3.6's seven species-correction cutoffs** (`ATMO-R-037`, close pairs straddling each), both `GTD7` and `GTD7D`. Reports its counts, not its verdict — §8's denominator paragraph | agreement, over 181 cases (17 published + 164 sweep) | the reference implementation, which **is** the definition (§3.1) | `ATMO-P-3` | R-001, R-002, R-003, R-004 |
+| `ATMO-A-028` | **the seven species-correction cutoffs, port against frozen reference on both sides of each, and each genuinely jumps**: close pairs straddling every cutoff `ATMO-R-037` lists, at this module's own boundary between a mixing-corrected density below and the raw diffusive one above. Found by L4 step 4's own drag Jacobian, which needed a same-side finite difference across exactly these boundaries and could not get one until the boundaries were named; promoted here so the diagnosis is this module's own gated fact, not a downstream module's private knowledge | port agrees with frozen reference to < 10⁻¹² on both sides of every cutoff, **and** the reference itself jumps by > 10⁻⁶ at every one | `MSIS-FOR` `DATA ALTL` (line 587) and its seven branch lines, §3.6 | 10⁻¹² port-vs-reference; 10⁻⁶ reference-jump floor | R-037 |
+| `ATMO-A-002` | **the reference's own precision, remeasured rather than trusted to this document**: the single build against the `-freal-4-real-8` build of the same source, over the 17 published cases **and the branch-crossing sweep**, classified by materiality | **2172 comparisons: A 1894 (median 2.3860 × 10⁻⁷, worst 7.8881 × 10⁻⁶ — anomalous O, sweep altitude 240.01 km), B 48 (worst 7.8739 × 10⁻³), C 18, Z 212.** The worst class-A comparison is **not** one of the 17 published cases (whose own worst, 7.6706 × 10⁻⁶ — argon, 1000 km, published case 3, is unchanged): the cutoff-straddling sweep points `ATMO-A-028` added find 1712 further material comparisons and **tighten** the bound rather than merely failing to loosen it | measurement, `ATMO-P-1` | the counts exactly; the relatives to 2 significant figures so a compiler change is visible | P-1 |
+| `ATMO-A-003` | **the three regimes, counted and not absorbed**: the test asserts each class's size exactly, and that **every** class-C member is anomalous oxygen at or below 120 km — the species and the altitude bound, not merely the count, because a count alone survives the class silently acquiring a member that mattered | **A 1894, B 48, C 18, Z 212, summing to 2172 = 181 × 12**; every class-C member anomalous oxygen, ≤ 120 km | measurement, `ATMO-P-2` | exact on every count | P-2 |
 | `ATMO-A-004` | **the total density against the species sum, by a route that does not touch the reference**: ρ = 1.66 × 10⁻²⁴ (4·He + 16·O + 28·N₂ + 32·O₂ + 40·Ar + H + 14·N), and for `GTD7D` the same plus 16·anomalous O | **measured during drafting: worst 3.280 × 10⁻¹⁶ (`GTD7`) and 3.871 × 10⁻¹⁶ (`GTD7D`) in double; 8.326 × 10⁻⁸ and 1.130 × 10⁻⁷ in single** | `MSIS-FOR`'s header, **a published statement about the model** | 10⁻¹⁵ | R-014, R-004 |
 | `ATMO-A-005` | **the documented zeros**: O, H, N and anomalous O are exactly zero below 72.5 km, over the five published sub-72.5 km cases | 20 values, all exactly 0.0 | `MSIS-FOR` header, *"O, H, and N are set to zero below 72.5 km"* | exact | R-007 |
 | `ATMO-A-006` | `GTD7` and `GTD7D` differ by **exactly** 16 × 1.66 × 10⁻²⁴ × (anomalous O), and by nothing else; and that the L4-facing type is the second | as stated | `MSIS-FOR` header | 10⁻¹⁵ | R-004 |

@@ -3136,6 +3136,43 @@ regime showed.
 never the residual's own explanation (a purely radial test perturbation at the equator cannot
 excite it, argued geometrically, not merely by omission), and nothing in this review touched it.
 
+**Correction (step 4's second closing review, 2026-09-23).** The paragraph naming `SPEC-atmosphere`
+§3.1's "fitted cubic spline" as the cause of channel 1's non-monotonic 1–0.25 km error **is
+itself wrong**, caught the same way this section's own v1.0 defect was: by checking the claim
+against the primary source instead of trusting the explanation that fit the numbers. Two things
+were wrong with it at once. First, the citation: the relevant text is `SPEC-atmosphere` §3.6, not
+§3.1, and it says plainly that no spline node exists above 120 km — this test's own case sits at
+299.863 km, well above that boundary, so a spline had no knots there to alias against. Second, and
+more fundamentally, the arithmetic on this section's own step-sweep figures above rules out any
+smooth structure, fitted or otherwise: computing `error × 2Δ/H` (*H* ≈ 42.4 km at this case) over
+1, 0.5 and 0.25 km gives 4.06 × 10⁻⁵, 4.06 × 10⁻⁵ and 4.04 × 10⁻⁵ — CONSTANT to three figures. A
+smooth term of any order leaves `error × 2Δ/H` varying with Δ; only a fixed jump *J* crossed by the
+stencil leaves it constant, at *J*/ρ ≈ 4.05 × 10⁻⁵. That is the 1/Δ signature of a discontinuity,
+not the Δ² signature truncation (spline-aliased or textbook) would leave, and it is what the
+0.1/0.05 km pair's clean 4.01× ratio (the textbook second-order halving) confirms by contrast: past
+the jump, ordinary truncation is exactly what remains.
+
+A sweep-and-bisect diagnostic, run the way this correction's own review round required it — bounded
+first, before anything in `drag.cpp` changed — found the jump at exactly 300.000 km, 300 km being
+`DRAG-A-005`'s and `DRAG-A-010`'s shared test orbit's near neighbourhood (299.863 km, 137 m below
+it) rather than its exact altitude, which is why 0.1 km's fixed half-step (100 m) happened to clear
+it: 299.863 + 0.100 = 299.963 km, still 37 m short of 300.000 km. `DRAG-P-1`'s "0.1 km sits stably
+past that structure" was correct about the number and wrong about why — it sits past THIS case's
+own nearest cutoff by 37 m of margin this section never measured, not past a spline that recedes
+everywhere a finer step is taken. A satellite 37 m closer would not have had that margin.
+
+Reading `MSIS-FOR`'s own `DATA ALTL` (line 587) found the real mechanism: **seven** hard
+species-correction cutoffs above 120 km, one per species, each switching a mixing-corrected density
+below it for the raw diffusive-only value above — not a spline node, not an artefact of this port,
+confirmed identical against the frozen reference to full double precision at every one. §28.10
+below has the full mechanism, the jump measured at all seven (not only the one this section
+bisected), the runtime fix `DRAG-R-004`'s channel 1 needed as a result, and the correction this
+forced in `SPEC-atmosphere` §3.6 — a layer this project had already closed. Nothing else in this
+section is affected: the channel-2 isolation, the step-sweep numbers themselves, the 0.1 km
+choice, and the post-fix deviation all stand exactly as measured. Only the NAME of what caused the
+1–0.25 km non-monotonicity was wrong, and only at this one case's own margin was it ever right by
+more than luck.
+
 ### 28.6 DRAG-A-005's own history: an orbit too high to show what it was built to show
 
 The first draft of the Liouville test used this tree's usual 7331 km test radius (the same one
@@ -3288,12 +3325,178 @@ refactor that reorders these calls, or that gives `to_itrs` a narrower internal 
 `.calendar()`'s own, would reopen exactly the question this section closes, which is why the
 reasoning is written out in full rather than left as a one-line "unreachable."
 
+### 28.10 Seven cutoffs, not one: the jump table, the runtime fix, its size, and the layer above
+
+The diagnostic §28.5's correction points to (bounded, reported, and run before anything changed,
+per instruction) found the 300 km jump exactly, confirmed it against the live FORTRAN reference at
+identical inputs to full double precision, and named its mechanism as one entry in `MSIS-FOR`'s
+`DATA ALTL` (line 587): `200.,300.,160.,250.,240.,450.,320.,450.` The manager read the same line
+and found it names **seven** cutoffs, not one, driving branches at N2 160 km (line 679), He 200 km
+(699), Ar 240 km (813), O2 250 km (775), O 300 km (730), H 320 km (844) and N 450 km (880) — every
+line number checked directly against the pinned source in this review, not taken on trust. The
+eighth `ALTL` slot, `ALTL(6) = 450`, is a **separate**, excluded branch (line 662,
+`IF(Z.GT.ALTL(6).AND.MASS.NE.28.AND.MASS.NE.48)`): it never fires for `MASS = 48`, this module's
+own total-density path, so it is named here for completeness and excluded from everything below.
+All seven live branches are gated by `SW(15)` — six combined on the same line as their altitude
+test (`.OR.SW(15).EQ.0.`), O2's by a separate, preceding `SW(15)` test just above its own branch
+(line 774) — and this tree runs `SW(15) = 1` throughout, so all seven are live for every case this
+module or `atmosphere`'s own suite evaluates. Naming only 300 km, or only the six sharing one
+syntactic form, would have been rule 3's own patched-term error one level up.
+
+Four items closed step 4 against this finding, in the order the manager set them.
+
+**1. The jump table.** Every cutoff, measured the same way the 300 km one was diagnosed — density
+1 m below and 1 m above, at a circular equatorial orbit at this test's own epoch, and the
+acceleration `acceleration()` itself computes at the stated `DRAG-A-010` ballistic coefficient
+(*C*_D = 2.2, area = 10 m², mass = 500 kg) — not re-derived from the density jump, which would be
+circular, but queried independently through the production force-law call:
+
+| species | cutoff | ρ relative jump | \|**a**\| | accel jump | accel relative jump |
+|---|---:|---:|---:|---:|---:|
+| N2 | 160 km | 2.834 × 10⁻⁴ | 1.317 × 10⁻³ m/s² | 3.734 × 10⁻⁷ m/s² | 2.834 × 10⁻⁴ |
+| He | 200 km | 6.454 × 10⁻⁵ | 2.994 × 10⁻⁴ m/s² | 1.934 × 10⁻⁸ m/s² | 6.458 × 10⁻⁵ |
+| Ar | 240 km | 5.475 × 10⁻⁵ | 9.118 × 10⁻⁵ m/s² | 4.996 × 10⁻⁹ m/s² | 5.479 × 10⁻⁵ |
+| O2 | 250 km | 5.220 × 10⁻⁵ | 6.950 × 10⁻⁵ m/s² | 3.631 × 10⁻⁹ m/s² | 5.224 × 10⁻⁵ |
+| O  | 300 km | 8.754 × 10⁻⁵ | 1.991 × 10⁻⁵ m/s² | 1.744 × 10⁻⁹ m/s² | 8.758 × 10⁻⁵ |
+| H  | 320 km | 4.488 × 10⁻⁵ | 1.255 × 10⁻⁵ m/s² | 5.640 × 10⁻¹⁰ m/s² | 4.492 × 10⁻⁵ |
+| N  | 450 km | 4.997 × 10⁻⁵ | 8.486 × 10⁻⁷ m/s² | 4.244 × 10⁻¹¹ m/s² | 5.001 × 10⁻⁵ |
+
+(reproduced by `modules/drag/tests/drag_tests.cpp`'s `[.][scratch]`-tagged "the seven-cutoff jump
+table" case, which `WARN`s this exact table rather than asserting a value against it, since it is
+a measurement recorded here, not a gate — the gate is `ATMO-A-028`, item 4 below). The relative
+density jump is the same order at every cutoff, 4–28 × 10⁻⁵ — unsurprising, since each is the same
+kind of switch (a mixing correction turning off) — but the ACCELERATION jump falls by four orders
+of magnitude from N2 to N, monotonically with altitude, because |**a**| itself falls off
+exponentially and the relative jump does not compound that fall, it rides on top of it. A jump
+that looks the same size in every row of `ATMO-A-028`'s own reference comparison is not the same
+size to a force law built on top of it.
+
+**2. The stencil never straddles, at runtime.** `DRAG-R-004`'s channel 1 named its central
+difference's half-step as `DRAG-P-1`'s registered 0.1 km without asking whether that half-step
+could land on both sides of a cutoff — it can, for any evaluation altitude within 100 m of one,
+which `DRAG-A-010`'s own case avoided by 37 m of unmeasured margin (§28.5's correction above), not
+by construction. `drag.cpp`'s channel-1 block now checks the evaluation altitude against
+`kSpeciesCutoffsKm` (all seven, named directly rather than re-derived) before differencing: if the
+half-step would straddle the nearest one, the central difference is replaced by a one-sided,
+second-order difference walking AWAY from the cutoff, staying on the same side as the evaluation
+point —
+
+> *f*′(*x*₀) ≈ (−3*f*₀ + 4*f*₁ − *f*₂) / (2Δ), *f*₀ the already-computed density at *x*₀ itself,
+> *f*₁ and *f*₂ at *x*₀ + sign·Δ and *x*₀ + sign·2Δ, sign chosen to walk away from the cutoff
+
+— which costs the same two extra `atmosphere::for_drag` calls the central difference already
+makes, not one more, and reduces to the standard forward or backward second-order formula
+depending on which side of the cutoff the evaluation point is on (checked algebraically, not only
+numerically). The smallest gap between any two of the seven cutoffs (Ar 240 / O2 250, 10 km) is
+two orders of magnitude above the 0.1 km half-step, so a stencil built to avoid the ONE nearest
+cutoff cannot walk into a second one — the loop that finds `nearest_cutoff` relies on exactly this
+and is written to assume at most one candidate. New requirement `DRAG-R-012`; new test
+`DRAG-A-011`, built the way `DRAG-A-010` could not test this (its own case does not straddle):
+channel 1 evaluated 0.05 km to each side of two real cutoffs (O at 300 km, N2 at 160 km — the
+worst and best rows of item 1's own table), where the registered 0.1 km half-step would straddle
+if the switch did not fire, comparing production `Drag::accel` output against a TRUE same-side
+finite difference (a 10 m step taken entirely on the evaluation altitude's own side of the
+cutoff, which no straddling stencil could match by construction). All four cases (two species,
+two sides) agree to ≈1.3 × 10⁻⁵ relative deviation, well inside the existing 1 × 10⁻⁴ `DRAG-A-010`
+bound applied at a genuinely adversarial case rather than a comfortable one.
+
+**3. The integrator effect, sized rather than asserted.** `0.5 · Δ**a** · Δt²` at the stated
+Δt = 60 s, against the tolerance premise this tree has stated before (10⁻¹² relative on a
+~6.7 × 10⁶ m GCRS position, ≈ 6.7 × 10⁻⁶ m absolute), using item 1's own accel-jump column:
+
+| species | cutoff | 0.5 · Δ**a** · Δt² | × the 6.7 × 10⁻⁶ m premise |
+|---|---:|---:|---:|
+| N2 | 160 km | 6.722 × 10⁻⁴ m | **100×** |
+| He | 200 km | 3.481 × 10⁻⁵ m | **5.2×** |
+| Ar | 240 km | 8.993 × 10⁻⁶ m | **1.3×** |
+| O2 | 250 km | 6.536 × 10⁻⁶ m | 0.98× |
+| O  | 300 km | 3.139 × 10⁻⁶ m | 0.47× |
+| H  | 320 km | 1.015 × 10⁻⁶ m | 0.15× |
+| N  | 450 km | 7.640 × 10⁻⁸ m | 0.01× |
+
+**Three of the seven, not one, clear the stated premise** — N2, He and Ar, the three lowest and
+largest-jump cutoffs — and a fourth, O2, sits at 0.98× it, close enough that a slightly different
+Δt or a slightly eccentric orbit's own radial-rate term could carry it over too. The manager's own
+rough estimate at 300 km alone (≈4 × 10⁻⁷ m, this table's O row at 0.47×) is consistent with the
+measurement here but understates the finding by naming only the one cutoff this diagnostic
+happened to start from: at this stated Δt and ballistic coefficient, a satellite crossing 160 km
+(re-entry-adjacent, but not impossible for a decaying orbit an estimator is still tracking) sees an
+integrator artefact two orders of magnitude over the stated position-tolerance premise, from a
+single fixed 60 s step spanning one cutoff once. This is **sized, not solved, here**: it is
+`SPEC-drag`'s own force law behaving exactly as `ATMO-R-037` says the atmosphere does, correctly
+propagated — the question of whether an estimator's own step control or event location should
+know about these seven altitudes belongs to L7, later, and is recorded here as a forward pointer
+(`SPEC-drag` §9) rather than answered inside this module, which has no step-control surface to
+answer it from.
+
+**4. The atmosphere-module promotion.** The diagnosis that found the 300 km jump was this
+module's own — a Jacobian-verification test bisecting a residual `atmosphere` itself never had a
+gate that could see, because `ATMO-A-001`'s point-value sweep, however many points it used, cannot
+see a jump BETWEEN points (§4 rule 3's own general form, restated here since it is what this whole
+finding is an instance of: a point-value gate's denominator is its points, and where the source is
+piecewise, its boundaries must be found by search and tested on both sides). Leaving the diagnosis
+as this module's own private knowledge would leave `SPEC-atmosphere` §3.6 stating a falsehood
+("the model continues upward without a structural boundary") that nothing in that module's own
+suite could ever catch. Corrected there instead, on `DYN-Q-001`'s own terms (additive, nothing
+existing silently changed, re-derived from the actual need): `SPEC-atmosphere` §3.6 now states the
+seven cutoffs by name with a full table (new requirement `ATMO-R-037`), and a new gated test,
+`ATMO-A-028`, straddles all seven directly against FROZEN reference output — not the live FORTRAN
+binary, which `ATMO-Q-005` already ruled CI must never need — confirming both that the port agrees
+with the reference to < 10⁻¹² on each side of every cutoff AND that the reference itself jumps by
+more than 10⁻⁶ at every one, so a future change that silently smoothed one of these seven away
+(in the port, by a well-meaning interpolation "fix") would fail this test on the second condition
+even if it still passed the first.
+
+Building `ATMO-A-028` required extending `msis_reference.py`'s sweep to straddle each cutoff (14
+new altitude points, 10 m to each side of all seven), which regenerated
+`msis_reference_values.hpp` at 181 records / 2172 comparisons (was 125 / 1500) and, in doing so,
+surfaced two more instances of this same project's recurring shape — a derived description that
+does not update when what it describes changes — inside the generator itself, found by checking
+rather than assuming the generator's own hand-written prose still matched its new output (the same
+check that first caught `SPEC-atmosphere`'s stale absence claim, now turned on the tool that
+maintains that module's own reference data):
+
+- `emit()` hardcoded the worst class-A comparison's description ("argon at 1000 km, published case
+  3") and a threshold-sensitivity claim, both computed once by hand when the file was first
+  written and never made to track the data. The extended sweep moved the worst comparison to a
+  sweep point (anomalous O at 240.01 km) — not merely a different number, but a REVERSED claim:
+  v1.0's text asserted the sweep does not loosen the bound, when the true, current fact is that a
+  wider sweep TIGHTENS it, which is what a sweep whose job is to find worse comparisons ought to
+  do. Fixed by adding a `describe()` function and parameterising `classify()` on an explicit
+  threshold, so both pieces of text are computed FROM the same data the header's own table is,
+  not typed once beside it.
+- The newly-dynamic lines this produced ran 106–132 characters against the file's own ~80–90
+  character prose convention; wrapped with `textwrap` (already imported, unused) rather than left
+  to overflow, so the fix did not trade a wrong static line for a correctly-worded but
+  badly-formatted one.
+
+`SPEC-atmosphere` §3.2/§3.3/§6/§8's own class-A counts and worst-comparison figures were
+themselves derived text of exactly this shape, and were updated for the same reason: 1894 material
+(was 1238), 48 immaterial (32), worst 7.8881 × 10⁻⁶ (was 7.6706 × 10⁻⁶, now a sweep point, not one
+of the 17 published cases), 2172 total (1500) = 181 × 12 (125 × 12). §19.3/§20.1–20.2 above,
+this project's own original L2 closure record, are left exactly as written — they correctly
+described the sweep's size when L2 closed, and an append-only history should not be quietly
+rewritten to agree with a later re-measurement; this paragraph, and `SPEC-atmosphere`'s own current
+§3.2/§3.3/§8, are where the current figures now live. `SPEC-drag` `DRAG-R-008`'s own inherited
+tolerance citation was updated to match, for the same reason one level up.
+
+**On the methodology, recorded because it generalised twice inside one closing round.** The
+manager's own review here — verify every cited line number against the primary source directly
+rather than trust a summary of it (all nine of this round's citations were re-checked against
+`NRLMSISE-00.FOR` directly and matched); when a number changes, ask what DERIVED TEXT elsewhere
+describes it and check, rather than assume, that text still agrees — is the same discipline that
+found the `msis_reference.py` generator bug above, unprompted, while applying it to update
+`SPEC-atmosphere`'s own prose for reasons the manager had already given. Two unrelated pieces of
+stale derived text, caught by the same check, in the same closing round: not a coincidence this
+project's own rule 3 and rule 4 exist, but a demonstration of why they do.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-23 | **Step 4's gate closes.** §28.5 corrected in place (kept, not rewritten) and §28.10 added: the manager's own line-by-line read of `MSIS-FOR`'s `DATA ALTL` found channel 1's non-monotonic error was SEVEN hard species-correction cutoffs, not the one §28.5 v1 bisected and not `SPEC-atmosphere`'s cited "fitted cubic spline" (that structure does not exist above 120 km, §3.6, which §3.1's citation had misnamed). Four items closed it: (1) all seven measured directly, a density and acceleration jump table at the stated ballistic coefficient, monotonic in altitude across four orders of magnitude; (2) `drag.cpp`'s channel 1 now detects a straddled cutoff at runtime and switches to a one-sided second-order difference walking away from it (`DRAG-R-012`), verified against a true same-side finite difference at an adversarial case `DRAG-A-010`'s own 37 m of unmeasured margin never tested (`DRAG-A-011`); (3) the 60 s-step integrator effect sized, not asserted, against the tree's 6.7e-6 m tolerance premise -- THREE cutoffs clear it, not the one the manager's own rough estimate named, up to 100x at N2/160 km, left as L7's own event-location question to carry; (4) the diagnosis promoted into `modules/atmosphere`'s own suite (`ATMO-R-037`, `ATMO-A-028`, gated against frozen reference, `ATMO-Q-005`'s CI-independence preserved), an L2 edit on `DYN-Q-001`'s own terms since the false claim lived in a layer this project had already closed. Extending the reference sweep to straddle every cutoff (125->181 records, 1500->2172 comparisons) surfaced a second, unrelated instance of this project's own recurring bug shape inside `tools/msis_reference.py` itself: a hardcoded worst-comparison description that had gone not merely stale but REVERSED (the sweep now tightens the class-A bound it once only failed to loosen), fixed by making the description and its sensitivity claim compute from the same data the table is, not typed once beside it. `SPEC-atmosphere` (§3.2/3.3/3.6/6/8, `ATMO-R-037`) and `SPEC-drag` (`DRAG-R-004/012`, `DRAG-P-1`, `DRAG-A-011`, §8/§9) both updated; `SPEC-drag` `DRAG-R-008`'s inherited tolerance citation follows the corrected figure. |
 | 2026-09-22 | §28.8-28.9 added, SPEC-drag to v1.1, SPEC-dynamics to v1.2. Manager's review of v1.0 found two more things: (1) ForceEvaluation (frozen at L3, gated only by a trivial force that could not reveal what a REAL force must carry) had nowhere for Drag::accel to put atmosphere's provenance, silently losing it for any caller reaching drag only through the Force plugin -- fixed additively (DYN-R-051, DYN-Q-001's own terms), with require_verified made a Drag construction-time option in the same fix, closed together because one found the other. (2) DRAG-A-010's own 1.18e-2 "residual as empirical bound on the unmodelled v_rel(r) channel" was itself wrong: isolating channel 2 (holding rho fixed, differencing through the real to_itrs velocity) proved its formula exact to 6 figures and roughly 10x SMALLER than the gap it was blamed for; a step sweep on channel 1 alone found its true error NON-MONOTONIC across 1-0.25 km, then stably ~1e-6 at 0.1 km and below -- NRLMSISE-00's own fitted-spline structure aliasing against a too-coarse step, not smooth truncation. Fixed at the source (central difference at 0.1 km, channel 2 added exactly) and re-verified by an operational stability check rather than the formula-based prediction that turned out not to describe the real profile: post-fix full-Jacobian deviation 1.19e-6, four orders tighter than the number this section previously called comfortable. DRAG-Q-002 ruled: DragError gained a structured `cause` field, and asking to fire each of DRAG-F-003's three nominal causes found two are provably shadowed by the transform call's own stronger precondition, not merely hard to trigger. |
 | 2026-09-22 | §28 added, SPEC-drag v1.0 adopted, modules/drag built and gated (DRAG-A-001..-A-010). C_D consumed as the ParameterKind::drag_coefficient registered at L3 step 1, never a constant. Rule-4 search found no clean published ballistic-coefficient case; Sengers et al. (2014, arXiv:1404.7826) Table 4 used instead as a plausibility range, not a registered value -- its terms search FOUND an explicit non-open arXiv distribution licence, the first of this tree's three literature entries where the search found something rather than nothing. DRAG-A-010, written only because speccheck.py flagged DRAG-R-004 (the position Jacobian) as discharged by no test, found a real defect: `a_direction` was missing a factor of \|v_rel\| (~7.7 km/s), a ~7300x error a finite difference caught that inspection of the closed form had not; fixed, and the residual after the fix (1.18e-2) is now the tree's own empirical bound on the terms the approximation still neglects. DRAG-A-005 (Liouville with real drag) needed rebuilding at 300 km after the tree's usual 7331 km test radius proved too thin an atmosphere to move det(Phi) measurably. Two smaller tool bugs fixed in passing: fetch.py and literaturecheck.py both mislabelled every literature entry's terms-summary from a field literature entries never carry. |
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |

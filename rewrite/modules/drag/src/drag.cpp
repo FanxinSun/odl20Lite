@@ -14,8 +14,10 @@
 #include <odl/core/units.hpp>
 #include <odl/frames/transform.hpp>
 
+#include <array>
 #include <cmath>
 #include <numbers>
+#include <optional>
 #include <string>
 
 namespace odl::drag {
@@ -215,29 +217,38 @@ Drag::accel(const odl::time::Epoch& t, const frames::Position<frames::Frame::GCR
     //
     // CHANNEL 1, radial, via density's altitude dependence: a locally
     // exponential atmosphere (scale height H = -rho / (d rho / d altitude)),
-    // itself estimated by a CENTRAL difference of two extra atmosphere
-    // calls -- an approximation NAMED as one, standard in orbit
-    // determination (GEODYN, Bernese and similar tools use the same
-    // local-exponential partial), with the lateral (latitude/longitude/
-    // local-time) gradient NEGLECTED and its rough size recorded in
-    // PROVENANCE.md §28 rather than silently assumed zero.
+    // itself estimated by a finite difference of extra atmosphere calls --
+    // an approximation NAMED as one, standard in orbit determination
+    // (GEODYN, Bernese and similar tools use the same local-exponential
+    // partial), with the lateral (latitude/longitude/local-time) gradient
+    // NEGLECTED and its rough size recorded in PROVENANCE.md §28 rather
+    // than silently assumed zero.
     //
-    // THE STEP IS 0.1 KM, NOT THE ROUNDER 1 KM A FIRST DRAFT USED, and the
-    // reason is itself a finding (PROVENANCE.md §28.5), not a rounding
-    // preference. A one-sided (forward) difference at 1 km measured ~1.18e-2
-    // against a true finite difference of acceleration(); switching to a
-    // CENTRAL difference at 1 km, expected to land near the textbook
-    // (Delta/H)^2/6 (~1e-4), instead measured ~9.5e-4 -- an order of
-    // magnitude off the formula. A step sweep (1, 0.5, 0.25, 0.1, 0.05 km)
-    // found why: channel 1's own error is NON-MONOTONIC and WORSE at
-    // 0.5-0.25 km than at 1 km, then drops sharply and stably at 0.1 km and
-    // below (~1e-6) -- the signature of the reference's own internal spline
-    // structure (SPEC-atmosphere §3.1: NRLMSISE-00 is a fitted cubic spline
-    // in altitude, not a closed-form exponential), not smooth Taylor
-    // truncation, at the 0.25-1 km scale. 0.1 km sits stably past that
-    // structure and well below the ~1% the still-neglected lateral gradient
-    // already costs this Jacobian, so refining further would buy accuracy
-    // this approximation cannot use.
+    // NRLMSISE-00 IS NOT SMOOTH ABOVE 120 KM, and the finite difference must
+    // not straddle where it is not: the pinned FORTRAN source's own DATA
+    // ALTL (NRLMSISE-00.FOR line 587) sets SEVEN species-correction cutoffs
+    // -- N2 160, He 200, Ar 240, O2 250, O 300, H 320, N 450 km -- each a
+    // genuine, reference-level discontinuity (confirmed by running the
+    // frozen reference at identical inputs: it jumps identically, to full
+    // double precision -- PROVENANCE.md §28.5/§28.10). `kSpeciesCutoffsKm`
+    // below names all seven; `SPEC-atmosphere` §3.6 (corrected), `ATMO-R-037`,
+    // has the full derivation. `ATMO-A-028` gates the port against the frozen
+    // reference AT these cutoffs directly, in `modules/atmosphere`'s own
+    // suite -- this module's job is to never let its OWN finite difference
+    // straddle one, not to re-verify that they exist.
+    //
+    // THE STEP IS 0.1 KM (DRAG-P-1): a central difference at 1 km measured
+    // ~9.5e-4 against a true finite difference of acceleration(), an order
+    // of magnitude off the textbook (Delta/H)^2/6 (~1e-4) truncation
+    // estimate -- traced to the 160/200/240/250 km cutoffs sitting inside a
+    // 0.25-1 km central-difference stencil evaluated near 300 km's own
+    // neighbourhood (the 1/D error signature of a fixed jump, not O(D^2)
+    // truncation: doubling the step DOUBLED the error across 1-0.25 km,
+    // the opposite of a smooth-truncation term). At 0.1 km, away from any
+    // cutoff, the error is clean second-order (~1e-6); AT a cutoff -- which
+    // a fixed 0.1 km step can still straddle for a satellite passing within
+    // 100 m of one -- the code below switches stencils instead of
+    // straddling silently.
     //
     // CHANNEL 2, the velocity-transport term: v_rel = v_itrs itself depends
     // on r_itrs, through the SAME transport term the GCRS<->ITRS state
@@ -260,15 +271,61 @@ Drag::accel(const odl::time::Epoch& t, const frames::Position<frames::Frame::GCR
     // argued before measuring, negligible here.
     Mat3 dadr_itrs{};
     {
-        constexpr double kAltStepKm = 0.1;   // DRAG-P-1: pre-registered HALF-step, revised
-        atmosphere::Place up = place_for_rho, down = place_for_rho;
-        up.altitude_km += kAltStepKm;
-        down.altitude_km -= kAltStepKm;
-        auto rho_up = atmosphere::for_drag(up, sw_);
-        auto rho_down = atmosphere::for_drag(down, sw_);
-        if (rho_up.has_value() && rho_down.has_value()) {
-            const double d_rho_d_alt_m = (rho_up->total_mass_kg_m3 - rho_down->total_mass_kg_m3) /
-                                         (2.0 * odl::metres_from_km(kAltStepKm));   // THE CROSSING
+        constexpr double kAltStepKm = 0.1;   // DRAG-P-1: pre-registered HALF-step
+        // DRAG-R-012: NRLMSISE-00's own species-correction cutoffs, named so
+        // this module's finite difference can avoid straddling one -- the
+        // smallest gap between any two (Ar 240 / O2 250, 10 km) is two
+        // orders of magnitude above kAltStepKm, so a stencil built to avoid
+        // the ONE nearest cutoff cannot walk into a second one.
+        constexpr std::array<double, 7> kSpeciesCutoffsKm = {160.0, 200.0, 240.0, 250.0,
+                                                              300.0, 320.0, 450.0};
+        const double base_alt = place_for_rho.altitude_km;
+        double nearest_cutoff = 0.0;
+        bool straddles = false;
+        for (double c : kSpeciesCutoffsKm) {
+            if (c > base_alt - kAltStepKm && c < base_alt + kAltStepKm) {
+                straddles = true;
+                nearest_cutoff = c;
+                break;   // the loop above already guarantees at most one candidate
+            }
+        }
+
+        // Returns the estimated d(rho)/d(altitude) in kg/m^3 per metre, or
+        // nullopt if either atmosphere call it needed refused.
+        auto central_difference = [&]() -> std::optional<double> {
+            // the ordinary central difference, unchanged from before this
+            // review: two points, one step each side.
+            atmosphere::Place up = place_for_rho, down = place_for_rho;
+            up.altitude_km += kAltStepKm;
+            down.altitude_km -= kAltStepKm;
+            auto rho_up = atmosphere::for_drag(up, sw_);
+            auto rho_down = atmosphere::for_drag(down, sw_);
+            if (!rho_up.has_value() || !rho_down.has_value()) return std::nullopt;
+            return (rho_up->total_mass_kg_m3 - rho_down->total_mass_kg_m3) /
+                   (2.0 * odl::metres_from_km(kAltStepKm));   // THE CROSSING
+        };
+        // ONE-SIDED, SECOND-ORDER, on whichever side of the cutoff this
+        // evaluation point is actually on: f'(x0) = (-3 f0 + 4 f1 - f2) /
+        // (2D), walking in the `sign` direction (away from the cutoff,
+        // staying on this side) -- f0 is the already-computed `rho` at this
+        // point, so this costs the SAME two extra calls the central
+        // difference above already makes, not one more.
+        auto one_sided_difference = [&](double cutoff) -> std::optional<double> {
+            const double sign = (base_alt < cutoff) ? -1.0 : 1.0;
+            atmosphere::Place p1 = place_for_rho, p2 = place_for_rho;
+            p1.altitude_km += sign * kAltStepKm;
+            p2.altitude_km += sign * 2.0 * kAltStepKm;
+            auto rho_p1 = atmosphere::for_drag(p1, sw_);
+            auto rho_p2 = atmosphere::for_drag(p2, sw_);
+            if (!rho_p1.has_value() || !rho_p2.has_value()) return std::nullopt;
+            return sign * (-3.0 * rho + 4.0 * rho_p1->total_mass_kg_m3 - rho_p2->total_mass_kg_m3) /
+                   (2.0 * odl::metres_from_km(kAltStepKm));   // THE CROSSING
+        };
+        const std::optional<double> slope =
+            straddles ? one_sided_difference(nearest_cutoff) : central_difference();
+
+        if (slope.has_value()) {
+            const double d_rho_d_alt_m = *slope;
             const Vec3 itrs_pos_m = odl::metres_from_km(itrs_r->position());
             const double r_norm = itrs_pos_m.norm();
             const Vec3 r_hat = (1.0 / r_norm) * itrs_pos_m;
