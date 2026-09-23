@@ -6,7 +6,7 @@
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
 | **Version** | 1.4 |
 | **Date** | 2026-09-18 |
-| **Layer** | `time` (`doc/REWRITE_PLAN.md` §2) |
+| **Layer** | `time` (`../plan/PLAN.md` §2) |
 | **Feature** | F3's foundation (plan §3) |
 | **Depends on** | nothing in this tree |
 | **Depended on by** | `frames`, `eop`, every layer above them |

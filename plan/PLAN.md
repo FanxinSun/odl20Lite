@@ -1,16 +1,23 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** foundations specified and adopted (`time`, `eop`, `frames` at v1.2); repository
-live at `bdd80be`; oracle frozen (27 cases). **D1 decided 2026-09-18: C++20** (§7) — implementation is unblocked.
-**Canonical:** `doc/REWRITE_PLAN.md` within this tree — this file, and there is no other
-copy or companion. It is the only plan document; the ground rules that earlier drafts held as a
-separate table are merged into the layer sequences of §3, where they are performed rather than
+**Status:** L0–L3 closed; **L4 open** — steps 1–3 done, step 4 (`drag`) implemented with its gate
+not yet closed, steps 5–7 to come; L5–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
+under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
+2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
+L0 → L9, each layer's steps in order, each step in its own file. The plan moved here that day
+from `rewrite/doc/REWRITE_PLAN.md` with **every section number unchanged**, so a citation such as
+"plan §3.5 step 4" or "§4 rule 7" still resolves — a layer's entry in §3 names each step and
+points at its file. There is no other plan document. The ground rules that earlier drafts held as
+a separate table are merged into the layer sequences of §3, where they are performed rather than
 recited. Rule identifiers R1–R12, cited from the specifications, are indexed in the Appendix and
-resolve into those steps.
+resolve into those steps. **Paths** in this plan and its step files are relative to `rewrite/`,
+the rewrite's tree, unless they begin with `plan/`.
 **Basis:** `doc/ownership-analysis.md` (the layer-by-layer ownership analysis) and `oracle/`
 (what the predecessor measurably does, frozen). The predecessor's own documents are history, not
 inputs: nobody working from this plan reads that tree — see §0.
-**Date:** redrafted 2026-09-18; supersedes the draft of the same date.
+**Date:** redrafted 2026-09-18, superseding the draft of the same date; moved and split into
+step files 2026-09-23, content unchanged.
 
 The governing principle, from the ownership analysis: **copyright protects expression, not
 ideas.** Every method in the predecessor lives in published papers and public standards. A tree
@@ -204,38 +211,13 @@ still TODO, and the explanation says so. §3.11 says how any one step is execute
 *Steps 4–7 were reordered on 2026-09-18: CI was step 4 and could not close before the things it
 runs existed. It is now last, which is what was actually executed.*
 
-1. **DONE** — Repository created with the licence in the first commit (`bdd80be`), together
-   with this plan, the provenance skeleton and the P1 specifications. The licence-first
-   obligation is discharged and stays discharged.
-2. **DONE** — Oracle frozen: 27 cases in `oracle/cases.tsv`, every input hashed. `capture.sh`
-   regenerates the 16 reproducible ones; the `B-*` and `E-*` rows are transcribed from recorded
-   sweeps and cited by hash (§4). The path broke when the tree moved and was repaired and
-   re-verified on 2026-09-18 — all sixteen reproduce byte-identically.
-3. **DONE** — Manifest format and fetcher: every external input declared with URL, SHA-256 and
-   a licence note, fetched from origin into a cache, nothing entering the tree undeclared. The
-   C++20 toolchain was fixed here because every later step consumes it: **CMake + Ninja**;
-   **Catch2 3.16.0** (BSL-1.0), chosen because `WithinAbs`/`WithinRel`/`WithinULP` is the
-   vocabulary the specs already state tolerances in and "bit-comparable" is `WithinULP(0)`;
-   acquisition through the manifest with CMake re-checking `URL_HASH`. vcpkg and Conan were both
-   rejected on the same ground — each can be made deterministic, but in both the archive hash is
-   something a registry holds rather than something this tree writes down, and both need
-   bootstrapping, which is a tool acquired outside the manifest in order to enforce the manifest.
-4. **DONE** — NOTICE generation from the manifest. No tool was needed: NOTICE is a pure function
-   of the manifest, and licence text is quoted verbatim out of the hash-pinned archive rather
-   than paraphrased. `cargo license`'s absence under D1 cost nothing.
-5. **DONE** — Spec-coverage checker, denominator pinned to OWN-PREFIX identifiers. Its own first
-   run was wrong — the region ran to end-of-file and swallowed §10, inflating the excused count —
-   and that was visible only because the checker prints its components rather than a verdict.
-   It prints them for that reason.
-6. **DONE** — Reproducible-build flags. The `-ffile-prefix-map` options were initially ordered
-   wrongly (GCC applies them last-specified-first), leaking the build directory name into
-   `DW_AT_comp_dir` in every object file; the reproducibility check caught it and caught it
-   legibly, artefact sizes differing by exactly the directory-name length. **115 artefacts are
-   byte-identical across two build directories and across two source trees at path lengths 27
-   and 95**, Catch2 included — stronger than the gate asked for.
-7. **DONE** — CI running the gates offline from the cache, so green means the frozen numbers
-   hold and not that the network was up. Two entry points rather than one, which is how the exit
-   gate's "one command" and this step's "offline" were reconciled without weakening either.
+1. **DONE** — Repository created with the licence in the first commit (`bdd80be`) → [`subplan_L0/L0-1.md`](subplan_L0/L0-1.md)
+2. **DONE** — Oracle frozen → [`subplan_L0/L0-2.md`](subplan_L0/L0-2.md)
+3. **DONE** — Manifest format and fetcher → [`subplan_L0/L0-3.md`](subplan_L0/L0-3.md)
+4. **DONE** — NOTICE generation from the manifest → [`subplan_L0/L0-4.md`](subplan_L0/L0-4.md)
+5. **DONE** — Spec-coverage checker → [`subplan_L0/L0-5.md`](subplan_L0/L0-5.md)
+6. **DONE** — Reproducible-build flags → [`subplan_L0/L0-6.md`](subplan_L0/L0-6.md)
+7. **DONE** — CI running the gates offline from the cache → [`subplan_L0/L0-7.md`](subplan_L0/L0-7.md)
 
 **Exit gate — passed.** A clean clone builds, tests and regenerates NOTICE with one command,
 CI green from cached data alone. Verified independently 2026-09-18 from a clean copy of the
@@ -253,23 +235,10 @@ of what Rust's crate boundaries would have given free, and it is why no §2 amen
 
 ### 3.2 L1 `time-frames` — **4 of 4 done; exit gate passed 2026-09-18**
 
-1. **DONE** — `odl::Result` over vendored `tl::expected` (D7), manifest-declared, NOTICE
-   regenerated. The step also found the manifest's one real hole — a dependency's own build
-   system fetching an unpinned transitive dependency — now closed and written into §3.11 point 4.
-2. **DONE** — `time`. Six implementation defects were caught by the tests meant to catch them,
-   one of which is worth keeping in the plan: the two-part Julian date was formed as a single
-   double and then split, **reintroducing the 2⁻³¹ d ≈ 40 µs quantisation that SPEC-time §4.2
-   exists to disqualify** — inside the module built to avoid it. Found by comparing two routes
-   to TCB−TDB. Also: `from_calendar` evaluated rate-dependent offsets once instead of iterating
-   (1.15 µs against a 1 ns budget, with a comment claiming femtoseconds); `ut1_two_part_jd`
-   added ΔUT1 to TAI rather than UTC.
-3. **DONE** — `eop`. `finals2000A.all` predicts about a year ahead and TIME-R-051 refuses UTC
-   past the leap table's expiry, so loading it failed outright: two adopted specs colliding in
-   a way neither anticipated. The series now truncates at the leap horizon and reports the
-   count, so a caller meets EOP-F-007 naming coverage rather than a leap-table error three
-   layers down.
-4. **DONE** — `frames`. ω×r was being formed in ITRS when the Earth spins about the CIP, which
-   is TIRS's z. The gate was restated: see §4 rule 1, which this step's measurement corrected.
+1. **DONE** — `odl::Result` → [`subplan_L1/L1-1.md`](subplan_L1/L1-1.md)
+2. **DONE** — `time` → [`subplan_L1/L1-2.md`](subplan_L1/L1-2.md)
+3. **DONE** — `eop` → [`subplan_L1/L1-3.md`](subplan_L1/L1-3.md)
+4. **DONE** — `frames` → [`subplan_L1/L1-4.md`](subplan_L1/L1-4.md)
 
 **Exit gate — passed.** Verified independently 2026-09-18: **58 of 58 tests pass**, 384
 artefacts byte-identical. The type-level requirement holds and holds structurally — **frame is a
@@ -311,149 +280,10 @@ L4.
 **Entry:** L1 exit gate — **passed 2026-09-18**, amendments applied the same day, so this
 layer is open.
 
-1. **DONE** — `ephemerides`: planetary and lunar positions, SPK through CALCEPH, CeCILL-B taken
-   and recorded. Gate passed on the **full** `testpo.440` sweep: 11 354 of 13 201 cases checked
-   on `de440.bsp`, 0 outside coverage, 1 847 not body-position cases, worst residual
-   7.105 × 10⁻¹⁵ AU = **1.06 mm** against JPL's own 10⁻¹³ AU = 14.96 mm. The units trap was
-   designed out rather than tested for: CALCEPH is asked for km at every call site so no
-   conversion factor appears in this tree's source at all, and a negative test perturbing the AU
-   by one part in 10⁶ requires the comparison to fail.
-   Two findings worth carrying. An SPK kernel carries **no constants** — `getconstantcount`
-   returns zero — so EPH-R-012's "read the AU from the kernel" was unsatisfiable on the mandated
-   route; since IAU 2012 Resolution B2 the au is a *defining* constant, so the definition is the
-   authority and a kernel supplying one is checked against it. And the solar-system barycentre is
-   the **root** of an SPK's body tree — the centre of every record and the target of none — so
-   scanning for it as a target found nothing and 868 cases were being silently counted as
-   outside coverage. The gate reporting its denominator is what exposed that.
-2. **DONE** — `gravity`: the geopotential to full degree and order, EGM2008 to 2190. Gate
-   passed on the degree-variance identity at three radii (2190 of 2190 degrees at 7331 km, 300
-   points, mean ratio 0.99699) **and** the J2-only closed form point-wise, which agrees to
-   2.5 × 10⁻¹⁶ over 32 points spanning both poles. The two are not redundant: the identity
-   constrains the power per degree, the closed form constrains where on the sphere it sits.
-   26 ms per full degree-2190 evaluation, 11 ns per coefficient pair against a 100 ns budget.
-
-   **The instruction to derive rather than cite was right and the derivation was not enough.**
-   Both representations of the normalised recursion fail, in opposite directions: the classical
-   one underflows above 43.7° of latitude, and the factored one — asserted in the spec to stay
-   near 10.3 — reaches 10^457.9 at degree 2190, order 979, overflowing a double by 10^150 and
-   then turning the column to NaN through inf − inf in the three-term recursion. Neither works
-   alone. What works is the pair: a global 10⁻²⁸⁰ scale with cos^m φ folded back through a Horner
-   nest over order so it is never formed as a number. That is Holmes & Featherstone's
-   construction, arrived at from measurement rather than from the paywalled paper, which is the
-   stronger route and the reason the derive-don't-cite instruction stands.
-
-   Five more corrections implementation forced, of which two are worth carrying: an off-by-one
-   in the truncation statistic advancing (a_e/r)ⁿ before its first use rather than after — a
-   clean 13% error at 7331 km, exactly the size that reads as a modelling difference, visible
-   **only** because the expected values were computed independently in Python rather than from
-   the code under test. And WGS 84's GM cannot be refused by its value, because it *is* the
-   TCG-compatible EGM2008 value under another name; what is refusable is taking both constants
-   from WGS 84, whose semi-major axis is 6 378 137.0 m against the model's 6 378 136.3 m — a
-   relative 1.1 × 10⁻⁷ that the (a_e/r)ⁿ factor carries to 2.4 × 10⁻⁴ by degree 2190.
-3. **DONE** — `tides-relativity-thirdbody`, built as **three link targets** (`tides`,
-   `relativity`, `thirdbody`) from one specification, because their dependencies are disjoint and
-   one target would make every consumer of third-body attraction link the ocean-tide tables.
-   Gate: **every printed per-term value in the Conventions, and a statement of what they do not
-   print** — 50 constituents of Tables 6.5a/6.5c and 21 zonal at θ_f = 0, the closed-form
-   pole-tide coefficients of §6.4 and §6.5 to every printed digit, and chapter 10's precession
-   rates (de Sitter 19.188 mas/yr and height-independent to 10⁻¹², Lense–Thirring 0.755 at GEO
-   and 181.7 at 6778 km against the stated 0.8 and 180). Two counts reported on every run.
-
-   **Three things this step establishes that outlive it.** The tabulated δ*k*_f is **not** what
-   (6.9) generates: the Conventions define it under (6.8e) as the body-tide difference *"plus a
-   contribution from ocean loading"*, and §6.2.1 folds the load resonances into the body-tide
-   tables. So the formula cannot verify the column — what it verifies is the resonance
-   *structure*, as a ratio constant to 2.98% across a band where δ*k* varies by 2955×, with the
-   3.4% offset the loading term. A statistic can be misnamed as easily as a gate: §6.5's 90% is
-   of the **potential**, and the raw coefficient variance under the same word is 75.8%. And a
-   parser demanding six-digit Doodson codes dropped 7 952 of 59 462 rows and 8 of 18 long-period
-   waves **without failing** — the row count caught it, which is §4 rule 3 paying for itself a
-   third time.
-
-   **The K₁ worked example, found late and now the best row in §8.** Chapter 6 prints a complete
-   numerical case — inputs *A*₁, *H*_f = 0.36870, θ_f, *k*₂₁ and its nominal value; outputs both
-   ΔC̄₂₁ and ΔS̄₂₁ lines — which `PERT-A-029` reproduces from the published inputs alone, using
-   nothing from the module's own table: (470.915, −30.2105) × 10⁻¹² against the printed
-   (470.9, −30.2), then both expressions at **eight values of θ_g**, worst residual 5.2 × 10⁻²⁶.
-   It is the only check anywhere that exercises the **θ dependence**, which evaluating at
-   θ_f = 0 cannot, and the only non-circular check of Step 2. It was missed at drafting by
-   executor and manager alike; see §4 rule 4.
-
-   **Open: `PERT-Q-011`, the printed resonance-formula corrections.** (1,1) for Q₁ through
-   (244,299) for ψ₁, in units of 10⁻⁵. They are **signed** — the Conventions print (0, −1) for
-   P₁ — so what blocks *formula + correction = table* is not the signs but that δ*k*^OT is not
-   tabulated separately. What that leaves is better than it sounds: table − formula = correction
-   + δ*k*^OT **measures** δ*k*^OT per constituent for the nine constituents where the correction
-   is printed, against the Conventions' own words for it. ψ₁ is where it bites — its printed
-   correction is 83.5% of its δ*k*^I where P₁'s is 1.3% — and it is the constituent whose
-   imaginary residual is already flagged as anomalous.
-4. **DONE** — `atmosphere`: NRLMSISE-00 from the NRL public-domain FORTRAN per D2, plus
-   space-weather ingestion with its own manifest entries. The port reproduces the reference to
-   **2.33 × 10⁻¹⁶ — about one ulp — over 1 238 material comparisons across 125 cases**, and the
-   single porting error was diagnosed by its own signature: every species below 72.5 km high by
-   *exactly the same factor*, which says the fault is in something they all multiply and turns
-   "wrong somewhere below 72.5 km" into three candidates.
-
-   **There are no published reference profiles.** Established by search, 2026-09-18, over all five files NRL distributes: the
-   driver publishes 17 fully specified input cases and no expected output (0 occurrences each of
-   OUTPUT, RESULT, SAMPLE, COMPARE, EXPECTED below line 2438); `datavsmodels.txt` and the
-   companion `.doc` publish 27 tables of data-minus-model statistics, which are not model output
-   and cannot be recomputed without the NRLMSIS database NRL does not ship; the paper's two
-   numbered tables point at those same statistics, and its model output is in figures. *Gate:*
-   the reference implementation's own output on its 17 published cases, frozen as generated
-   source with the compiler, flags and source hash recorded — see §4 rule 8 for why that ranks
-   as a published value here and not as an oracle — plus the header's documented total-density
-   relation, which is checkable **without** the reference's arithmetic and is therefore a second
-   axis rather than a second look. Out-of-range input refused with a diagnostic naming the
-   request and the limit. The model gate exercises **none** of the space-weather layer, because
-   the 17 cases carry F10.7 and Ap as literal constants: that layer is gated separately, on
-   coverage, class and the recomputed centred mean.
-
-   **Three findings from the step that outlive it.** The reference is **single precision
-   throughout** — no `DOUBLE PRECISION`, no `REAL*8`, no `.D0` — so the model's own value is
-   uncertain, and a sweep across every branch boundary put the worst single-vs-double difference
-   at 7.9 × 10⁻³, a thousand times the 17 cases' figure. Every large one is a quantity of order
-   10⁻³⁰ to 10⁻³⁷ approaching single's underflow: one phenomenon in three regimes, not a
-   tolerance with an exception bolted on. The class boundary is therefore **physical** — a
-   species contributing less than 10⁻¹⁵ of total density cannot affect drag — and it is stable
-   across three decades of threshold, with class A's worst remaining argon at 1000 km, which is
-   published case 3. Adding 1 056 comparisons left the bound where the 17 cases put it, which is
-   a stronger result than "the sweep passed". That boundary is a **drag** boundary and the API
-   says so: mass density always returns, and a number density the model does not resolve is a
-   refusal.
-
-   The coefficients are **stored under names the model never uses** — sixty-four 50-element
-   arrays in `BLOCK DATA`, the same 3 200 words declared as `pt(150)`, `pd(150,9)`, `ps(150)`
-   and the rest, with the boundaries not falling where the letters do. An extractor taking the
-   DATA names at face value produces nine arrays the model never indexes and they look
-   plausible. 2 020 of the 3 300 literals are **zero**, so a spot check lands on
-   zero-against-zero more often than not; all 3 300 are verified, 1 280 of them non-zero.
-
-   > **Correction found at L4 step 4: NRLMSISE-00 is not smooth above 120 km.** `SPEC-atmosphere`
-   > §3.1 said the profile above `ZN1(1)` = 120 km is analytic "without a structural boundary".
-   > That is true of spline nodes and false of the model. The pinned source's `DATA ALTL` (line 587)
-   > sets **seven species-correction cutoffs above 120 km** — N₂ 160, He 200, Ar 240, O₂ 250,
-   > **O 300**, H 320, N 450 km — at each of which that species' mixing/chemistry correction stops
-   > being applied and its density is **discontinuous**; line 662's `ALTL(6)` branch is a
-   > single-species shortcut that does not touch total mass density. Found through drag's position
-   > Jacobian, whose step sweep showed the 1/Δ signature of a fixed jump; bisected to 300.000 km,
-   > relative size 4.085 × 10⁻⁵ in total mass density; and **the frozen reference jumps identically,
-   > to full double precision** — a property of NRLMSISE-00 reproduced faithfully, not a porting
-   > defect. What was wrong was an absence asserted without searching the source for it (§4 rule
-   > 4), in a specification the manager adopted; `grep ALTL` finds all seven. The step's gate, 125
-   > published cases at one ulp, could not have seen it: point values say nothing about the space
-   > between points.
-
-   **Space weather is the first input in this tree that is not frozen**, and the answer needs no
-   special case: pin by hash, never fetch at run time, refuse outside usable coverage naming
-   *which quantity* ran out, recompute derived columns, carry the snapshot's identity into every
-   result, and let updating be a manifest change that §5 constraint 9 already makes re-run every
-   gate. GFZ is primary and DRAO the independent cross-check — **7 969 of 7 969 exact** over the
-   overlap, with 16 duplicate-timestamp dates settled first-wins by the 16 cases that
-   discriminate. CelesTrak is dropped: its own centred-81-day column is **wrong wherever it is
-   predicted** — 176 of 25 333 rows, all of them PRD or PRM and none OBS or INT, worst 30.07 sfu
-   — so it is exact for sixty-nine years of history and arbitrary for every forecast epoch, with
-   nothing in the file saying so.
+1. **DONE** — `ephemerides` → [`subplan_L2/L2-1.md`](subplan_L2/L2-1.md)
+2. **DONE** — `gravity` → [`subplan_L2/L2-2.md`](subplan_L2/L2-2.md)
+3. **DONE** — `tides-relativity-thirdbody` → [`subplan_L2/L2-3.md`](subplan_L2/L2-3.md)
+4. **DONE** — `atmosphere` → [`subplan_L2/L2-4.md`](subplan_L2/L2-4.md)
 
 **Exit gate — PASSED 2026-09-18.** `tools/ci.sh` exits 0: 10 gates, 211 tests, 634 artefacts
 byte-identical, 29 manifest entries verifying, NOTICE regenerated from the manifest. `EPH-Q-005`
@@ -479,145 +309,10 @@ grid scan.
 
 **Entry:** L2 exit gate.
 
-1. **DONE** — Force plugin surface: the one interface every force implements,
-   `accel(t, state, params) -> (a, da/dstate, da/dparams)`. Defined and frozen **before any
-   force exists**, because retrofitting it is how the predecessor ended up unable to estimate
-   drag at all.
-
-   This step also discharges the half of L2 step 2's crossing condition that could not be
-   discharged there. `odl/core/units.hpp` names the km/metre crossing and tests it, but it has
-   no callers — nothing before L3 builds a field position from a state — so `FRAME-R-062`'s
-   *no other site performs it* is a requirement with nothing enforcing it. The plugin surface is
-   the first place a state in km meets an acceleration in m s⁻², and it is the site `SPEC-dynamics`
-   must name. *Gate:* the surface states where the crossing happens; a CI gate fails on a km↔m
-   scaling written anywhere outside `core/units.hpp`, and is demonstrated to fail by an injected
-   one. A gate that is green because no second site exists yet is worth having for exactly that
-   reason — it turns red on the day one is written, which is the day it matters.
-
-   **Met by a register, not by the search this plan asked for**, and the difference is §4 rule 5's
-   newest paragraph: measured before being built, 14 false positives to 1 true one. Two things
-   the building found that the specifying had not. **The register needed two markers** — four of
-   the fourteen convert *nothing* (a YYDDD date radix, two "no longitude" sentinels, a row-count
-   threshold), and one marker would have forced a false label onto each, turning "fourteen
-   unexamined literals" into "fourteen literals someone said were fine". `UNIT-CROSSING` and
-   `NOT-A-UNIT-CROSSING`, counted separately and summed by gate 10: 1 + 10 + 4 = 15. **And an
-   annotation is not a permit** — an injected km↔m scaling annotated *honestly* as
-   `UNIT-CROSSING: km -> m` **passed**, because the gate only checked that a marker was present.
-   `DYN-R-041` closes it: no conversion outside `core/units.hpp` may name kilometres, because if
-   kilometres are involved it *is* the crossing and the crossing has one site. Proven in four
-   states, not two.
-
-   What the gate still cannot catch is a **mislabelled** crossing — one annotated as some other
-   conversion — and nothing mechanical will. That residual is held by the discipline that produced
-   the labels, each re-derived from what its line does rather than from the enumeration, which is
-   a process and not a gate; `SPEC-dynamics` §8 says so rather than letting the register look
-   stronger than it is.
-
-   *Structural evidence the register gave for free:* adding `modules/dynamics` took the search from
-   62 production sources to 66 **with still 15 literals**. The first caller of the crossing
-   introduced none, because it goes through `core/units.hpp` by name. The register measures the
-   property rather than only guarding it.
-2. **DONE** — Integrators: RK4 and **Fehlberg's RKF7(8)**, transcribed from the page images of
-   `TR R-287` because the 1968 scan's OCR renders a coefficient row as `83_ = 841 = B_I = 8sl`.
-   DP8(7) via `dop853.f` was not taken — it states no licence at all, like the two sources §6
-   already dropped — but the **deciding** ground is §4 rule 8's converse: Fehlberg prints exact
-   rationals, so the order conditions either hold in exact rational arithmetic or do not, where a
-   decimal-published source satisfies them only to rounding.
-
-   *Transcription proved, never in floating point:* row sums 13/13, `c` through order 7 —
-   85 conditions, 0 violated — `ĉ` through order 8 — 200, 0 violated — and `c` **violating 40 of
-   the 115 order-8 conditions**, which is exactly the count Fehlberg states in prose on a
-   *different page*: "only 40 non-zero error coefficients". Prose on p.66 against mathematics
-   applied to the table on p.65, with neither being the scan's digits. (115, 85 and 200 are the
-   rooted-tree numbers, verified independently — a checker reporting *0 violated* against a
-   wrong denominator passes while examining a subset.)
-
-   *Two checks, orthogonal, and §8 says which is which.* The order conditions establish that the
-   tableau is **a valid** RK7(8) pair and cannot establish it is **Fehlberg's**, because his
-   derivation has free parameters chosen rather than forced. Table XI is the only check of that
-   claim. Its comparison was **pre-registered** — the expected order of magnitude, sign and
-   whether the leading digit should match, written down with the reason before the first run,
-   because a tolerance chosen from its own result tests nothing. Gated on order of magnitude
-   within ×10: predicted 10⁻¹⁴, measured 1.465 and 1.976 × 10⁻¹⁴ against Fehlberg's printed
-   2.509 and 5.135 × 10⁻¹⁴. Leading digits predicted **not** to match, and they do not.
-
-   *Propagation is with the 7th-order solution, not by local extrapolation* — measured order
-   6.90 — and that is **required** to reproduce Table XI, which is the only thing tying this
-   tableau to Fehlberg's method. An optimiser who notices that an 8th-order solution is computed
-   and discarded, and switches to local extrapolation, gains an order and silently invalidates
-   that gate.
-
-   *Gate:* the analytic two-body solution, Fehlberg's Example (53) — a coupled nonlinear system
-   with a closed form, verified to solve its own stated system before being used — step-size
-   insensitivity demonstrated rather than assumed, and the quadrature blindness **exhibited**.
-3. **DONE** — State transition matrix, integrated alongside the state, **analytic** because
-   finite differences checked against finite differences would pass while checking nothing.
-   Gate: agreement with finite differences of the propagated state, to a tolerance set by §4
-   rule 7 rather than chosen.
-
-   *The sizing is the result.* A central difference of a **propagated** state carries three
-   errors, not the two a textbook treatment of differencing gives: truncation ~ *h*²/6, machine
-   round-off ~ ε/*h*, and **integrator noise ~ τ/2*h***, because each perturbed trajectory
-   carries the integrator's own error independently and the difference divides by 2*h* — so it is
-   *amplified* by the very step that suppresses truncation. Minimising at τ = 10⁻¹² predicts best
-   agreement 6.6 × 10⁻⁹ at *h* = 1.1 × 10⁻⁴; measured 1.98 × 10⁻⁸, a factor of three. The
-   default criterion, ε^(2/3) = 3.7 × 10⁻¹¹, is **179× too tight** — wrong in the direction that
-   fails a correct implementation.
-
-   *And a second axis the first cannot see.* A band built from finite differences bounds how well
-   Φ matches a finite-difference estimate **of itself**. `STM-A-005` checks Liouville —
-   d(det Φ)/d*t* = tr(A) det Φ, so with tr(∂a/∂v) = 0 the determinant is 1 for all time — and no
-   difference estimate enters it. det Φ = 1 at 600, 3000 and 6246 s. For both to pass while Φ is
-   wrong, two unrelated failure modes would have to conspire.
-
-   *`GRAV-Q-006` resolved, both routes measured.* The second derivative follows the same
-   three-term recursion as the first — one array, one line — costing **+7.5% at degree 180, +4.0%
-   at 360 and +15.2% at 2190**, against a **lower bound** of +100% for a second traversal, which
-   repeats the harmonic sum as well as the column. Take it from the same recursion. Note that
-   15% is not "negligible", which is how `GRAV-Q-006` worded it and how this plan repeated it:
-   right in direction, optimistic in size, because the extra array costs cache at that length.
-   The measurement is recorded and **not** asserted in CI — a wall-clock assertion tuned until it
-   passed on one machine is a threshold chosen by whoever is judged by it.
-
-   *Units:* ∂a/∂r is s⁻² and ∂a/∂v is s⁻¹, both **invariant** under the uniform scaling that takes
-   metres to kilometres, so A is the same matrix in either system and the variational equations
-   introduce no conversion. Gate 11 confirms it structurally: 72 production sources, still 15
-   literals.
-4. **DONE** — Parameter sensitivity registry: any registered parameter automatically gains a
-   sensitivity column and a place in the joint covariance, for whatever set is registered, with
-   no fixed width anywhere. Gate: a registered parameter's column matches finite differences,
-   and registering a second parameter requires no change to the integrator.
-
-   **The integrator did know the width, and finding that is what step 4 was for.** The steppers
-   were templated on `std::size_t N` over `std::array<double, N>` — a **compile-time** width.
-   Every test at *n* = 1 and again at *n* = 2 would have passed, *by recompiling*, and nothing in
-   the output distinguishes that from an integrator that never knew: a change to the integrator
-   wearing the costume of a template argument. They are now generic over a `StateVector`
-   **concept**, so `y0.size()` is the only answer available to them and one instantiation serves
-   every *n*. `SENS-A-002` asserts it at **compile time** as well as behaviourally, because the
-   behavioural half alone would have passed against the old version — *n* = 1, 2, 3 each
-   instantiating its own integrator, every one of them correct.
-
-   *S* = ∂x/∂p satisfies d*S*/d*t* = A*S* + B with *S*(t₀) = **0**, zero because the initial state
-   does not depend on the parameters — a statement about what is being differentiated, not an
-   initialisation convenience. Column against finite differences on `STM-A-001`'s same-run band
-   with the family chosen from the prediction: band 1.13 × 10⁻⁹, best agreement 1.48 × 10⁻¹⁰,
-   column not trivially zero. Accepted steps at *n* = 1, 2, 3 are 19, 19, 19 — **reported, not
-   asserted**, because a parameter whose column grew faster than the state would change the count
-   legitimately, and asserting it would be a fact about the test forces dressed as a property.
-
-   *A refusal that named the wrong reason.* A `ParameterSet` built before a parameter was declared
-   refused correctly and said *"this `ParameterId` was not issued by the registry this
-   `ParameterSet` was built for"* — false; it was that registry, and the id was issued later. A
-   refusal naming the wrong reason sends the reader hunting a bug that does not exist.
-   `SENS-A-004` asserts **the message**, because the identifier was already right and would have
-   passed.
-
-   *And Liouville was rewritten before drag arrives, per the manager's ruling*: det Φ =
-   exp(∫ tr A d*t*), the integral carried as one extra scalar, and made sharp **today** rather
-   than at L4 — `STM-A-005b` adds a = −*k***v**, so tr(A) = −3*k* exactly and det Φ = exp(−3*kt*)
-   in closed form. At 600 s the integral is −0.36 and det Φ = 0.6977. The determinant genuinely
-   moves.
+1. **DONE** — Force plugin surface → [`subplan_L3/L3-1.md`](subplan_L3/L3-1.md)
+2. **DONE** — Integrators → [`subplan_L3/L3-2.md`](subplan_L3/L3-2.md)
+3. **DONE** — State transition matrix → [`subplan_L3/L3-3.md`](subplan_L3/L3-3.md)
+4. **DONE** — Parameter sensitivity registry → [`subplan_L3/L3-4.md`](subplan_L3/L3-4.md)
 
 **Exit gate — PASSED 2026-09-18.** `tools/ci.sh` exits 0: 12 gates, 236 tests. The plugin
 surface carries a trivial test force end to end, sensitivities included, with nothing in the
@@ -675,93 +370,14 @@ the MVP needs.
 > proves the schema does not **require** what a cannonball has not got. Freezing a schema that
 > only a cannonball fits would be the opposite error and is not what this says.
 
-1. **DONE** — `shadow`: the SECM (spherical Earth, conical) and the PPM (perspective
-   projection, ellipsoidal), from `LI19`, the first `literature` manifest entry. **The gate is
-   not the paper's Table 2**: those 16 events are GRACE-A on a named day and the paper does not
-   print the orbit that produces them, so it is L2 step 4's shape again — published outputs whose
-   inputs are not published. Every route to a GRACE-A ephemeris needs an account or a form, which
-   the standing prohibition forbids, and the search is recorded. The gate is the closed-form
-   geometry the paper prints in full.
+1. **DONE** — `shadow` → [`subplan_L4/L4-1.md`](subplan_L4/L4-1.md)
+2. **DONE** — **Macromodel schema** → [`subplan_L4/L4-2.md`](subplan_L4/L4-2.md)
+3. **DONE** — `srp-analytic` → [`subplan_L4/L4-3.md`](subplan_L4/L4-3.md)
 
-   *"Conical shadow" is a family, and `LI19`'s five choices are stated per choice with the
-   paper's own words beside them*: Earth a **sphere**, Sun a **disc**, states umbra **penumbra
-   and annular**, the penumbra value the **true occulted-area ratio** (not linear in the occulted
-   fraction, not a smoothstep), atmosphere **none**. A named model that is really a family is how
-   two correct implementations disagree by a factor nobody can find, and this layer has two such
-   models in its first two steps.
-
-   *Two branch domains, recorded together because the pair is the point.* The **annular** state
-   needs the satellite beyond the umbra's apex at ≈ 1.4 × 10⁶ km — the Moon at 384 000 km is well
-   inside — so no orbit in this plan reaches it and its test is synthetic and labelled so; a
-   branch that passes because nothing reaches it is the guard-that-cannot-fire wearing a hat.
-   The **hyperbolic silhouette** of eq 24 is the opposite case: |cos ψ| < R_e/r overlaps the
-   terminator below ≈ 8 400 km, so LEO is hyperbolic in the penumbra and GNSS elliptical, both
-   branches carry real orbits, and `SHDW-A-008` asserts **3 hyperbolic and 6 elliptical** so a run
-   that exercised one branch cannot pass. Two branches that read identically in the source and
-   are not alike at all.
-2. **DONE** — **Macromodel schema** (moved from L5 step 1 on the decomposition adopted above):
-   surfaces, areas, normals, optical coefficients, mass, centre of mass, each value carrying a
-   citation field; a value without a citation is a load error, not a warning. **Designed** for the
-   general case and **gated** on a **cannonball round-trip**, which proves the schema does not
-   *require* what a cannonball has not got — the trivial force's argument, one layer up. Frozen
-   before `srp-analytic` so that it is not shaped by its first client.
-
-   *Accepted with two things carried into step 3.* An SRP force was built **inside** the schema
-   module (`srp_force` in `macromodel.hpp`), which puts physics in what L5 designs as data and
-   makes every consumer of the library link a force — PERT-Q-001's precedent against it. It moves
-   to the `srp-analytic` module as step 3's first act, and the schema gains a pure round-trip
-   test of its own. And the guard the plan calls *an acceptance test, not a comment* —
-   `MCRM-A-005`, flat plate against sphere — was tested at **ρ = 0**, where the two differ by
-   only 2δ/9 (ratio 1.06). The gap is ρ + 2δ/9, so the factor of two lives in the **specular**
-   term: ratio 1.90 for a specular sail at ρ = 0.9, which is the case this project has already
-   got wrong on real data. The guard could not see the error it existed for; step 3 tests it
-   across ρ > 0.
-
-   *The sphere's coefficient is derived, not cited* — `RHS12` does not print it. Integrating the
-   flat-plate law over the lit hemisphere gives **1 + 4δ/9 with no ρ dependence at all**: a sphere
-   does not care whether it reflects specularly or absorbs. Checked against 4 × 10⁶ Monte Carlo
-   samples and independently by quadrature, and δ = ν(1 − μ) recovers the (9 + 4ν(1 − μ))/9 this
-   plan quoted.
-
-   *And the reproducibility rule's first catch was a false alarm, which this plan recorded as a
-   real one.* `tools/penumbral_cancellation.py` regenerates step 1's cancellation numbers, and at
-   its default resolution it printed a swing of 367.3 against PROVENANCE's "376 × the net". The
-   manager called that a transposition and had it "fixed" to 367; the executor attributed it to
-   resolution sensitivity and applied the fix. **Both were wrong about the number.** A
-   convergence study — 201×100 → 3201×1600 samples, swings 367.6, 370.8, 371.7, 375.7, 375.6,
-   the two finest agreeing to 0.03% — puts the converged value at **≈ 376: the original was
-   right**, and the tool's default was under-resolved. The swing is a ratio to a net that is a
-   0.14% residual of near-cancelling integrals, so it is the most resolution-sensitive figure in
-   its table, and the one the tool's resolution check had not been pointed at.
-3. **DONE** — `srp-analytic`: cannonball, flat plate, box-wing. Sources: Fliegel & Gallini;
-   Rodríguez-Solano et al. 2012. The coefficient convention is stated per model and tested — a
-   sphere's (9 + 4ν(1−μ))/9 is not a flat plate's 1 + ρ_s, and conflating them is a factor of
-   two in a recovered area. That is an acceptance test, not a comment.
-   *Closed on a tessellated sphere, because nothing else checked the flat plate at an angle.* The
-   only single-plate test was a Sun-facing black plate — cos θ = 1, s = n, ρ = δ = 0 — where every
-   structural feature of the law is multiplied by zero or collapsed onto s; and the box-wing
-   composition test runs the same per-plate code on both sides, so a wrong law cancels out of it.
-   A sphere built from flat facets sums the law at every incidence from 0° to 90° against the
-   closed form 1 + 4δ/9 derived independently, sharpest at ρ = 1 where the facets must sum to
-   exactly 1. Pre-registered from a prototype: second-order convergence, ratios settling at 4.00,
-   reproduced here by a third implementation. **Proved by injecting the bug it targets** —
-   dropping the specular term's cos θ puts the coefficient at 4/3 *and* collapses the convergence
-   ratio from 4 to 1, two independent signatures, because a discretisation error shrinks at the
-   method's order and a wrong law does not. The single-plate absorber and mirror checks assert
-   direction as well as magnitude.
-
-4. **IMPLEMENTED, GATE NOT YET CLOSED** — `drag`: the drag force over L2's atmosphere, with the drag coefficient a
-   **registered parameter from the first commit**, never a constant. Gate: published ballistic
-   coefficient cases, and the parameter's sensitivity column against finite differences.
-5. **TODO** — `erp`: Earth albedo and infrared radiation pressure. Sources: Knocke et al. 1988;
-   Rodríguez-Solano et al. 2012. Gate: the papers' published accelerations for a stated
-   geometry.
-6. **TODO** — `thrust-yaw`: antenna thrust and the yaw-attitude laws. Sources: Steigenberger
-   2018; Kouba 2009; Montenbruck et al. 2015; the official Galileo, GLONASS and BeiDou
-   attitude-law documents. Gate: published yaw angles through noon and midnight turns, per
-   constellation.
-7. **TODO** — `ecom`: the empirical SRP frame, D/Y/B. Source: Arnold et al. 2015. Gate: the
-   published parameterisation reproduced on a GNSS arc.
+4. **IMPLEMENTED, GATE NOT YET CLOSED** — `drag` → [`subplan_L4/L4-4.md`](subplan_L4/L4-4.md)
+5. **TODO** — `erp` → [`subplan_L4/L4-5.md`](subplan_L4/L4-5.md)
+6. **TODO** — `thrust-yaw` → [`subplan_L4/L4-6.md`](subplan_L4/L4-6.md)
+7. **TODO** — `ecom` → [`subplan_L4/L4-7.md`](subplan_L4/L4-7.md)
 
 **Exit gate:** every force reproduces **its own published test case** — the oracle ranks last
 (§4 rule 2) — and an arc fit with this layer's forces reaches its frozen residual using
@@ -780,13 +396,10 @@ The macromodel library as **data with per-value citations**, not as code.
 carried is sound and survives in the other direction: one consumer must exist to shape the
 schema, not all of them, so the schema goes to L4 and the population stays here.
 
-1. **TODO** — GPS, from Fliegel & Gallini 1992/1996.
-2. **TODO** — Galileo, from the ESA GSC metadata published in 2017 — dimensions, mass, centre
-   of mass, optical coefficients and attitude law.
-3. **TODO** — GLONASS, BeiDou and QZSS, from the IAC metadata, CSNO 2019 and the Cabinet Office
-   release, consolidated through the IGS satellite metadata SINEX.
-4. **TODO** — Altimetry: Jason from the CNES box-wing macromodel (Cerri et al. 2010),
-   Sentinel-6 from the ESA/EUMETSAT metadata.
+1. **TODO** — GPS → [`subplan_L5/L5-1.md`](subplan_L5/L5-1.md)
+2. **TODO** — Galileo → [`subplan_L5/L5-2.md`](subplan_L5/L5-2.md)
+3. **TODO** — GLONASS → [`subplan_L5/L5-3.md`](subplan_L5/L5-3.md)
+4. **TODO** — Altimetry → [`subplan_L5/L5-4.md`](subplan_L5/L5-4.md)
 
 **The sharpest edge in the plan.** The predecessor's own surface models under `res/` and
 `analysis/` — a hand-built hundred-plus-surface GPS-IIR model with material properties — are
@@ -808,25 +421,10 @@ intellectual property but the format authors'.
 
 **Entry:** L1 exit gate.
 
-1. **TODO** — Formats: SP3, TLE, CRD and CPF, the optical observation formats, SINEX and ANTEX.
-   Each reader refuses a field it does not recognise rather than defaulting it. The predecessor
-   read an SP3 interval from the wrong field and skipped a fixed header length; both are
-   acceptance tests here.
-2. **TODO** — Horizons client, with the timescale refusal built in: a table not on the
-   requested scale is rejected, because 69 s of TDB is ≈ 518 km along track and a fit converges
-   on it without complaint.
-3. **TODO** — `sgp4`: this tree's own port written against the published test vectors per D4,
-   with TEME handled through L1 rather than assumed inertial. Gate: the published SGP4
-   verification vectors to their stated tolerance — **and the required-disagreement gate that
-   §4 rule 1 moved here from L1**, against oracle T-01. TEME is referred to the mean equinox of
-   date, so unlike ITRF↔GCRS there is no pole-offset series to reconcile two precession models
-   and the ≈ 0.064″ ≈ 2.2 m difference appears undiluted. Assert size *and* direction; agreement
-   is the failure. Vallado's kinematic equation-of-equinoxes terms must be carried but are
-   ≈ 95 mm, 4% of it, not the explanation.
-4. **TODO** — `measmod`: ephemeris-position, SLR range and optical angles against one
-   interface, with the station and site registry. Light time, tropospheric refraction and the
-   observer's own motion belong to the model, not to the caller. Gate: each measurement's
-   partials against finite differences, plus a published SLR range case.
+1. **TODO** — Formats → [`subplan_L6/L6-1.md`](subplan_L6/L6-1.md)
+2. **TODO** — Horizons client → [`subplan_L6/L6-2.md`](subplan_L6/L6-2.md)
+3. **TODO** — `sgp4` → [`subplan_L6/L6-3.md`](subplan_L6/L6-3.md)
+4. **TODO** — `measmod` → [`subplan_L6/L6-4.md`](subplan_L6/L6-4.md)
 
 **Exit gate:** every format round-trips, and a measurement model returns residual and partials
 for all three observation types.
@@ -839,17 +437,10 @@ Two of the predecessor's defects are design requirements here rather than lesson
 
 **Entry:** L3 and L6 exit gates.
 
-1. **TODO** — Batch least squares with normal equations **scaled by default**, never as an
-   option. The predecessor's columns spanned twelve orders of magnitude and its unscaled
-   inverse was noise that presented as unobservability.
-2. **TODO** — Levenberg–Marquardt, because a sail's trajectory over days is nothing like
-   linear in its initial state and plain Gauss–Newton diverges from it.
-3. **TODO** — A priori constraints, isotropic and RTN. The anisotropic form is necessary
-   wherever a prediction is wrong almost entirely along track, which is every high
-   area-to-mass object.
-4. **TODO** — Joint covariance over the state and every parameter registered in L3. Gate: a
-   joint confidence region for two correlated parameters recovered from one fit — the thing the
-   predecessor could only approach by grid-profiling one against the other.
+1. **TODO** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md)
+2. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
+3. **TODO** — A priori constraints → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md)
+4. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md)
 
 **Exit gate:** a fit over real data reaches its frozen residual and reports a joint covariance
 whose correlations are reproduced by finite differences.
@@ -864,12 +455,11 @@ these binaries.
 
 **Entry:** L7 exit gate, and L5.
 
-1. **TODO** — GNSS against IGS precise orbits: the three frozen baselines.
-2. **TODO** — Laser ranging: the LightSail-2 campaign against its frozen residual.
-3. **TODO** — Optical angles: the sparse single-site campaign, with its condition number
-   reported rather than hidden, because the residual alone flatters it.
-4. **TODO** — Frame regression: the TEME→J2000 check against a mission ephemeris.
-5. **TODO** — Atmosphere: density plausibility and diurnal variation.
+1. **TODO** — GNSS against IGS precise orbits → [`subplan_L8/L8-1.md`](subplan_L8/L8-1.md)
+2. **TODO** — Laser ranging → [`subplan_L8/L8-2.md`](subplan_L8/L8-2.md)
+3. **TODO** — Optical angles → [`subplan_L8/L8-3.md`](subplan_L8/L8-3.md)
+4. **TODO** — Frame regression → [`subplan_L8/L8-4.md`](subplan_L8/L8-4.md)
+5. **TODO** — Atmosphere → [`subplan_L8/L8-5.md`](subplan_L8/L8-5.md)
 
 **Exit gate — the MVP.** Every campaign meets its frozen number, each statistic **naming the
 formula it was computed with**. Two unstated denominators produced defensible-looking wrong
@@ -884,17 +474,10 @@ only one off the critical path.
 
 **Entry:** L8 exit gate, plus an explicit decision to start.
 
-1. **DONE** — Patent gate: searched before committing effort, **clear**, no encumbrance found
-   on the method. Done first precisely so that the expensive layer cannot be started on an
-   assumption.
-2. **TODO** — Ray tracer: pixel-array acceleration computation. Sources: Ziebart 2001 (PhD),
-   Ziebart 2004 (*J. Spacecraft & Rockets*), Ziebart et al. 2005.
-3. **TODO** — Thermal re-radiation. Sources: Ziebart et al. 2005 (*Adv. Space Res.*), Adhya et
-   al., Bhattarai et al. 2022.
-4. **TODO** — Grid generation, format and interpolation. The format and the interpolation
-   scheme are *ideas* and are this tree's; the predecessor's **generated grid files are not
-   taken** and are regenerated by this tracer. That is wanted independently of ownership — the
-   first question anyone asks of a grid is whose code made it.
+1. **DONE** — Patent gate → [`subplan_L9/L9-1.md`](subplan_L9/L9-1.md)
+2. **TODO** — Ray tracer → [`subplan_L9/L9-2.md`](subplan_L9/L9-2.md)
+3. **TODO** — Thermal re-radiation → [`subplan_L9/L9-3.md`](subplan_L9/L9-3.md)
+4. **TODO** — Grid generation → [`subplan_L9/L9-4.md`](subplan_L9/L9-4.md)
 
 **Exit gate:** grids regenerated from this tree alone, reproducing the published results of the
 sources above, with L4's analytic models as the coarse cross-check.
@@ -1332,11 +915,12 @@ layer, and no layer claims anything the analysis did not place.
 
 ## Handling of this document
 
-Committed in this repository, which is **local-only with no remote, deliberately**. Keep it off
-any public remote: the predecessor's repository is public, its `NOTICE` says UCL's rights are
-unresolved, and a plan for reimplementing around those rights has no business being published —
-least of all there. A remote for this tree, if ever wanted, is a separate and explicit
-owner decision.
+Committed in the public `odl20Lite` repository, which is where the owner put it. Earlier drafts
+kept this plan in a separate, local-only tree and off any public remote, because the predecessor's
+`NOTICE` says UCL's rights are unresolved and a plan for reimplementing around them seemed no
+business of a public page. On 2026-09-18 the owner consolidated everything into one repository,
+public, and the plan has been published with it since. That is the owner's decision; this section
+records it rather than re-arguing it, and was stale until 2026-09-23.
 
 ---
 

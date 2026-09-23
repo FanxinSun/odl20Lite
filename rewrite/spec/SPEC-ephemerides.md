@@ -6,7 +6,7 @@
 | **Status** | **adopted** 2026-09-18, conditional on three corrections, which v1.1 applies |
 | **Version** | 1.4 |
 | **Date** | 2026-09-18 |
-| **Layer** | L2 `environment`, step 1 (`doc/REWRITE_PLAN.md` §3.3) |
+| **Layer** | L2 `environment`, step 1 (`../plan/PLAN.md` §3.3) |
 | **Depends on** | `SPEC-time.md` (the TDB argument), `core` |
 | **Depended on by** | third-body attraction (L2 step 3), radiation pressure (L4), light-time (L6) |
 

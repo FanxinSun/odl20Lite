@@ -62,7 +62,6 @@ res/slr/*.nxt
 # wants a history.
 assessment/
 rewrite/doc/*
-!rewrite/doc/REWRITE_PLAN.md
 
 # --- conversation transcripts ----------------------------------------------
 # /export drops these in the working directory. They are full session logs and

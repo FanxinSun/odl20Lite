@@ -6,7 +6,7 @@
 | **Status** | **adopted** 2026-09-18; **amended the same day** by the manager's rulings on all six questions |
 | **Version** | 1.1 |
 | **Date** | 2026-09-18 |
-| **Layer** | L2 `environment`, step 4 (`doc/REWRITE_PLAN.md` §3.3) |
+| **Layer** | L2 `environment`, step 4 (`../plan/PLAN.md` §3.3) |
 | **Depends on** | `SPEC-time.md` (the epoch and the day-of-year), `SPEC-frames.md` (geodetic latitude, altitude above the ellipsoid), `SPEC-gravity.md` (the reference ellipsoid), `core` |
 | **Depended on by** | the drag force (L4, plan §3.5 step 4), the density campaign (L8 step 5) |
 

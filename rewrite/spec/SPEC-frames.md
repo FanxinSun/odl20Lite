@@ -6,7 +6,7 @@
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
 | **Version** | 1.7 |
 | **Date** | 2026-09-18 |
-| **Layer** | `frames` (`doc/REWRITE_PLAN.md` §2) |
+| **Layer** | `frames` (`../plan/PLAN.md` §2) |
 | **Feature** | F3 (plan §3) |
 | **Depends on** | `SPEC-time.md`, `SPEC-eop.md` |
 | **Depended on by** | `env`, `forces`, `dynamics`, `measmod`, `io` |

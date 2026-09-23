@@ -6,7 +6,7 @@
 | **Status** | **adopted** 2026-09-18; **amended by implementation the same day**, six corrections at v1.2 |
 | **Version** | 1.4 |
 | **Date** | 2026-09-18 |
-| **Layer** | L2 `environment`, step 3 (`doc/REWRITE_PLAN.md` §3.3) |
+| **Layer** | L2 `environment`, step 3 (`../plan/PLAN.md` §3.3) |
 | **Depends on** | `SPEC-gravity.md` (the field these perturb, and the secular pole it defines), `SPEC-ephemerides.md` (the Sun and Moon), `SPEC-eop.md` (polar motion), `SPEC-time.md`, `SPEC-frames.md`, `core` |
 | **Depended on by** | the force model (L4), the variational equations (L3/L7) |
 

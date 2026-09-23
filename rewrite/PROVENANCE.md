@@ -1,6 +1,6 @@
 # PROVENANCE — odl/self_built
 
-The ledger required by rule **R5** of `doc/REWRITE_PLAN.md`: every module traced to the
+The ledger required by rule **R5** of `../plan/PLAN.md`: every module traced to the
 published sources it implements, every constant traced to the document it came from, every
 dependency traced to its licence, and every comparison against the predecessor logged.
 
@@ -14,6 +14,7 @@ reads *specified* record what a module will implement when it is built, not what
 | | |
 |---|---|
 | **Seeded** | 2026-09-18, from `doc/REWRITE_PLAN.md` §8 |
+| **Plan** | `../plan/PLAN.md` since 2026-09-23, when it moved from `doc/REWRITE_PLAN.md` and was split into one file per layer step, **section numbers unchanged**. Dated rows and history below cite the old path, which was true when they were written. |
 | **Covers** | rewrite phase P1 — `time`, `frames`, `eop` (feature F3 and the time layer under it) |
 | **Name** | **`odl/self_built`** — decision D6, taken by the owner 2026-09-18. It overrides the plan's original "no echo of ODL/SGNL" guidance deliberately; the concern that guidance protected against is recorded in `LICENSE` §4 rather than dropped. |
 | **Licence** | **Decision D5 taken 2026-09-18: no grant, for now.** `LICENSE` is a bare copyright notice. It matches the predecessor's posture and explicitly **does not** copy its reason: the predecessor cannot grant a licence because nobody has established who may; this tree can and has chosen not to yet. Repeating the predecessor's reason would have asserted UCL origin for work written from the IERS Conventions. |
@@ -2724,7 +2725,7 @@ Gated by `SRPA-A-001`…`-A-008`; `modules/macromodel` gains `MCRM-A-011`/`-A-01
 ### 27.1 `srp_force` was physics living inside a data module, and moved
 
 §26 built `srp_force` inside `modules/macromodel`. Review: L5 is designed as "data with
-per-value citations, not as code" (`doc/REWRITE_PLAN.md` §3.6), and a force computation inside
+per-value citations, not as code" (`../plan/PLAN.md` §3.6), and a force computation inside
 the schema module means every consumer of the macromodel schema — including L5's own
 population code, which wants only the schema — links an SRP force whether it needs one or
 not. `PERT-Q-001`'s precedent against exactly this shape, now applied to a sibling case.
@@ -3091,10 +3092,14 @@ channel 1 — hold ρ fixed at its base value (no atmosphere re-sampling) and fi
 only **a**(**v**_ITRS(**r**)) through the REAL, non-approximated `to_itrs` velocity output — and
 the analytic formula ∂**a**/∂**v**_rel · (−[**ω**]ₓ) matched this isolated true value to **6
 significant figures**, settling that channel 2's own formula is exact, not merely small. A
-direct comparison of `(gap = fd_da − channel1_computed)` against channel 2's computed prediction,
-naively expected to explain the gap, instead showed the two roughly ANTI-aligned and channel 2
-computed ~10× LARGER than the gap — the tell that channel 1's own estimate, not channel 2, still
-carried an error large enough to matter.
+direct comparison of `(gap = fd_da − channel1_computed, the CENTRAL-difference channel 1)`
+against channel 2's own computed prediction, naively expected to explain that gap, instead showed
+the two roughly ANTI-aligned and channel 2's magnitude about **10× LARGER than that (central-
+difference) gap** — smaller than the ORIGINAL forward-difference residual (1.18 × 10⁻²) this
+section's own v1.0 blamed it for, and larger than the gap left once channel 1 alone was already
+switched to a central difference. Both comparisons are correct, against two different gaps; the
+second is the one that mattered here — the tell that channel 1's own estimate, not channel 2,
+still carried an error large enough to matter.
 
 **A step sweep at 1, 0.5, 0.25, 0.1 and 0.05 km, on channel 1 alone (isolated the same way),
 found why**, and it is not what either original explanation assumed. Channel 1's true error is

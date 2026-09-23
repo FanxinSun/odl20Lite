@@ -7,7 +7,7 @@
 | **Version** | 1.2 |
 | **Date** | 2026-09-18 |
 | **Layer** | — (meta) |
-| **Implements** | rule R1 of `doc/REWRITE_PLAN.md` §1 |
+| **Implements** | rule R1 of `../plan/PLAN.md` §1 |
 
 This document is not a specification of a module. It is the **form** that
 `SPEC-<module>.md` takes, and the **rules** those documents obey. It exists because R1

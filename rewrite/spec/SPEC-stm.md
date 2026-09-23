@@ -6,7 +6,7 @@
 | **Status** | **draft** 2026-09-18, for review |
 | **Version** | 1.0 |
 | **Date** | 2026-09-18 |
-| **Layer** | L3 `dynamics`, step 3 (`doc/REWRITE_PLAN.md` §3.4) |
+| **Layer** | L3 `dynamics`, step 3 (`../plan/PLAN.md` §3.4) |
 | **Depends on** | `SPEC-dynamics.md` (`∂a/∂r` and `∂a/∂v`), `SPEC-integrators.md`, `SPEC-gravity.md` (`GRAV-Q-006`) |
 | **Depended on by** | the sensitivity registry (step 4), estimation (L7) |
 
@@ -35,7 +35,7 @@ Also `GRAV-Q-006`, which resolves here.
 
 | key | what | role |
 |---|---|---|
-| `PLAN` | `doc/REWRITE_PLAN.md` §3.4 step 3, §4 rules 1–8, §5 constraints | normative |
+| `PLAN` | `../plan/PLAN.md` §3.4 step 3, §4 rules 1–8, §5 constraints | normative |
 | `DYN` | `SPEC-dynamics.md` — `∂a/∂r` and `∂a/∂v` as two named 3×3 blocks | normative |
 | `INTG` | `SPEC-integrators.md` — what propagates Φ | normative |
 | `GRAV` | `SPEC-gravity.md` `GRAV-Q-006` and §5's interface | normative |

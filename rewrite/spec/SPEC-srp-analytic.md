@@ -6,7 +6,7 @@
 | **Status** | **draft** 2026-09-22, for review (v1.1 adds §4.1: box-wing is composition; v1.2 closes the oblique-incidence gap v1.1's composition check could not see, with two single-plate checks and a pre-registered tessellated-sphere cross-check) |
 | **Version** | 1.2 |
 | **Date** | 2026-09-22 |
-| **Layer** | L4 `forces-analytic`, step 3 (`doc/REWRITE_PLAN.md` §3.5) |
+| **Layer** | L4 `forces-analytic`, step 3 (`../plan/PLAN.md` §3.5) |
 | **Depends on** | `core`, `macromodel` |
 | **Depended on by** | every SRP model at L9; `ecom` (step 7) as its a priori term |
 
@@ -17,7 +17,7 @@ implementation of this module.
 `scripts/`, `analysis/`, `analyses/`, `REVIVAL.md` or `PROVENANCE.md` was opened, read,
 listed, searched or otherwise inspected during this specification's preparation.
 
-**This spec opens with a relocation, not new work.** `doc/REWRITE_PLAN.md`'s verdict on L4
+**This spec opens with a relocation, not new work.** `../plan/PLAN.md`'s verdict on L4
 step 2: `srp_force` and its force-law tests were built inside `SPEC-macromodel`'s own module,
 which put physics in what L5 designs as data and made every consumer of the macromodel
 library link an SRP force — `PERT-Q-001`'s precedent, now applied here. `MCRM-R-005`
@@ -53,7 +53,7 @@ surface; `SRPA-R-008` states the claim and `SRPA-A-009`/`-A-010` prove it.
   expected value from stated a-priori inputs — Fig. 11's reconstructed acceleration uses
   **fitted**, not a-priori, optical parameters, and is a graph, not a printed number — so
   there is no category-1 published test case for box-wing to gate against, and the values
-  that would make one wait for L5 (`doc/REWRITE_PLAN.md` §3.6).
+  that would make one wait for L5 (`../plan/PLAN.md` §3.6).
 - **Eclipse scaling** — `SPEC-shadow`'s *F*ₛ is not applied here; this spec's force laws
   assume full sunlight throughout, and a caller multiplying by *F*ₛ is composing two
   modules' outputs, not something either module does internally (plan §5 constraint 8's

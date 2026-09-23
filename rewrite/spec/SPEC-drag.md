@@ -6,9 +6,9 @@
 | **Status** | **draft** 2026-09-22, for review; **amended the same day** on the manager's review of v1.0: `DYN-Q-001` and `DRAG-Q-002` ruled, `DRAG-R-004` corrected |
 | **Version** | 1.1 |
 | **Date** | 2026-09-22 |
-| **Layer** | L4 `forces-analytic`, step 4 (`doc/REWRITE_PLAN.md` §3.5) |
+| **Layer** | L4 `forces-analytic`, step 4 (`../plan/PLAN.md` §3.5) |
 | **Depends on** | `core`, `time`, `eop`, `frames`, `atmosphere`, `dynamics` |
-| **Depended on by** | L4's own exit gate (after step 7, `doc/REWRITE_PLAN.md` §3.5 — an arc fit with parameters stated in the test); nothing later is built yet |
+| **Depended on by** | L4's own exit gate (after step 7, `../plan/PLAN.md` §3.5 — an arc fit with parameters stated in the test); nothing later is built yet |
 
 **Derivation declaration (plan R1).** Written from the documents in §2, from `SPEC-atmosphere.md`,
 `SPEC-dynamics.md` and `SPEC-frames.md` (the three specs this module's interfaces are built

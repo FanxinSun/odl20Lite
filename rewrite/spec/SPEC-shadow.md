@@ -6,7 +6,7 @@
 | **Status** | **draft** 2026-09-18, for review (v1.1 adds §3.2–§3.4 and the PPM throughout; v1.2 re-derives R-031 and adds R-033, naming the traversal behind the 99.9 % cancellation figure and measuring what moves it) |
 | **Version** | 1.2 |
 | **Date** | 2026-09-22 |
-| **Layer** | L4 `forces-analytic`, step 1 (`doc/REWRITE_PLAN.md` §3.5) |
+| **Layer** | L4 `forces-analytic`, step 1 (`../plan/PLAN.md` §3.5) |
 | **Depends on** | `SPEC-ephemerides.md` (the Sun), `SPEC-frames.md`, `core` |
 | **Depended on by** | `srp-analytic` (step 2), `erp` (step 4), every SRP model at L9 |
 

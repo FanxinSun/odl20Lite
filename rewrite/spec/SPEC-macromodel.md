@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | **Spec ID** | `MCRM` |
-| **Status** | **draft** 2026-09-22, for review (v2.0: `srp_force` and the two force laws relocated to `SPEC-srp-analytic`, per the manager's verdict on v1.0 — `doc/REWRITE_PLAN.md`'s L4 step list, step 2's entry) |
+| **Status** | **draft** 2026-09-22, for review (v2.0: `srp_force` and the two force laws relocated to `SPEC-srp-analytic`, per the manager's verdict on v1.0 — `../plan/PLAN.md`'s L4 step list, step 2's entry) |
 | **Version** | 2.0 |
 | **Date** | 2026-09-22 |
-| **Layer** | L4 `forces-analytic`, step 2 (`doc/REWRITE_PLAN.md` §3.5) |
+| **Layer** | L4 `forces-analytic`, step 2 (`../plan/PLAN.md` §3.5) |
 | **Depends on** | `core` only |
 | **Depended on by** | `srp-analytic` (step 3), `erp` (step 4), `thrust-yaw` (step 5), the L5 macromodel library, every SRP model at L9 |
 
@@ -25,7 +25,7 @@ The **shape** that a satellite's non-conservative-force-relevant physical descri
 takes: how many surfaces it has, what each one is made of, and how heavy the whole thing
 is — with every value traceable to where it came from. This is a **schema**, not a
 populated model: no satellite's actual dimensions, mass or optical properties are stated
-here. Population is L5's job (`doc/REWRITE_PLAN.md` §3.6), and this step exists
+here. Population is L5's job (`../plan/PLAN.md` §3.6), and this step exists
 specifically so that job has a contract to fill in, decided **before** its first real
 consumer (`srp-analytic`, step 3) exists to shape it by negotiation.
 

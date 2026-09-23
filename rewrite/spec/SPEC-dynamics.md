@@ -6,7 +6,7 @@
 | **Status** | **adopted** 2026-09-18 (v1.1, all three §10 questions ruled the same day); **amended** 2026-09-22 for L4 step 4's provenance field (`DYN-R-051`, `DYN-Q-001`'s own terms for a closed-layer edit) |
 | **Version** | 1.2 |
 | **Date** | 2026-09-18; amended 2026-09-22 |
-| **Layer** | L3 `dynamics`, step 1 (`doc/REWRITE_PLAN.md` §3.4) |
+| **Layer** | L3 `dynamics`, step 1 (`../plan/PLAN.md` §3.4) |
 | **Depends on** | `SPEC-frames.md` (`State`, `Position`, `Acceleration`), `SPEC-time.md` (`Epoch`), `core` |
 | **Depended on by** | every force in L4, the integrators (step 2), the STM (step 3), the registry (step 4), estimation (L7) |
 
@@ -136,7 +136,7 @@ unannotated km↔m scaling and watching the gate go red.
 
 | key | author / issuer | title | locator | obtained | role |
 |---|---|---|---|---|---|
-| `PLAN` | this tree | `doc/REWRITE_PLAN.md` §2, §3.4, §4 rules 1–6, §5 constraints 1–10 | in this repository at `1446dba` | primary | normative |
+| `PLAN` | this tree | `../plan/PLAN.md` §2, §3.4, §4 rules 1–6, §5 constraints 1–10 | in this repository at `1446dba` | primary | normative |
 | `FRAMES` | this tree | `SPEC-frames.md` v1.7 — `State<F>` in km, `Position<F>`/`Acceleration<F>` in m, and `FRAME-R-062`'s crossing requirement | `spec/SPEC-frames.md` | primary | normative |
 | `TIME` | this tree | `SPEC-time.md` — `Epoch` | `spec/SPEC-time.md` | primary | normative |
 | `GRAV` | this tree | `SPEC-gravity.md` v1.3 — `GRAV-Q-006`, the gravity-gradient tensor, which step 3 resolves | `spec/SPEC-gravity.md` | primary | informative here, normative at step 3 |

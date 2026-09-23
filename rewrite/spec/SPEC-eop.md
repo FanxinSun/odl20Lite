@@ -6,7 +6,7 @@
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
 | **Version** | 1.4 |
 | **Date** | 2026-09-18 |
-| **Layer** | `time` / `io` boundary (`doc/REWRITE_PLAN.md` §2) |
+| **Layer** | `time` / `io` boundary (`../plan/PLAN.md` §2) |
 | **Feature** | F3 (plan §3), F12's EOP readers |
 | **Depends on** | `SPEC-time.md` |
 | **Depended on by** | `SPEC-frames.md`, and through it everything above |
@@ -76,7 +76,7 @@ and **what happens at the edge of the table**.
 
 ### 3.1 The C04 series is **20** C04, not 14 C04
 
-`doc/REWRITE_PLAN.md` §3 (F3) and the handover both name "IERS C04" / "EOP 14 C04". The
+`../plan/PLAN.md` §3 (F3) and the handover both name "IERS C04" / "EOP 14 C04". The
 14 C04 series was **replaced by 20 C04 in February 2023**, and the two differ in more than a
 version number:
 
@@ -90,7 +90,7 @@ version number:
 
 ### 3.2 The rapid series is `finals2000A.*`, not `finals.*`
 
-`doc/REWRITE_PLAN.md` §3 (F3) and §2 (`io`) name `finals.all`. **`finals.all` is the wrong
+`../plan/PLAN.md` §3 (F3) and §2 (`io`) name `finals.all`. **`finals.all` is the wrong
 file for this tree.** The two products have identical layouts but different contents in the
 celestial-pole-offset columns:
 

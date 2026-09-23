@@ -6,7 +6,7 @@
 | **Status** | **draft** 2026-09-18, for review |
 | **Version** | 1.0 |
 | **Date** | 2026-09-18 |
-| **Layer** | L3 `dynamics`, step 4 (`doc/REWRITE_PLAN.md` §3.4), and **the layer's exit gate** |
+| **Layer** | L3 `dynamics`, step 4 (`../plan/PLAN.md` §3.4), and **the layer's exit gate** |
 | **Depends on** | `SPEC-dynamics.md`, `SPEC-integrators.md`, `SPEC-stm.md` |
 | **Depended on by** | estimation (L7), which forms the joint covariance this makes possible |
 
@@ -34,7 +34,7 @@ tree should give a joint covariance.
 
 | key | what |
 |---|---|
-| `PLAN` | `doc/REWRITE_PLAN.md` §2, §3.4 step 4, §4 rules 1–8, §5 constraints 1–10 |
+| `PLAN` | `../plan/PLAN.md` §2, §3.4 step 4, §4 rules 1–8, §5 constraints 1–10 |
 | `DYN` | `SPEC-dynamics.md` — `ParameterId`, `ParameterJacobian`, `∂a/∂p` |
 | `STM` | `SPEC-stm.md` — the variational state S joins |
 

@@ -6,7 +6,7 @@
 | **Status** | **draft** 2026-09-18, for review |
 | **Version** | 1.0 |
 | **Date** | 2026-09-18 |
-| **Layer** | L3 `dynamics`, step 2 (`doc/REWRITE_PLAN.md` §3.4) |
+| **Layer** | L3 `dynamics`, step 2 (`../plan/PLAN.md` §3.4) |
 | **Depends on** | `SPEC-dynamics.md` (the force surface it integrates), `SPEC-frames.md`, `SPEC-time.md`, `core` |
 | **Depended on by** | the STM (step 3), the sensitivity registry (step 4), every campaign at L8 |
 
