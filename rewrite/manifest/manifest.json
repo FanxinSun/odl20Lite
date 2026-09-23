@@ -612,6 +612,48 @@
       "upstream_mutable": false,
       "verify_note": "Retrieved with no account and no request form: arxiv.org/pdf/1404.7826 serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). 30 pages. Table 4 (p. 26), 'Drag coefficient of a sphere in the nearly free molecular flow regime as a function of the speed ratio S', prints C_0(S) at S = 0, 0.1, 0.3, 0.5, 0.75, 1.0, 2.0, 3.5, 5.0, 7.5, 10, 15, 20, 30, 40, 50, and the S -> infinity limit, which the paper's own text states is exactly 2. This is cited as a plausibility RANGE for C_D in DRAG-A-002, not as a registered test value: the paper characterises free-molecular flow over an idealised sphere in general, not any specific satellite, so no single printed number is 'the' answer a force-law test can assert equality against -- recorded per plan rule 4 alongside the search's other finding, that the DTIC alternatives named in the plan (ADA285118, AD0464391) return HTTP 403 and are out of reach under the no-contact-anybody constraint.",
       "retrieved": "2026-09-22"
+    },
+    {
+      "id": "rodriguez-solano-2009-masters-thesis",
+      "kind": "literature",
+      "role": "Rodríguez-Solano (2009), 'Impact of albedo modelling on GPS orbits', Master's thesis, TU München. The full from-first-principles derivation neither the 2012 journal paper (P-I) nor the 2014 dissertation's own summary of it prints: the Lambertian-sphere reflected and emitted irradiance, both an analytical far-field closed form (ERM-A, valid h >> R_E) and the numerical grid form used when it is not (ERM-N), and the box-wing satellite force law applied to them. L4 step 5.",
+      "version": "TU München Master's thesis, 2009; mediaTUM record 1083571",
+      "url": "https://mediatum.ub.tum.de/doc/1083571/1083571.pdf",
+      "filename": "1083571.pdf",
+      "sha256": "cca75ebcf2ef6bd4e1532a92025f3e93f43cb3cfb5cb226bedfc89e6a804894a",
+      "terms": "NOT ESTABLISHED, and the search itself was partly blocked, both recorded rather than either conclusion assumed (plan rule 4). The PDF's own text (all 100 pages, checked) contains zero occurrences of 'creative commons', 'CC BY', 'CC-BY', 'all rights reserved' or 'copyright'. The mediaTUM landing page (mediatum.ub.tum.de/1083571), unlike the 2014 dissertation's own landing page, is now served behind an automated bot challenge (Anubis) that returns HTTP 200 with a JavaScript interstitial rather than page content, for every fetch attempt tried (plain curl with a browser user agent, and the harness's own web-fetch tool) -- the landing page's own rights statement, if any, could not be read, and no login, account or request form was attempted to get past the challenge, per the standing prohibition on contacting anybody. This is a narrower finding than the dissertation's own 'searched and found nothing': here the search could not complete on one of its two intended sources.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY, the same reasoning as this tree's other literature entries: nothing derived from this thesis is a copy of it, and it is pinned so a future reader can fetch the same hash and get the same bytes the Earth-radiation derivation was read from.",
+      "upstream_mutable": false,
+      "verify_note": "Retrieved with no account and no request form: mediatum.ub.tum.de serves the PDF directly over HTTPS at the /doc/<id>/<id>.pdf path (HTTP 200, no authentication challenge) even though the landing page at the bare /<id> path is challenge-gated -- the two paths on the same host behave differently, checked directly rather than assumed from one. 100 pages. Chapter 2 (pp. 12-36) derives the Earth radiation model (Eq. 2.1-2.50); Chapter 3 (pp. 37-58) the GPS satellite box-wing model and the resulting accelerations (Eq. 3.1-3.27, Fig. 3.4-3.5); both cite Knocke, Ries & Tapley (1988) as the source of the underlying mathematical formulation, which this tree could not obtain in full text (AIAA paywalled, NTRS record 19880063192 lists no download) -- confirmed directly against NTRS and AIAA's own pages, not assumed unreachable.",
+      "retrieved": "2026-09-23"
+    },
+    {
+      "id": "burns-lamy-soter-1979-radiation-forces",
+      "kind": "literature",
+      "role": "Burns, J. A., Lamy, P. L., Soter, S. (1979), 'Radiation forces on small particles in the solar system', Icarus 40:1-48. The classic first-order (v/c) statement of aberration and Poynting-Robertson drag, Eq. (5): m*dv/dt = (S*A/c)*Q_pr*[(1 - rdot/c)*S_hat - v/c] -- the radial Doppler factor plus the drag term, with Q_pr the radiation-pressure efficiency (1 for a perfect absorber; Q_abs + Q_sca for an isotropic scatterer; up to 2*Q for a particle that perfectly backscatters, which a flat specular reflector near normal incidence approaches). L4 step 5's SRP plugin aberration term (PHPR-R-010).",
+      "version": "Icarus 40:1-48, 1979, doi:10.1016/0019-1035(79)90050-2",
+      "url": "https://www-users.cse.umn.edu/~gehrz001/ASTRO_2001_Spring_Semester_2020/10_Burns_Lamy_Soter.pdf",
+      "filename": "10_Burns_Lamy_Soter.pdf",
+      "sha256": "b1c06c3a329c7e7cf9850a2259eacc7adf9cb4a8cb2602ec15a6db9512cd0a79",
+      "terms": "FOUND, AND IT DOES NOT AUTHORISE REDISTRIBUTION. The PDF's own first page states 'Copyright © 1979 by Academic Press, Inc.' directly -- an explicit copyright notice, not merely an absence of one. The hosting page (a university course-materials mirror, not the publisher) grants nothing; it is not the rights holder and states no licence of its own. No Creative Commons statement, no author's-own-copy statement, and no other licence text appears anywhere in the 48 pages.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY, the same reasoning as this tree's other literature entries: nothing derived from this paper is a copy of it, and it is pinned so a future reader can fetch the same hash and get the same bytes Eq. (5) and the Q_pr discussion were read from. The exemption rests on this tree not redistributing, the same footing sengers-2014-drag-coefficient already established for an explicit (rather than absent) copyright statement.",
+      "upstream_mutable": false,
+      "verify_note": "Retrieved with no account and no request form: the course-materials mirror serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). 48 pages, running pages 1-48, checked directly against the running-header page numbers printed on the PDF's own first and last pages ('BURNS, LAMY, AND SOTER' with the page number beside it) rather than assumed from a citation. Eq. (1) (p. 5, the radial Doppler factor S' = S(1 - rdot/c)), Eq. (2) (p. 5, the perfectly-absorbing-particle force to order v/c), Eq. (4) (p. 6, Q_pr = Q_abs + Q_sca(1 - <cos alpha>)) and Eq. (5) (p. 8, the general form) checked directly against the extracted text, together with the explicit statement that an isotropic scatterer and a perfect absorber share Q_pr = 1 while a particle that perfectly backscatters has twice that drag -- the case a flat specular reflector near normal incidence approaches, not the isotropic-scatterer one.",
+      "retrieved": "2026-09-23"
+    },
+    {
+      "id": "kezerashvili-vazquez-poritz-2010-pr-solar-sails",
+      "kind": "literature",
+      "role": "Kezerashvili, R. Ya., Vazquez-Poritz, J. F. (2010), 'The Poynting-Robertson Effect on Solar Sails', arXiv:1012.3574. An independent derivation of the aberration/PR-drag force for a solar sail directly facing the Sun (pitch angle zero -- the same geometry a sun-tracking panel always has), Eq. (4)-(6): reflected and absorbed contributions each carrying the aberration angle alpha = sin^-1(v_phi/c) separately, rather than one lumped Q_pr. Cross-checks BLS79's own normal-incidence case for a partially-reflective (not perfectly absorbing or perfectly specular) surface; does not extend to oblique incidence either, so it does not close the flat-plate generalisation's own open bound (PHPR-R-010). L4 step 5.",
+      "version": "arXiv:1012.3574 [physics.space-ph], 16 Dec 2010",
+      "url": "https://arxiv.org/pdf/1012.3574",
+      "filename": "1012.3574.pdf",
+      "sha256": "42a743ccaf28baa23a6544bda0d0de68fb32eff297c944d57a0103b7de8938bc",
+      "terms": "NOT ESTABLISHED in the PDF's own text (13 pages, checked, zero occurrences of 'creative commons', 'CC BY', 'copyright' or 'all rights reserved'), consistent with arXiv's own standard distribution licence already found and recorded in full for sengers-2014-drag-coefficient -- not re-fetched here since it is the same licence text for the same repository, not a new finding.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY, the same reasoning as this tree's other literature entries: nothing derived from this paper is a copy of it, and it is pinned so a future reader can fetch the same hash and get the same bytes Eq. (4)-(6) were read from.",
+      "upstream_mutable": false,
+      "verify_note": "Retrieved with no account and no request form: arxiv.org/pdf/1012.3574 serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). 13 pages. Eq. (4)-(6) (p. 4-5) checked directly against the extracted text: reflected acceleration (2 eta - 1) kappa cos^2(alpha) / r^2, absorbed (1 - eta) kappa cos(alpha) / r^2, alpha = sin^-1(v_phi/c) the aberration angle from the sail's own tangential heliocentric speed -- derived for a sail whose surface directly faces the Sun throughout (pitch angle zero), the same restriction BLS79's own normal-incidence case has, not a generalisation to oblique incidence.",
+      "retrieved": "2026-09-23"
     }
   ]
 }

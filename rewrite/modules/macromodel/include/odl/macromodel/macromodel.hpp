@@ -38,6 +38,40 @@ namespace odl::macromodel {
 /// different pair of quantities.
 enum class NormalMode { body_fixed, sun_pointing };
 
+/// PHPR-R-004a/R-004b.  A surface's optical triple, all three or none: a plain
+/// `std::optional<Cited<double>>` per field would let a caller supply two of
+/// three and leave the kernel to guess the third, the same disagreement
+/// `MCRM-R-002` already refuses for `normal_mode`/`body_fixed_normal` -- one
+/// struct, so "all or nothing" is a type the compiler enforces rather than an
+/// invariant documented and trusted.
+struct OpticalTriple {
+    Cited<double> absorptivity;
+    Cited<double> specular;
+    Cited<double> diffuse;
+};
+
+/// Which spectral band a triple describes. RS09 Table 3.1 prints both for
+/// GPS panels and states plainly that the materials behave differently in
+/// each (front, visible: mu 0.85, nu 0.23; front, infrared: mu 0.50,
+/// nu 0.20) -- not a refinement, a different value already measured for a
+/// real spacecraft.
+enum class Band { visible, infrared };
+
+/// PHPR-R-004b.  A face's own optics: visible required (what this type held
+/// before this field existed), infrared optional. Absent infrared falls back
+/// to the visible triple -- a stated approximation (`SPEC-photon-pressure`
+/// §4.4: SRP and albedo are visible-band, the Earth's own emission is
+/// infrared, and using one triple for both is exactly the "front is 0.85
+/// where the source says 0.50" error a caller must not fall into silently).
+struct BandedOptics {
+    OpticalTriple visible;
+    std::optional<OpticalTriple> infrared;
+
+    [[nodiscard]] const OpticalTriple& in(Band b) const noexcept {
+        return (b == Band::infrared && infrared.has_value()) ? *infrared : visible;
+    }
+};
+
 /// MCRM-R-002.  Immutable after construction, and constructible only through
 /// `flat_surface_body_fixed` / `flat_surface_sun_pointing` below: a plain
 /// aggregate pairing `normal_mode` with an independent
@@ -56,57 +90,99 @@ public:
     [[nodiscard]] const std::optional<BodyDirection>& body_fixed_normal() const noexcept {
         return body_fixed_normal_;
     }
-    [[nodiscard]] const Cited<double>& absorptivity() const noexcept { return absorptivity_; }
-    [[nodiscard]] const Cited<double>& specular() const noexcept { return specular_; }
-    [[nodiscard]] const Cited<double>& diffuse() const noexcept { return diffuse_; }
+    [[nodiscard]] const Cited<double>& absorptivity() const noexcept { return front_.visible.absorptivity; }
+    [[nodiscard]] const Cited<double>& specular() const noexcept { return front_.visible.specular; }
+    [[nodiscard]] const Cited<double>& diffuse() const noexcept { return front_.visible.diffuse; }
+    /// PHPR-R-004b.  The front face's optics, resolved for the requested band
+    /// (infrared falling back to visible if not separately stated).  What
+    /// `photon_force` actually calls -- the three accessors above exist only
+    /// so every pre-existing (front, visible) caller compiles unchanged.
+    [[nodiscard]] const OpticalTriple& front(Band b) const noexcept { return front_.in(b); }
+    /// PHPR-R-004a/R-004b.  Absent: one-sided, as every surface was before
+    /// this field existed -- a bus face whose back is inside the body,
+    /// unchanged.  Present: `photon_force` evaluates this surface's back,
+    /// with the REVERSED normal and these properties (resolved for the
+    /// requested band the same way the front is), whenever the illumination
+    /// source is behind the front (`cos(theta) < 0` on the front normal).
+    [[nodiscard]] std::optional<OpticalTriple> back(Band b) const noexcept {
+        if (!back_.has_value()) return std::nullopt;
+        return back_->in(b);
+    }
 
 private:
     friend odl::Result<FlatSurface, MacromodelError>
     flat_surface_body_fixed(Cited<double> area_m2, BodyDirection normal, Cited<double> absorptivity,
-                            Cited<double> specular, Cited<double> diffuse);
+                            Cited<double> specular, Cited<double> diffuse,
+                            std::optional<OpticalTriple> front_infrared,
+                            std::optional<BandedOptics> back);
     friend odl::Result<FlatSurface, MacromodelError>
     flat_surface_sun_pointing(Cited<double> area_m2, Cited<double> absorptivity,
-                              Cited<double> specular, Cited<double> diffuse);
+                              Cited<double> specular, Cited<double> diffuse,
+                              std::optional<OpticalTriple> front_infrared,
+                              std::optional<BandedOptics> back);
 
     FlatSurface(Cited<double> area_m2, NormalMode mode, std::optional<BodyDirection> normal,
-               Cited<double> absorptivity, Cited<double> specular, Cited<double> diffuse)
+               BandedOptics front, std::optional<BandedOptics> back)
         : area_m2_(std::move(area_m2)), normal_mode_(mode), body_fixed_normal_(std::move(normal)),
-          absorptivity_(std::move(absorptivity)), specular_(std::move(specular)),
-          diffuse_(std::move(diffuse)) {}
+          front_(std::move(front)), back_(std::move(back)) {}
 
     Cited<double> area_m2_;
     NormalMode normal_mode_;
     std::optional<BodyDirection> body_fixed_normal_;
-    Cited<double> absorptivity_;   ///< alpha, RHS12's own symbol
-    Cited<double> specular_;       ///< rho
-    Cited<double> diffuse_;        ///< delta
+    BandedOptics front_;                  ///< alpha/rho/delta, RHS12's own symbols; PHPR-R-004b
+    std::optional<BandedOptics> back_;    ///< PHPR-R-004a/R-004b
 };
 
 /// A surface whose normal is a body-fixed constant (a bus panel).
+/// `front_infrared`/`back` default to absent (PHPR-R-004a/R-004b), so every
+/// pre-existing call site compiles unchanged: one-sided, visible-band-only,
+/// exactly as before these fields existed.
 [[nodiscard]] inline odl::Result<FlatSurface, MacromodelError>
 flat_surface_body_fixed(Cited<double> area_m2, BodyDirection normal, Cited<double> absorptivity,
-                        Cited<double> specular, Cited<double> diffuse) {
-    return FlatSurface(std::move(area_m2), NormalMode::body_fixed, normal, std::move(absorptivity),
-                       std::move(specular), std::move(diffuse));
+                        Cited<double> specular, Cited<double> diffuse,
+                        std::optional<OpticalTriple> front_infrared = std::nullopt,
+                        std::optional<BandedOptics> back = std::nullopt) {
+    BandedOptics front{OpticalTriple{std::move(absorptivity), std::move(specular), std::move(diffuse)},
+                       std::move(front_infrared)};
+    return FlatSurface(std::move(area_m2), NormalMode::body_fixed, normal, std::move(front),
+                       std::move(back));
 }
 
 /// A surface whose normal is defined to equal the Sun direction at every
 /// evaluation (a sun-tracking solar panel) -- SPEC-macromodel §3.  Takes no
 /// normal at all: there is nothing to disagree with the tracking law.
+/// `back` defaults to absent (PHPR-R-004a); a sun-tracking panel's own back
+/// is exactly the case this field exists for -- the Sun never lights it, but
+/// a different body's radiation (ERP's Earth) can.
 [[nodiscard]] inline odl::Result<FlatSurface, MacromodelError>
 flat_surface_sun_pointing(Cited<double> area_m2, Cited<double> absorptivity,
-                          Cited<double> specular, Cited<double> diffuse) {
-    return FlatSurface(std::move(area_m2), NormalMode::sun_pointing, std::nullopt,
-                       std::move(absorptivity), std::move(specular), std::move(diffuse));
+                          Cited<double> specular, Cited<double> diffuse,
+                          std::optional<OpticalTriple> front_infrared = std::nullopt,
+                          std::optional<BandedOptics> back = std::nullopt) {
+    BandedOptics front{OpticalTriple{std::move(absorptivity), std::move(specular), std::move(diffuse)},
+                       std::move(front_infrared)};
+    return FlatSurface(std::move(area_m2), NormalMode::sun_pointing, std::nullopt, std::move(front),
+                       std::move(back));
 }
 
 /// MCRM-R-003.  No normal field, deliberately -- see this file's header.
+/// `infrared` is trailing and optional (PHPR-R-004b) so every pre-existing
+/// aggregate-initialised `SphericalSurface{area, a, s, d}` still compiles: a
+/// C++ aggregate leaves trailing members it was not given value-initialised,
+/// `std::nullopt` for an `optional`.  Absent, `in(Band)` falls back to the
+/// visible triple exactly as `BandedOptics` does.
 struct SphericalSurface {
     Cited<double> cross_section_area_m2;   ///< pi * r^2; the area a beam sees
     Cited<double> absorptivity;
     Cited<double> specular;    ///< stored for completeness; MCRM-R-007 proves it
                                 ///< does not affect the net force
     Cited<double> diffuse;
+    std::optional<OpticalTriple> infrared;
+
+    [[nodiscard]] OpticalTriple in(Band b) const {
+        if (b == Band::infrared && infrared.has_value()) return *infrared;
+        return OpticalTriple{absorptivity, specular, diffuse};
+    }
 };
 
 using Surface = std::variant<FlatSurface, SphericalSurface>;

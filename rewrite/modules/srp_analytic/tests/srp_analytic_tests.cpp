@@ -12,13 +12,18 @@
 #include <odl/macromodel/macromodel.hpp>
 #include <odl/srp_analytic/srp_analytic.hpp>
 
+#include "srp_force_golden.hpp"
+
 #include <array>
+#include <bit>
 #include <cmath>
+#include <cstdint>
 #include <numbers>
 #include <vector>
 
 using namespace odl;
 using namespace odl::macromodel;
+using odl::srp_analytic::photon_force;
 using odl::srp_analytic::srp_force;
 
 namespace {
@@ -49,7 +54,7 @@ Macromodel one_sphere(double area_m2, const Triple& t) {
     REQUIRE(al.has_value());
     REQUIRE(rh.has_value());
     REQUIRE(de.has_value());
-    SphericalSurface sph{*a, *al, *rh, *de};
+    SphericalSurface sph{*a, *al, *rh, *de, std::nullopt};
 
     MacromodelBuilder b;
     b.add_surface(sph);
@@ -77,6 +82,59 @@ Macromodel one_sun_pointing_flat(double area_m2, const Triple& t) {
     MacromodelBuilder b;
     b.add_surface(*fs);
     auto mass = cited(1.0, "test-stated");
+    auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
+    b.set_mass(*mass).set_centre_of_mass(*com);
+    auto m = std::move(b).build();
+    REQUIRE(m.has_value());
+    return *m;
+}
+
+/// PHPR-A-001's own construction: a body-fixed flat surface, normal +z.
+Macromodel one_flat_body_fixed_z(double area_m2, const Triple& t) {
+    auto a = cited(area_m2, "test-stated");
+    auto al = cited(t.alpha, "test-stated");
+    auto rh = cited(t.rho, "test-stated");
+    auto de = cited(t.delta, "test-stated");
+    auto normal = must_dir(0.0, 0.0, 1.0);
+    auto fs = flat_surface_body_fixed(*a, normal, *al, *rh, *de);
+    REQUIRE(fs.has_value());
+    MacromodelBuilder b;
+    b.add_surface(*fs);
+    auto mass = cited(1.0, "test-stated");
+    auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
+    b.set_mass(*mass).set_centre_of_mass(*com);
+    auto m = std::move(b).build();
+    REQUIRE(m.has_value());
+    return *m;
+}
+
+/// PHPR-A-001's own construction: a body-fixed bus (+z), a sun-pointing
+/// panel and a sphere, summed -- SRPA-R-008's own box-wing composition.
+Macromodel phpr_box_wing(const Triple& bus_t, const Triple& panel_t) {
+    auto bus_a = cited(3.0, "test-stated");
+    auto bus_al = cited(bus_t.alpha, "test-stated");
+    auto bus_rh = cited(bus_t.rho, "test-stated");
+    auto bus_de = cited(bus_t.delta, "test-stated");
+    auto bus_n = must_dir(0.0, 0.0, 1.0);
+    auto bus = flat_surface_body_fixed(*bus_a, bus_n, *bus_al, *bus_rh, *bus_de);
+    REQUIRE(bus.has_value());
+
+    auto pan_a = cited(2.0, "test-stated");
+    auto pan_al = cited(panel_t.alpha, "test-stated");
+    auto pan_rh = cited(panel_t.rho, "test-stated");
+    auto pan_de = cited(panel_t.delta, "test-stated");
+    auto panel = flat_surface_sun_pointing(*pan_a, *pan_al, *pan_rh, *pan_de);
+    REQUIRE(panel.has_value());
+
+    auto sph_a = cited(0.5, "test-stated");
+    auto sph_al = cited(0.3, "test-stated");
+    auto sph_rh = cited(0.3, "test-stated");
+    auto sph_de = cited(0.4, "test-stated");
+    SphericalSurface sph{*sph_a, *sph_al, *sph_rh, *sph_de, std::nullopt};
+
+    MacromodelBuilder b;
+    b.add_surface(*bus).add_surface(*panel).add_surface(sph);
+    auto mass = cited(500.0, "test-stated");
     auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
     b.set_mass(*mass).set_centre_of_mass(*com);
     auto m = std::move(b).build();
@@ -594,4 +652,225 @@ TEST_CASE("SRPA-A-013  the tessellated-sphere cross-check, against SRPA-P-3's pr
     }
     INFO("checked " << checked << " optical triples, each at two tessellation resolutions");
     CHECK(checked == 3);
+}
+
+// ---------------------------------------------------------------------------
+// PHPR-A-001 (SPEC-photon-pressure §4.1, §8): srp_force's bit-identity
+// through the photon_force kernel refactor -- against a value CAPTURED FROM
+// CODE THAT NO LONGER EXISTS IN THIS TREE, not against a live call to the
+// same wrapper being tested. The distinction matters and was caught in
+// review, not found here first: "the old tests still pass" only proves
+// agreement within THEIR tolerances (1e-12 relative and similar), which a
+// reordered floating-point expression -- (A*I/c)*coeff*cos(theta) instead of
+// A*(I*cos(theta)/c)*coeff, say -- would still satisfy while changing the
+// last bit; and comparing srp_force against photon_force(model, 1367,
+// visible, d, d, {0,0,0}) is comparing srp_force's own wrapper body against
+// itself, which cannot fail regardless of what the underlying maths does
+// (the shadow module's own configuration-cannot-fail-to-produce shape, one
+// layer up).
+//
+// PROVEN BY INJECTION (plan §4 rule 5), not merely argued. flat_force's own
+// return statement, `-(prefactor * cos_theta) * bracket`, was changed to
+// `(-prefactor) * (cos_theta * bracket)` -- the same value, reassociated --
+// rebuilt, and run: 42 of the 400 golden cases (61 of 3951 assertions)
+// failed, every one at exactly the last representable bit (confirmed
+// separately: `(A*I/c)` vs `A*(I/c)` alone, the more obvious reassociation,
+// turned out NOT to diverge for this suite's own area/triple values --
+// checked directly rather than assumed, before this one was tried and did).
+// Reverted; the suite returned to 96587/13, clean. A test that cannot be
+// made to fail by a real, small, realistic error is not a test of that
+// error; this one now is, and this paragraph is where that was checked.
+// srp_force_golden.hpp's own header records exactly how its 400
+// values were captured and from which commit.
+TEST_CASE("PHPR-A-001  srp_force is bit-identical to its own pre-refactor "
+          "output, against a captured golden file, not a live tautology",
+          "[srp_analytic][gate]") {
+    using odl::srp_analytic::test::kSrpForceGolden;
+
+    const std::array<double, 3> dirs[] = {
+        {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0},
+        {-1.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, {0.0, 0.0, -1.0},
+        {0.577350269189626, 0.577350269189626, 0.577350269189626},
+        {0.3, 0.3, std::sqrt(1.0 - 0.09 - 0.09)},
+        {0.8, 0.1, std::sqrt(1.0 - 0.64 - 0.01)},
+        {0.1, -0.6, std::sqrt(1.0 - 0.01 - 0.36)},
+    };
+
+    // BIT identity, not value identity: `==` treats -0.0 and +0.0 as equal,
+    // so it would silently pass a reordering that flipped a zero's own sign
+    // -- no force component's physics turns on that sign today, but the
+    // claim this test makes is "the same bits", and bit_cast is what makes
+    // that claim exactly true rather than true except at one edge.
+    auto same_bits = [](double a, double b) {
+        return std::bit_cast<std::uint64_t>(a) == std::bit_cast<std::uint64_t>(b);
+    };
+
+    std::size_t i = 0;
+    auto check_one = [&](const Macromodel& model, const BodyDirection& dir) {
+        REQUIRE(i < kSrpForceGolden.size());
+        const auto& g = kSrpForceGolden[i];
+        auto r = srp_force(model, dir);
+        REQUIRE(r.has_value());
+        INFO("case " << i << ": " << g.label);
+        // Bit-for-bit -- this IS the point of the test (PHPR-A-001):
+        // anything less would let a reordered expression through, which is
+        // precisely the hazard this test exists to catch.
+        CHECK(same_bits(r->x, g.x));
+        CHECK(same_bits(r->y, g.y));
+        CHECK(same_bits(r->z, g.z));
+        ++i;
+    };
+
+    for (const auto& t : kTriples) {
+        for (const auto& d : dirs) {
+            auto dir = must_dir(d[0], d[1], d[2]);
+            check_one(one_sphere(1.0, t), dir);
+            check_one(one_flat_body_fixed_z(1.0, t), dir);
+            check_one(one_sun_pointing_flat(1.0, t), dir);
+        }
+    }
+    for (const auto& bus_t : kTriples) {
+        for (const auto& panel_t : kTriples) {
+            for (const auto& d : dirs) {
+                auto dir = must_dir(d[0], d[1], d[2]);
+                check_one(phpr_box_wing(bus_t, panel_t), dir);
+            }
+        }
+    }
+    REQUIRE(i == kSrpForceGolden.size());
+}
+
+namespace {
+
+/// The area/mass this row's own three geometries share -- only the front/
+/// back triples and the source direction vary between them.
+constexpr double kA16AreaM2 = 1.0;
+
+Vec3 photon_force_of(const Macromodel& model, Band band, const Vec3& source_dir) {
+    auto irr = irradiance_w_per_m2(kS0);
+    REQUIRE(irr.has_value());
+    auto dir = must_dir(source_dir.x, source_dir.y, source_dir.z);
+    auto f = photon_force(model, *irr, band, dir, dir, Vec3{0.0, 0.0, 0.0});
+    REQUIRE(f.has_value());
+    return *f;
+}
+
+}  // namespace
+
+TEST_CASE("PHPR-A-016  PHPR-R-004a's two axes, face and band, checked separately then "
+          "together",
+          "[srp_analytic][gate]") {
+    auto area = cited(kA16AreaM2, "test-stated");
+    REQUIRE(area.has_value());
+    auto normal = must_dir(0.0, 0.0, 1.0);   // front faces +z
+
+    SECTION("(1) face: a two-sided surface lit from behind receives a force through the "
+            "back triple; the same geometry on a one-sided surface receives nothing") {
+        auto front_a = cited(0.1, "front"), front_r = cited(0.1, "front"),
+            front_d = cited(0.1, "front");
+        auto back_a = cited(0.9, "back"), back_r = cited(0.05, "back"), back_d = cited(0.05, "back");
+        REQUIRE(front_a.has_value()); REQUIRE(back_a.has_value());
+
+        BandedOptics back{OpticalTriple{*back_a, *back_r, *back_d}, std::nullopt};
+        auto two_sided = flat_surface_body_fixed(*area, normal, *front_a, *front_r, *front_d,
+                                                  std::nullopt, back);
+        REQUIRE(two_sided.has_value());
+        auto one_sided = flat_surface_body_fixed(*area, normal, *front_a, *front_r, *front_d);
+        REQUIRE(one_sided.has_value());
+
+        MacromodelBuilder tb, ob;
+        auto mass = cited(1.0, "test-stated");
+        auto com_v = cited(Vec3{0, 0, 0}, "test-stated");
+        REQUIRE(mass.has_value()); REQUIRE(com_v.has_value());
+        tb.add_surface(*two_sided).set_mass(*mass).set_centre_of_mass(*com_v);
+        ob.add_surface(*one_sided).set_mass(*mass).set_centre_of_mass(*com_v);
+        auto two_sided_model = std::move(tb).build();
+        auto one_sided_model = std::move(ob).build();
+        REQUIRE(two_sided_model.has_value());
+        REQUIRE(one_sided_model.has_value());
+
+        // Source BEHIND the front normal: cos(theta) < 0 on the front.
+        const Vec3 source_behind{0.0, 0.0, -1.0};
+        const Vec3 f_two = photon_force_of(*two_sided_model, Band::visible, source_behind);
+        const Vec3 f_one = photon_force_of(*one_sided_model, Band::visible, source_behind);
+        INFO("two-sided |F| = " << f_two.norm() << ", one-sided |F| = " << f_one.norm());
+        CHECK(f_two.norm() > 0.0);            // the back caught it
+        CHECK(f_one.x == 0.0); CHECK(f_one.y == 0.0); CHECK(f_one.z == 0.0);   // unchanged: still unlit
+    }
+
+    SECTION("(2) band: a surface with a stated infrared triple different from its visible "
+            "one gives a measurably different result under Band::infrared; a surface with "
+            "none gives the SAME result under both bands") {
+        // rho/delta, not alpha, are what flat_force actually reads (SRPA-R-001's
+        // own two coefficients) -- a big swing needs to be in THOSE, not alpha.
+        auto vis_a = cited(0.8, "vis"), vis_r = cited(0.1, "vis"), vis_d = cited(0.1, "vis");
+        auto ir_a = cited(0.05, "ir"), ir_r = cited(0.9, "ir"), ir_d = cited(0.05, "ir");
+        REQUIRE(vis_a.has_value()); REQUIRE(ir_a.has_value());
+
+        OpticalTriple ir_triple{*ir_a, *ir_r, *ir_d};
+        auto with_ir = flat_surface_body_fixed(*area, normal, *vis_a, *vis_r, *vis_d, ir_triple);
+        REQUIRE(with_ir.has_value());
+        auto without_ir = flat_surface_body_fixed(*area, normal, *vis_a, *vis_r, *vis_d);
+        REQUIRE(without_ir.has_value());
+
+        MacromodelBuilder wb, nb;
+        auto mass = cited(1.0, "test-stated");
+        auto com_v = cited(Vec3{0, 0, 0}, "test-stated");
+        REQUIRE(mass.has_value()); REQUIRE(com_v.has_value());
+        wb.add_surface(*with_ir).set_mass(*mass).set_centre_of_mass(*com_v);
+        nb.add_surface(*without_ir).set_mass(*mass).set_centre_of_mass(*com_v);
+        auto with_ir_model = std::move(wb).build();
+        auto without_ir_model = std::move(nb).build();
+        REQUIRE(with_ir_model.has_value());
+        REQUIRE(without_ir_model.has_value());
+
+        const Vec3 source_front{0.0, 0.0, 1.0};
+        const Vec3 with_vis = photon_force_of(*with_ir_model, Band::visible, source_front);
+        const Vec3 with_infra = photon_force_of(*with_ir_model, Band::infrared, source_front);
+        INFO("with-triple: visible |F| = " << with_vis.norm() << ", infrared |F| = "
+             << with_infra.norm());
+        CHECK((with_infra - with_vis).norm() / with_vis.norm() > 0.1);   // measurably different
+
+        const Vec3 without_vis = photon_force_of(*without_ir_model, Band::visible, source_front);
+        const Vec3 without_infra = photon_force_of(*without_ir_model, Band::infrared, source_front);
+        CHECK(without_vis.x == without_infra.x);   // exact fall-back, not merely close
+        CHECK(without_vis.y == without_infra.y);
+        CHECK(without_vis.z == without_infra.z);
+    }
+
+    SECTION("(3) both together: a two-sided surface with band-differing BACK optics only -- "
+            "the front reads identically in both bands, the back does not") {
+        auto front_a = cited(0.1, "front"), front_r = cited(0.1, "front"),
+            front_d = cited(0.1, "front");
+        auto back_vis_a = cited(0.8, "back-vis"), back_vis_r = cited(0.1, "back-vis"),
+            back_vis_d = cited(0.1, "back-vis");
+        auto back_ir_a = cited(0.05, "back-ir"), back_ir_r = cited(0.9, "back-ir"),
+            back_ir_d = cited(0.05, "back-ir");
+        REQUIRE(front_a.has_value()); REQUIRE(back_vis_a.has_value()); REQUIRE(back_ir_a.has_value());
+
+        BandedOptics back{OpticalTriple{*back_vis_a, *back_vis_r, *back_vis_d},
+                          OpticalTriple{*back_ir_a, *back_ir_r, *back_ir_d}};
+        // front_infrared left absent: the front's own visible/infrared MUST agree.
+        auto surf = flat_surface_body_fixed(*area, normal, *front_a, *front_r, *front_d,
+                                            std::nullopt, back);
+        REQUIRE(surf.has_value());
+        MacromodelBuilder b;
+        auto mass = cited(1.0, "test-stated");
+        auto com_v = cited(Vec3{0, 0, 0}, "test-stated");
+        REQUIRE(mass.has_value()); REQUIRE(com_v.has_value());
+        b.add_surface(*surf).set_mass(*mass).set_centre_of_mass(*com_v);
+        auto model = std::move(b).build();
+        REQUIRE(model.has_value());
+
+        const Vec3 front_vis = photon_force_of(*model, Band::visible, Vec3{0.0, 0.0, 1.0});
+        const Vec3 front_ir = photon_force_of(*model, Band::infrared, Vec3{0.0, 0.0, 1.0});
+        CHECK(front_vis.x == front_ir.x);   // front: no infrared triple stated, exact fall-back
+        CHECK(front_vis.y == front_ir.y);
+        CHECK(front_vis.z == front_ir.z);
+
+        const Vec3 back_vis = photon_force_of(*model, Band::visible, Vec3{0.0, 0.0, -1.0});
+        const Vec3 back_ir = photon_force_of(*model, Band::infrared, Vec3{0.0, 0.0, -1.0});
+        INFO("back: visible |F| = " << back_vis.norm() << ", infrared |F| = " << back_ir.norm());
+        CHECK((back_ir - back_vis).norm() / back_vis.norm() > 0.1);   // back: stated, differs
+    }
 }

@@ -344,7 +344,7 @@ def emit(ver, sha, mat, immat, under, zeros, double, single, sensitivity) -> str
         wc(f"The worst class-A comparison is {worst_species} at {describe(mat[0][1])} -- "
            f"a SWEEP point, not one of the 17 published cases (whose own worst is "
            f"{worst_among_published:.3e}). THE SWEEP DOES NOT MERELY FAIL TO LOOSEN THE "
-           f"BOUND HERE, it TIGHTENS IT: the {s_material} further material comparisons "
+           f"BOUND HERE, it LOOSENS IT: the {s_material} further material comparisons "
            f"it adds found a worse one than any of the 17 published cases did.")
     for k, j, xd in under[:6]:
         w(f"//   underflow: {k[0]} {k[1]}{k[2]} quantity {j}: single 0, double {xd:.6e}")

@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Spec ID** | `MCRM` |
-| **Status** | **draft** 2026-09-22, for review (v2.0: `srp_force` and the two force laws relocated to `SPEC-srp-analytic`, per the manager's verdict on v1.0 — `../plan/PLAN.md`'s L4 step list, step 2's entry) |
-| **Version** | 2.0 |
-| **Date** | 2026-09-22 |
+| **Status** | **draft** 2026-09-24, for review (v2.0: `srp_force` and the two force laws relocated to `SPEC-srp-analytic`, per the manager's verdict on v1.0 — `../plan/PLAN.md`'s L4 step list, step 2's entry. v2.1: the band/face amendment §1's own "Not in scope" list already anticipated — L4 step 5's real need, found while building `SPEC-photon-pressure`, not spun ahead of it) |
+| **Version** | 2.1 |
+| **Date** | 2026-09-24 |
 | **Layer** | L4 `forces-analytic`, step 2 (`../plan/PLAN.md` §3.5) |
 | **Depends on** | `core` only |
 | **Depended on by** | `srp-analytic` (step 3), `erp` (step 4), `thrust-yaw` (step 5), the L5 macromodel library, every SRP model at L9 |
@@ -48,7 +48,23 @@ consumer (`srp-analytic`, step 3) exists to shape it by negotiation.
   never reads or computes an attitude.
 - **Earth albedo/IR and antenna thrust surfaces' own physics** — steps 4 and 5 use this
   same schema, but the *forces* those steps compute (reflected sunlight, transmitted
-  radio power) are theirs to specify.
+  radio power) are theirs to specify. **§4.3 (v2.1) is the real need this bullet
+  anticipated**: `PHPR-R-004a`/`R-004b` found the schema itself, not only the force law
+  reading it, needed a back face and a spectral band before ERP's own albedo term could be
+  correct — a `FlatSurface` amendment, additive, not a new force computed here.
+
+## 1a. v2.1 amendment — scope
+
+The face/band amendment (§4.3, `SPEC-photon-pressure`'s own `PHPR-R-004a`/`R-004b`) is the
+FIRST time this schema was extended by a real consumer's real need rather than designed
+ahead of one — `MCRM-R-001`'s own "designed general, gated on a cannonball" note applied a
+second time, this time to the schema's own evolution rather than its first design. Nothing
+existing changes in observable behaviour: every new field is optional, defaulting to the
+exact prior behaviour (`DYN-Q-001`'s own terms, applied here as they were to `SPEC-dynamics`
+in step 4). `PHPR-A-001`'s own bit-identity proof is the discharge that matters most for
+this claim — not a schema-level assertion, since the schema itself has no force to compare,
+but the strongest evidence available that this amendment changed nothing for an existing
+caller.
 
 ## 2. Normative sources
 
@@ -57,6 +73,7 @@ consumer (`srp-analytic`, step 3) exists to shape it by negotiation.
 | `RHS12` | Rodríguez-Solano, C. J., Hugentobler, U., Steigenberger, P. | *Adjustable box-wing model for solar radiation pressure impacting GPS satellites* | *Advances in Space Research* **49**(7):1113–1128, 2012, doi:10.1016/j.asr.2012.01.016 | reprinted in full, pp. 85–101, in the author's own doctoral dissertation (below); retrieved thence | **primary** | normative |
 | `RS14` | Rodríguez Solano, Carlos Javier | *Impact of non-conservative force modeling on GNSS satellite orbits and global solutions* (doctoral dissertation, Technische Universität München) | 2014 | `https://mediatum.ub.tum.de/doc/1188612/719708.pdf` (retrieved 2026-09-22) | **primary** | normative — carries `RHS12` as its own Chapter P-II, plus Tables 1–2's a priori optical properties |
 | `MSPB87` | Milani, A., Nobili, A. M., Farinella, P. | *Non-Gravitational Perturbations and Satellite Geodesy* | Adam Hilger, 1987 | — | **not obtained** | informative — the original source of the flat-surface interaction law `RHS12` states as its Eq. (6) and attributes by name; not sought separately because `RHS12` states the equation in full and this specification's requirements rest on that restatement, not on the book |
+| `RS09` | Rodríguez-Solano, C. J. | *Impact of albedo modelling on GPS orbits* (Master's thesis) | TU München, 2009 | `https://mediatum.ub.tum.de/doc/1083571/1083571.pdf` (pinned as `rodriguez-solano-2009-masters-thesis`, retrieved for `SPEC-photon-pressure` L4 step 5) | **primary** (§4.3 only) | Table 3.1's own two axes — face (front/back) and spectral band (visible/infrared) — for real, measured GPS panel optical properties; `SPEC-photon-pressure` §2 carries the fuller citation and reasoning this spec does not repeat |
 
 **`RS14` is a `literature`-kind manifest entry**, on the same footing as `LI19`
 (`SPEC-shadow` §2): pinned by hash as a provenance record, exempt from the permissive-
@@ -145,6 +162,41 @@ usually printed in it.
   §1's force laws left: a value this general (N surfaces of either kind) needs a check
   that does not depend on any consumer existing to exercise it indirectly.
 
+### 4.3 The band/face amendment (v2.1)
+
+- **MCRM-R-013.** An optical triple (α, ρ, δ) is now a named type, `OpticalTriple`, not
+  three loose fields — one struct, so a caller who has two of three cannot leave the kernel
+  to guess the third (the same "all or nothing, enforced by the type" discipline
+  `MCRM-R-004` already applies to a `Cited<T>`'s value and citation). `Band` (`visible` /
+  `infrared`) selects which of a surface's own triples applies; `BandedOptics` pairs a
+  required visible triple with an optional infrared one, `.in(Band)` resolving the
+  infrared request to the visible triple when none was separately stated — a documented
+  fall-back (`RS09` Table 3.1, §2: a real GPS panel's own visible and infrared properties
+  differ enough to matter), not a silent assumption that the two are equal.
+- **MCRM-R-014.** `FlatSurface` gains an **optional back face** — itself a `BandedOptics`,
+  the same visible-required/infrared-optional shape as the front. Absent, a surface is
+  one-sided exactly as it was before this field existed (a bus face whose back is inside
+  the body — nothing changes for it, and `PHPR-A-001`'s bit-identity proof is the evidence).
+  Present, the consuming force law (`SPEC-photon-pressure` §4.1) evaluates it, with the
+  reversed normal, whenever the illumination source is behind the front — this schema
+  states only that the field exists and what it pairs with, not when a force law reads it,
+  which stays that spec's own concern (§1's "not every force law" boundary, unchanged).
+  `SphericalSurface` gains the analogous optional infrared triple (no back-face concept
+  applies — a sphere has no front or back, `MCRM-R-003`'s own reasoning).
+- **MCRM-R-015.** `IrradianceWPerM2`: an opaque, unit-typed flux density,
+  `irradiance_w_per_m2(double) -> Result<IrradianceWPerM2, MacromodelError>`, refusing a
+  negative, infinite or NaN value (`MCRM-F-006`) — the same "a value that carries its unit
+  cannot silently become one that does not" discipline `BodyDirection` already established
+  for a direction, applied here to a flux density so a force-law caller (`PHPR-R-001`)
+  cannot pass a bare, unit-less `double` where an irradiance is required. Lives in this
+  module, not `srp_analytic`, because it is schema-adjacent (a physical-quantity wrapper,
+  the same kind of thing `Cited<T>`/`BodyDirection` already are here) rather than
+  force-law logic — `SPEC-photon-pressure` §3 states what it is used for.
+
+  Every field above is additive and optional, defaulting to prior behaviour exactly
+  (`DYN-Q-001`'s own terms) — §1a states the claim this subsection's own requirements make
+  true.
+
 ---
 
 ## 5. Interfaces, stated language-free
@@ -158,18 +210,34 @@ usually printed in it.
   (§7), because a silently-renormalised "unit vector" is exactly the kind of plausible
   wrong number plan §5 constraint 4 refuses rather than approximates.
 - `NormalMode`: a sum type, `BodyFixed` or `SunPointing`.
+- `OpticalTriple { absorptivity: Cited<double>, specular: Cited<double>, diffuse: Cited<double> }`
+  (v2.1, `MCRM-R-013`) — a plain aggregate, all three fields required, no default.
+- `Band`: a sum type, `visible` or `infrared` (v2.1).
+- `BandedOptics { visible: OpticalTriple, infrared: optional<OpticalTriple> }` (v2.1) —
+  `.in(Band) -> const OpticalTriple&`, resolving `infrared` to `visible` when absent.
 - `FlatSurface`: **opaque**, constructed only through `flat_surface_body_fixed(area,
-  normal, absorptivity, specular, diffuse)` or `flat_surface_sun_pointing(area,
-  absorptivity, specular, diffuse)` — two named factories, one per `NormalMode`, rather
-  than a struct pairing a mode with an independent optional normal that the two could
-  disagree about. Read accessors: `.area_m2()`, `.normal_mode()`,
-  `.body_fixed_normal()` (populated iff the mode is `BodyFixed`), `.absorptivity()`,
-  `.specular()`, `.diffuse()`. **Immutable after construction**.
+  normal, absorptivity, specular, diffuse, front_infrared = none, back = none)` or
+  `flat_surface_sun_pointing(area, absorptivity, specular, diffuse, front_infrared = none,
+  back = none)` — two named factories, one per `NormalMode`, rather than a struct pairing a
+  mode with an independent optional normal that the two could disagree about. The two
+  trailing parameters (v2.1) both default to absent, so every pre-v2.1 call compiles
+  unchanged. Read accessors: `.area_m2()`, `.normal_mode()`, `.body_fixed_normal()`
+  (populated iff the mode is `BodyFixed`), `.absorptivity()`, `.specular()`, `.diffuse()`
+  (the front, visible triple — unchanged in meaning), `.front(Band) -> const
+  OpticalTriple&` (v2.1, resolved), `.back(Band) -> optional<OpticalTriple>` (v2.1, absent
+  iff no back face was supplied). **Immutable after construction**.
 - `SphericalSurface { cross_section_area_m2: Cited<double>, absorptivity: Cited<double>,
-  specular: Cited<double>, diffuse: Cited<double> }` — **immutable after construction**;
-  a plain aggregate is safe here because every field is a `Cited<T>` with no default, so
-  aggregate initialisation cannot omit one.
-- `Surface`: a sum type of the two above.
+  specular: Cited<double>, diffuse: Cited<double>, infrared: optional<OpticalTriple> =
+  none (v2.1, trailing) }` — **immutable after construction**; a plain aggregate is safe
+  here because every non-trailing field is a `Cited<T>` with no default, so aggregate
+  initialisation cannot omit one, and the trailing `optional` defaults to `none` the way
+  every C++ aggregate leaves an un-given trailing member. `.in(Band) -> OpticalTriple`
+  (v2.1), the same resolution `BandedOptics::in` performs.
+- `IrradianceWPerM2` (v2.1): **opaque**.
+  `irradiance_w_per_m2(v: double) -> Result<IrradianceWPerM2, MacromodelError>` is the only
+  constructor, refusing a negative, infinite or NaN `v` (§7). `.watts_per_m2()` is the read
+  accessor.
+- `Surface`: a sum type of the two surface kinds above.
 - `Macromodel { surfaces: list<Surface>, mass_kg: Cited<double>, centre_of_mass_m:
   Cited<3-vector, NOT required unit length> }` — **immutable after construction**; built
   only through `MacromodelBuilder`, which validates that mass and centre of mass were
@@ -194,6 +262,7 @@ and moved with it. `SPEC-srp-analytic` §6.
 | `MCRM-F-001` | `cited()` called with an empty or whitespace-only citation | which value was being cited | silently accepting an empty citation, or substituting a placeholder string |
 | `MCRM-F-002` | a `BodyDirection` constructed from a non-unit vector | the vector and its actual norm | silently renormalising |
 | `MCRM-F-003` | a `Macromodel` builder asked to finish with the mass or the centre of mass not yet set | which field(s) are missing | defaulting the citation to empty and proceeding |
+| `MCRM-F-006` | (v2.1) `irradiance_w_per_m2` called with a negative, infinite or NaN value | the offending value | treating it as zero, or clamping to the nearest valid flux density |
 
 **`MCRM-F-004` and `-F-005` are retired, not relocated.** Both were about `srp_force`'s
 own refusals; that function is no longer declared by this module, so there is nothing
@@ -211,6 +280,8 @@ type already makes unreachable, and is not carried forward at all — see that s
 | `MCRM-A-012` | **the flat-surface round trip, both `NormalMode`s**: `flat_surface_sun_pointing` carries no normal; `flat_surface_body_fixed` carries exactly the one supplied | `.normal_mode()` and `.body_fixed_normal()` agree with which factory was called, in both directions | `MCRM-R-002`'s stated pairing | exact | R-002, R-012 |
 | `MCRM-A-006` | citation enforcement fires: `cited()` refused on an empty string, and a `Macromodel` builder refused when the mass or the centre of mass is left unset — **and shown not to fire** when both are set | the diagnostics, and success on the adjacent fully-cited input | the refusal catalogue | — | F-001, F-003 |
 | `MCRM-A-007` | `BodyDirection` refuses a non-unit vector, **and does not refuse** a genuinely unit one adjacent to it | the diagnostics | the refusal catalogue | — | F-002 |
+| `MCRM-A-013` | **(v2.1) the band/face round trip, schema-only, no force law involved**: (1) `BandedOptics.in(Band::infrared)` returns the stated infrared triple when one was supplied, and falls back to the visible triple when it was not, for both `FlatSurface` (front) and `SphericalSurface`; (2) `FlatSurface.back(Band)` is absent when no back face was supplied and returns the stated (band-resolved) triple when one was | as stated, all cases, both surface kinds | `MCRM-R-013`/`R-014`'s own stated fall-back | exact | R-013, R-014 |
+| `MCRM-A-014` | **(v2.1)** `irradiance_w_per_m2` refuses a negative value and a NaN value, **and does not refuse** a genuine (including zero) non-negative finite one adjacent to them — whose `.watts_per_m2()` round-trips exactly | the diagnostics; the round-tripped value | the refusal catalogue; identity | exact (round trip) | F-006, R-015 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -228,6 +299,10 @@ type already makes unreachable, and is not carried forward at all — see that s
   `SPEC-srp-analytic`'s own provenance entry, which keeps the force laws' derivation
   story — this version's relocation: what `v1.0` got wrong, what moved, and the
   `FlatSurface` redesign this review's own scrutiny found before any test found it.
+- **v2.1 (§4.3).** `PROVENANCE.md`'s own L4 step-5 entry records this amendment alongside
+  `SPEC-photon-pressure`'s own — the schema-level change (this document) and the
+  force-law-level need that drove it (that one) are two different claims, kept as such
+  rather than conflated (`PHPR-R-003`'s own bit-identity note names the same discipline).
 
 ---
 

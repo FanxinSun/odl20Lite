@@ -1741,6 +1741,20 @@ affect drag. Over 1500 comparisons: **A 1238** (worst 7.6706 × 10⁻⁶), **B 3
 **class A's worst is argon at 1000 km, published case 3**: 1056 further material comparisons
 across every branch boundary left the bound exactly where the 17 cases put it.
 
+**Correction (step 4's second closing review, 2026-09-23).** "Crossing every branch boundary" —
+here, and in this section's own opening State line above — was FALSE when it was written, in the
+same shape `SPEC-atmosphere`'s own later absence claim took: the 108-point sweep crossed every
+REGIME §3.6 then described (the spline structure below 120 km), but never the seven species-
+correction cutoffs `ATMO-R-037` later named, because nobody searching this module at the time knew
+they existed — an unsearched absence, not a checked one. The inference this section drew from it —
+that class A's worst staying at argon/1000 km/published case 3 across 1056 added comparisons
+PROVED the 17 published cases were not a lucky subset — was consequently unsound, even though its
+conclusion happened to be nearly right: actually crossing all seven cutoffs (`ATMO-A-028`, §28.10)
+moved the worst by 2.8%, to 7.8881 × 10⁻⁶ at a sweep point (anomalous O, 240.01 km), not the large
+revision a truly unsearched boundary might have hidden. Current figures are `SPEC-atmosphere`
+§3.2/§3.3/§8's own; this section's numbers above are left as measured for the sweep that existed
+when L2 closed, not rewritten to agree with the later one.
+
 ### 20.3 The one porting error, and the shape of it
 
 Every species below 72.5 km came out high by **exactly the same factor** — 3.472 × 10⁻² at
@@ -3363,13 +3377,28 @@ circular, but queried independently through the production force-law call:
 
 (reproduced by `modules/drag/tests/drag_tests.cpp`'s `[.][scratch]`-tagged "the seven-cutoff jump
 table" case, which `WARN`s this exact table rather than asserting a value against it, since it is
-a measurement recorded here, not a gate — the gate is `ATMO-A-028`, item 4 below). The relative
-density jump is the same order at every cutoff, 4–28 × 10⁻⁵ — unsurprising, since each is the same
-kind of switch (a mixing correction turning off) — but the ACCELERATION jump falls by four orders
-of magnitude from N2 to N, monotonically with altitude, because |**a**| itself falls off
-exponentially and the relative jump does not compound that fall, it rides on top of it. A jump
-that looks the same size in every row of `ATMO-A-028`'s own reference comparison is not the same
-size to a force law built on top of it.
+a measurement recorded here, not a gate — the gate is `ATMO-A-028`, item 4 below).
+
+**This table's O/300 km row, 8.754 × 10⁻⁵, is not the same number as §28.5's own bisection,
+4.085 × 10⁻⁵ at `DRAG-A-010`'s own point — and it should not be, which this entry says explicitly
+so a reader does not have to guess which one is wrong.** They are the same jump measured at two
+different conditions: §28.5's bisection ran at `DRAG-A-010`'s own equatorial-adjacent case
+(lat 0.0869 rad, lon −89.17°, 137 m below the cutoff); this table runs at a circular equatorial
+orbit at this test's own epoch (lat 0, local time fixed by the epoch, not `DRAG-A-010`'s). The
+species-correction density itself depends on latitude and local time, not only altitude, so the
+SAME cutoff's relative jump is not one universal number — a factor of 2.14 between the only two
+conditions measured here is the size of that dependence, not a discrepancy. Consequently, the
+"4–28 × 10⁻⁵" spread below is the range ACROSS SPECIES at this table's one condition (the
+circular equatorial orbit), not the general range any one species' jump can take across location
+and local time — a different reader computing O's own jump at a different latitude should expect
+a different number in the same 10⁻⁵–10⁻⁴ neighbourhood, not 8.754 × 10⁻⁵ exactly.
+
+The relative density jump is the same order at every cutoff, 4–28 × 10⁻⁵ at this table's one
+condition — unsurprising, since each is the same kind of switch (a mixing correction turning
+off) — but the ACCELERATION jump falls by four orders of magnitude from N2 to N, monotonically
+with altitude, because |**a**| itself falls off exponentially and the relative jump does not
+compound that fall, it rides on top of it. A jump that looks the same size in every row of
+`ATMO-A-028`'s own reference comparison is not the same size to a force law built on top of it.
 
 **2. The stencil never straddles, at runtime.** `DRAG-R-004`'s channel 1 named its central
 difference's half-step as `DRAG-P-1`'s registered 0.1 km without asking whether that half-step
@@ -3398,7 +3427,10 @@ if the switch did not fire, comparing production `Drag::accel` output against a 
 finite difference (a 10 m step taken entirely on the evaluation altitude's own side of the
 cutoff, which no straddling stencil could match by construction). All four cases (two species,
 two sides) agree to ≈1.3 × 10⁻⁵ relative deviation, well inside the existing 1 × 10⁻⁴ `DRAG-A-010`
-bound applied at a genuinely adversarial case rather than a comfortable one.
+bound applied at a genuinely adversarial case rather than a comfortable one. That bound is itself
+a separation between two regimes, not a margin read off this measurement after the fact — the
+switched stencil's own predicted error and the straddling error it replaces sit roughly two orders
+of magnitude apart, with 1 × 10⁻⁴ between them (`SPEC-drag` `DRAG-P-4` has the derivation).
 
 **3. The integrator effect, sized rather than asserted.** `0.5 · Δ**a** · Δt²` at the stated
 Δt = 60 s, against the tolerance premise this tree has stated before (10⁻¹² relative on a
@@ -3416,18 +3448,42 @@ bound applied at a genuinely adversarial case rather than a comfortable one.
 
 **Three of the seven, not one, clear the stated premise** — N2, He and Ar, the three lowest and
 largest-jump cutoffs — and a fourth, O2, sits at 0.98× it, close enough that a slightly different
-Δt or a slightly eccentric orbit's own radial-rate term could carry it over too. The manager's own
-rough estimate at 300 km alone (≈4 × 10⁻⁷ m, this table's O row at 0.47×) is consistent with the
-measurement here but understates the finding by naming only the one cutoff this diagnostic
-happened to start from: at this stated Δt and ballistic coefficient, a satellite crossing 160 km
-(re-entry-adjacent, but not impossible for a decaying orbit an estimator is still tracking) sees an
-integrator artefact two orders of magnitude over the stated position-tolerance premise, from a
-single fixed 60 s step spanning one cutoff once. This is **sized, not solved, here**: it is
+Δt or a slightly eccentric orbit's own radial-rate term could carry it over too. A rough estimate
+at 300 km alone (≈4 × 10⁻⁷ m, this table's O row at 0.47×) is consistent with the measurement here
+but understates the finding by naming only the one cutoff this diagnostic happened to start from —
+this session's own earlier report made exactly that error, naming N2 as the only cutoff clearly
+over, when the table above already showed three (the attribution is corrected here since the
+report is not the record).
+
+**And "three" is itself a property of the test spacecraft, not of the seven cutoffs.** The
+integrator effect above is linear in the ballistic coefficient *C*_D·*A*/*m*, computed at this
+table's stated 0.044 m²/kg (*C*_D = 2.2, *A* = 10 m², *m* = 500 kg) — not the spacecraft this tree
+exists for. LightSail-2 (32 m² sail, 4.93 kg) is 325× that ballistic coefficient face-on and 84×
+it at the smaller effective area this project already fitted for SRP (§27), so every entry in the
+table above scales the same way:
+
+| species | cutoff | test s/c (0.044 m²/kg) | × effective (84×) | × face-on (325×) |
+|---|---:|---:|---:|---:|
+| N2 | 160 km | 100× | **8 400×** | **32 600×** |
+| He | 200 km | 5.2× | 440× | 1 690× |
+| Ar | 240 km | 1.3× | 110× | 440× |
+| O2 | 250 km | 0.98× | 82× | 320× |
+| O  | 300 km | 0.47× | 39× | 150× |
+| H  | 320 km | 0.15× | 13× | 49× |
+| N  | 450 km | 0.01× | 0.96× | 3.7× |
+
+At the effective area, SIX of the seven clear the premise (only N stays under, and barely); at
+face-on, all seven do. "Three clear it" is true of the test spacecraft this module's own gates use
+and no other; the tree's own target mission sees this as six or seven cutoffs, not three, and
+N2/160 km alone at up to 32 600× rather than 100×. This is **sized, not solved, here**: it is
 `SPEC-drag`'s own force law behaving exactly as `ATMO-R-037` says the atmosphere does, correctly
-propagated — the question of whether an estimator's own step control or event location should
-know about these seven altitudes belongs to L7, later, and is recorded here as a forward pointer
-(`SPEC-drag` §9) rather than answered inside this module, which has no step-control surface to
-answer it from.
+propagated at whatever ballistic coefficient a caller states — the question of whether an
+estimator's own step control or event location should know about these seven altitudes belongs to
+L7, later, and is recorded here as a forward pointer (`SPEC-drag` §9) rather than answered inside
+this module, which has no step-control surface to answer it from. L7 should read this table's
+LightSail-2 column first, not its test-spacecraft one: the plan's own L7 entry already carries this
+integrator hazard as central to what L7 must handle, not a corner case a 300 km rough estimate
+could be read to suggest.
 
 **4. The atmosphere-module promotion.** The diagnosis that found the 300 km jump was this
 module's own — a Jacobian-verification test bisecting a residual `atmosphere` itself never had a
@@ -3461,7 +3517,7 @@ maintains that module's own reference data):
   written and never made to track the data. The extended sweep moved the worst comparison to a
   sweep point (anomalous O at 240.01 km) — not merely a different number, but a REVERSED claim:
   v1.0's text asserted the sweep does not loosen the bound, when the true, current fact is that a
-  wider sweep TIGHTENS it, which is what a sweep whose job is to find worse comparisons ought to
+  wider sweep LOOSENS it, which is what a sweep whose job is to find worse comparisons ought to
   do. Fixed by adding a `describe()` function and parameterising `classify()` on an explicit
   threshold, so both pieces of text are computed FROM the same data the header's own table is,
   not typed once beside it.
@@ -3473,12 +3529,16 @@ maintains that module's own reference data):
 `SPEC-atmosphere` §3.2/§3.3/§6/§8's own class-A counts and worst-comparison figures were
 themselves derived text of exactly this shape, and were updated for the same reason: 1894 material
 (was 1238), 48 immaterial (32), worst 7.8881 × 10⁻⁶ (was 7.6706 × 10⁻⁶, now a sweep point, not one
-of the 17 published cases), 2172 total (1500) = 181 × 12 (125 × 12). §19.3/§20.1–20.2 above,
-this project's own original L2 closure record, are left exactly as written — they correctly
-described the sweep's size when L2 closed, and an append-only history should not be quietly
-rewritten to agree with a later re-measurement; this paragraph, and `SPEC-atmosphere`'s own current
-§3.2/§3.3/§8, are where the current figures now live. `SPEC-drag` `DRAG-R-008`'s own inherited
-tolerance citation was updated to match, for the same reason one level up.
+of the 17 published cases), 2172 total (1500) = 181 × 12 (125 × 12). §19.3 above, this project's
+own original L2 closure record, is left exactly as written — it correctly described the sweep's
+size when L2 closed, and an append-only history should not be quietly rewritten to agree with a
+later re-measurement. §20.2's **"crossing every branch boundary"** is a different kind of claim
+and gets a different treatment: it was FALSE when written, the same unsearched absence as
+`SPEC-atmosphere`'s own former §3.1/§3.6 claim, since the 108-point sweep it describes never
+crossed the `ALTL` cutoffs nobody yet knew existed — corrected with a dated note at §20.2 itself,
+pointing here, not rewritten and not left silently wrong. This paragraph, and `SPEC-atmosphere`'s
+own current §3.2/§3.3/§8, are where the current figures now live. `SPEC-drag` `DRAG-R-008`'s own
+inherited tolerance citation was updated to match, for the same reason one level up.
 
 **On the methodology, recorded because it generalised twice inside one closing round.** The
 manager's own review here — verify every cited line number against the primary source directly
@@ -3492,11 +3552,290 @@ project's own rule 3 and rule 4 exist, but a demonstration of why they do.
 
 ---
 
+## 29. L4 step 5 — SRP and ERP over one shared photon-pressure kernel
+
+`SPEC-photon-pressure.md` v1.0 adopted (Spec ID `PHPR`), `SPEC-macromodel.md` amended to v2.1,
+`modules/attitude`, `modules/srp`, `modules/erp` built, `modules/srp_analytic`/`modules/macromodel`
+amended additively. Gated by `PHPR-A-001`…`-A-017` (`A-002` discharged by `SPEC-srp-analytic`'s own
+pre-existing suite continuing to pass unchanged, no new test needed for it) and `MCRM-A-013`/`-A-014`.
+297 tests pass tree-wide at this entry's own close (up from the tree's own count when step 4 closed).
+
+### 29.1 The scope amendment
+
+No step had ever composed L4's own existing shadow function (step 1) and SRP force law (step 3)
+into a working `dyn::Force` — the only force in the tree was `Drag`, and L4's exit gate cannot be
+reached without one. The manager's own diagnosis, reached while step 5 was scoped as "`erp` alone":
+building ERP's own cap integral would need the SAME photon-pressure kernel SRP itself still lacked
+a plugin for, so step 5 was widened to build BOTH `srp` and `erp` as plugins over ONE shared kernel,
+SRP first — not two unrelated additions, one gap with two symptoms.
+
+### 29.2 The kernel refactor, and the bit-identity proof that actually proves it
+
+`srp_force`/`flat_force`/`spherical_force` (L4 step 3's own closed module) generalised into
+`photon_force(model, irradiance, band, source_direction_body, sun_direction_body,
+velocity_relative_to_source_body_m_per_s)` — irradiance, band and source direction all made
+CALLER-SUPPLIED parameters (`PHPR-R-001`/`R-002`) rather than SRP's own file-local constant and
+implicit Sun-only assumption, `srp_force` kept as a thin wrapper so every pre-existing caller and
+every existing `SPEC-srp-analytic` §8 test is unaffected.
+
+**Two claims, not one, and only one test proves the claim that matters** (found and corrected
+inside this same step, not after it shipped): `SPEC-srp-analytic`'s own 92 636 pre-existing
+assertions passing unchanged proves agreement WITHIN THEIR OWN TOLERANCES, which a refactor's own
+characteristic hazard — reordering a floating-point expression — would still satisfy while changing
+the last bit; and asserting `srp_force`'s output equals the exact `photon_force` call it now makes
+proves nothing at all, a comparison of the wrapper against itself that cannot fail regardless of
+what the underlying arithmetic does. `PHPR-A-001` is the test that actually proves bit-identity:
+`srp_force`, compared with EXACT equality (`std::bit_cast<uint64_t>`, not `==`, which treats `-0.0`
+and `+0.0` as equal), against `srp_force_golden.hpp` — 400 cases (five optical triples × ten
+directions × three single-surface kinds, plus 5×5 bus/panel combinations), captured from a git
+worktree built at the commit immediately before this refactor (`ea9462f`), standalone
+(`g++ 15.2.0 Ubuntu, -std=c++20 -O2`, checked against this tree's own CMake flags for anything
+that would change floating-point semantics — `-march`/`-ffast-math`/`-ffp-contract=fast` absent from
+both), not by this file's own new code calling itself.
+
+**Proven to have teeth, not merely written** (plan rule 5): the first injection attempted —
+reassociating `(A*I/c)*coeff` to `A*(I/c)*coeff` — showed ZERO bit differences across all 400 cases.
+Rather than accept a silent test as proof the check works, this was investigated as a finding about
+the INJECTION (several of this suite's own stated areas are powers of two, which multiply exactly,
+so this specific reassociation genuinely does not diverge here) rather than about the test, and a
+second reassociation tried — `-(prefactor*cos_theta)*bracket` to `(-prefactor)*(cos_theta*bracket)`
+— which DOES diverge: 42 of 400 cases, 61 of 3951 assertions, every one at exactly the last bit.
+Reverted, suite re-run clean, both findings recorded in the test's own comment.
+
+### 29.3 The back-face/band schema gap (`PHPR-R-004a`), `SPEC-macromodel` v2.1
+
+Found while designing the kernel's own call from `cap_integral`: a sun-tracking panel's normal
+tracks the Sun (`PHPR-R-002` lets it, correctly, for SRP), but Earth's own radiation reaches that
+panel from a DIFFERENT direction in general — and when Earth is behind the panel's own front
+(`cos θ < 0`), the pre-existing kernel read the surface as unlit, exactly as it must for a
+surface with only a front. Over the Earth's day side, where reflected albedo comes from, Earth sits
+on the panel's OWN LIT SIDE, opposite the Sun, most of the time — a one-sided panel therefore drops
+most of ERP's own contribution from what is, on a real GNSS spacecraft, most of the spacecraft's own
+area. `RS09` Table 3.1 (own title: "optical parameters, VISIBLE AND INFRARED") independently showed
+the SAME schema also needed a spectral band axis: a real panel's front is measured at µ 0.85/ν 0.23
+visible but µ 0.50/ν 0.20 infrared, real daylight between the two.
+
+This is the SECOND time a contract frozen against a trivial/degenerate client met a real need at its
+first real one (the first: `DYN-R-051`, L3 step 4's own provenance channel). `FlatSurface` gained an
+optional back face (itself visible-required/infrared-optional) and every face gained an optional
+infrared triple falling back to visible; `SphericalSurface` gained the analogous optional infrared
+triple. `OpticalTriple`/`Band`/`BandedOptics` are new named types, not three more loose fields, so
+"all or nothing" and "infrared falls back to visible" are compiler-enforced rather than documented
+and trusted. Additive throughout (every new field optional, defaulting to prior behaviour exactly);
+`PHPR-A-001`'s own bit-identity proof is the strongest available evidence this changed nothing for
+an existing caller, since the schema itself has no force of its own to compare.
+
+`SPEC-macromodel.md` — a CLOSED spec (L4 step 2, frozen at v2.0) — amended to v2.1 rather than left
+undocumented in its own owning spec: `MCRM-R-013`/`R-014`/`R-015`, `MCRM-F-006` (a new opaque
+`IrradianceWPerM2` unit-typed flux density also moved into this module, `srp_analytic`'s own
+1367 W/m² constant no longer the only source of one), `MCRM-A-013`/`A-014` (schema-only round-trip
+and fall-back tests, no force law involved — `BandedOptics.in()`'s own fall-back and
+`FlatSurface.back()`'s own presence/absence, checked directly, separately from whether any force
+law reads them correctly).
+
+### 29.4 The aberration term (`PHPR-R-010`), and a factor-of-four caught before any code existed
+
+`dyn::Force`'s own header (frozen at L3 step 1) already named the defect this term fixes: SRP is the
+force a conventional model declares to have no velocity dependence, and the declaration is false —
+aberration makes it depend on the spacecraft's own velocity. The manager's own review of v1.0 found
+`DYN-Q-002`'s defect reversed: no aberration term existed in the force AT ALL, so `with_velocity`
+would have been a declaration without a term behind it. `BLS79` (Burns, Lamy & Soter 1979, Icarus
+40:1–48, pinned) Eq. (5), *m***v̇** = (SA/c)Q_pr[(1 − *ṙ*/c)**Ŝ** − **v**/c], **Ŝ** the unit vector
+ALONG THE INCIDENT BEAM (source to particle) — this tree's own `e_D` points the OTHER way (particle
+to source), so **Ŝ** = −e_D and *ṙ* = −(**v**·e_D), giving
+F = −(SA/c)Q_pr[(1 + (**v**·e_D)/c)e_D + **v**/c], exactly the pre-existing steady force at **v** = 0
+(`PHPR-R-003`'s own bit-identity). Applied through each surface's ALREADY-established coefficient —
+exact for a sphere (`1 + 4δ/9` **is** BLS79's own *Q*_pr for an isotropic scatterer), the natural
+minimal generalisation for a flat plate (no single BLS79-shaped *Q*_pr exists for two directional
+coefficients; exact at the one geometry this tree's own sun-tracking panels always have, normal
+incidence).
+
+**The velocity-vs-source correction**, caught DURING drafting, before any code existed to carry the
+error forward: the aberration term was first written against the spacecraft's own bare GCRS
+velocity. Aberration depends on velocity relative to the irradiance SOURCE, and for sunlight that is
+dominated by Earth's own ≈29.8 km/s heliocentric motion (the Sun's own GCRS velocity, sign-reversed)
+— using the spacecraft's ≈7.4 km/s geocentric speed alone drops the dominant, nearly-constant
+transverse part of the term, short by roughly a factor of four at this tree's own case. Named
+explicitly in the kernel's own signature
+(`velocity_relative_to_source_body_m_per_s`, plan §5 constraint 10) so the next caller cannot supply
+the wrong one without writing the wrong name; `PHPR-A-006`'s own tolerance was set tight enough to
+fail if the geocentric-only velocity were used by mistake, not merely to confirm an order of
+magnitude — and does: the two differ by ≈4× at LEO.
+
+### 29.5 The two exact identities, and what each actually measures
+
+`PHPR-P-3`: a uniformly-emitting Lambertian sphere's net flux through any concentric sphere of
+radius *r* is exactly *M*(R_E/r)², radial, at EVERY altitude — `PHPR-A-007` reproduces this on a
+`SphericalSurface` spacecraft (albedo forced to zero, isolating the emitted term) to a converged
+relative error of 2.6 × 10⁻⁴ at LEO and 2.8 × 10⁻⁵ at GNSS altitude (§29.6 has the convergence
+history). The far-field albedo form — **`PHPR-A-008`'s own dimensional bug, caught while trying to
+implement the test, not before**: an earlier draft of `PHPR-P-3` stated the far-field reflected
+irradiance as (2·A_E/3)·S·(R_E/r)²·Φ(α), A_E Earth's own DISC AREA (an m², dimensionally wrong in an
+irradiance formula) where it meant the Bond ALBEDO (dimensionless) — undetected through four spec
+review rounds because no code had yet tried to COMPUTE anything with it. Corrected to
+(2·α_A/3)·S·(R_E/r)²·Φ(α), re-verified by carrying the phase integral through explicitly:
+*q* = 2∫Φ(α)sin α *d*α = 3/2 for a Lambertian sphere (a standard, checked result), giving
+∮E(r,α) *dA* = α_A·S·π·R_E² exactly — the incident power on Earth's own disc times the Bond albedo,
+confirming energy conservation holds with the corrected form, not merely dimensionally sensible.
+`PHPR-A-008` then measures the cap integral's own departure from this corrected closed form at
+three phase angles (30°/90°/150°) and three altitudes (GNSS, GEO, 100 000 km): departures shrink
+monotonically at every step and every angle (≈0.15→0.10→0.04 at 30°; ≈0.15→0.09→0.04 at 90°;
+≈0.87→0.67→0.34 at 150°, the largest angle's own departure shrinking more slowly in RELATIVE terms
+because the closed form itself is small there — Φ(α) near its own new-phase zero — so the SAME
+roughly fixed residual from `PHPR-Q-004`'s still-open terminator staircase is a bigger relative
+share, a real and understood reason, not a defect) — characterised, not asserted to vanish, matching
+what `PHPR-P-3` actually claims for this term.
+
+### 29.6 The cap integral: a staircase diagnosed by reading the code, and a fix re-derived, not assumed
+
+`PHPR-A-007`'s own first implementation (a global colatitude/longitude grid, gated to the visible
+cap by a `continue` inside a [0,π]×[0,2π) domain) showed a three-point convergence ratio the manager
+found unusable as `PHPR-P-1`'s own discriminator: 8.5× then 154× at LEO, 16× then 2× at GNSS —
+monotonic, but not at one consistent order. Diagnosed by READING `erp.cpp` directly, not merely the
+symptom: the cap's own boundary crosses the grid at an arbitrary tilt, so boundary cells are
+included or excluded WHOLE as resolution changes, and the discretisation error's own coefficient
+fluctuates with it.
+
+**RS09's own literal grid was checked directly before assuming the fix**
+(`data/literature/rodriguez-solano-2009-masters-thesis`, Eq. 2.41–2.44) rather than built from
+memory of what "Knocke's own scheme" was expected to be: RS09's own (θ,φ) is a colatitude/longitude
+pair about an axis PERPENDICULAR to the satellite–Earth–Sun plane (chosen so both **r̂** and **ŝ**
+fall in one coordinate plane, keeping their own γ formula short), integrated over the same kind of
+gated global domain the first implementation already matched — RS09 states no convergence-order
+analysis to align with. The fix built here is therefore an independent numerical-analysis
+improvement, not "align with the literal source": nadir-centred coordinates, colatitude *χ* from the
+sub-satellite direction **r̂** (0 to *β*, `PHPR-A-010`'s own cap half-angle — not [0,π]), azimuth
+about the same axis. Proven, not merely argued: cos θ_cell(χ) = (r_sat cos χ − R_E)/d(χ) has a
+SIMPLE (transverse) zero exactly at χ = β by β's own definition, so integrating the cap's own domain
+edge-to-edge removes the indicator-function kink the old [0,π] gate introduced, leaving a smooth
+integrand a midpoint rule converges on at its own full order — predicted (a clean 4× per halving)
+BEFORE the new implementation was run, then checked: 4.05× then 4.01× at LEO, 4.00× then 4.00× at
+GNSS. Also fixes the old grid's own waste (a LEO cap is ≈3 % of the full sphere) and, as a
+side-effect nobody had asserted before, sharpens `PHPR-A-007`'s own radial-direction check from
+0.9896 (old grid, GNSS) to exact-to-1e-9 (new grid) — the old grid's own staircase carried a
+directional bias too, not only a magnitude one.
+
+**The first version of this fix coupled the cap's own pole to `m_gcrs_to_body`'s rows** (reasoning:
+in production, `Erp::accel_only`'s own attitude frame already has −**r̂** as its own *z*_body row, so
+reading the triad off it seemed like reuse rather than a second construction) — wrong, caught by
+`PHPR-A-007` itself failing outright (not a subtle drift) the first time it ran: that test passes
+`m_gcrs_to_body = identity`, deliberately unrelated to `r_sat_gcrs_m`, specifically so the returned
+body-frame force is directly comparable to a GCRS direction without an extra rotation in the test —
+a legitimate use the OLD (global-grid) `cap_integral` never depended on this relationship for. Fixed
+by computing **r̂** directly from `r_sat_gcrs_m` (this function's own argument, not a borrowed
+convention) and building the azimuthal pair the ordinary always-defined way — crossing **r̂** with
+whichever GCRS axis it is least aligned with, never degenerate, unlike the Sun-tied choice the first
+attempt also briefly carried (exactly degenerate in that same test's own geometry, Sun and satellite
+along the same direction).
+
+**The albedo term's own terminator still staircases the new grid** (`PHPR-Q-004`, left open): χ
+alone fixes the visibility boundary exactly, but the Sun-lit boundary is a function of both χ and
+azimuth, with no reason to align with either grid axis. `PHPR-A-007` isolates the emitted term
+specifically because it has no such gate; no converged-order claim is made for the reflected term.
+Two directions for closing it, named but not chosen between: a sub-cell lit fraction at boundary
+cells, or accepting the non-clean ratio and gating `PHPR-P-1` on an error bound rather than an
+order there.
+
+**A pre-existing, separate limitation, found while touching this code and flagged rather than
+silently fixed**: `cap_integral`'s own `lat_rad`/`lon_rad` (fed to the `albedo`/`emissivity`
+callbacks) are GCRS-frame spherical angles, not true Earth-fixed (ITRS/geodetic) ones — inert under
+this step's own constant-albedo/emissivity functions, which ignore both arguments, but a real gap
+before a lat/lon-varying model (`PHPR-Q-001`'s own "next refinement") can be plugged in without a
+GCRS→ITRS rotation this function does not yet take (`PHPR-Q-005`). Out of this entry's own scope,
+which was the coordinate system's own discretisation error, not this separate correctness question.
+
+### 29.7 The velocity Jacobian made analytic, closing a tautology the manager caught by reading the code
+
+`Srp::accel`'s own velocity Jacobian was originally a central finite difference of `accel_only`,
+checked in `PHPR-A-006` against ANOTHER finite difference of the same call — the same tautology
+shape plan rule 5 exists to catch, here found by the manager reading `Srp::accel` directly rather
+than by a test failing. Per surface, `PHPR-R-010`'s own substitution is exactly AFFINE in velocity
+(every direction and coefficient it uses is a function of geometry and optical properties alone,
+never of velocity), so *d*F/*d*v is a CONSTANT matrix, exact at every velocity: for a flat surface,
+−(prefactor·cos θ/c)·[steady_direction ⊗ e_D + drag_Q_pr·I]; for a sphere,
+−(prefactor·Q_pr/c)·[e_D ⊗ e_D + I]. Both derived and verified — BEFORE either existed in production
+code — against an independent central finite difference of the force formula in a standalone
+numerical script: sphere case, max abs diff 9.34 × 10⁻²⁰; flat case, exactly 0.0. Implemented as
+`photon_force_and_velocity_jacobian`, returning both the force and this Jacobian from one pass per
+surface; `photon_force` itself is now a thin extraction of its own `.force` member, not a parallel
+computation, so `PHPR-R-003`'s bit-identity carries over mechanically rather than by a second proof.
+`Srp::accel_only` calls this directly, scales the Jacobian by the same shadow/mass factor that
+scales the force to an acceleration, and rotates it body→GCRS on BOTH sides
+(*d*a_gcrs/*d*v_gcrs = Rᵀ·(*d*a_body/*d*v_body)·R, a Jacobian's row space is its output's frame and
+its column space its input's, both body frame here before rotation).
+
+`PHPR-A-006` now checks this PRODUCTION value against an independent finite difference of the whole
+public `Srp::accel` call — genuinely independent, since it never reads the analytic Jacobian at the
+bumped points, only `.acceleration`. Because the force is exactly affine in velocity, this finite
+difference has ZERO truncation error at any step (central difference is exact for an affine
+function); the test's own step (10 m/s, chosen large specifically to shrink the remaining
+floating-point cancellation, the only error source left) measures agreement to ≈1.5 × 10⁻⁹ relative
+— exact to noise, not merely close. `Srp::accel`'s own cost also dropped: six `accel_only` calls per
+evaluation for the position Jacobian (unchanged, no closed form exists for it) instead of twelve,
+since d(a)/d(v) needs none of its own any more.
+
+### 29.8 The remaining finite difference, sized rather than left provisional (`PHPR-A-017`)
+
+`kPositionStepM` (100 m, `Srp::accel`'s own d(a)/d(r), the one Jacobian with no analytic form here)
+had stood on a "first-pass, not measured" footing since it was written. `PHPR-A-017` sweeps this
+step from 1 × 10⁴ m to 1 × 10⁻¹ m against the TRUE public pipeline (not `accel_only`'s own internal
+step, differenced independently from outside): 100 m agrees with its own 30 m/1000 m neighbours to
+≈1.4 × 10⁻⁸ and ≈5.7 × 10⁻⁹ relative respectively — a stable plateau — while the sweep's own small-*h*
+end (0.1 m) shows visibly more step-to-step jitter (2.5 × 10⁻⁷), the expected shape (rule 7):
+truncation error falling as *h* shrinks until floating-point round-off takes over. A back-of-envelope
+cube-root balance (*h*_opt ≈ ε_mach^(1/3) × orbital position scale ≈ 60 m) had already put the
+existing 100 m in roughly the right place; the sweep is what actually checked it. A step landing
+across the shadow function's own penumbra/umbra boundary was also examined directly, not assumed
+benign: `shadow/conical.cpp`'s own three branches (sunlit/penumbra/umbra) agree exactly at their own
+shared edges by construction, so `fraction` is continuous there — a straddling bump sees at worst a
+KINK (a possible slope discontinuity in an otherwise continuous function, the same shape drag's own
+species cutoffs have), never a JUMP, bounded and localised, not yet isolated to a specific altitude
+the way `DRAG-P-1`'s own jump was. `Erp::accel`'s own analogous step sizes remain on the original
+"not yet measured" footing — out of this entry's own stated scope.
+
+### 29.9 RS12 Fig. 2, checked directly, and what a plain sphere cannot show
+
+`PHPR-A-011`'s own qualitative claim — radial maximum at Δu = 0°, minima at Δu = 90°/270°, a
+secondary maximum at Δu = 180°, a cross-track sign flip with β₀ — was checked against `RS12`
+directly (`data/literature/rodriguez-solano-2014-dissertation`, P-I, p. 77, Fig. 2 and its own
+caption/text: "Impact of Earth radiation pressure on GPS position estimates," Rodríguez-Solano,
+Hugentobler, Steigenberger & Lutz 2012 — a FOUR-author paper distinct from `RHS12`'s three-author
+one, both reprinted in the same dissertation, at different page ranges, not conflated). RS12's own
+stated relation, cos ψ = cos β₀ cos Δu, was verified by construction in the test geometry before
+trusting it. A PLAIN SPHERE macromodel shows NONE of the secondary structure — checked directly,
+not assumed: at β₀ = 0° the radial value decreases MONOTONICALLY from Δu = 0° to Δu = 180°, no
+minima at 90°/270°, no secondary maximum — matching RS12's own text exactly ("This last feature
+would not be present for a cannonball model with constant cross-section"). Reproduced only once the
+test's own macromodel gained a sun-pointing panel WITH A BACK FACE (`PHPR-R-004a`, §29.3 — at
+Δu = 0° the panel's own front points directly away from Earth, so only the back face sees Earth's
+radiation at all there): radial 1.558 × 10⁻⁷ (Δu=0°) → 0.919 × 10⁻⁷ (45°) → 0.252 × 10⁻⁷ (90°,
+local minimum) → 0.497 × 10⁻⁷ (135°) → 0.682 × 10⁻⁷ (180°, rising again — the secondary maximum),
+mirrored exactly on the other half. Cross-track: exactly odd in β₀ at every checked Δu (equal
+magnitude, opposite sign, `WithinRel` to 1 × 10⁻⁶) — a symmetry argument, not a geometry-sensitive
+number, the one part of this row not tied to the specific box-wing chosen. The non-radial
+component's own extremum LOCATION (RS12's own ≈35°/145°) is explicitly NOT tested — model-geometry
+sensitive in a way the other claims are not, left unasserted rather than forced to a number this
+entry cannot independently justify.
+
+### 29.10 What this entry does not close
+
+The `PHPR-Q` table (§10 of the spec) carries five open items this entry does not resolve: Knocke's
+own zonal/seasonal albedo coefficients (`Q-001`, constant 0.3/0.7 stands); non-nominal
+noon/midnight attitude (`Q-002`, ruled explicitly out of step 5's own scope, step 6's); the PPM
+shadow (`Q-003`, inherited from L4 step 1, untouched here); the albedo term's own terminator
+staircase (`Q-004`, §29.6); and the cap integral's GCRS-not-ITRS lat/lon (`Q-005`, §29.6). The
+small-β₀ noon/midnight regime is documented (`SPEC-photon-pressure` §4.2) as a stated scope
+boundary, not solved: the ideal yaw law stays mathematically defined through β₀ = 0, but its own
+output there is the model's attitude, not a real spacecraft's, until step 6.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
-| 2026-09-23 | **Step 4's gate closes.** §28.5 corrected in place (kept, not rewritten) and §28.10 added: the manager's own line-by-line read of `MSIS-FOR`'s `DATA ALTL` found channel 1's non-monotonic error was SEVEN hard species-correction cutoffs, not the one §28.5 v1 bisected and not `SPEC-atmosphere`'s cited "fitted cubic spline" (that structure does not exist above 120 km, §3.6, which §3.1's citation had misnamed). Four items closed it: (1) all seven measured directly, a density and acceleration jump table at the stated ballistic coefficient, monotonic in altitude across four orders of magnitude; (2) `drag.cpp`'s channel 1 now detects a straddled cutoff at runtime and switches to a one-sided second-order difference walking away from it (`DRAG-R-012`), verified against a true same-side finite difference at an adversarial case `DRAG-A-010`'s own 37 m of unmeasured margin never tested (`DRAG-A-011`); (3) the 60 s-step integrator effect sized, not asserted, against the tree's 6.7e-6 m tolerance premise -- THREE cutoffs clear it, not the one the manager's own rough estimate named, up to 100x at N2/160 km, left as L7's own event-location question to carry; (4) the diagnosis promoted into `modules/atmosphere`'s own suite (`ATMO-R-037`, `ATMO-A-028`, gated against frozen reference, `ATMO-Q-005`'s CI-independence preserved), an L2 edit on `DYN-Q-001`'s own terms since the false claim lived in a layer this project had already closed. Extending the reference sweep to straddle every cutoff (125->181 records, 1500->2172 comparisons) surfaced a second, unrelated instance of this project's own recurring bug shape inside `tools/msis_reference.py` itself: a hardcoded worst-comparison description that had gone not merely stale but REVERSED (the sweep now tightens the class-A bound it once only failed to loosen), fixed by making the description and its sensitivity claim compute from the same data the table is, not typed once beside it. `SPEC-atmosphere` (§3.2/3.3/3.6/6/8, `ATMO-R-037`) and `SPEC-drag` (`DRAG-R-004/012`, `DRAG-P-1`, `DRAG-A-011`, §8/§9) both updated; `SPEC-drag` `DRAG-R-008`'s inherited tolerance citation follows the corrected figure. |
+| 2026-09-24 | **Step 5's gate closes.** §29 added: `SPEC-photon-pressure` v1.0 adopted, `SPEC-macromodel` to v2.1, `modules/attitude`/`srp`/`erp` built over one shared `photon_force` kernel (`srp_analytic`, additively generalised, `PHPR-A-001`'s golden-file bit-identity proof against the pre-refactor commit, not a live tautology). Four rounds of manager review before adoption caught, in order: a missing FlatSurface back face and spectral band (`PHPR-R-004a`, `RS09` Table 3.1, real GPS panel data) and a missing aberration term (`PHPR-R-010`, `DYN-Q-002`'s defect reversed, `BLS79` Eq. 5) with the aberration term's own first draft using the spacecraft's bare GCRS velocity instead of velocity relative to the Sun -- wrong by ~4x, caught before any code existed to carry it. Two further, larger findings closed the gate itself: (1) the SRP velocity Jacobian made ANALYTIC (closed-form, since `PHPR-R-010`'s own substitution is exactly affine in velocity) rather than a finite difference checked against another finite difference -- the manager's own catch, reading `Srp::accel` directly, of the same tautology shape rule 5 exists to prevent; verified against an independent central finite difference before any production code existed (sphere case 9.34e-20, flat case exactly 0.0), `PHPR-A-006` now checks the real production value to ~1.5e-9 relative; (2) the ERP cap integral's own convergence ratio, found unusable (8.5x/154x at LEO, 16x/2x at GNSS -- monotonic, not one order) and diagnosed by the manager reading `erp.cpp` directly (a "staircase" cap boundary), fixed by reintegrating in nadir-centred coordinates whose own fix was independently re-derived and PREDICTED (a clean 4x per halving) before being run, then confirmed (4.05x/4.01x LEO, 4.00x/4.00x GNSS) -- RS09's own literal grid was checked directly first and found NOT to be this scheme, so the fix is an independent numerical-analysis improvement, not "matching the source." A dimensional bug (disc area where Bond albedo was meant) in the far-field albedo closed form was caught while implementing `PHPR-A-008`, the first time any code tried to compute with it, four review rounds after it was written; `PHPR-A-011`'s own RS12 Fig. 2 comparison was checked against the primary source directly and found to need a back-face panel (a plain sphere shows none of the claimed secondary structure, matching RS12's own text). Nine new acceptance rows written and passing (`PHPR-A-004/005/008/011/013/014/016/017`, `MCRM-A-013/014`); five items carried open (`PHPR-Q-001`..`Q-005`, §29.10). Tree-wide: 297 tests pass. |
+| 2026-09-23 | **Step 4's gate closes.** §28.5 corrected in place (kept, not rewritten) and §28.10 added: the manager's own line-by-line read of `MSIS-FOR`'s `DATA ALTL` found channel 1's non-monotonic error was SEVEN hard species-correction cutoffs, not the one §28.5 v1 bisected and not `SPEC-atmosphere`'s cited "fitted cubic spline" (that structure does not exist above 120 km, §3.6, which §3.1's citation had misnamed). Four items closed it: (1) all seven measured directly, a density and acceleration jump table at the stated ballistic coefficient, monotonic in altitude across four orders of magnitude; (2) `drag.cpp`'s channel 1 now detects a straddled cutoff at runtime and switches to a one-sided second-order difference walking away from it (`DRAG-R-012`, its 1e-4 tolerance a derived separation between two regimes, `DRAG-P-4`), verified against a true same-side finite difference at an adversarial case `DRAG-A-010`'s own 37 m of unmeasured margin never tested (`DRAG-A-011`); (3) the 60 s-step integrator effect sized, not asserted, against the tree's 6.7e-6 m tolerance premise -- THREE cutoffs clear it at the test spacecraft's own ballistic coefficient, not the single one this session's own earlier report had named; scaled to LightSail-2, the mission this tree exists for, SIX to SEVEN of the seven clear it, N2/160 km by up to 32 600x, not 100x -- left as L7's own event-location question, which the plan's own L7 entry already treats as central; (4) the diagnosis promoted into `modules/atmosphere`'s own suite (`ATMO-R-037`, `ATMO-A-028`, gated against frozen reference, `ATMO-Q-005`'s CI-independence preserved), an L2 edit on `DYN-Q-001`'s own terms since the false claim lived in a layer this project had already closed. Extending the reference sweep to straddle every cutoff (125->181 records, 1500->2172 comparisons) surfaced a second, unrelated instance of this project's own recurring bug shape inside `tools/msis_reference.py` itself: a hardcoded worst-comparison description that had gone not merely stale but REVERSED (the sweep now loosens the class-A bound it once only failed to loosen), fixed by making the description and its sensitivity claim compute from the same data the table is, not typed once beside it. §20.2's own "every branch boundary" was the same shape of unsearched absence one layer down, corrected there with a dated note rather than rewritten. `SPEC-atmosphere` (§3.2/3.3/3.6/6/8, `ATMO-R-037`) and `SPEC-drag` (`DRAG-R-004/012`, `DRAG-P-1/4`, `DRAG-A-011`, §8/§9) both updated; `SPEC-drag` `DRAG-R-008`'s inherited tolerance citation follows the corrected figure. |
 | 2026-09-22 | §28.8-28.9 added, SPEC-drag to v1.1, SPEC-dynamics to v1.2. Manager's review of v1.0 found two more things: (1) ForceEvaluation (frozen at L3, gated only by a trivial force that could not reveal what a REAL force must carry) had nowhere for Drag::accel to put atmosphere's provenance, silently losing it for any caller reaching drag only through the Force plugin -- fixed additively (DYN-R-051, DYN-Q-001's own terms), with require_verified made a Drag construction-time option in the same fix, closed together because one found the other. (2) DRAG-A-010's own 1.18e-2 "residual as empirical bound on the unmodelled v_rel(r) channel" was itself wrong: isolating channel 2 (holding rho fixed, differencing through the real to_itrs velocity) proved its formula exact to 6 figures and roughly 10x SMALLER than the gap it was blamed for; a step sweep on channel 1 alone found its true error NON-MONOTONIC across 1-0.25 km, then stably ~1e-6 at 0.1 km and below -- NRLMSISE-00's own fitted-spline structure aliasing against a too-coarse step, not smooth truncation. Fixed at the source (central difference at 0.1 km, channel 2 added exactly) and re-verified by an operational stability check rather than the formula-based prediction that turned out not to describe the real profile: post-fix full-Jacobian deviation 1.19e-6, four orders tighter than the number this section previously called comfortable. DRAG-Q-002 ruled: DragError gained a structured `cause` field, and asking to fire each of DRAG-F-003's three nominal causes found two are provably shadowed by the transform call's own stronger precondition, not merely hard to trigger. |
 | 2026-09-22 | §28 added, SPEC-drag v1.0 adopted, modules/drag built and gated (DRAG-A-001..-A-010). C_D consumed as the ParameterKind::drag_coefficient registered at L3 step 1, never a constant. Rule-4 search found no clean published ballistic-coefficient case; Sengers et al. (2014, arXiv:1404.7826) Table 4 used instead as a plausibility range, not a registered value -- its terms search FOUND an explicit non-open arXiv distribution licence, the first of this tree's three literature entries where the search found something rather than nothing. DRAG-A-010, written only because speccheck.py flagged DRAG-R-004 (the position Jacobian) as discharged by no test, found a real defect: `a_direction` was missing a factor of \|v_rel\| (~7.7 km/s), a ~7300x error a finite difference caught that inspection of the closed form had not; fixed, and the residual after the fix (1.18e-2) is now the tree's own empirical bound on the terms the approximation still neglects. DRAG-A-005 (Liouville with real drag) needed rebuilding at 300 km after the tree's usual 7331 km test radius proved too thin an atmosphere to move det(Phi) measurably. Two smaller tool bugs fixed in passing: fetch.py and literaturecheck.py both mislabelled every literature entry's terms-summary from a field literature entries never carry. |
 | 2026-09-18 | **L2 step 1 `ephemerides` implemented and gated.** §13 added: the `testpo.440` sweep with its denominators (11 354 of 13 201 body cases on the full kernel, 0 skipped for coverage, worst residual 1.06 mm against JPL's 15 mm tolerance), the units design, and six findings from implementation. §3 gains CALCEPH with **CeCILL-B chosen out of its triple licence** and the §5.3.4 obligations recorded. §8.12 records the licence denylist becoming an allowlist. `SPEC-ephemerides` amended to v1.2 (an SPK carries no constants) and `SPEC-frames` to v1.4 (`Frame::BCRS`). |

@@ -153,6 +153,9 @@ add_subdirectory(modules/dynamics)
 add_subdirectory(modules/macromodel)
 add_subdirectory(modules/srp_analytic)
 add_subdirectory(modules/drag)
+add_subdirectory(modules/attitude)
+add_subdirectory(modules/srp)
+add_subdirectory(modules/erp)
 
 # --------------------------------------------------------------------------- #
 

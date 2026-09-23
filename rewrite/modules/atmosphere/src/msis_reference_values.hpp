@@ -54,7 +54,7 @@
 // The worst class-A comparison is anomalous O at sweep alt 240.01 km, condition
 // (200,43200,45,90,100,90,15) -- a SWEEP point, not one of the 17 published
 // cases (whose own worst is 7.671e-06). THE SWEEP DOES NOT MERELY FAIL TO
-// LOOSEN THE BOUND HERE, it TIGHTENS IT: the 1712 further material comparisons
+// LOOSEN THE BOUND HERE, it LOOSENS IT: the 1712 further material comparisons
 // it adds found a worse one than any of the 17 published cases did.
 //   underflow: g7 P4 quantity 8: single 0, double 2.819879e-42
 //   underflow: g7 P17 quantity 8: single 0, double 2.415246e-42
