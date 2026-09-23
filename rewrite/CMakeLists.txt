@@ -156,6 +156,7 @@ add_subdirectory(modules/drag)
 add_subdirectory(modules/attitude)
 add_subdirectory(modules/srp)
 add_subdirectory(modules/erp)
+add_subdirectory(modules/antenna_thrust)
 
 # --------------------------------------------------------------------------- #
 

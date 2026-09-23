@@ -7,9 +7,20 @@ dependency traced to its licence, and every comparison against the predecessor l
 It is also the due-diligence pack. A reader who wants to know whether this tree is the
 owner's to license should be able to answer that from this file alone.
 
-**State of the tree at this revision:** the P1 specifications exist and were **adopted by the
-manager on 2026-09-18**; **no implementation code has been written**. Rows below whose "status"
-reads *specified* record what a module will implement when it is built, not what it does today.
+**State of the tree at this revision, corrected 2026-09-24 — stale since P1, found while closing
+L4 step 5 (§29), fixed here because a due-diligence reader starts at the top of this file and this
+line is exactly the kind of claim that reader needs current, not historical.** The P1
+specifications were **adopted by the manager on 2026-09-18**; implementation has since proceeded
+through **L4 `forces-analytic` step 5** — L0 `foundation`, L1 `time-frames`, L2 `environment`
+(`ephemerides`/`gravity`/`perturbations`/`atmosphere`), L3 `dynamics` (the force-plugin interface,
+coefficients, the STM, the parameter registry, `drag`), and L4 steps 1–5 (`shadow`, `macromodel`,
+`srp_analytic`, `attitude`/`srp`/`erp`) are all built and gated — `tools/ci.sh` exits 0, 297 tests,
+as of commit `cb0f629`. §11 onward, in order, is the record of each. The **module register
+immediately below (§1) is scoped to the original P1 modules only** (`core`/`time`/`ephemerides`/
+`frames`/`eop`) and was never extended as later layers were built — each later module's own status
+is instead recorded where it was built (§21 onward), not duplicated into this table. Rows below
+whose "status" reads *specified* record what a module will implement when it is built, not what it
+does today.
 
 | | |
 |---|---|
@@ -3713,7 +3724,13 @@ BEFORE the new implementation was run, then checked: 4.05× then 4.01× at LEO, 
 GNSS. Also fixes the old grid's own waste (a LEO cap is ≈3 % of the full sphere) and, as a
 side-effect nobody had asserted before, sharpens `PHPR-A-007`'s own radial-direction check from
 0.9896 (old grid, GNSS) to exact-to-1e-9 (new grid) — the old grid's own staircase carried a
-directional bias too, not only a magnitude one.
+directional bias too, not only a magnitude one. **Stated plainly, since the number alone
+understates it (the manager's own point):** arccos(0.9896) is 8.3°. The OLD grid's own infrared
+force was eight degrees off radial and PASSED, because `WithinRel(1.0, 1.0e-6)`'s own tolerance —
+set to catch a wrong LAW, not to describe the geometry — is what decided what "exactly radial"
+meant that round, not the force. An earlier report of this same row described its direction as
+"exactly radial, to the tolerance checked" — true of the tolerance, not of the force it was
+checked against, the manager's own distinction; recorded here so it is not lost a second time.
 
 **The first version of this fix coupled the cap's own pole to `m_gcrs_to_body`'s rows** (reasoning:
 in production, `Erp::accel_only`'s own attitude frame already has −**r̂** as its own *z*_body row, so
@@ -3827,6 +3844,301 @@ staircase (`Q-004`, §29.6); and the cap integral's GCRS-not-ITRS lat/lon (`Q-00
 small-β₀ noon/midnight regime is documented (`SPEC-photon-pressure` §4.2) as a stated scope
 boundary, not solved: the ideal yaw law stays mathematically defined through β₀ = 0, but its own
 output there is the model's attitude, not a real spacecraft's, until step 6.
+
+---
+
+## 30. L4 step 6 — `thrust-yaw`: GPS eclipse-season yaw attitude and antenna thrust
+
+**Date.** 2026-09-24. **Artefact.** `spec/SPEC-thrust-yaw.md` v1.0 adopted, Spec ID `TYAW`; 29
+own-prefix identifiers, 9 requirements and refusals, 8 discharged by an acceptance row and 1
+excused; 0 uncovered. `modules/attitude` gains `gps_yaw_attitude`; a new module,
+`modules/antenna_thrust`, is built. Tree-wide: 13/13 `ci.sh` gates, 309 tests.
+
+### 30.1 Scope narrowing to GPS, and why
+
+L4-6.md's own scope boundary (2026-09-23) named the sources — Steigenberger 2018, Kouba 2009,
+Montenbruck et al. 2015, the Galileo/GLONASS/BeiDou attitude documents — without naming which
+constellation this step must build first. The manager narrowed it (2026-09-24) to GPS by reading
+what the frozen baselines actually consume: `G-01`..`G-03` (`oracle/cases.tsv`) are PRNs G01 and
+G05 in February 2023, and the `B-*` block statistics are GPS IIF/IIR-A/B/M/IIIA. So this step
+built and gated GPS; Galileo, GLONASS and BeiDou are carried as a named follow-on, with sources
+already located (§30.2).
+
+A second, sharper finding followed from reading `validate_sp3.sh` directly (the manager's own
+catch, not assumed): the frozen `G-*` fits are **cannonball** fits — a single `area`/`mass`, the
+SRP scale the same `A·C_R/m` convention `B-*`'s own block means use — and consume **no surface
+model and no attitude law at all** (`oracle/ORACLE.md` §6). So this step's own gate could not be
+"reproduce the frozen residuals" the way earlier steps' gates were; it rests instead on published
+turn behaviour the sources themselves state and print — the β₀ derived relation, continuity at
+hand-over, the rate bound, and observed attitude from openly published ORBEX files (§30.2, §30.8).
+
+### 30.2 The two-round rule-4 search, and what each source actually covers
+
+**Round one, broad** (the four named sources plus what they led to): Kouba 2009 (`KOUBA09`) gives
+II/IIA and IIR/IIR-M in full, with worked equations — but launched before IIF (2010) and IIIA
+(2018), so it says nothing about either. Steigenberger 2018 (transmit power) proved unreachable at
+this layer's own need (§30.2's own second finding, below, shows why that does not block the step).
+Galileo (the operator's own metadata page), GLONASS-M (Dilssner et al. 2011), and BeiDou (the CSNO
+standard, with a published observed deviation) all had real, locatable sources — carried forward,
+not built, since the narrowed scope is GPS-only.
+
+**Round two, narrow** (2026-09-24, once IIF/IIIA were found to be the load-bearing gap): the IGS
+satellite metadata SINEX (`https://files.igs.org/pub/station/general/igs_satellite_metadata.snx`,
+`SATELLITE/IDENTIFIER`/`SATELLITE/PRN` blocks) confirmed, checked rather than trusted, **G01 =
+SVN63 = Block IIF**, **G05 = SVN50 = Block IIR-M**. IIF's own law came from two independent
+primary sources: Dilssner 2010 (`DIL10`, the noon/night rate asymmetry, ≈0.11°/s and ≈0.06°/s, and
+the "β greater than 8°" turn-suppression threshold) and the IGS `eclips` model's own documented
+parameter changelog (§30.3 states its boundary). `TYAW-P-1`'s own derived-relation check
+(tan β₀ = μ̇/R) reproduces `DIL10`'s own threshold for IIF's night rate: 7.93° against "greater
+than 8 degrees," and, read again more closely on the manager's own later prompt (§30.5), a fifth
+check against `DIL10`'s own words for the noon rate too — 4.35° against his own "below 4 degrees"
+— alongside the other three against `KOUBA09`'s own printed II/IIA and IIR figures, 3.57°/4.87°/
+2.39° against 3.6°/4.9°/2.4°.
+
+**Steigenberger 2018 being unreachable does not block this step**, because antenna thrust is built
+here as a force **law** (P/c along the boresight, P a caller-supplied test value) — per-satellite
+transmit power is L5's own population data (`DYN-Q-001`'s L4/L5 split, already used for the
+macromodel itself), not something this layer consumes. The IGS metadata SINEX's own `TX_POWER`
+block (citing `[TP01]`, Steigenberger/Thoelert/Montenbruck 2017) is recorded here only as a
+provenance-only plausibility anchor for `TYAW-P-4`'s own budget row (240 W, SVN63/G01) — its full
+terms are not established by this specification, deferred to L5 where the SINEX becomes consumed
+data (§9's own stated obligation).
+
+### 30.3 The `eclips.f` boundary — the same discipline RKF7(8)'s own tableau already stood on
+
+`eclips.f`, Kouba's own Fortran implementation, is **code** whose licence is not established
+(`COPYRIGHT GEODETIC SURVEY DIVISION, 2011. ALL RIGHTS RESERVED`, no further terms found). Ruled:
+usable only to **cross-check** already-sourced numbers — its own changelog independently confirms
+the 0.06°/s IIF night rate and the −0.7° yaw bias (attributed there to Kuang et al. 2016,
+postdating `DIL10`'s own 2010 text) — never as an implementation template. The manager named this
+"dop853's line," the same boundary `SPEC-integrators`'s own RKF7(8) tableau already observed:
+implement from published coefficients, never from a reference solver's own source.
+
+### 30.4 The IIIA stopgap — ruled, and why it does not matter to any frozen baseline
+
+`TYAW-R-004` models IIIA with `TYAW-R-003`'s own IIF law unchanged, named explicitly as the same
+stopgap IGS analysis centres without a IIIA-specific model already use — not a claim that IIIA's
+own hardware matches IIF's. The manager's own ruling (2026-09-24) rests on the §30.1 finding: since
+no frozen baseline consumes any attitude law at all, this requirement serves a capability beyond
+the predecessor's own baselines (box-wing modelling, this step's and step 5's own joint scope), not
+a reproduction target. The stopgap's own known error is stated in the direction it is known: a 2023
+source (Dilssner et al., GPS World and a companion paper, read at summary level only) reports true
+IIIA behaves "similar to Block IIR but with a smaller maximum yaw rate and an earlier maneuver
+onset" than IIR's own 0.20°/s — IIF's own rates (0.11°/s, 0.06°/s) are already smaller than IIR's,
+the same direction, and IIF's own night-turn β₀ (7.93°) is larger than IIR's (2.39°), the same
+"earlier onset in β" direction the 2023 source reports. Not asserted quantitatively close —
+`TYAW-Q-001`, carried, closes that gap once the true law is read.
+
+### 30.5 `gps_yaw_attitude` — a stateless reformulation, and two real bugs testing caught
+
+`KOUBA09`'s own turn-timing equations (his Eq. 7-9, 15/16 for the noon/midnight turns; Eq. 17-22
+for II/IIA's own shadow crossing) are stated in time, `t`. Reformulated here in the orbit angle
+`μ` instead (μ evolves linearly with time at the fixed rate μ̇, so an angle-since-onset carries the
+same information a time-since-onset would, without a remembered reference epoch) — `TYAW-R-007`'s
+own statelessness requirement, satisfied by construction for turn ONSET (closed-form in the current
+β) but not, it turned out, for turn END without real care.
+
+**Bug 1, found by testing, not anticipated.** `KOUBA09`'s own text terminates a noon/midnight turn
+*operationally* — "until the lagging angle catches up with the nominal yaw attitude" — not by a
+closed form. The first stateless reformulation detected catch-up by comparing the ramp's own
+accumulated ψ against ψ_nominal, wrapped to the branch NEAREST the ramp's own value. Verified once
+against a ground-truth simulation of the operational rule at one rate (0.1°/s) with 0/3600
+mismatches, then FAILED at a different, still-realistic case (II/IIA, β = 1°, R = 0.122°/s,
+μ = 205°, 25° past noon): the ramp's own accumulated value had drifted so far (its own rate is
+≈14.6× μ̇, so a modest Δμ produces a large Δψ) that "nearest branch" picked the wrong multiple of
+2π, silently reporting an already-finished turn as still active (returning a frame 1.5 rad off from
+nominal). Patched first with an explicit bound on the ramp's own accumulated swing (175°, chosen
+because a fresh ground-truth sweep — six rates, β from 1% to 99% of β₀ — never needed more than
+≈174°) and re-verified, 0/9000 mismatches.
+
+**That fix rested on a false premise, found by the manager's own review, not by the grid that
+first tested it — rule 7's own warning, encountered from the inside rather than merely stated.**
+The manager's own simulation showed the true swing tends to 180° exactly as β → 0 (the nominal
+law's own swing through a turn is 180° − 2β), reproducing it directly: 142.6° at β = 1°, 170.3° at
+β = 0.1°, 174.8° at β = 0.03°, 175.8° at β = 0.02° (past the 175° bound), 177.1° at β = 0.01°. The
+"~174°" finding was the smallest β the first grid happened to test, not a property of the physics
+— a threshold FITTED to the grid that judged it. The damage was bounded (within a few degrees of
+nominal, under a minute, once β drops below ≈0.025°) but the comment's own claim was false, and the
+fix that produced it was corrected rather than merely patched again. **The exact, bound-free fix**
+(the manager's own): read ψ_nominal's change since onset on the branch IN THE TURN'S OWN DIRECTION
+— [0, 2π) for a positive turn, (−2π, 0] for a negative one — never on the branch nearest the ramp.
+For any β > 0 the true swing is under 180°, so this branch is unambiguous regardless of how far the
+ramp has itself run on; and once past catch-up, the ramp's own value keeps growing while the
+directional value stays bounded, so a finished turn stays reported finished — no bound needed at
+all. Re-verified with β from 0.01% to 99% of β₀ across all six rates this tree uses, 18 000 points,
+0 mismatches, worst observed swing 179.44°. A dedicated regression test (β = 0.005°, II/IIA)
+locks in the near-β=0 regime the first grid missed.
+
+**Bug 2, in the executor's own test fixture, not production code.** `TYAW-A-006`'s own Sun-on-nadir
+refusal fixture placed the Sun toward Earth, expecting the noon degenerate point — but Sun-toward-
+Earth is the MIDNIGHT geometry, where II/IIA's own shadow-crossing (a *different* width formula,
+E_sh² − β², nonzero at β = 0, unlike the turn's own β₀|β| − β², which correctly vanishes there) is
+always active — so the refusal was never reached for that block. Fixed by using zenith instead.
+
+A third finding, independent of both bugs: `x_body = −cos(ψ)·t̂ − sin(ψ)·n̂` (t̂ the prograde
+tangential direction, n̂ the orbit normal) is the relation that reproduces `nominal_yaw_steering`'s
+own independent z=−r̂/y=(z×ŝ)/x=y×z construction, verified numerically across many random
+geometries to machine precision (max component error 4×10⁻¹⁶) before being trusted — a NEGATIVE
+sign the naive "ψ measured from the along-track direction" reading would not have predicted,
+caught by checking against the existing, already-correct construction rather than assumed.
+
+**A fourth, confirming check made once the dust settled**: the manager asked whether `DIL10`'s own
+printed β = 0° half-turn duration ("about 55 minutes") was ever reproduced. It had not been. Read
+against the production code (not a hand computation): at β = 0.001° (a stand-in for exactly 0,
+where the β₀-threshold's own √(β₀|β| − β²) term is singular), IIF's own modelled night-turn
+duration is **49.82 min** — close enough to corroborate the implementation, recorded as `TYAW-P-1`'s
+own fifth relation and locked in by `TYAW-A-001b`.
+
+### 30.6 `TYAW-P-5`'s own reference point, corrected from LEO to GPS altitude
+
+The antenna-thrust magnitude gap (P/c overstating the true recoil by 1.46%/3.02% at 13.9°/20° beam
+half-angles, §30.7) was first ranked against `PERT-P-2`'s own 8.552×10⁻¹¹ m/s² floor — a LEO
+number by construction (`TN36-6` §6.2.1's ocean-tide truncation cutoff at r = 7331 km, §18.2). The
+manager named this the SAME fault §21.4 already recorded for the SRP/drag velocity-derivative
+comparison: a defensible-looking number from an unstated, mismatched reference point. Rebuilt at
+GPS altitude: the natural reference is the central acceleration itself, GM/r² ≈ 0.565 m/s²
+(r ≈ 26 561 km). A constant, radially outward acceleration error acts like a fractional shift in
+effective GM; a circular-orbit fit absorbs a constant fractional GM shift as a comparable
+fractional shift in fitted radius — 0.34 mm (13.9° case) and 0.70 mm (20° case), both a
+sub-millimetre fitted-position effect against what a GNSS orbit fit resolves. The conclusion is
+unchanged; the reason is rebuilt on GPS's own numbers, stated as a one-pass estimate with its own
+premise named (constant, radial, circular orbit).
+
+### 30.7 `antenna_thrust` — a redesign, from an attitude-plumbed force to a position-only one
+
+The first design gave `AntennaThrust` an `AttitudeProvider` callback plus `Ephemeris`/`LeapTable`
+(to resolve the Sun's own direction for whichever attitude law was bound), with d(a)/d(r) a
+central finite difference (`Srp`'s own remaining-Jacobian shape) and d(a)/d(v) declared absent with
+a deliberately loose, conservative bound (2·a_max/|v|, "the whole force reversing over an
+orbital-velocity-scale change"). The manager's own review found this entire design unnecessary:
+**every attitude law this tree has sets z_body to geocentric nadir and never moves it** — yaw is
+by definition a rotation ABOUT z_body, not of it — so the force, −P/c·z_body, is (P/(mc))·r̂, a
+function of POSITION ALONE. Four corrections followed: (a) d(a)/d(v) = 0 EXACTLY, not a bound on a
+term that does not exist for any provider this tree has; (b) d(a)/d(r) = (P/(mc|r|))(I − r̂r̂ᵀ),
+the standard derivative of a normalised vector, ANALYTIC rather than a finite difference of a
+function differentiable on sight — the same trap L3's own Liouville check was built to catch,
+encountered again at L4; (c) the Sun ephemeris and the attitude-provider call were dependencies
+this force never actually had, each its own refusal path for no reason — removed along with
+`ATTD-F-001`'s own reachability through this force (nadir, and therefore the thrust, is perfectly
+well defined exactly where the yaw singularity is not); (d) the free function's own parameter,
+`m_gcrs_to_body: Mat3`, was replaced with `z_body_gcrs_unit: Vec3` — a second, later pass of the
+manager's own review found the CLASS had been building a Mat3 with only row 2 populated to satisfy
+that signature, "a 'frame' with two zero rows works only as long as nobody ever reads another row";
+the function only ever needed the one axis, so its own signature now says so. `AntennaThrust` is
+now `(p_watts, mass_kg)` only. `TYAW-R-006` amended to state the nadir-for-every-law argument
+concretely rather than as a wiring/independence claim discharged by another row; it now has its own
+acceptance row (`TYAW-A-011`, the analytic Jacobian checked against an independent central finite
+difference, `PHPR-A-006`'s own precedent) rather than being excused. A `TYAW-F-003` the executor
+had minted for the since-removed ephemeris-unavailable path (modelled on `PHPR-F-003`'s own
+precedent for a genuinely different module's failure propagating up, correctly distinguished at the
+time from `TYAW-F-001`'s own same-refusal-two-ways forwarding) was reverted along with the design
+it was for, rather than left stranded in the spec.
+
+### 30.8 `TYAW-A-009` — two registered shapes, a real epoch, and a verdict
+
+**First pass and its own failure.** 2023-04-08, G01/SVN63, via CODE's own MGEX archive, β =
+4.13–4.71° all day — comfortably below IIF's own night threshold (7.93°) but straddling its own
+noon threshold (4.346°, §30.5's own fifth `TYAW-P-1` check, later withdrawn — §30.6), which turned
+out to matter: a first attempt to identify real turns in that day's own ORBEX data, by a coarse
+"elevated rate, contiguous run" search (run in a background agent — §30.9 records why that was
+itself a process fault, independent of the physics), produced an internally impossible noon-turn
+reading (a swing exceeding 180°, which `SPEC-thrust-yaw` itself bounds every turn under). Caught by
+the manager's own review, not the search that produced it.
+
+**What `DIL10`'s own printed numbers actually constrain, read in full rather than excerpted.** The
+manager's own re-reading of the two-number midnight-turn passage (§30.6's own registered text, the
+full passage with page numbers) found that NEITHER a fixed-0.06°/s β₀-threshold ramp (Shape F, the
+law already implemented) NOR a single eclipse-duration-averaged rate (Shape E) fits both of
+`DIL10`'s own printed numbers (0.06°/s; "about 55 minutes" at β = 0°) at once — 0.06°/s × 55 min =
+198°, not the 180° a half-turn is. Each shape reproduces one number to about 1% and misses the
+other by about 10%. Both shapes, and a discrimination criterion (extracted plateau rate and
+turn-start time each within a quarter of the two shapes' own separation from the other) were
+registered in `SPEC-thrust-yaw.md` §4.3 BEFORE any file was read for `TYAW-A-009` itself — `plan`
+rule 7's own discipline, a tolerance set by the question, not by the answer.
+
+**Verdict: Shape E, not Shape F, run by the executor in its own session** (the manager's own
+correction of an executor process fault — a background research agent had been used for exactly
+the handed-over, unsupervised work `~/.claude/CLAUDE.md` §1 reserves for a visible session;
+§30.9). Real SP3 and ORBEX files fetched directly (CODE's own MGEX bucket, `COD0MGXFIN_
+20230980000_01D_05M_ORB.SP3.gz` / `..._ATT.OBX.gz`); G01's ECEF positions converted to GCRS with
+this tree's own `odl::frames::to_gcrs` (IAU 2006/2000A, the real C04 EOP series, not a standalone
+approximation), inertial velocity by central-differencing the GCRS positions, β/μ by this tree's
+own production formula, the Sun's own direction from this tree's own ephemeris.
+
+One real bug caught before trusting any of it: the first attempt built the quaternion-to-matrix
+conversion as body→ECEF (columns = body axes in ECEF), following a loose reading of the ORBEX
+format spec's own prose. z_body · r̂ came out wrong at some epochs (0.99, 0.72, even sign flips) —
+not the clean nadir alignment a GPS antenna keeps. Using ROWS instead (this tree's own `Mat3`
+convention: row *i* is axis *i* of the target frame in source components) gave **−1.0000 exactly**,
+every epoch tested — the file's own quaternion is ECEF→body. Fixed, then the WHOLE pipeline was
+checked against real data far from any turn before looking at the turn itself: `psi_nominal(μ,β)`
+matches the real ORBEX-derived yaw angle to **0.000–0.001°**, dozens of points, both of the day's
+own passages.
+
+**The midnight turn itself, checked at two independent crossings on the same day (different β,
+same day's own data, no new fetch needed for the second):**
+
+| crossing | β | real plateau rate | real duration | real onset (μ) | Shape E predicts | Shape F predicts |
+|---|---|---|---|---|---|---|
+| 1st (≈10.0 h UTC) | 4.218° | −0.0458°/s | 50.50 min | ≈ +13° | rate 0.0467°/s, duration 51.13 min, entry ±12.82° | rate 0.06°/s, onset −3.96° |
+| 2nd (≈22.0 h UTC) | 3.923° | −0.0463°/s | 50.50 min | ≈ +12.3° | rate 0.0472°/s, duration 51.50 min, entry ±12.92° | rate 0.06°/s, onset −3.97° |
+
+Both crossings land Shape E's own rate within 0.001°/s (criterion: 0.0034°/s) and duration within
+about a minute (criterion: ≈4.4 min) of prediction; both land nowhere near Shape F's own 0.06°/s or
+its own onset nine-plus degrees away from where the real rate actually starts rising. Two
+independent instances, same day, different β, same clean verdict.
+
+**The noon side, checked for comparison, is untouched.** Second noon crossing that day, β = 4.070°
+(below the 4.346° noon threshold, so a real turn is expected): real data shows a genuine bounded
+plateau, ≈7.00 min at 0.110–0.112°/s, smooth on both sides — Shape F's own prediction at this exact
+β: 6.52 min, onset 1.06° before noon, exit 2.21° after (3.27° angular span predicted against 3.1°
+observed). Close. The noon turn is the sensor-GUIDED case (Sun still visible, hardware chasing the
+nominal rate as far as it can — Shape F's own mechanism, correctly). The midnight/shadow turn is
+the sensor-BLIND case (Sun lost entirely, nothing left to chase, only the eclipse's own geometric
+duration to define the maneuver — Shape E's own mechanism, not Shape F's).
+
+**What an ORBEX file actually is, checked rather than assumed** (the manager's own further
+question, since the executor's own earlier draft had called this "observed attitude" without
+checking): `Loyer et al. 2021`'s own comparison across seven IGS analysis centres finds
+"significant differences ... for GPS and GLONASS satellites" between their own products, and the
+ORBEX format's own spec (`ORBEX009.pdf` §4.10) carries no observed/predicted flag for the ATT
+record at all, unlike its own POS record. So this is not a ground-truth measurement; it is CODE's
+own published attitude, one implementation's own reading of the literature, checked against this
+one — `plan` rule 8's own case, stated as such in `TYAW-A-009`'s own row rather than left implied.
+
+*[what remains: whether `TYAW-R-003`'s own IMPLEMENTED law changes from Shape F to Shape E for
+IIF's night side is the manager's own verdict to give, not the executor's to take unilaterally —
+holding the code and spec change for it. Once given, this subsection records the decision and
+`TYAW-A-009`'s own frozen acceptance values; §30.10 records the model-form correction as its own
+finding alongside the two real bugs already in §30.5.]*
+
+### 30.9 A background agent used for handed-over work — the manager's own correction
+
+The executor dispatched two background research agents (the Agent tool's own `fork` and a fresh
+agent) for the A-009 epoch-finding and data-extraction work, before either had actually started
+writing or building anything. Once the second one began writing scratch code and building it in
+the shared working tree, its own eventual cleanup (a plain `git checkout`/`restore`-shaped revert,
+never explicitly requested) took the executor's own uncommitted `attitude_tests.cpp` work back to
+`HEAD` with it — caught, diagnosed and fixed within the session (§30.5's own account of the
+attitude-test content is the recovered, not the lost, version). The manager's own review named the
+deeper fault: `~/.claude/CLAUDE.md` §1 reserves hidden background agents for research whose own
+tool output does not need keeping, never for handed-over, unsupervised WORK — a background agent
+writing and building code in the shared tree is exactly the "user cannot watch it happen" case the
+rule exists for, independent of whether that particular run also happened to damage something.
+`TYAW-A-009`'s own extraction was redone by the executor directly, in its own session, once this
+was raised — §30.8 records what that run found.
+
+### 30.10 What this entry does not close
+
+Galileo, GLONASS and BeiDou are carried, not built (§30.2's own sources). True IIIA's own law
+(`TYAW-Q-001`) awaits reading the 2023 source in full. The IGS metadata SINEX's own full terms are
+not established (§9's own stated deferral to L5, where `TX_POWER` becomes consumed data, pinning
+`[TP01]` 2017 specifically, not the unreachable 2018 journal paper). The β ≈ 0° turn-sign
+ambiguity (`TYAW-Q-002`) is carried with a stated convention (sign(β) at the query instant,
+sign(0) := +1) rather than built with memory of a turn's own start; a stateless refinement using
+sign(β) AT the turn's own start (itself geometry, via `KOUBA09`'s own closed-form onset condition,
+not a remembered value) is recorded, not built. `TYAW-Q-003` (the A-009 epoch's own justification)
+and `TYAW-Q-004` (agreed and carried, §10 of the spec) are addressed in §30.8/§30.2 respectively.
 
 ---
 

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <fstream>
 #include <sstream>
+#include <string_view>
 
 using namespace odl;
 using namespace odl::macromodel;
@@ -65,6 +66,35 @@ Macromodel one_panel_model() {
 
     MacromodelBuilder b;
     b.add_surface(*panel);
+    auto mass = cited(500.0, "test-stated");
+    auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
+    REQUIRE(mass.has_value());
+    REQUIRE(com.has_value());
+    b.set_mass(*mass).set_centre_of_mass(*com);
+    auto m = std::move(b).build();
+    REQUIRE(m.has_value());
+    return *m;
+}
+
+/// A cannonball -- `PHPR-A-006`'s own SECOND macromodel, added so the
+/// sphere's own analytic Jacobian branch (`outer_plus_scaled_identity(e_D,
+/// e_D, 1.0, ...)`, srp_analytic.cpp's own `spherical_force`) is checked by
+/// something CI runs, not only by the scratch Python derivation that
+/// verified it before either branch existed in production code -- the flat
+/// branch alone (`one_panel_model`) never exercises this one.
+Macromodel one_sphere_model() {
+    auto area = cited(1.0, "test-stated");
+    auto absorptivity = cited(0.3, "test-stated");
+    auto specular = cited(0.3, "test-stated");
+    auto diffuse = cited(0.4, "test-stated");
+    REQUIRE(area.has_value());
+    REQUIRE(absorptivity.has_value());
+    REQUIRE(specular.has_value());
+    REQUIRE(diffuse.has_value());
+    SphericalSurface sph{*area, *absorptivity, *specular, *diffuse, std::nullopt};
+
+    MacromodelBuilder b;
+    b.add_surface(sph);
     auto mass = cited(500.0, "test-stated");
     auto com = cited(Vec3{0.0, 0.0, 0.0}, "test-stated");
     REQUIRE(mass.has_value());
@@ -139,16 +169,19 @@ LeoState leo_state() {
 
 }  // namespace
 
-TEST_CASE("PHPR-A-006  Srp::accel's own analytic d(a)/d(v) (PHPR-R-010) matches an "
-          "INDEPENDENT central finite difference of the whole plugin call",
-          "[srp][gate]") {
-    // Independent, not the same computation repeated (plan rule 5's own
-    // tautology trap, the shape PHPR-A-001's bit-identity proof and DYN-Q-002
-    // both already caught elsewhere in this tree): this loop never reads
-    // `d_state` at the bumped points, only `.acceleration`, so it cannot be
-    // checking `accel_only`'s own analytic Jacobian against itself, only
-    // against six independent evaluations of the force it differentiates.
-    const Srp force(one_panel_model(), ephemeris(), leaps());
+namespace {
+
+/// `PHPR-A-006`'s own shared check, run once per surface kind below: an
+/// INDEPENDENT central finite difference of the whole plugin call, not the
+/// same computation repeated (plan rule 5's own tautology trap, the shape
+/// `PHPR-A-001`'s bit-identity proof and `DYN-Q-002` both already caught
+/// elsewhere in this tree) -- this loop never reads `d_state` at the
+/// bumped points, only `.acceleration`, so it cannot be checking
+/// `accel_only`'s own analytic Jacobian against itself, only against six
+/// independent evaluations of the force it differentiates.
+void check_analytic_velocity_jacobian(const Macromodel& model, std::string_view label) {
+    INFO(label);
+    const Srp force(model, ephemeris(), leaps());
     const auto when = epoch_at(2015, 6, 21, 12.0);
     const LeoState s = leo_state();
 
@@ -199,6 +232,23 @@ TEST_CASE("PHPR-A-006  Srp::accel's own analytic d(a)/d(v) (PHPR-R-010) matches 
     INFO("max|analytic - fd| = " << max_abs_diff << ", max|analytic entry| = " << max_abs_analytic);
     REQUIRE(max_abs_analytic > 0.0);
     CHECK(max_abs_diff / max_abs_analytic < 1.0e-6);
+}
+
+}  // namespace
+
+TEST_CASE("PHPR-A-006  Srp::accel's own analytic d(a)/d(v) (PHPR-R-010) matches an "
+          "INDEPENDENT central finite difference of the whole plugin call, on BOTH the "
+          "flat-surface and spherical branches of the analytic Jacobian",
+          "[srp][gate]") {
+    // Two macromodels, not one: `photon_force_and_velocity_jacobian`'s own
+    // two branches (flat_force's steady_direction/drag_q_pr form; spherical_
+    // force's e_D-outer-e_D/q_pr form) are different closed forms, and a
+    // panel-only model never reaches the sphere one -- the manager's own
+    // finding: the sphere branch had been checked only in the scratch Python
+    // derivation before either branch existed in code, never by a test CI
+    // runs.
+    check_analytic_velocity_jacobian(one_panel_model(), "flat surface (sun-pointing panel)");
+    check_analytic_velocity_jacobian(one_sphere_model(), "spherical surface");
 }
 
 TEST_CASE("PHPR-A-017  kPositionStepM is SIZED, not guessed (plan rule 7): a step "

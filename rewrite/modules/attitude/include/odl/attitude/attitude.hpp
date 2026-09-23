@@ -57,4 +57,53 @@ using AttitudeError = odl::Diagnostic;
 [[nodiscard]] odl::Result<Mat3, AttitudeError>
 nominal_yaw_steering(const Vec3& r_gcrs_m, const Vec3& sun_direction_gcrs);
 
+/// SPEC-thrust-yaw TYAW-R-001..R-004. Which GPS block's own law applies --
+/// four laws sharing one mathematical shape (`KOUBA09`'s own ATAN2 turn
+/// form), differing only in the parameters `HardwareYawRates` carries and
+/// (IIR/IIR-M only) the absence of a shadow-crossing law. `IIIA` selects
+/// `TYAW-R-004`'s own IIF-law stopgap, not a fifth implementation -- see
+/// `TYAW-A-005`, which checks this is bit-identical to `IIF` at the same
+/// inputs.
+enum class GpsBlock { II_IIA, IIR_IIRM, IIF, IIIA };
+
+/// The per-block constants `gps_yaw_attitude` needs, supplied by the caller
+/// rather than compiled in -- `PHPR-R-001`'s own reasoning (a caller-supplied
+/// irradiance, not a file-local constant) applied here to a different family
+/// of numbers. `night_deg_per_s` is distinct from `noon_deg_per_s` only for
+/// `GpsBlock::IIF` (`TYAW-R-003`'s own two measured rates, `DIL10`); every
+/// other block states the same value in both, since `KOUBA09`'s own II/IIA
+/// and IIR laws use one rate for every turn kind. `spin_up_deg_per_s2` is
+/// read only for `GpsBlock::II_IIA` (`TYAW-R-001`'s own shadow-crossing spin
+/// phase); ignored otherwise.
+struct HardwareYawRates {
+    double noon_deg_per_s;
+    double night_deg_per_s;
+    double yaw_bias_deg;
+    double spin_up_deg_per_s2;
+};
+
+/// SPEC-thrust-yaw TYAW-R-001..R-007. A stateless provider (TYAW-R-007's own
+/// header comment): every quantity this needs is computable from the CURRENT
+/// epoch's own (`r_gcrs_m`, `v_gcrs_m_per_s`, `sun_direction_gcrs`) alone, no
+/// history of a prior call required -- `KOUBA09`'s own turn-timing equations
+/// are closed-form in the current beta and mu, reformulated here in terms of
+/// mu directly (mu evolves linearly with time at the orbit's own mean
+/// motion, so a time-since-turn-start and an angle-since-turn-start carry
+/// the same information, and the angle needs no remembered reference epoch).
+///
+/// Outside any turn or shadow-crossing regime, returns exactly what
+/// `nominal_yaw_steering(r_gcrs_m, sun_direction_gcrs)` returns (the two
+/// must agree at every hand-over, `TYAW-P-2`) -- this function's own
+/// refusal (`ATTD-F-001`, forwarded unchanged) is that same call's own
+/// refusal, reached the same way.
+///
+/// The beta-near-zero turn-start sign ambiguity (`TYAW-Q-002`, RULED:
+/// carry, with a stated convention): uses sign(beta) at the CURRENT query
+/// instant, with sign(0) taken as +1 -- a fixed, deterministic tie-break,
+/// not remembered state, matching this function's own overall
+/// statelessness rather than breaking it for this one case.
+[[nodiscard]] odl::Result<Mat3, AttitudeError>
+gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
+                 const Vec3& sun_direction_gcrs, GpsBlock block, const HardwareYawRates& rates);
+
 }  // namespace odl::attitude
