@@ -1,7 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L3 closed; **L4 open** — steps 1–3 done, step 4 (`drag`) implemented with its gate
-not yet closed, steps 5–7 to come; L5–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L3 closed; **L4 open** — steps 1–4 done, steps 5–7 to come; L5–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -333,7 +332,7 @@ reason the second clause of that sentence is a gate and not a description.
 
 ---
 
-### 3.5 L4 `forces-analytic` — 3 of 7 done; **the open layer**
+### 3.5 L4 `forces-analytic` — 4 of 7 done; **the open layer**
 
 Every non-gravitational force that can be written in closed form. The ray-traced treatment of
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
@@ -374,7 +373,7 @@ the MVP needs.
 2. **DONE** — **Macromodel schema** → [`subplan_L4/L4-2.md`](subplan_L4/L4-2.md)
 3. **DONE** — `srp-analytic` → [`subplan_L4/L4-3.md`](subplan_L4/L4-3.md)
 
-4. **IMPLEMENTED, GATE NOT YET CLOSED** — `drag` → [`subplan_L4/L4-4.md`](subplan_L4/L4-4.md)
+4. **DONE** — `drag` → [`subplan_L4/L4-4.md`](subplan_L4/L4-4.md)
 5. **TODO** — `erp` → [`subplan_L4/L4-5.md`](subplan_L4/L4-5.md)
 6. **TODO** — `thrust-yaw` → [`subplan_L4/L4-6.md`](subplan_L4/L4-6.md)
 7. **TODO** — `ecom` → [`subplan_L4/L4-7.md`](subplan_L4/L4-7.md)
@@ -436,6 +435,17 @@ for all three observation types.
 Two of the predecessor's defects are design requirements here rather than lessons learned.
 
 **Entry:** L3 and L6 exit gates.
+
+> **Carried from L4 step 4: step control across NRLMSISE-00's seven altitude cutoffs.** The
+> density is discontinuous at N₂ 160, He 200, Ar 240, O₂ 250, O 300, H 320 and N 450 km (§3.3
+> step 4's correction), so drag is too, and one fixed 60 s step spanning a cutoff moves the
+> position by ½·Δa·Δt². For L4's compact test spacecraft (*C*_D·*A*/*m* = 0.044 m²/kg) that clears
+> a 10⁻¹² relative tolerance on 6.7 × 10⁶ m at **three** cutoffs, up to 100× at N₂. The effect is
+> linear in the ballistic coefficient, and **the object this tree exists for is not compact**: for
+> LightSail-2 (32 m², 4.93 kg) it is 84× larger with the effective area this project fitted and
+> 325× face-on — **six or seven of the seven** cutoffs clear the tolerance, N₂ by 8 000 to 32 000×.
+> So event location (or an equivalent) is central here, not a corner case. It is decided at L7,
+> and it may need an integrator amendment in L3, made on `DYN-Q-001`'s terms.
 
 1. **TODO** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md)
 2. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
