@@ -206,6 +206,54 @@ struct TurnResult {
     return {true, psi_s + psi_at_t1 + target_rate * (dt - t1)};  // Eq. 22
 }
 
+/// TYAW-R-003 (IIF's own night/midnight law -- changed from a rate-limited
+/// ramp to this after real ORBEX data showed the ramp's own onset nine-plus
+/// degrees from where the real rate actually starts and its own 0.06 deg/s
+/// off by two orders of magnitude more than this shape's own fit,
+/// PROVENANCE.md Sec.30.8/30.10 record the verdict). `DIL10`'s own text
+/// frames the midnight turn by the SHADOW itself, not a hardware rate
+/// limit: the yaw "catches up with the nominal yaw angle towards the end of
+/// the Earth's shadow" -- eclipsed from mu = -half_width to +half_width,
+/// `kShadowHalfAngleRad` the SAME fixed shadow half-angle `TYAW-R-001`'s own
+/// II/IIA shadow-crossing uses (a stated CHOICE borrowed for IIF, not
+/// re-derived independently -- no IIF-specific eclipse geometry source was
+/// found, PROVENANCE.md Sec.30.2's own search). A SINGLE constant rate spans
+/// the whole passage: the nominal law's own unwrapped swing from entry to
+/// exit, divided by the window's own duration -- not a hardware rate at
+/// all, since during actual eclipse there is no Sun sensor to chase one
+/// against.
+///
+/// The swing has a closed form, not a numerical walk: d(psi_n)/d(mu) =
+/// tan(beta)*cos(mu) / (sin(mu)^2 + tan(beta)^2) (dividing `psidot_nominal`
+/// by mu_dot) integrates, by the standard 1/(u^2+a^2) form under u =
+/// sin(mu), to ATAN(sin(mu)/tan(beta)) -- unlike `psi_nominal` itself
+/// (an ATAN2, with a branch cut), this antiderivative is smooth and
+/// single-valued for every mu in the window at any beta != 0, so no
+/// unwrapping or step count is needed: the swing is just its value at
+/// mu_exit minus its value at mu_entry, verified (PROVENANCE.md Sec.30.10)
+/// against an independent small-step nearest-branch accumulation to better
+/// than 1e-9 deg from beta = 0.001 deg to 13.499 deg. Evaluated AT the
+/// query mu_q, this constant rate is exactly linear interpolation in mu
+/// between (mu_entry, psi_entry) and (mu_exit, psi_entry + swing) --
+/// mu_dot itself cancels (a constant rate over a mu-interval, sampled at a
+/// fraction of that interval, does not need to know how fast mu itself
+/// moves), so it does not appear in the return expression at all.
+[[nodiscard]] TurnResult evaluate_shadow_constant_rate(double beta, double mu_current,
+                                                        double x_sign) noexcept {
+    const double width_sq = kShadowHalfAngleRad * kShadowHalfAngleRad - beta * beta;
+    if (width_sq <= 0.0) return {false, 0.0};
+    const double half_width = std::sqrt(width_sq);
+    const double mu_entry = -half_width;
+    const double mu_exit = half_width;
+    const double mu_q = wrap_near(mu_current, 0.0);
+    if (mu_q < mu_entry || mu_q > mu_exit) return {false, 0.0};
+
+    const double psi_entry = psi_nominal(beta, mu_entry, x_sign);
+    const double tan_beta = std::tan(beta);
+    const double swing = std::atan(std::sin(mu_exit) / tan_beta) - std::atan(std::sin(mu_entry) / tan_beta);
+    return {true, psi_entry + swing * (mu_q - mu_entry) / (mu_exit - mu_entry)};
+}
+
 /// Builds M_gcrs_to_body from a turn's own yaw angle psi and the orbit
 /// triad. z_body is always nadir (yaw rotates only about it). Verified
 /// numerically (PROVENANCE) against `nominal_yaw_steering`'s own independent
@@ -281,16 +329,20 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
                                                    rates.spin_up_deg_per_s2 * kDegToRad,
                                                    rates.yaw_bias_deg * kDegToRad);
                 break;
-            case GpsBlock::IIR_IIRM:
-            case GpsBlock::IIF: {
-                // TYAW-R-002/R-003: midnight/night turn, same shape as noon,
-                // this block's own night-side rate (IIR: identical to noon;
-                // IIF: its own smaller, measured rate).
+            case GpsBlock::IIR_IIRM: {
+                // TYAW-R-002: midnight turn, same rate-limited ramp shape as
+                // noon, IIR's own single hardware rate (identical to noon).
                 const double night_onset = std::atan(kMuDotRadPerS / night_rate);
                 result = evaluate_turn(beta, mu, x_sign, 0.0, night_onset, night_rate,
                                         turn_ramp_sign(beta, x_sign, /*is_noon=*/false));
                 break;
             }
+            case GpsBlock::IIF:
+                // TYAW-R-003: night side is Shape E, the shadow-crossing
+                // regime (like II/IIA's own TYAW-R-001), not a rate-limited
+                // ramp -- `rates.night_deg_per_s` is not read here.
+                result = evaluate_shadow_constant_rate(beta, mu, x_sign);
+                break;
             case GpsBlock::IIIA:
                 break;  // unreachable: effective_block never IIIA
         }

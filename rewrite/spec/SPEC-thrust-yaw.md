@@ -258,19 +258,80 @@ candidate shapes both match "a nearly constant rotation rate":
   compared in `TYAW-P-1` because they are two independent routes to the same number, not the same
   computation read twice.
 
-- **TYAW-R-003.** Same mathematical shape as `TYAW-R-001` (IIF shares II/IIA's own **+x**-toward-
-  Sun body convention, `MSGA15` Fig. 4) — `DIL10` does not restate `KOUBA09`'s own ATAN2 formulas,
-  reporting instead the MEASURED parameters a `KOUBA09`-shaped law needs: noon-turn rate
-  *R*_noon ≈ 0.11°/s, Shape F's own midnight-turn rate *R*_night ≈ 0.06°/s (two **different**
-  rates for the two turn kinds, unlike II/IIA's and IIR's single rate — `DIL10`'s own reported
-  asymmetry; NOT corroborated by `eclips.f`, which cites `DIL10` for this same figure rather than
-  supplying an independent one — the two are one source, not two). Yaw bias *b* = −0.7°
-  (`eclips.f`'s own Feb-2017 entry, attributed to Kuang et al. 2016; not present in `DIL10`'s own
-  2010 text, which predates that value — this spec states the more recent, more specific number
-  and names its own later provenance rather than the earlier paper's silence on it). The β₀
-  relation applied to *R*_night = 0.06°/s gives **7.93°** (`TYAW-P-1`), matching `DIL10`'s own
-  independently OBSERVED threshold, "as long as the elevation β of the Sun ... is greater than
-  8 degrees," to two significant figures.
+**`TYAW-A-009`'s own real-data verdict: Shape E, not Shape F** (`PROVENANCE.md` §30.8/§30.10 carry
+the full extraction, the residual report, and the discrimination-criterion check; this paragraph
+states the conclusion and what it rests on). Real CODE MGEX ORBEX/SP3 data for G01/SVN63,
+2023-04-08, at two independent midnight crossings (β = 4.2173°, 3.923°): Shape E's own predicted
+ψ(μ) matches the extracted attitude to a fraction of a degree throughout the shadow window at both
+(max residual 0.065°/0.061°, RMS 0.025°/0.023°), while Shape F's own prediction, checked the
+identical pointwise way over ITS OWN claimed window, is off by 20.8°/22.8° — two orders of
+magnitude worse. By `TYAW-A-009`'s own registered discrimination criterion (a quarter of the two
+shapes' own mutual separation, fixed BEFORE this file was read): the extracted plateau rate and
+turn-start position each land inside Shape E's own quarter-tolerance and outside Shape F's.
+
+**Reading the ORBEX file at all rested on two things checked, not assumed, before any turn was
+examined** (`PROVENANCE.md` §30.8/§30.10 give the full derivation):
+
+- **The quaternion convention.** `ORBEX009.pdf` §4.10's own prose ("The four parts of the
+  quaternion provide the transformation from spacecraft body frame coordinates to the frame
+  specified by the COORD_SYSTEM label ... ORBEX will follow the quaternion notation (q0,q1,q2,q3)
+  outlined in [Kuipers 1999] and [Montenbruck 2000]") reads, on a first pass, as body→ECEF (the
+  quaternion's own matrix, columns as body axes in ECEF components). Read that way, z_body · r̂
+  (the nadir-pointing antenna boresight, true for every block's own law in this file) came out
+  wrong at some epochs (0.99, 0.97, 0.72, 0.35, ...) — not the clean alignment a GPS antenna
+  keeps. Read as ROWS instead — this tree's own `Mat3` convention, row *i* is axis *i* of the
+  TARGET frame in source components, i.e. ECEF→body — z_body · r̂ = **−1.0000 exactly**, every
+  epoch tested. The file's own convention is ECEF→body, established by this empirical, falsifiable
+  property, not by re-reading the prose more carefully.
+- **The μ sign convention matches production's, by construction, not by coincidence.** The
+  extraction program's own triad, β and μ formulas are the SAME lines (modulo variable names) as
+  `orbit_triad`/`signed_beta_rad`/`mu_rad` (`attitude.cpp`); its own psi-recovery from the
+  quaternion is the algebraic inverse of `frame_from_yaw`'s own verified `x_body = -cos(psi)*t_hat
+  - sin(psi)*n_hat` relation. Combined with `psi_nominal(μ,β)` matching the real, independently
+  produced CODE data to 0.000–0.001° far from any turn, this is confirmation by shared formula, not
+  by a convention that merely happened to agree.
+
+- **TYAW-R-003.** Noon side UNCHANGED in this revision: same mathematical shape as
+  `TYAW-R-001`/`TYAW-R-002` (IIF shares II/IIA's own **+x**-toward-Sun body convention, `MSGA15`
+  Fig. 4), `DIL10`'s own measured noon-turn rate *R*_noon ≈ 0.11°/s and his own stated "below
+  4 degrees" onset (the β₀ relation gives 4.35° against it — `TYAW-P-1`'s own fifth check, tried
+  and WITHDRAWN, §6, not a standing checked row). **A genuine low-β test now exists and does NOT
+  confirm this section's own turn-direction convention for IIF** (§10's own `TYAW-Q-005`, EXECUTED:
+  the real turn's own width matches closely, its own centre does not — mirror-imaged about noon,
+  `PROVENANCE.md` §30.12) — left UNCHANGED here because the finding is `plan` rule 8's case, a
+  disagreement between this specification's own convention and CODE's real data, not evidence the
+  convention itself is wrong, and not this executor's decision to make unilaterally (`TYAW-Q-006`
+  carries it for the manager).
+
+  **Night/midnight side changes from Shape F to Shape E**, adopted on `DIL10`'s own text — the
+  passage frames the midnight turn by the SHADOW itself, entry to exit ("towards the end of the
+  Earth's shadow"), not by a hardware rate limit — with the real ORBEX/SP3 verdict above as `plan`
+  rule 8's own corroboration, not the ground the decision stands on. The shadow window is the SAME
+  fixed half-angle `TYAW-R-001`'s own II/IIA shadow-crossing uses, *E*_sh = 13.5°, a stated CHOICE
+  borrowed for IIF (not re-derived independently — no IIF-specific eclipse geometry source was
+  found, §2's own rule-4 search), giving a duration at β = 0° of 2·*E*_sh/μ̇ = **53.8 min** — the
+  ACTUAL implemented figure, not the "55.4 min" this section's own registration paragraph above
+  computed illustratively from the raw point-source angle asin(*R*_E/*a*) = 13.897° before Shape E
+  was adopted; both are within a few percent of `DIL10`'s own rounded "about 55 minutes," the
+  widened figure is the one the code uses. The single rate that spans the window is the nominal
+  law's own unwrapped swing from entry to exit divided by the window's own duration — not a
+  hardware rate at all, since during actual eclipse there is no Sun sensor to chase one against.
+  This has a closed form (`attitude.cpp`'s own `evaluate_shadow_constant_rate`, `PROVENANCE.md`
+  §30.10): the nominal law's own d ψ/d μ integrates, under sin μ substitution, to ATAN(sin
+  μ/tan β) — smooth and single-valued (unlike ψ itself, an ATAN2 with a branch cut) — so the swing
+  is that antiderivative's value at exit minus at entry, no numerical walk or step count needed;
+  verified against an independent numerical integration to better than 1e-9° from β = 0.001° to
+  13.499° (`TYAW-A-004b`).
+
+  **No separate yaw bias applies to IIF's own night side.** `eclips.f`'s own Feb-2017 *b* = −0.7°
+  entry (attributed to Kuang et al. 2016, absent from `DIL10`'s own 2010 text) is II/IIA's own
+  shadow-crossing parameter (`TYAW-R-001`, needed there because the solar sensor has lost the Sun
+  and the turn DIRECTION is otherwise ambiguous); the previous draft of this section stated it as
+  if it also applied to IIF, but the code never actually read it for IIF/IIR, and the real-data
+  residual (`PROVENANCE.md` §30.10) matches Shape E to a few hundredths of a degree with no bias
+  applied at all — Shape E's own direction and magnitude are already fully determined by the
+  nominal law at shadow entry and exit, needing no separate bias term. Removed as a claim this
+  section makes, not merely left unimplemented.
 
 ### 4.4 GPS Block IIIA (stopgap: modelled as IIF)
 
@@ -283,15 +344,22 @@ candidate shapes both match "a nearly constant rotation rate":
   discover the gap unwarned.
   **The stopgap's own known error, stated in the direction it is known** (the 2023 source located
   in §2, read only at summary level): true IIIA behaves "similar to Block IIR but with a smaller
-  maximum yaw rate and an earlier maneuver onset" than IIR's own 0.20°/s. IIF's own rates
-  (0.11°/s, 0.06°/s) are *already* smaller than IIR's 0.20°/s — the same **direction** the true
-  IIIA/IIR difference reports, so IIF-as-IIIA is directionally consistent with the one comparison
-  available, not merely an arbitrary stand-in — and so is the onset: IIF's own night-turn β₀
-  (7.93°, `TYAW-P-1`) is larger than IIR's 2.39°, meaning EARLIER than IIR's own onset in β-angle
-  terms, the same direction the 2023 source reports for true IIIA. **Not asserted to be
-  quantitatively close** — the 2023 source states the comparison qualitatively, not with a number
-  this spec could check the way `TYAW-P-1`'s own four rows do; `TYAW-Q-001` (§10) carries closing
-  that gap once the true law is read.
+  maximum yaw rate and an earlier maneuver onset" than IIR's own 0.20°/s. IIF's own noon rate
+  (0.11°/s) is *already* smaller than IIR's 0.20°/s — the same **direction** the true IIIA/IIR
+  difference reports, so IIF-as-IIIA is directionally consistent with the one comparison available,
+  not merely an arbitrary stand-in — and so is the onset: IIF's own noon β₀ (4.35°, the figure
+  `TYAW-P-1`'s own withdrawn fifth check computed, §6) is larger than IIR's 2.39°, meaning EARLIER
+  than IIR's own onset in β-angle terms, the same direction the 2023 source reports for true IIIA.
+  IIF's night side no longer offers a second onset comparison of this shape — Shape E (§4.3) has no
+  β₀ at all, being active whenever eclipsed rather than at a rate-derived threshold — so this
+  argument now rests on the noon side alone, one comparison, not two; DIL10's own night-side rate
+  (0.06°/s, now understood as an eclipse-averaged constant, not a hardware ceiling `TYAW-R-003`
+  chases toward) is still smaller than IIR's 0.20°/s, the same rate-direction evidence as before.
+  **Not asserted to be quantitatively close** — the 2023 source states the comparison qualitatively,
+  not with a number this spec could check the way `TYAW-P-1`'s own three rows do; `TYAW-Q-001`
+  (§10) carries closing that gap once the true law is read. IIIA inherits Shape E as its own
+  night-side stopgap mechanism too, unchanged from `TYAW-R-004`'s own bit-identical-to-IIF
+  definition (`TYAW-A-005` covers this without a change of its own).
 
 ### 4.5 Antenna thrust
 
@@ -408,14 +476,16 @@ own `PHPR-P-1` (a convergence-ratio statement, not a product either) already sta
 forced into a table row the tool would then fail to parse. `TYAW-P-4` below is a real
 multiplication chain and is a table row for exactly that reason.
 
-- **TYAW-P-1.** The β₀ derived relation, tan β₀ = μ̇/R, checked against every block's own printed
-  β₀, not merely computed and trusted: atan(0.00836°/s ÷ 0.134°/s) = **3.57°** (II/IIA, fast end)
-  against `KOUBA09`'s printed 3.6°; atan(0.00836°/s ÷ 0.098°/s) = **4.87°** (II/IIA, slow end)
-  against his printed 4.9°; atan(0.00836°/s ÷ 0.20°/s) = **2.39°** (IIR) against his printed 2.4°;
-  atan(0.00836°/s ÷ 0.06°/s) = **7.93°** (IIF, night) against `DIL10`'s own independently OBSERVED
-  threshold, "greater than 8 degrees" — a genuinely separate check, since `DIL10` reports that
-  number from noticing where the drift begins, not from this same tan β₀ = μ̇/R computation.
-  Four independent checks of the same relation, not one formula trusted once.
+- **TYAW-P-1.** The β₀ derived relation, tan β₀ = μ̇/R, checked against every rate-limited-ramp
+  block's own printed β₀, not merely computed and trusted: atan(0.00836°/s ÷ 0.134°/s) = **3.57°**
+  (II/IIA, fast end) against `KOUBA09`'s printed 3.6°; atan(0.00836°/s ÷ 0.098°/s) = **4.87°**
+  (II/IIA, slow end) against his printed 4.9°; atan(0.00836°/s ÷ 0.20°/s) = **2.39°** (IIR) against
+  his printed 2.4°. Three independent checks of the same relation, not one formula trusted once.
+  **IIF's own night-side check (atan(0.00836°/s ÷ 0.06°/s) = 7.93° against `DIL10`'s own "greater
+  than 8 degrees") no longer belongs here**: `TYAW-R-003`'s own night side is Shape E as of this
+  revision (§4.3), which has no β₀ at all — it is active whenever eclipsed, not when a hardware
+  rate limit is first reached — so this relation is not evaluated for IIF's night side any more;
+  removed from this row rather than left as a check nothing calls (`PROVENANCE.md` §30.10).
 
   **A fifth, noon-side check (atan(0.00836°/s ÷ 0.11°/s) = 4.35° against `DIL10`'s own "below
   4 degrees") and a duration cross-check against his own "about 55 minutes" at β = 0° were tried
@@ -425,8 +495,9 @@ multiplication chain and is a table row for exactly that reason.
   pass. The duration check (49.82 min against "about 55 minutes") is worse than uninformative: at
   β = 0° the two `DIL10` numbers do not fit one simple rate at all (0.06°/s × 55 min = 198°, not
   180°), so the near-miss it reported was an artefact of comparing an identity to itself, not a
-  corroboration (§4.3's own Shape E/Shape F registration states what this actually means and why
-  it is not settled by inspection).
+  corroboration — since resolved: the night side is Shape E, not the rate this duration check
+  assumed, and the noon side's own duration is now checked directly against `DIL10`'s own "about
+  27 minutes at most" ceiling instead (`TYAW-A-004`), not against this withdrawn 55-minute figure.
 - **TYAW-P-2.** Continuity: at every hand-over between the ideal law and a turn law (both
   directions), |ψ_turn(t_handover) − ψ_ideal(t_handover)| must be small — `KOUBA09`'s own
   construction (the turn's own ψ(t) is DEFINED to start from ψ_n(t_s), the ideal value at the
@@ -481,15 +552,16 @@ multiplication chain and is a table row for exactly that reason.
 
 | id | what is checked | expected value | source of the expected value | tolerance | discharges |
 |---|---|---|---|---|---|
-| `TYAW-A-001` | `TYAW-P-1`'s own four checks, computed in code, not transcribed by hand | 3.57°, 4.87°, 2.39°, 7.93° | derived, `KOUBA09`/`DIL10`'s own printed rates and β₀ | matching the printed figures to their own stated precision | P-1 |
+| `TYAW-A-001` | `TYAW-P-1`'s own three checks, computed in code, not transcribed by hand | 3.57°, 4.87°, 2.39° | derived, `KOUBA09`'s own printed rates and β₀ | matching the printed figures to their own stated precision | P-1 |
 | `TYAW-A-002` | II/IIA and IIR noon-turn continuity at hand-over (`TYAW-P-2`), both directions, at a stated small-β geometry | exact at turn onset (by construction); small at nominal-law re-entry | `KOUBA09`'s own construction | P-2's own stated tightness | R-001, R-002, P-2 |
 | `TYAW-A-003` | \|ψ̇\| ≤ R throughout a stated II/IIA shadow-crossing maneuver, spin-up phase included | never exceeded | `TYAW-P-3` | exact (an inequality, not a tolerance) | R-001, P-3 |
-| `TYAW-A-004` | IIF's own two-rate law (`TYAW-R-003`) produces DIFFERENT noon vs. midnight turn durations at the same β, matching the ~0.11/~0.06 ratio | noon turn measurably shorter than midnight turn, same β | `DIL10`'s own stated asymmetry | measured, order-of-magnitude consistent with the ~1.8x rate ratio | R-003 |
+| `TYAW-A-004` | IIF's own noon (Shape F) and shadow (Shape E) turn durations, each read from `gps_yaw_attitude` at β near/at 0, against `DIL10`'s own two stated β=0 ceilings directly — not against each other (§4.3's own withdrawn ratio check, §6) | noon → 27.14 min (Shape F's own β→0 limit); shadow → 53.8 min (2·*E*_sh/μ̇, the ACTUAL implemented figure) | noon: `evaluate_turn`'s own catch-up condition at β = 0.001°; shadow: closed form at β = 0° | noon within 1.5 min of the β→0 limit; shadow within 5% of `DIL10`'s own rounded "about 55 minutes" | R-002, R-003 |
+| `TYAW-A-004b` | Shape E's own closed-form swing (`evaluate_shadow_constant_rate`'s ATAN(sin μ/tan β)) against an INDEPENDENT small-step numerical integration of `nominal_yaw_steering` (not `attitude.cpp`'s own internal `psi_nominal`) at four β from 4.2173° to 0.01° | agreement | the closed form's own antiderivative, `PROVENANCE.md` §30.10 | 1e-3° (numerical integration's own step-count floor) | R-003 |
 | `TYAW-A-005` | IIIA-as-IIF (`TYAW-R-004`) is bit-identical to `TYAW-R-003`'s own IIF output at the same inputs — the stopgap is exactly what it claims to be, not a fifth, subtly-different implementation | exact equality | `TYAW-R-004`'s own definition | exact | R-004 |
 | `TYAW-A-006` | `TYAW-F-001` fires, forwarded with `ATTD-F-001`'s own id unchanged | the diagnostic | `odl::attitude`'s own existing refusal, reused | — | F-001 |
 | `TYAW-A-007` | `TYAW-F-002` fires on a negative and a NaN *P*_watts, and does not fire on the adjacent valid (zero included) value | the diagnostics; success on the valid input | the refusal catalogue | — | F-002 |
 | `TYAW-A-008` | `TYAW-R-005`'s own IMPLEMENTED formula: the function returns exactly *P*/*c* along −z_body, at a stated *P* — a check on the code computing its own stated upper bound correctly, not a claim that bound equals the true physical recoil (`TYAW-P-5` is that claim) | exact | `TYAW-R-005`'s own closed form | exact | R-005 |
-| `TYAW-A-009` | **CODE's own published attitude, NOT called "observed"** (an ORBEX file's own ATT record carries whatever attitude an analysis centre's own processing used — `Loyer et al. 2021`'s own comparison across seven IGS centres finds "significant differences ... for GPS and GLONASS satellites," and ORBEX's own format spec, `ORBEX009.pdf` §4.10, carries no observed/predicted flag for the ATT record at all, unlike its own POS record — so this is `plan` rule 8's case, agreement with another implementation's own reading of `DIL10`, not a ground-truth measurement): CODE's real ORBEX file for G01/SVN63 at an epoch where β is inside IIF's own turn regime (\|β\| < 7.93°, `TYAW-P-1`), discriminating `TYAW-R-003`'s own registered Shape F against the Shape E alternative (§4.3) by the criterion §4.3 states, set before extraction | Shape F if the extracted plateau rate and turn-start time each fall within a quarter of the two shapes' own separation (≈0.0034°/s, ≈4.4 min at this step's own chosen epoch) of Shape F's own prediction; Shape E symmetrically; "neither" otherwise | CODE's own MGEX ORBEX product, compared against this specification's own Shape E/Shape F predictions, registered here before any file is read | the criterion itself, not a tolerance chosen after the result | R-003 |
+| `TYAW-A-009` | **FROZEN agreement check, REPRODUCIBLE ON DEMAND, not run by `tools/ci.sh`** (`PROVENANCE.md` §30.11 has the full reasoning: the discrimination against Shape F that justified adopting Shape E is closed, §4.3/§30.8/§30.10, so this row does not re-litigate it every run; ongoing regression protection for the MATH is `TYAW-A-004b`, a closed-form check with no external dependency, which IS run every `ctest`). CODE's own published attitude, NOT called "observed" (an ORBEX file's own ATT record carries whatever attitude an analysis centre's own processing used — `Loyer et al. 2021`'s own comparison across seven IGS centres finds "significant differences ... for GPS and GLONASS satellites," and ORBEX's own format spec, `ORBEX009.pdf` §4.10, carries no observed/predicted flag for the ATT record at all, unlike its own POS record — so this is `plan` rule 8's case, agreement with another implementation's own reading of `DIL10`, not a ground-truth measurement): `tools/orbex_shape_e_check.cpp` calls `gps_yaw_attitude` itself (not a reimplementation) at every ATT epoch inside the shadow window, against the pinned CODE ORBEX/SP3 files for G01/SVN63, 2023-04-08, at its own two real midnight crossings (β = 4.2173°, 3.923°) | residual ≤ 0.15° at every sampled point inside the shadow window, both crossings | this specification's own Shape E, `evaluate_shadow_constant_rate`, reached through `gps_yaw_attitude` | 0.15° — roughly 3× the largest residual actually observed when last run (0.0488° max, 0.0269° RMS, n=209, `PROVENANCE.md` §30.11), derived from that measurement, not asserted independently of it | R-003 |
 | `TYAW-A-010` | `TYAW-P-5`'s own (1 + cos α)/2 average and the two stated overstatement figures, computed in code, not transcribed by hand | 0.98536/1.46 % at α = 13.9°, 0.96985/3.02 % at α = 20° | derived, a standard solid-angle average over a uniform cone | matching the stated figures to their own precision | P-5 |
 | `TYAW-A-011` | `TYAW-R-006`'s own position-only claim, made concrete: `AntennaThrust::accel` declares d(a)/d(v) EXACTLY zero (not a bound on a nonzero term), and its own analytic d(a)/d(r), (*P*/(*mc\|r\|*))(I − r̂r̂ᵀ), matches an INDEPENDENT central finite difference of the whole plugin call | d(a)/d(v) absent with 0 s⁻¹ neglected; d(a)/d(r) matching to the finite difference's own truncation floor | `TYAW-R-006`'s own closed form, `r_hat`'s standard derivative | relative, at the difference's own achievable precision | R-006 |
 
@@ -511,6 +583,9 @@ multiplication chain and is a table row for exactly that reason.
   does not repeat the search; the `eclips.f` boundary (cross-check only, never a template, and
   why); the IIIA stopgap decision and its own named direction of error; and, once `TYAW-A-009` is
   completed, which epoch was chosen and the β computation that justified it.
+- The `TYAW-A-009` extraction program lives in `tools/` (not the scratch directory it was first
+  written in), with the SP3/ORBEX files it reads pinned by content hash — `PROVENANCE.md` records
+  which (§30.11) and the gated-vs-reproducible decision for keeping them in the tree.
 - `IGSMETA`'s own full terms are **not** established by this specification — recorded here as
   provenance-only for the one fact this step needs (§2), with the manifest entry and licence
   check deferred to L5, where the same file becomes consumed data (`SATELLITE/TX_POWER`).
@@ -523,5 +598,7 @@ multiplication chain and is a table row for exactly that reason.
 |---|---|
 | `TYAW-Q-001` | **RULED: carry.** The true GPS Block IIIA law (Dilssner et al. 2023 and its companion paper, §2's own carried-forward table) is modelled with the IIF stopgap (`TYAW-R-004`) for now; the true law is carried beside Galileo, GLONASS and BeiDou with its source located, not read closely enough yet to implement. |
 | `TYAW-Q-002` | **RULED: carry, with the stated convention.** The β ≈ 0° turn-start sign-ambiguity edge case (§4.6) is handled with a fixed, stateless tie-break (sign(β) at the query instant, sign(0) = +1) rather than remembered state — β crosses zero twice a year and moves under a degree a day, so a turn actually straddling the ≤0.07° crossing window is a handful a year at most across the constellation. A stateless refinement (sign(β) at the turn's own start *t*_s, itself geometry, not memory) is recorded in §4.6 as a future option, not built now. |
-| `TYAW-Q-003` | **Not a question for the manager — settled by whoever builds `TYAW-A-009`.** Compute G01/SVN63's own β from this tree's own ephemeris and a real orbital state near a candidate date, find an epoch inside the 7.93° turn regime with a real turn in the CODE ORBEX record, and record why that date (§8, §9). Kept as a numbered row so the gap is not mistaken for an oversight, the same reasoning `SPEC-macromodel`'s own Retired identifiers table states for a different kind of removal. |
+| `TYAW-Q-003` | **SETTLED.** G01/SVN63, 2023-04-08 (β = 4.13–4.71° all day), chosen because it straddles the noon threshold (4.346°) while sitting comfortably below the night one (7.93°, now moot — Shape E has no β₀) — recorded, with why, in `PROVENANCE.md` §30.8. Two midnight crossings that day (β = 4.2173°, 3.923°) discriminated the night side decisively; the noon crossing that same day turned out NOT to discriminate its own question (§30.8/§30.12, `TYAW-Q-005`). |
 | `TYAW-Q-004` | **Agreed, carried.** Galileo/GLONASS/BeiDou's own carried-forward sources (§2) are located but none read past what the search's own summary level found. When this tree is ready to build them, each needs its own closer read the way `KOUBA09`/`DIL10` got this round, not an implementation from the search summary alone. |
+| `TYAW-Q-005` | **EXECUTED — Shape F FAILS its own registered criterion, decisively, at both crossings checked** (`PROVENANCE.md` §30.12 has the full account). G01, 2023-04-12 (day 102), β = 2.003°/1.708° at its own two real noon crossings that day. Shape F's own prediction (recomputed against the ACTUAL β found, via `evaluate_turn`'s own catch-up condition — not the illustrative 2.0°/1.0° registered in advance, which fixed the METHOD before any file was read, `plan` rule 7; a real β is a normal input to that same method): centre +2.446°/+2.763° after noon, width 9.22°/9.77°. REAL CODE data: centre **−2.541°/−2.840°, BEFORE noon** — width 9.43°/10.06°, matching Shape F's own predicted WIDTH to within 2–3%, but essentially MIRROR-IMAGED about the noon point (magnitude of the centre offset matches to within a few percent; the SIGN is flipped). Criterion (a quarter of the predicted centre offset, 0.61°/0.69°): the real centre misses by 4.99°/5.60° — roughly 8× the tolerance, both crossings, not a near miss. **Recorded as a discrepancy with `TYAW-R-002`'s own noon-turn direction convention (`turn_ramp_sign`) as applied to IIF, not a model change** (`plan` rule 8 — `turn_ramp_sign` is validated and gating for II/IIA and IIR, `TYAW-A-002`; whether it generalises to IIF's own noon side the way `TYAW-R-003` assumed, "same shape as `TYAW-R-001`," is now a real, specific, well-characterised question, not a diffuse one — the WIDTH match suggests the RATE/ONSET physics is right and only the turn's own DIRECTION relative to noon is in question). Left for the manager's own verdict, not changed unilaterally; carried as `TYAW-Q-006`. |
+| `TYAW-Q-006` | **NEW, for the manager.** `TYAW-Q-005`'s own result: IIF's real noon turn (CODE's own data, two crossings) sits on the OPPOSITE side of the noon point from what `TYAW-R-002`'s own `turn_ramp_sign` predicts when applied to IIF, while matching its predicted width/duration closely. Candidate explanations, not chosen between here: (a) `turn_ramp_sign`'s own SIGN[R, ψ̇ₙ] derivation (`KOUBA09`, validated for II/IIA/IIR) does not transfer to IIF's own hardware the way `TYAW-R-003`'s "same shape as `TYAW-R-001`" assumed; (b) `DIL10`'s own IIF noon convention differs from `KOUBA09`'s in a way neither paper states explicitly; (c) something specific to this satellite/date pair not yet identified. `PROVENANCE.md` §30.12 has the full numeric record for whoever takes this next. |

@@ -153,16 +153,19 @@ TEST_CASE("PHPR-A-003  nominal yaw-steering refuses at the Sun-on-nadir singular
     check_orthonormal_right_handed(*succeeded);
 }
 
-TEST_CASE("TYAW-A-001  the beta0 = atan(mu_dot/R) derived relation reproduces KOUBA09's/DIL10's "
-          "own printed turn-onset thresholds for all four stated hardware rates",
+TEST_CASE("TYAW-A-001  the beta0 = atan(mu_dot/R) derived relation reproduces KOUBA09's "
+          "own printed turn-onset thresholds for every rate-limited-ramp block",
           "[attitude][gate]") {
+    // IIF's own night side no longer has a beta0 (TYAW-R-003, Shape E:
+    // active whenever eclipsed, not when a hardware rate limit is first
+    // reached) -- removed from this table, not merely left unchecked
+    // (PROVENANCE.md Sec.30.10 records why).
     constexpr double kMuDot = 0.00836;  // KOUBA09 Eq. 6, deg/s
     struct Case { const char* label; double rate_deg_s; double printed_deg; double tol_deg; };
     const Case cases[] = {
         {"II/IIA fast end (KOUBA09 Table 1 max, PRN 27)", 0.134, 3.6, 0.05},
         {"II/IIA slow end (KOUBA09 Table 1 min, PRN 10)", 0.098, 4.9, 0.05},
         {"IIR (KOUBA09's single stated hardware rate)", 0.20, 2.4, 0.05},
-        {"IIF night (DIL10 ~0.06 deg/s, cross-checked against eclips.f)", 0.06, 8.0, 0.10},
     };
     for (const auto& c : cases) {
         INFO(c.label);
@@ -282,40 +285,150 @@ TEST_CASE("TYAW-A-003  II/IIA shadow-crossing yaw rate never exceeds the hardwar
     REQUIRE(checked > 1000);  // sanity: the sweep really covered the window densely
 }
 
-TEST_CASE("TYAW-A-004  IIF's own two-rate law: the noon turn is measurably shorter than "
-          "the midnight/shadow turn, at the same beta",
+TEST_CASE("TYAW-A-004  IIF's own noon (Shape F) and shadow (Shape E) turn durations each "
+          "checked against DIL10's own stated ceiling, not against each other",
           "[attitude][gate]") {
-    const HardwareYawRates rates{0.11, 0.06, -0.7, 0.0};
-    const double beta_deg = 1.0;
+    // rates.night_deg_per_s is not read for IIF under Shape E (attitude.hpp).
+    const HardwareYawRates rates{0.11, 0.0, 0.0, 0.0};
 
-    auto extent_deg = [&](double mu_center_deg) {
-        for (double d = 0.05; d < 20.0; d += 0.05) {
-            auto f = fixture_at(beta_deg, mu_center_deg + d);
+    // Noon (Shape F): DIL10's own "lasts about 27 minutes AT MOST" is the
+    // beta -> 0 LIMIT of Shape F's own TOTAL duration (onset to catch-up) --
+    // verified in PROVENANCE.md Sec.30.10 to increase monotonically as beta
+    // shrinks, approaching ~27.2 min, not a value at some unstated moderate
+    // beta. beta = 0 EXACTLY refuses here (TYAW-A-006's own noon-side
+    // singularity: the ramp's own half-width vanishes at beta = 0 exactly),
+    // so a very small beta stands in for the limit DIL10 describes. The
+    // onset is TYAW-P-1's own closed form; only the catch-up end needs a
+    // search (mirroring TYAW-A-002's own construction).
+    {
+        const double beta_deg = 0.001;
+        const double onset_deg = std::atan(0.00836 / 0.11) / kDeg;
+        const double half_width_deg = std::sqrt(onset_deg * beta_deg - beta_deg * beta_deg);
+        double d_found = -1.0;
+        for (double d = 0.05; d < 30.0; d += 0.01) {
+            auto f = fixture_at(beta_deg, 180.0 + d);
             auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GpsBlock::IIF, rates);
             auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
             REQUIRE(turn.has_value());
             REQUIRE(nom.has_value());
-            if (max_component_diff(*turn, *nom) < 1.0e-6) return d;  // caught up
+            if (max_component_diff(*turn, *nom) < 1.0e-6) { d_found = d; break; }
         }
-        return 20.0;  // not reached in practice; see the ratio check below
+        REQUIRE(d_found > 0.0);  // sanity: catch-up really found within the search range
+        const double noon_duration_min = (half_width_deg + d_found) / 0.00836 / 60.0;
+        INFO("noon total duration(min)=" << noon_duration_min);
+        CHECK_THAT(noon_duration_min, WithinAbs(27.14, 1.5));  // DIL10's own "about 27...at most"
+    }
+
+    // Shadow (Shape E), at beta = 0 exactly (DIL10's own stated condition
+    // for "about 55 minutes"): the active window is closed-form
+    // (+-kShadowHalfAngleRad, TYAW-R-001's own E_sh borrowed for IIF, no
+    // search needed for the window itself) -- checked here by confirming
+    // the law is genuinely active (diverged from nominal) well inside it
+    // and has fallen through to nominal exactly well outside it; continuity
+    // AT the boundary follows from construction (TYAW-P-2, psi is defined
+    // to equal the unwrapped nominal value there), not re-tested pointwise.
+    {
+        const double beta_deg = 0.0;
+        auto inside = fixture_at(beta_deg, 10.0);
+        auto outside = fixture_at(beta_deg, 13.6);
+        auto turn_in = gps_yaw_attitude(inside.r_gcrs_m, inside.v_gcrs_m_per_s, inside.sun_gcrs,
+                                         GpsBlock::IIF, rates);
+        auto turn_out = gps_yaw_attitude(outside.r_gcrs_m, outside.v_gcrs_m_per_s, outside.sun_gcrs,
+                                          GpsBlock::IIF, rates);
+        auto nom_in = nominal_yaw_steering(inside.r_gcrs_m, inside.sun_gcrs);
+        auto nom_out = nominal_yaw_steering(outside.r_gcrs_m, outside.sun_gcrs);
+        REQUIRE(turn_in.has_value());
+        REQUIRE(turn_out.has_value());
+        REQUIRE(nom_in.has_value());
+        REQUIRE(nom_out.has_value());
+        CHECK(max_component_diff(*turn_in, *nom_in) > 1.0e-2);    // well inside: genuinely diverged
+        CHECK(max_component_diff(*turn_out, *nom_out) < 1.0e-9);  // well outside: fallen through exactly
+
+        // 2*E_sh/mu_dot, the ACTUAL implemented duration -- not the
+        // registration paragraph's own illustrative "55.4 min" (Sec.4.3),
+        // which used the raw point-source asin(R_E/a) = 13.897 deg, not the
+        // widened kShadowHalfAngleRad = 13.5 deg this law actually uses
+        // (PROVENANCE.md Sec.30.10).
+        const double shadow_duration_min = 2.0 * 13.5 / 0.00836 / 60.0;
+        CHECK(std::abs(shadow_duration_min - 55.0) < 0.05 * 55.0);  // DIL10's own "about 55 minutes"
+    }
+}
+
+TEST_CASE("TYAW-A-004b  Shape E's own closed-form swing (attitude.cpp's "
+          "evaluate_shadow_constant_rate, ATAN(sin(mu)/tan(beta))) matches an INDEPENDENT "
+          "numerical integration of the nominal law's own rate across the shadow window, "
+          "read through the psi it hands to gps_yaw_attitude, not re-derived from the same "
+          "formula twice",
+          "[attitude][gate]") {
+    const HardwareYawRates rates{0.11, 0.0, 0.0, 0.0};  // night_deg_per_s unread for IIF
+
+    // Independent numerical swing: a plain small-step nearest-branch
+    // accumulation of psi_nominal itself (the SAME technique this project
+    // already relies on between adjacent `wrap_near` calls elsewhere, not
+    // the closed form under test) -- built here from `nominal_yaw_steering`
+    // (a call this test does not otherwise exercise for IIF), not from
+    // attitude.cpp's own internal psi_nominal, so the two routes genuinely
+    // do not share code.
+    auto numerical_swing_deg = [&](double beta_deg) {
+        const double half_width_deg = std::sqrt(13.5 * 13.5 - beta_deg * beta_deg);
+        constexpr int kSteps = 20000;
+        const double step_deg = 2.0 * half_width_deg / kSteps;
+        double mu_deg = -half_width_deg;
+        auto psi_at = [&](double mu_d) {
+            auto f = fixture_at(beta_deg, mu_d);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(nom.has_value());  // beta != 0 here, so never the Sun-on-nadir singularity
+            return recover_psi(Vec3{nom->r[0][0], nom->r[0][1], nom->r[0][2]}, mu_d) / kDeg;
+        };
+        double psi_walk = psi_at(mu_deg);
+        const double psi_entry = psi_walk;
+        for (int i = 0; i < kSteps; ++i) {
+            mu_deg += step_deg;
+            double psi_next = psi_at(mu_deg);
+            while (psi_next - psi_walk > 180.0) psi_next -= 360.0;
+            while (psi_next - psi_walk < -180.0) psi_next += 360.0;
+            psi_walk = psi_next;
+        }
+        return psi_walk - psi_entry;
     };
 
-    const double noon_extent = extent_deg(180.0);
-    const double night_extent = extent_deg(0.0);
-    INFO("noon extent(deg)=" << noon_extent << " night extent(deg)=" << night_extent);
-    REQUIRE(noon_extent < 20.0);
-    REQUIRE(night_extent < 20.0);
-    CHECK(noon_extent < night_extent);
-    // Order-of-magnitude consistent with the ~1.8x rate ratio (0.11/0.06),
-    // not asserted exact: the durations depend on the whole ramp-vs-nominal
-    // shape, not simply the rate ratio.
-    CHECK(night_extent > 1.2 * noon_extent);
+    for (double beta_deg : {4.2173, 1.0, 0.1, 0.01}) {
+        INFO("beta(deg)=" << beta_deg);
+        const double numerical = numerical_swing_deg(beta_deg);
+
+        // Read the closed form back out through the production function
+        // itself: the swing is (psi at mu_exit) - (psi at mu_entry),
+        // unwrapped, both read from gps_yaw_attitude(IIF) directly.
+        const double half_width_deg = std::sqrt(13.5 * 13.5 - beta_deg * beta_deg);
+        auto f_entry = fixture_at(beta_deg, -half_width_deg);
+        auto f_exit = fixture_at(beta_deg, half_width_deg);
+        auto turn_entry = gps_yaw_attitude(f_entry.r_gcrs_m, f_entry.v_gcrs_m_per_s, f_entry.sun_gcrs,
+                                            GpsBlock::IIF, rates);
+        auto turn_exit = gps_yaw_attitude(f_exit.r_gcrs_m, f_exit.v_gcrs_m_per_s, f_exit.sun_gcrs,
+                                           GpsBlock::IIF, rates);
+        REQUIRE(turn_entry.has_value());
+        REQUIRE(turn_exit.has_value());
+        const double psi_entry_deg =
+            recover_psi(Vec3{turn_entry->r[0][0], turn_entry->r[0][1], turn_entry->r[0][2]},
+                        -half_width_deg) / kDeg;
+        double psi_exit_deg =
+            recover_psi(Vec3{turn_exit->r[0][0], turn_exit->r[0][1], turn_exit->r[0][2]},
+                        half_width_deg) / kDeg;
+        while (psi_exit_deg - psi_entry_deg > 180.0) psi_exit_deg -= 360.0;
+        while (psi_exit_deg - psi_entry_deg < -180.0) psi_exit_deg += 360.0;
+        const double closed_form = psi_exit_deg - psi_entry_deg;
+
+        CHECK_THAT(closed_form, WithinAbs(numerical, 1.0e-3));
+    }
 }
 
 TEST_CASE("TYAW-A-005  IIIA is bit-identical to IIF at the same inputs -- the stopgap is "
           "exactly what it claims to be, not a fifth implementation",
           "[attitude][gate]") {
-    const HardwareYawRates rates{0.11, 0.06, -0.7, 0.0};
+    // night_deg_per_s/yaw_bias_deg are not read for IIF/IIIA under Shape E
+    // (attitude.hpp) -- left at 0 rather than a stale value that would
+    // misleadingly suggest they still matter here.
+    const HardwareYawRates rates{0.11, 0.0, 0.0, 0.0};
     struct Case { double beta_deg, mu_deg; };
     const Case cases[] = {{1.0, 180.0}, {1.0, 179.0}, {1.0, 0.0}, {5.0, 90.0}, {0.02, 0.0}};
     for (const auto& c : cases) {

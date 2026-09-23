@@ -69,12 +69,19 @@ enum class GpsBlock { II_IIA, IIR_IIRM, IIF, IIIA };
 /// The per-block constants `gps_yaw_attitude` needs, supplied by the caller
 /// rather than compiled in -- `PHPR-R-001`'s own reasoning (a caller-supplied
 /// irradiance, not a file-local constant) applied here to a different family
-/// of numbers. `night_deg_per_s` is distinct from `noon_deg_per_s` only for
-/// `GpsBlock::IIF` (`TYAW-R-003`'s own two measured rates, `DIL10`); every
-/// other block states the same value in both, since `KOUBA09`'s own II/IIA
-/// and IIR laws use one rate for every turn kind. `spin_up_deg_per_s2` is
-/// read only for `GpsBlock::II_IIA` (`TYAW-R-001`'s own shadow-crossing spin
-/// phase); ignored otherwise.
+/// of numbers. `night_deg_per_s` is read for `GpsBlock::II_IIA` (`TYAW-R-001`'s
+/// own shadow-crossing target rate) and `GpsBlock::IIR_IIRM` (`TYAW-R-002`'s
+/// own night rate, identical to noon); NOT read for `GpsBlock::IIF`
+/// (`TYAW-R-003`'s own night side is Shape E, the shadow-crossing regime --
+/// its own single constant rate is computed from beta and the fixed shadow
+/// half-angle, not supplied by the caller, since during actual eclipse there
+/// is no hardware rate limit being chased). `spin_up_deg_per_s2` and
+/// `yaw_bias_deg` are read only for `GpsBlock::II_IIA` (`TYAW-R-001`'s own
+/// shadow-crossing spin phase and its own bias-determined turn direction,
+/// needed there because the solar sensor has lost the Sun; IIF's own Shape E
+/// direction is fully determined by the nominal law at shadow entry/exit,
+/// needing no separate bias, and IIR's turn is sensor-guided throughout,
+/// never losing the Sun); ignored otherwise.
 struct HardwareYawRates {
     double noon_deg_per_s;
     double night_deg_per_s;

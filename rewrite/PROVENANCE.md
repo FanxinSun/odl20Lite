@@ -4088,14 +4088,18 @@ about a minute (criterion: ≈4.4 min) of prediction; both land nowhere near Sha
 its own onset nine-plus degrees away from where the real rate actually starts rising. Two
 independent instances, same day, different β, same clean verdict.
 
-**The noon side, checked for comparison, is untouched.** Second noon crossing that day, β = 4.070°
-(below the 4.346° noon threshold, so a real turn is expected): real data shows a genuine bounded
-plateau, ≈7.00 min at 0.110–0.112°/s, smooth on both sides — Shape F's own prediction at this exact
-β: 6.52 min, onset 1.06° before noon, exit 2.21° after (3.27° angular span predicted against 3.1°
-observed). Close. The noon turn is the sensor-GUIDED case (Sun still visible, hardware chasing the
-nominal rate as far as it can — Shape F's own mechanism, correctly). The midnight/shadow turn is
-the sensor-BLIND case (Sun lost entirely, nothing left to chase, only the eclipse's own geometric
-duration to define the maneuver — Shape E's own mechanism, not Shape F's).
+**The noon side, checked for comparison, turned out NOT to be validly tested — the manager's own
+correction of the executor's first draft, which had called it "fine as implemented."** The
+2023-04-08 noon crossing sits at β = 4.070°, only 7% above the 4.346° noon threshold (`TYAW-P-1`):
+at that β every rate-limited law — Shape F's own mechanism at 0.11°/s, and any nearby variant —
+predicts nearly the same short plateau, so a match there corroborates nothing (no criterion had
+been registered for the noon side before this file was read, `plan` rule 7's own case again).
+Re-examining the SAME date's own noon crossing by CENTRE, not just peak rate and rough duration,
+sharpens this: Shape F's own prediction centres the turn +0.576° after noon at β = 4.070° (recomputed
+directly from `evaluate_turn`'s own catch-up condition, matching the manager's own figure); the
+file's own centre sits at +0.05° — a real difference a peak-rate-only comparison had missed. The
+midnight side's own verdict below does not rest on this noon comparison at all; §30.12 records the
+low-β noon date this specification now requires before the noon side can be said to be tested.
 
 **What an ORBEX file actually is, checked rather than assumed** (the manager's own further
 question, since the executor's own earlier draft had called this "observed attitude" without
@@ -4106,11 +4110,76 @@ record at all, unlike its own POS record. So this is not a ground-truth measurem
 own published attitude, one implementation's own reading of the literature, checked against this
 one — `plan` rule 8's own case, stated as such in `TYAW-A-009`'s own row rather than left implied.
 
-*[what remains: whether `TYAW-R-003`'s own IMPLEMENTED law changes from Shape F to Shape E for
-IIF's night side is the manager's own verdict to give, not the executor's to take unilaterally —
-holding the code and spec change for it. Once given, this subsection records the decision and
-`TYAW-A-009`'s own frozen acceptance values; §30.10 records the model-form correction as its own
-finding alongside the two real bugs already in §30.5.]*
+**The mu sign convention, confirmed rather than assumed.** The extraction program builds its own
+triad and mu the SAME way `attitude.cpp` does — not merely similarly, but textually: `orbit_triad`
+(`attitude.cpp:39-44`) and the extraction's own r_hat/n_hat/t_hat construction are the same three
+lines modulo variable names; `signed_beta_rad` (`attitude.cpp:49-52`) and the extraction's own beta
+line are the same `asin(clamp(s_hat·n_hat))`; `mu_rad` (`attitude.cpp:60-64`) and the extraction's
+own mu line are the same `s_orb_raw`/`u_midnight`/`atan2(t_hat·u, r_hat·u)` construction. The
+extraction's own psi-recovery from the quaternion (`atan2(-x_body·n_hat, -x_body·t_hat)`) is the
+algebraic inverse of `frame_from_yaw`'s own verified relation (`attitude.cpp:217-226`, `x_body =
+-cos(psi)*t_hat - sin(psi)*n_hat`, §30.5's own 4e-16 check) — not a separate formula that happens to
+agree, its own inverse. Combined with `psi_nominal(mu,beta)` matching the real, independently-produced
+CODE data to 0.000–0.001° far from any turn (stated above), this is as strong a same-convention
+confirmation as is available without literally linking the extraction program against `attitude.cpp`'s
+own internal (anonymous-namespace) functions: the sign convention matches production's, by
+construction, not by coincidence.
+
+**The residual report, through the turn and 15 minutes past exit, at both crossings.** Beyond the
+summary rate/duration comparison above, every extracted point was compared against Shape E's own
+`psi_E(mu) = psi_entry + rate·(mu − mu_entry)/mu̇` (rate and the unwrapped entry-to-exit swing it
+comes from both computed the same way `TYAW-R-003`'s own implementation will, §30.10), and,
+separately, against Shape F's own prediction over Shape F's own claimed window:
+
+| crossing | Shape E max \|resid\| (RMS) inside [mu_entry, mu_exit] | n | Shape F max \|resid\| inside ITS OWN [mu_s, mu_e] | n |
+|---|---|---|---|---|
+| 1st, β=4.2173° | 0.065° (RMS 0.025°) | 104 | 20.8° | 64 |
+| 2nd, β=3.923° | 0.061° (RMS 0.023°) | 105 | 22.8° | 67 |
+
+Shape E's own residual is a fraction of a degree, uniformly, at every sampled point in the window,
+both crossings — not merely at the summary-statistic level, at the curve level. Shape F's own
+residual, checked the identical way over ITS OWN claimed window (not a straw comparison outside
+where Shape F claims to apply), is tens of degrees — two orders of magnitude worse, at both
+crossings independently. This is what `TYAW-A-009`'s own registered criterion was built to detect,
+and it is not a close call.
+
+**"Either the endpoints are rough, or CODE's in-shadow rate leaves about 4° for a post-shadow
+maneuver" — resolved: neither, at the curve level.** The manager's own arithmetic (0.0458°/s ×
+50.50 min = 138.8°, against a nominal swing of 142.6° over the same interval) used the table's own
+ROUNDED summary rate and duration; the pointwise residual above shows the fit is NOT rough at the
+edges (0.065° max, achieved AT the boundary, not growing toward it) — the apparent 4° gap is fully
+accounted for by rounding in the summary figures, not a feature of the data. Extending 15 minutes
+past Shape E's own exit boundary at both crossings, real psi does not continue along Shape E's own
+extrapolated line (which diverges by tens of degrees by +15 min, since a linear ramp has no reason
+to stop once evaluated outside its own domain) — it tracks the NOMINAL law instead, to a small,
+CONSTANT offset (−0.042° to −0.045°, both crossings, not growing, not shrinking) that is present
+just as much well before the turn as after it — i.e., an ordinary small residual floor (SP3/ATT
+interpolation, central-difference velocity, or a small real static bias), not a post-shadow
+maneuver's own signature, which would show as a transient that decays, not a flat offset present
+throughout. `DIL10`'s own "short post-shadow maneuver might be needed" describes a possibility, not
+a measured feature this data shows happening at a multi-degree scale.
+
+**The discrimination criterion itself, applied.** `TYAW-A-009`'s own registered tolerance (a quarter
+of the two shapes' own mutual separation, computed at the first crossing's β = 4.2173° before this
+file was read): rate separation 0.0133°/s → quarter 0.0033°/s; turn-start separation 8.87° of mu
+(17.68 min) → quarter 4.42 min. The extracted plateau rate magnitude (a model-free linear fit over
+mu ∈ [−3°, 3°], a core region inside both shapes' own candidate windows so neither shape's own
+boundary choice biases the fit) is 0.0458°/s — 0.0009°/s from Shape E's own 0.0467°/s prediction
+(well inside the 0.0033°/s quarter-tolerance), 0.0142°/s from Shape F's own 0.06°/s (over four times
+the tolerance, outside it). By `TYAW-A-009`'s own criterion, registered before this file was read:
+**Shape E**, not Shape F, not neither.
+
+**Verdict: `TYAW-R-003`'s own IMPLEMENTED law for IIF's night side changes from Shape F to Shape E**,
+adopted on `DIL10`'s own text (the passage frames the midnight turn by the SHADOW — entry to exit —
+not by a hardware rate limit; §4.3's own registration already named this as Shape E's own structural
+case), with this CODE file as `plan` rule 8's own corroboration, not the ground the decision stands
+on. `E_sh` = 13.5° is carried over from `TYAW-R-001` as a stated CHOICE (II/IIA's own shadow
+half-angle, not re-derived independently for IIF — no IIF-specific eclipse geometry source was
+found in the rule-4 search, §30.2). The noon side is UNCHANGED (Shape F, `TYAW-R-002`'s own
+mechanism, `R_noon` ≈ 0.11°/s) — still the sensor-guided, hardware-rate-limited case `DIL10`'s own
+text separately describes — pending its own valid test (§30.12). §30.10 records the specification
+and implementation change this verdict requires; §30.11 records `TYAW-A-009`'s own rewrite as a
+frozen agreement-check and the extraction program's own move into `tools/`.
 
 ### 30.9 A background agent used for handed-over work — the manager's own correction
 
@@ -4128,7 +4197,225 @@ rule exists for, independent of whether that particular run also happened to dam
 `TYAW-A-009`'s own extraction was redone by the executor directly, in its own session, once this
 was raised — §30.8 records what that run found.
 
-### 30.10 What this entry does not close
+### 30.10 `TYAW-R-003` rewritten for Shape E, and a closed form found for its own swing
+
+**Spec.** `SPEC-thrust-yaw.md` §4.3 rewritten: the Shape F/Shape E registration paragraph (written
+before any file was read, §30.8) is left untouched — a registration edited after the fact to read
+differently would be exactly the `plan` rule 7 violation the registration exists to prevent — and
+the verdict, the quaternion-convention finding, and the μ-sign-convention confirmation are added
+as new text after it. `TYAW-R-003` itself now states: noon side unchanged (Shape F); night/midnight
+side Shape E, *E*_sh = 13.5° stated explicitly as a CHOICE borrowed from `TYAW-R-001` (no
+IIF-specific eclipse geometry source exists in the rule-4 search, §30.2); the −0.7° yaw bias
+REMOVED as a claim for IIF's own night side — the previous draft stated it as if `TYAW-R-003`
+consumed it, but `attitude.cpp` never actually read `rates.yaw_bias_deg` for IIF (only II_IIA's own
+shadow-crossing does), and the real-data residual (§30.8) matches Shape E to a few hundredths of a
+degree with no bias applied — Shape E's own direction and magnitude are already fully determined by
+the nominal law at shadow entry and exit. `TYAW-P-1` reduced to three checks (IIF's night-side
+7.93° removed — Shape E has no β₀ at all, active whenever eclipsed rather than at a rate-derived
+threshold, `PROVENANCE.md` §30.10, this entry). §4.4 (IIIA)'s own onset-direction argument, which
+had cited IIF's night-side β₀ as evidence, now rests on the noon side alone (the night side offers
+no onset comparison of that shape under Shape E) — the rate-direction argument is unaffected.
+`TYAW-A-001` drops the same check; `TYAW-A-004` redesigned (below); `TYAW-Q-003` marked SETTLED;
+`TYAW-Q-005` (§10) registers the low-β noon date this verdict's own noon side still needs, with
+Shape F's own centre/duration pre-computed at β = 2.0°/1.0° BEFORE any file for that date is read
+(§30.12 records executing it).
+
+**A precision correction inside the rewrite itself, caught while writing it, not before.** The
+original Shape F/Shape E registration paragraph's own illustrative "55.4 min" duration at β = 0°
+(§4.3, unedited) used the raw point-source shadow angle asin(*R*_E/*a*) = 13.897° — a plausibility
+figure computed BEFORE deciding to implement Shape E at all. The actual implementation uses
+`kShadowHalfAngleRad` = 13.5° (`TYAW-R-001`'s own widened constant, chosen for the reason stated
+there), giving 2×13.5°/μ̇ = **53.8 min**, not 55.4 min. Both are within a few percent of `DIL10`'s
+own rounded "about 55 minutes," but they are not the same number, and every place that now states
+the ACTUAL implemented duration (`TYAW-R-003`, `TYAW-A-004`) uses 53.8 min, not the registration
+paragraph's own earlier, different figure — the kind of two-numbers-that-look-like-the-same-thing
+gap this project's own review has caught before (the LEO/GPS-altitude reference point, §30.6; the
+7.95°/7.93° transcription, §30.5).
+
+**Implementation.** `evaluate_shadow_constant_rate` (`attitude.cpp`, after `evaluate_shadow_crossing`)
+replaces `evaluate_turn` for `GpsBlock::IIF`'s own night branch; `IIR_IIRM` keeps `evaluate_turn`
+unchanged (its own physical situation is unaffected — DIL10's own text is specifically about IIF,
+and IIR "maintains nominal yaw attitude even in the absence of sunlight" as printed, a different
+regime entirely). The swing (nominal ψ, unwrapped, from shadow entry to exit) turned out to have a
+CLOSED FORM, found while implementing rather than assumed necessary to search for: d ψₙ/d μ =
+tan β·cos μ/(sin²μ + tan²β) (`psidot_nominal` divided by μ̇) is, under *u* = sin μ, the standard
+1/(u² + a²) integral, giving the antiderivative ATAN(sin μ/tan β) — smooth and single-valued
+everywhere in the shadow window at any β ≠ 0 (unlike ψₙ itself, an ATAN2 with a branch cut), so the
+swing is simply that antiderivative's value at exit minus at entry. No numerical walk, no step
+count to justify. Verified against an independent small-step nearest-branch accumulation (the SAME
+technique `wrap_near` itself relies on between adjacent calls) from β = 0.001° to 13.499°: agreement
+to 1.4×10⁻¹³ deg or better, machine-precision-limited, not step-size-limited (`residual_report.py`,
+scratchpad). At β = 0° exactly the formula reduces to a division by `tan(0) = +0.0`, giving `±inf`
+and `atan(±inf) = ±90°` under ordinary IEEE 754 arithmetic — no special case needed, no crash, and
+the resulting swing (180° exactly) matches the β → 0 limit found independently by the walk. Carried
+into the production test suite as `TYAW-A-004b`, using `nominal_yaw_steering` (a genuinely separate
+code path, not `attitude.cpp`'s own internal `psi_nominal`) as the independent reference, at four β
+from 4.2173° to 0.01°: agreement to 1e-3° (the numerical integration's own floor).
+
+**`TYAW-A-004`, redone against `DIL10`'s own literal ceilings, not a ratio.** The previous version
+compared noon and midnight durations to EACH OTHER at one moderate β (1.0°) — order-of-magnitude
+reasoning only, and no longer meaningful once the two sides are different SHAPES, not the same
+shape at two rates. Rebuilt to check each side against `DIL10`'s own stated number directly. Noon
+(Shape F): `DIL10`'s own "about 27 minutes at most" turned out, on checking rather than assuming,
+to be the β → 0 LIMIT of Shape F's own total duration (onset to catch-up) — traced numerically from
+β = 4.070° (6.52 min) down to β = 0.0001° (27.23 min), monotonically increasing, not the value at
+some unstated moderate β (`residual_report.py`'s own `shape_F_noon_duration` sweep, scratchpad).
+The test evaluates at β = 0.001° (β = 0° exactly refuses here, `TYAW-A-006`'s own noon singularity)
+and gets 27.14 min against the same closed-form onset (`TYAW-P-1`) plus a searched catch-up point,
+checked within 1.5 min. Shadow (Shape E): `DIL10`'s own "about 55 minutes" checked at β = 0° exactly
+against the ACTUAL 53.8 min (not the registration paragraph's own 55.4 min, above) — within 5%.
+
+**A byproduct check on the manager's own noon-centre arithmetic, confirmed independently.** The
+manager's own worked figures for `TYAW-Q-005` (β = 2.0° → +2.447° centre, 18.40 min; β = 1.0° →
++3.685° centre, 21.99 min) were recomputed here directly from `evaluate_turn`'s own catch-up
+condition (not merely trusted): +2.447°/18.40 min and +3.685°/21.99 min — matching to the third
+decimal place. §30.12 uses these numbers as the registered prediction for `TYAW-Q-005`'s own
+execution.
+
+Tree-wide: 309 tests pass (`ctest`), including the 85 466 assertions across `modules/attitude`'s own
+10 cases (`TYAW-A-004b` new; `TYAW-A-001`/`A-004`/`A-005` revised).
+
+### 30.11 `TYAW-A-009` moved into `tools/`, hash-pinned, and made REPRODUCIBLE rather than gated
+
+**The tool.** `tools/orbex_shape_e_check.cpp` (moved from the scratchpad `extract.cpp`, rewritten,
+not merely relocated): parses the real SP3 and ORBEX text directly (no pre-converted CSV
+intermediate — a future reader needs only the two pinned files and this program), builds GCRS
+r/v/Sun the same way the earlier scratchpad pass did (this tree's own `to_gcrs`, real C04 EOP,
+central-differenced velocity), and — the one substantive change from the scratchpad version —
+calls `odl::attitude::gps_yaw_attitude` ITSELF for the production comparison, rather than
+reimplementing `psi_nominal`/the shadow-crossing formula a second time. A hand-copied second
+implementation could agree with the first by sharing a bug; calling the real function cannot.
+Restricted to points actually inside the shadow window (\|β\| < 13.5°, `mu` inside
+±√(13.5² − β²)) — outside it Shape E's own domain does not apply and a comparison there is
+meaningless (§30.8's own residual report found exactly this shape of result first).
+
+**Confirmation run, the numbers this tool actually prints** (compiled and run against the SAME
+pinned files §30.8 used, from a clean `g++` invocation against this tree's own already-built
+static libraries — the exact command is the tool's own header comment):
+
+```
+n_samples=209 max_abs_residual_deg=0.0487907 rms_deg=0.0269069 tolerance_deg=0.15
+PASS
+```
+
+209 samples (every 30-second ATT epoch inside the shadow window, both midnight crossings combined),
+max residual 0.049°, RMS 0.027° — tighter than §30.8's own earlier, coarser-sampled Python pass
+(0.065°/0.061° at the two crossings taken separately), consistent with it, not a second, different
+measurement — the difference is finer sampling and calling the real production function directly
+rather than a hand-derived comparison curve. **This run's own numbers, not §30.8's earlier ones, are
+what `TYAW-A-009`'s own frozen 0.15° tolerance is set against** (`SPEC-thrust-yaw.md` §8): roughly
+3× this run's own max, not the earlier pass's.
+
+**Pinning.** Both source files hashed at the point of original download (§30.8):
+
+| file | URL | SHA-256 |
+|---|---|---|
+| `COD0MGXFIN_20230980000_01D_05M_ORB.SP3.gz` | `https://zhw-b.s3.cloud.switch.ch/aiub/CODE_MGEX/CODE/2023/COD0MGXFIN_20230980000_01D_05M_ORB.SP3.gz` | `02d2c6a43f2cf0a2939ecccc6f4ff874a866fda8756ed9c2d9b473a22c7b7211` |
+| `COD0MGXFIN_20230980000_01D_30S_ATT.OBX.gz` | `https://zhw-b.s3.cloud.switch.ch/aiub/CODE_MGEX/CODE/2023/COD0MGXFIN_20230980000_01D_30S_ATT.OBX.gz` | `a8a8538399f37f5cd2663fa51d5ccdf1e5f3c786db489e8d403449be258d6286` |
+
+Re-confirmed reachable at both URLs, `content-length` matching the locally held bytes exactly, at
+the time this section was written.
+
+**Licence, checked rather than assumed** (found while deciding gated vs. reproducible, below — the
+search this project's own rule 4 asks for, recorded here even though the conclusion ended up not
+requiring it to be airtight). IGS's own "Data and Product Disclaimer and Terms of Use" (5 August
+2020, `https://igs.org/wp-content/uploads/2020/09/IGS-Data-and-Product-Disclaimer-and-Terms-of-Use-200805.pdf`,
+read directly, not from a summary) states, verbatim: *"The IGS products and station data are
+provided openly for the benefit of all scientific, educational, and commercial users. For 25 years,
+IGS data and products have been made openly available for use without restriction, and continue to
+be offered free of cost or obligation."* The only condition stated is attribution: *"users agree to
+appropriately cite and attribute these resources to providers and their sponsors, acknowledgment of
+IGS and its contributing organizations."* CODE (AIUB, University of Bern) is a founding IGS Analysis
+Center; the files above are CODE's own MGEX pilot-project contribution, in IGS-standard formats,
+attributed in the tool's own header comment and here (SP3 header: "Center for Orbit Determination
+in Europe (CODE)," DOI 10.7892/boris.75882.3). **The gap this does not close**: this is IGS's own
+GENERAL policy page, not a document specifically confirming CODE's own institutional bucket
+(`zhw-b.s3.cloud.switch.ch/aiub/...`, not an official IGS/CDDIS data centre path) carries identical
+terms — a reasonable inference from CODE's own role as a founding IGS AC contributing an IGS pilot
+product, not a certainty the way the eop-c04-20 entry's own "IERS's own URL" pin is. Recorded as
+found, not stretched into more than it says.
+
+**Gated vs. reproducible: REPRODUCIBLE, not entered into `manifest.json`/`tools/fetch.py`** — the
+pattern every OTHER external input in this tree follows (`data/cache/`, gitignored, hash-verified
+by `tools/fetch.py verify` on every `ci.sh` run after a one-time `fetch.py fetch`). Two independent
+reasons, not one:
+
+1. **Scope.** These files are specific to ONE historical validation exercise (one satellite, one
+   day) — not general infrastructure another module would reuse the way `de440s.bsp` or the C04 EOP
+   series already are for every L4 step. The decompressed ATT file alone is 35 MB, for a question
+   this section already answers.
+2. **The question is closed.** `manifest.json` entries exist for things this tree DEPENDS ON and
+   re-verifies every run. The Shape E/Shape F discrimination this data was fetched to settle is
+   settled (§30.8/§30.10); the ONGOING regression risk from here on is in the MATH (`evaluate_shadow_
+   constant_rate`'s own closed form), which `TYAW-A-004b` already protects with no external
+   dependency at all, every `ctest`. Wiring these specific files into the automatic gate would make
+   every future CI run depend on one external server's long-term availability for a question that
+   does not need re-asking, not for a use the manifest's own machinery is built to serve.
+
+The reasonably strong licence evidence above (an actual verbatim quote, not merely "presumably
+fine") means the GATED path was genuinely available, not foreclosed by the licence question the
+way `IGSMETA`'s own deferral was (§9, "not established"); it was not taken because of (1) and (2),
+which are independent of licensing. A future maintainer who DOES want this in the automatic gate
+has the hashes and the reasoning to make that call themselves, not a gap to rediscover.
+
+### 30.12 `TYAW-Q-005` executed — a genuine, precise, unresolved noon-side finding
+
+**Finding the date.** No new SP3-only scan needed for the search itself: β drifts roughly linearly
+over short spans (confirmed, not assumed — a six-point scan, G01, days 100/102/104/106/108/110 of
+2023, gave β = 3.28°/2.10°/0.92°/−0.26°/−1.44°/−2.62°, monotonic and close to linear over this
+range). Day 102 (2023-04-12) sits closest to the registered β = 2.0° illustrative case and was
+fetched in full (SP3 + ATT, hash-pinned the same way as §30.11 — `COD0MGXFIN_20231020000_01D_05M_
+ORB.SP3.gz` sha256 `921644c40cf5cfc2758236996c6783c9f97de9f70ad369f1ba8a68c2c8c06309`,
+`COD0MGXFIN_20231020000_01D_30S_ATT.OBX.gz` sha256 `85e0dacaa7f281aa83863940e5e3a38cd671ac97cce7c0
+79f7b00dfd53eb9c7e`). Two real noon crossings on this one day, at slightly different β (the orbit's
+own β drifts measurably over 12 hours, matching §30.8's own two midnight crossings the same way).
+
+**The real turn's own extent, found directly (onset/catch-up bracketed by where `real_psi −
+nominal_psi` first exceeds 0.01° and last returns below it, linearly interpolated between 30-second
+ATT samples), and Shape F's own prediction at the SAME real β (bisected directly against
+`gps_yaw_attitude` itself, not a separate reimplementation):**
+
+| crossing | β | Shape F predicts (centre / width / duration) | REAL CODE data (centre / width / duration) | centre miss vs. quarter-tolerance |
+|---|---|---|---|---|
+| 1st | 2.003° | +2.446° / 9.22° / 18.38 min | **−2.541°** / 9.43° / 18.80 min | 4.99° vs. 0.61° (≈8×) |
+| 2nd | 1.708° | +2.763° / 9.77° / 19.47 min | **−2.840°** / 10.06° / 20.06 min | 5.60° vs. 0.69° (≈8×) |
+
+Width and duration agree to within 2–3% at both crossings — the rate (0.11°/s) and onset (β₀ =
+4.35°) physics `TYAW-P-1`/`A-001` already check is not in question here. The centre is what
+disagrees, and disagrees precisely: not scattered or noisy, but the SAME magnitude as predicted,
+the OPPOSITE sign, at two independent crossings on the same day. This is a clean, characterisable
+mirror relationship, not an unexplained miss.
+
+**Ruled out before concluding this is real, not an artefact** (each checked directly, not assumed):
+(1) a quaternion-convention error — already established by the nadir test, §30.8, and this same
+convention gives a 0.049° max residual on the SHADOW side, §30.11, so it is not suspect here; (2) a
+`mu_rad` sign bug — `psi_nominal(μ,β)` already matches real data to 0.000–0.001° using this exact
+formula (§30.8), and the same formula is used unchanged for this check; (3) a velocity-sign error
+in the central difference feeding `t_hat` — checked directly: t̂ · v̂ = 0.999989 at a sample point,
+confirming `t_hat` genuinely IS the real prograde direction, not a backwards difference; (4) an
+onset/catch-up labelling mix-up — ruled out by computing the centre from the two boundary VALUES
+directly, not from which one was called "onset," giving the same mirrored result either way; (5) a
+`fixture_at`/`mu_rad` inconsistency (the test fixtures' own mu convention not matching production's)
+— checked by direct differentiation: `fixture_at`'s own d(r̂)/dμ = −t̂(μ) exactly, and the real
+data's own dμ/dt < 0 together with t̂ · v̂ > 0 gives the SAME relation (d(r̂)/dμ ∝ −t̂) for a real
+satellite — the fixtures and production agree with each other; `TYAW-A-002`'s own validation of
+`evaluate_turn` against a ground-truth simulation, using these same fixtures, is not undermined by
+this finding.
+
+**Against the registered criterion (`TYAW-Q-005`, a quarter of Shape F's own predicted centre
+offset): FAILS, decisively, both crossings** (4.99°/5.60° against a 0.61°/0.69° tolerance — roughly
+8× over, not a near miss that rounding could explain). Per the registration's own instruction and
+the manager's own general ruling for this kind of finding (`plan` rule 8: `KOUBA09`'s noon-turn law
+is a SPECIFICATION, not itself in question; CODE's own data disagreeing with an implementation of
+it is a discrepancy with that implementation, not grounds to change the specification unilaterally):
+**`TYAW-R-002`/`TYAW-R-003` are left UNCHANGED.** The width/duration match suggests the rate-limited-
+ramp PHYSICS is right; the mirrored centre suggests `turn_ramp_sign`'s own SIGN[R, ψ̇ₙ] direction,
+validated and gating for II/IIA and IIR (`TYAW-A-002`), may not carry over to IIF's own noon side
+the way `TYAW-R-003`'s "same shape as `TYAW-R-001`" assumed — a real, specific, well-characterised
+question, not a diffuse one, and not this executor's own decision to make. Carried as `TYAW-Q-006`
+for the manager, with this section as its own full numeric record.
+
+### 30.13 What this entry does not close
 
 Galileo, GLONASS and BeiDou are carried, not built (§30.2's own sources). True IIIA's own law
 (`TYAW-Q-001`) awaits reading the 2023 source in full. The IGS metadata SINEX's own full terms are
@@ -4146,6 +4433,7 @@ and `TYAW-Q-004` (agreed and carried, §10 of the spec) are addressed in §30.8/
 
 | date | change |
 |---|---|
+| 2026-09-24 | **Step 6, `thrust-yaw`, real-data verdicts.** §30.8 extended and §30.10-30.12 added, `SPEC-thrust-yaw` unchanged at v1.0 (same draft cycle): `TYAW-R-003`'s own IIF night-side law changes from Shape F to Shape E, on `DIL10`'s own text, with real CODE ORBEX/SP3 data (G01/SVN63) as `plan` rule 8 corroboration -- two independent midnight crossings match Shape E's own closed-form swing (found while implementing: `d(psi_n)/d(mu)` integrates exactly to ATAN(sin(mu)/tan(beta)), no numerical walk) to 0.049 deg max residual, two orders of magnitude tighter than Shape F's own 20-23 deg miss over its own claimed window. `TYAW-P-1`/`A-001` lose the now-meaningless IIF-night beta0 check; `TYAW-A-004` rebuilt against `DIL10`'s own literal ceilings (27 min noon, 55 min shadow) instead of a noon/midnight ratio; `TYAW-A-004b` added, the closed form verified against an independent numerical integration to 1e-9 deg. A precision-correction found while writing this up: the ORIGINAL Shape E registration's own illustrative "55.4 min" used the raw point-source shadow angle, not the widened `kShadowHalfAngleRad` = 13.5 deg the code actually uses (53.8 min) -- both cited, not conflated. `TYAW-A-009` rebuilt as a frozen, REPRODUCIBLE (not gated into `manifest.json`/`ci.sh`) agreement check, `tools/orbex_shape_e_check.cpp`, calling `gps_yaw_attitude` itself rather than a second reimplementation -- IGS's own open-data terms researched and quoted verbatim as the licence basis, the reproducible-not-gated choice made on scope and closure grounds independent of that licence question. A second real-data check, `TYAW-Q-005` (a genuine low-beta noon date, registered before the file was read), found a real, precise, UNRESOLVED discrepancy: the real noon turn's own width matches `TYAW-R-002`'s prediction to 2-3%, but its centre is mirror-imaged about the noon point at both crossings checked -- five candidate causes (quaternion, mu-sign, velocity-sign, onset/catchup labelling, fixture/production consistency) ruled out directly before concluding this is real; left unresolved as `TYAW-Q-006`, the noon-turn LAW unchanged, per `plan` rule 8 (`KOUBA09`'s law is a specification, not itself in question) and the standing rule that a verdict of this kind is the manager's, not the executor's. A background-agent process fault during this same investigation (§30.9) was diagnosed and corrected by the manager mid-session: hidden background agents are for research only, never handed-over work a user must be able to watch; the remainder of this step's own real-data work was run directly, in-session. Tree-wide: 309 tests pass, all 13 `ci.sh` gates green. |
 | 2026-09-24 | **Step 5's gate closes.** §29 added: `SPEC-photon-pressure` v1.0 adopted, `SPEC-macromodel` to v2.1, `modules/attitude`/`srp`/`erp` built over one shared `photon_force` kernel (`srp_analytic`, additively generalised, `PHPR-A-001`'s golden-file bit-identity proof against the pre-refactor commit, not a live tautology). Four rounds of manager review before adoption caught, in order: a missing FlatSurface back face and spectral band (`PHPR-R-004a`, `RS09` Table 3.1, real GPS panel data) and a missing aberration term (`PHPR-R-010`, `DYN-Q-002`'s defect reversed, `BLS79` Eq. 5) with the aberration term's own first draft using the spacecraft's bare GCRS velocity instead of velocity relative to the Sun -- wrong by ~4x, caught before any code existed to carry it. Two further, larger findings closed the gate itself: (1) the SRP velocity Jacobian made ANALYTIC (closed-form, since `PHPR-R-010`'s own substitution is exactly affine in velocity) rather than a finite difference checked against another finite difference -- the manager's own catch, reading `Srp::accel` directly, of the same tautology shape rule 5 exists to prevent; verified against an independent central finite difference before any production code existed (sphere case 9.34e-20, flat case exactly 0.0), `PHPR-A-006` now checks the real production value to ~1.5e-9 relative; (2) the ERP cap integral's own convergence ratio, found unusable (8.5x/154x at LEO, 16x/2x at GNSS -- monotonic, not one order) and diagnosed by the manager reading `erp.cpp` directly (a "staircase" cap boundary), fixed by reintegrating in nadir-centred coordinates whose own fix was independently re-derived and PREDICTED (a clean 4x per halving) before being run, then confirmed (4.05x/4.01x LEO, 4.00x/4.00x GNSS) -- RS09's own literal grid was checked directly first and found NOT to be this scheme, so the fix is an independent numerical-analysis improvement, not "matching the source." A dimensional bug (disc area where Bond albedo was meant) in the far-field albedo closed form was caught while implementing `PHPR-A-008`, the first time any code tried to compute with it, four review rounds after it was written; `PHPR-A-011`'s own RS12 Fig. 2 comparison was checked against the primary source directly and found to need a back-face panel (a plain sphere shows none of the claimed secondary structure, matching RS12's own text). Nine new acceptance rows written and passing (`PHPR-A-004/005/008/011/013/014/016/017`, `MCRM-A-013/014`); five items carried open (`PHPR-Q-001`..`Q-005`, §29.10). Tree-wide: 297 tests pass. |
 | 2026-09-23 | **Step 4's gate closes.** §28.5 corrected in place (kept, not rewritten) and §28.10 added: the manager's own line-by-line read of `MSIS-FOR`'s `DATA ALTL` found channel 1's non-monotonic error was SEVEN hard species-correction cutoffs, not the one §28.5 v1 bisected and not `SPEC-atmosphere`'s cited "fitted cubic spline" (that structure does not exist above 120 km, §3.6, which §3.1's citation had misnamed). Four items closed it: (1) all seven measured directly, a density and acceleration jump table at the stated ballistic coefficient, monotonic in altitude across four orders of magnitude; (2) `drag.cpp`'s channel 1 now detects a straddled cutoff at runtime and switches to a one-sided second-order difference walking away from it (`DRAG-R-012`, its 1e-4 tolerance a derived separation between two regimes, `DRAG-P-4`), verified against a true same-side finite difference at an adversarial case `DRAG-A-010`'s own 37 m of unmeasured margin never tested (`DRAG-A-011`); (3) the 60 s-step integrator effect sized, not asserted, against the tree's 6.7e-6 m tolerance premise -- THREE cutoffs clear it at the test spacecraft's own ballistic coefficient, not the single one this session's own earlier report had named; scaled to LightSail-2, the mission this tree exists for, SIX to SEVEN of the seven clear it, N2/160 km by up to 32 600x, not 100x -- left as L7's own event-location question, which the plan's own L7 entry already treats as central; (4) the diagnosis promoted into `modules/atmosphere`'s own suite (`ATMO-R-037`, `ATMO-A-028`, gated against frozen reference, `ATMO-Q-005`'s CI-independence preserved), an L2 edit on `DYN-Q-001`'s own terms since the false claim lived in a layer this project had already closed. Extending the reference sweep to straddle every cutoff (125->181 records, 1500->2172 comparisons) surfaced a second, unrelated instance of this project's own recurring bug shape inside `tools/msis_reference.py` itself: a hardcoded worst-comparison description that had gone not merely stale but REVERSED (the sweep now loosens the class-A bound it once only failed to loosen), fixed by making the description and its sensitivity claim compute from the same data the table is, not typed once beside it. §20.2's own "every branch boundary" was the same shape of unsearched absence one layer down, corrected there with a dated note rather than rewritten. `SPEC-atmosphere` (§3.2/3.3/3.6/6/8, `ATMO-R-037`) and `SPEC-drag` (`DRAG-R-004/012`, `DRAG-P-1/4`, `DRAG-A-011`, §8/§9) both updated; `SPEC-drag` `DRAG-R-008`'s inherited tolerance citation follows the corrected figure. |
 | 2026-09-22 | §28.8-28.9 added, SPEC-drag to v1.1, SPEC-dynamics to v1.2. Manager's review of v1.0 found two more things: (1) ForceEvaluation (frozen at L3, gated only by a trivial force that could not reveal what a REAL force must carry) had nowhere for Drag::accel to put atmosphere's provenance, silently losing it for any caller reaching drag only through the Force plugin -- fixed additively (DYN-R-051, DYN-Q-001's own terms), with require_verified made a Drag construction-time option in the same fix, closed together because one found the other. (2) DRAG-A-010's own 1.18e-2 "residual as empirical bound on the unmodelled v_rel(r) channel" was itself wrong: isolating channel 2 (holding rho fixed, differencing through the real to_itrs velocity) proved its formula exact to 6 figures and roughly 10x SMALLER than the gap it was blamed for; a step sweep on channel 1 alone found its true error NON-MONOTONIC across 1-0.25 km, then stably ~1e-6 at 0.1 km and below -- NRLMSISE-00's own fitted-spline structure aliasing against a too-coarse step, not smooth truncation. Fixed at the source (central difference at 0.1 km, channel 2 added exactly) and re-verified by an operational stability check rather than the formula-based prediction that turned out not to describe the real profile: post-fix full-Jacobian deviation 1.19e-6, four orders tighter than the number this section previously called comfortable. DRAG-Q-002 ruled: DragError gained a structured `cause` field, and asking to fire each of DRAG-F-003's three nominal causes found two are provably shadowed by the transform call's own stronger precondition, not merely hard to trigger. |
