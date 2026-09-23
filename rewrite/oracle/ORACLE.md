@@ -104,6 +104,11 @@ both instances were small enough to read as rounding disagreements rather than a
   Horizons' ephemeris for that object forward of a TLE epoch **is that TLE**.
 - **`G-*` GNSS** — three seven-parameter fit residuals against IGS final orbits. The strongest
   cases here, because IGS orbits are independent truth rather than predecessor output.
+  *Recorded 2026-09-24:* the fits are **cannonball** fits — `validate_sp3.sh` asserts that the
+  run used a template's single `area` and `mass`, and the seventh parameter is the SRP scale, the
+  same `A·C_R/m` convention the `B-*` block means below state. No surface model and no attitude
+  law entered them. So these residuals constrain a cannonball fit; a box-wing fit reaching them
+  is a different and stronger claim, and a comparison of like with like uses a cannonball.
 - **`S-*` LightSail-2** — laser-ranging fit residual and recovered effective A·C_R/m.
 - **`O-*` ACS3 optical** — angular residual from amateur astrometry.
 - **`D-*` atmosphere** — the NRLMSISE-00 density envelope over one 6-hour LEO arc. Appended
