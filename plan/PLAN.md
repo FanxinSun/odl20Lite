@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L3 closed; **L4 open** — steps 1–4 done, steps 5–7 to come; L5–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L3 closed; **L4 open** — steps 1–5 done, steps 6–7 to come; L5–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -332,7 +332,7 @@ reason the second clause of that sentence is a gate and not a description.
 
 ---
 
-### 3.5 L4 `forces-analytic` — 4 of 7 done; **the open layer**
+### 3.5 L4 `forces-analytic` — 5 of 7 done; **the open layer**
 
 Every non-gravitational force that can be written in closed form. The ray-traced treatment of
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
@@ -374,7 +374,7 @@ the MVP needs.
 3. **DONE** — `srp-analytic` → [`subplan_L4/L4-3.md`](subplan_L4/L4-3.md)
 
 4. **DONE** — `drag` → [`subplan_L4/L4-4.md`](subplan_L4/L4-4.md)
-5. **TODO** — `srp` and `erp` as force plugins over one photon-pressure kernel → [`subplan_L4/L4-5.md`](subplan_L4/L4-5.md)
+5. **DONE** — `srp` and `erp` as force plugins over one photon-pressure kernel → [`subplan_L4/L4-5.md`](subplan_L4/L4-5.md)
 6. **TODO** — `thrust-yaw` → [`subplan_L4/L4-6.md`](subplan_L4/L4-6.md)
 7. **TODO** — `ecom` → [`subplan_L4/L4-7.md`](subplan_L4/L4-7.md)
 
