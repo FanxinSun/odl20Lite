@@ -147,6 +147,7 @@
 #include <odl/frames/transform.hpp>
 #include <odl/frames/vector.hpp>
 #include <odl/io/sp3.hpp>
+#include <odl/io/sp3_ephemeris.hpp>
 #include <odl/time/epoch.hpp>
 #include <odl/time/leap_table.hpp>
 
@@ -177,48 +178,63 @@ Vec3 normalized(const Vec3& v) { double n = v.norm(); return Vec3{v.x / n, v.y /
 // L6 step 1: through odl::io's own one SP3 reader now (SPEC-io-formats.md),
 // not an ad hoc parser -- the predecessor's own two SP3 defects (an interval
 // read from the wrong field, a fixed header length skipped) have no second
-// place to live here. Sp3Row's own shape is unchanged, so nothing below this
-// function needed to change.
-struct Sp3Row { int y, mo, d, h, mi; double sec; Vec3 r_ecef_km; };
-std::vector<Sp3Row> read_sp3(const std::string& path, const std::string& prn) {
-    auto parsed = odl::io::read_sp3(slurp(path));
-    if (!parsed.has_value()) {
-        std::cerr << "SP3 (" << path << "): " << parsed.error().id << " " << parsed.error().message << "\n";
-        std::exit(1);
-    }
-    std::vector<Sp3Row> rows;
-    for (const auto& epoch : parsed->epochs) {
-        for (const auto& sat : epoch.satellites) {
-            if (sat.position.satellite_id == prn) {
-                rows.push_back({epoch.epoch.year, epoch.epoch.month, epoch.epoch.day,
-                                epoch.epoch.hour, epoch.epoch.minute, epoch.epoch.second,
-                                Vec3{sat.position.x_km, sat.position.y_km, sat.position.z_km}});
-            }
-        }
-    }
-    return rows;
-}
+// place to live here.
+struct Sp3Row { int y, mo, d, h, mi; double sec; };  // r_ecef_km dropped: read through Sp3Ephemeris now
 
 struct Ephem {
     std::vector<double> t;
     std::vector<Vec3> r, v;
     int y0, mo0, d0;
+    time::Epoch t0;  ///< the absolute moment t[i] is measured from -- REQUIRED to place a
+                      ///< query correctly across a day boundary (see epoch_at, below).
 };
 
-time::Epoch epoch_at(const Ephem& e, double elapsed_s, const time::LeapTable& leaps) {
-    int hh = static_cast<int>(elapsed_s) / 3600;
-    int mm = (static_cast<int>(elapsed_s) / 60) % 60;
-    double ss = elapsed_s - hh * 3600 - mm * 60;
-    time::Calendar c;
-    c.year = e.y0; c.month = e.mo0; c.day = e.d0; c.hour = hh; c.minute = mm; c.second = ss;
-    auto ep = time::Epoch::from_calendar(time::TimeScale::GPS, c, leaps);
-    if (!ep.has_value()) { std::cerr << "epoch: " << ep.error().message << "\n"; std::exit(1); }
-    return *ep;
+/// Epoch from an Ephem's own `t0` plus elapsed seconds -- pure `Epoch`
+/// arithmetic (TAI seconds since a fixed origin), not a calendar
+/// reconstruction. An EARLIER version of this function rebuilt hh/mm/ss from
+/// `elapsed_s` assuming the result always falls on `e`'s own first calendar
+/// day; L6 step 1's own SP3-interpolation round found this false on a REAL
+/// file for the first time (`orbex_galileo_check.cpp`/`doris_jason_check.cpp`
+/// already carry the identical fix, for the identical reason): a daily
+/// product's own LAST epoch is commonly stamped at the NEXT day's
+/// 00:00:00:00 (a closing bookend sample), and the new velocity computation
+/// below is the first caller to evaluate this function there --
+/// `elapsed_s=86400` decomposed to "hour 24", refused by `Epoch::
+/// from_calendar`. `Epoch::add` needs no calendar decomposition at all, so
+/// no day boundary is a special case.
+time::Epoch epoch_at(const Ephem& e, double elapsed_s, const time::LeapTable&) {
+    return e.t0.add(time::Duration::from_seconds(elapsed_s));
 }
 
+// L6 step 1's own SP3-interpolation round (plan/subplan_L6/L6-1.md, ruled
+// 2026-09-25): position at each real sample is read through
+// `io::Sp3Ephemeris::position_km_at`, exact at its own nodes by
+// construction, so it reproduces the OLD direct-from-`sp3[i]` value bit for
+// bit -- the change that matters is velocity, now a central difference of
+// the SAME smooth interpolant over `io::kVelocityStepS` (1 s, not the up to
+// several minutes between two real neighbouring samples), each side
+// transformed to GCRS INDIVIDUALLY before differencing -- transforming a
+// difference is not the same as differencing a transform, since GCRS is a
+// time-dependent rotation of ECEF. One-sided at the array's own first and
+// last sample, where the far side would fall outside the sampled span.
 Ephem build_ephem(const std::string& sp3path, const std::string& prn, const time::LeapTable& leaps,
                   const eop::EopSeries& c04) {
-    auto sp3 = read_sp3(sp3path, prn);
+    auto parsed = odl::io::read_sp3(slurp(sp3path));
+    if (!parsed.has_value()) { std::cerr << "SP3: " << parsed.error().id << " " << parsed.error().message << "\n"; std::exit(1); }
+    auto sp3_eph = odl::io::Sp3Ephemeris::build(*parsed, prn);
+    if (!sp3_eph.has_value()) { std::cerr << "Sp3Ephemeris: " << sp3_eph.error().id << " " << sp3_eph.error().message << "\n"; std::exit(1); }
+
+    // Every real sample's own calendar date/time, for e.t[]/e.y0/mo0/d0 below
+    // -- position itself now comes from sp3_eph, not from this vector.
+    std::vector<Sp3Row> sp3;
+    for (const auto& epoch : parsed->epochs) {
+        for (const auto& sat : epoch.satellites) {
+            if (sat.position.satellite_id == prn) {
+                sp3.push_back({epoch.epoch.year, epoch.epoch.month, epoch.epoch.day,
+                               epoch.epoch.hour, epoch.epoch.minute, epoch.epoch.second});
+            }
+        }
+    }
     if (sp3.empty()) { std::cerr << "no " << prn << " records in " << sp3path << "\n"; std::exit(1); }
     auto make_epoch = [&](int y, int mo, int d, int h, int mi, double sec) {
         time::Calendar c;
@@ -236,20 +252,33 @@ Ephem build_ephem(const std::string& sp3path, const std::string& prn, const time
         return g->position();
     };
 
-    Ephem e;
-    e.y0 = sp3[0].y; e.mo0 = sp3[0].mo; e.d0 = sp3[0].d;
     time::Epoch t0 = make_epoch(sp3[0].y, sp3[0].mo, sp3[0].d, sp3[0].h, sp3[0].mi, sp3[0].sec);
+    Ephem e{{}, {}, {}, sp3[0].y, sp3[0].mo, sp3[0].d, t0};  // Epoch has no default constructor
     e.t.resize(sp3.size());
     e.r.resize(sp3.size());
     for (std::size_t i = 0; i < sp3.size(); ++i) {
         auto ti = make_epoch(sp3[i].y, sp3[i].mo, sp3[i].d, sp3[i].h, sp3[i].mi, sp3[i].sec);
         e.t[i] = static_cast<double>(ti.tai_seconds() - t0.tai_seconds());
-        e.r[i] = ecef_to_gcrs(ti, sp3[i].r_ecef_km);
+    }
+    auto epoch_at_elapsed = [&](double elapsed_s) { return epoch_at(e, elapsed_s, leaps); };
+    for (std::size_t i = 0; i < sp3.size(); ++i) {
+        auto r = sp3_eph->position_km_at(e.t[i]);
+        if (!r.has_value()) { std::cerr << "position_km_at: " << r.error().id << " " << r.error().message << "\n"; std::exit(1); }
+        e.r[i] = ecef_to_gcrs(make_epoch(sp3[i].y, sp3[i].mo, sp3[i].d, sp3[i].h, sp3[i].mi, sp3[i].sec), *r);
     }
     e.v.resize(sp3.size());
     for (std::size_t i = 0; i < sp3.size(); ++i) {
-        std::size_t im = i == 0 ? 0 : i - 1, ip = i + 1 == sp3.size() ? i : i + 1;
-        e.v[i] = (1.0 / (e.t[ip] - e.t[im])) * (e.r[ip] - e.r[im]);
+        const double t_minus = i == 0 ? e.t[i] : e.t[i] - odl::io::kVelocityStepS;
+        const double t_plus = i + 1 == sp3.size() ? e.t[i] : e.t[i] + odl::io::kVelocityStepS;
+        auto r_minus = sp3_eph->position_km_at(t_minus);
+        auto r_plus = sp3_eph->position_km_at(t_plus);
+        if (!r_minus.has_value() || !r_plus.has_value()) {
+            std::cerr << "velocity at sample " << i << ": position_km_at refused near a span/gap/manoeuvre boundary\n";
+            std::exit(1);
+        }
+        Vec3 g_minus = ecef_to_gcrs(epoch_at_elapsed(t_minus), *r_minus);
+        Vec3 g_plus = ecef_to_gcrs(epoch_at_elapsed(t_plus), *r_plus);
+        e.v[i] = (1.0 / (t_plus - t_minus)) * (g_plus - g_minus);
     }
     return e;
 }

@@ -116,6 +116,7 @@
 #include <odl/frames/transform.hpp>
 #include <odl/frames/vector.hpp>
 #include <odl/io/sp3.hpp>
+#include <odl/io/sp3_ephemeris.hpp>
 #include <odl/time/epoch.hpp>
 #include <odl/time/leap_table.hpp>
 
@@ -146,89 +147,74 @@ double angle_deg(const Vec3& a, const Vec3& b) {
     return std::acos(std::clamp(normalized(a).dot(normalized(b)), -1.0, 1.0)) / kDeg;
 }
 
-// --- SP3 (position only -- velocity by central difference of GCRS
-// position, the SAME choice `orbex_qzss_check.cpp`'s own `build_ephem`
-// makes, so this file does not need to trust the SP3's own V-record units) ---
+// --- SP3, read once into an interpolated ephemeris ---------------------
 
-// L6 step 1: through odl::io's own one SP3 reader now (SPEC-io-formats.md),
-// not an ad hoc parser -- the predecessor's own two SP3 defects (an interval
-// read from the wrong field, a fixed header length skipped) have no second
-// place to live here, and neither does the along-track-dominated nearest-
-// sample-rounding bug this tool's own header comment above records: SP3
-// epochs are now read at their own real precision, not re-parsed by hand at
-// each call site. Sp3Row's own shape is unchanged, so build_ephem below and
-// everything downstream of it needed no change.
-struct Sp3Row { int y, mo, d, h, mi; double sec; Vec3 r_ecef_km; };
-
-std::vector<Sp3Row> read_sp3(const std::string& path, const std::string& tag_id) {
-    auto parsed = odl::io::read_sp3(slurp(path));
-    if (!parsed.has_value()) {
-        std::cerr << "SP3 (" << path << "): " << parsed.error().id << " " << parsed.error().message << "\n";
-        std::exit(1);
-    }
-    std::vector<Sp3Row> rows;
-    for (const auto& epoch : parsed->epochs) {
-        for (const auto& sat : epoch.satellites) {
-            if (sat.position.satellite_id == tag_id) {
-                rows.push_back({epoch.epoch.year, epoch.epoch.month, epoch.epoch.day,
-                                epoch.epoch.hour, epoch.epoch.minute, epoch.epoch.second,
-                                Vec3{sat.position.x_km, sat.position.y_km, sat.position.z_km}});
-            }
-        }
-    }
-    return rows;
-}
-
+// L6 step 1's own SP3-interpolation round (plan/subplan_L6/L6-1.md, ruled
+// 2026-09-25): position at any query time is now `io::Sp3Ephemeris::
+// position_km_at`, one order-10 Lagrange fit shared with every other tool
+// this round re-points, replacing BOTH of this file's own OLD interpolation
+// paths at once -- `interp_ephem`'s own linear blend between two bracketing
+// samples (the fix that collapsed the along-track residual from ~1 deg to
+// ~0.03-0.18 deg, per this file's own header account) AND `nearest_sp3`'s
+// own cruder nearest-1-minute-sample selection, which `run_nadir` alone
+// still used (a second place the same class of bug could live, now gone:
+// every mode in this file reads position the SAME way). Velocity is a
+// central difference of the SAME interpolant over `io::kVelocityStepS`
+// (1 s), each side transformed ECEF->GCRS INDIVIDUALLY before differencing
+// -- transforming a difference is not the same as differencing a
+// transform, since GCRS is a time-dependent rotation of ECEF.
 struct Ephem {
-    std::vector<double> t;   // seconds since t0, TAI difference
-    std::vector<Vec3> r, v;  // GCRS, km, km/s
-    int y0, mo0, d0;
-    time::Epoch t0;   ///< the absolute moment t[i] is measured from -- REQUIRED
-                       ///< to place a query epoch correctly on a multi-day SP3
-                       ///< arc (a bug this tool's own first version had: matching
-                       ///< a query's own (hour, minute) against t[i]'s own
-                       ///< ELAPSED hour/minute SINCE t0, which is only the same
-                       ///< thing as wall-clock time of day on the arc's own
-                       ///< FIRST day -- silently wrong on every later day,
-                       ///< explaining a stable-but-wrong ~150 deg nadir result
-                       ///< this bug produced before it was found).
+    time::Epoch t0;             ///< the absolute moment elapsed-seconds queries are measured from
+    odl::io::Sp3Ephemeris sp3;  ///< ECEF; GCRS is a per-query transform, not precomputed (below)
 };
 
-Ephem build_ephem(const std::string& sp3path, const std::string& tag_id, const time::LeapTable& leaps,
-                  const eop::EopSeries& c04) {
-    auto sp3 = read_sp3(sp3path, tag_id);
-    if (sp3.empty()) { std::cerr << "no " << tag_id << " records in " << sp3path << "\n"; std::exit(1); }
-    auto make_epoch = [&](int y, int mo, int d, int h, int mi, double sec) {
-        time::Calendar c;
-        c.year = y; c.month = mo; c.day = d; c.hour = h; c.minute = mi; c.second = sec;
-        auto e = time::Epoch::from_calendar(time::TimeScale::GPS, c, leaps);
-        if (!e.has_value()) { std::cerr << "epoch: " << e.error().message << "\n"; std::exit(1); }
-        return *e;
-    };
-    auto ecef_to_gcrs = [&](const time::Epoch& t, const Vec3& v_ecef_km) -> Vec3 {
-        auto eop_rec = c04.at(t, eop::EopPolicy{});
-        if (!eop_rec.has_value()) { std::cerr << "eop: " << eop_rec.error().message << "\n"; std::exit(1); }
-        frames::ItrsState itrs{t, v_ecef_km, Vec3{0, 0, 0}};
-        auto g = frames::to_gcrs(itrs, *eop_rec, leaps);
-        if (!g.has_value()) { std::cerr << "to_gcrs: " << g.error().message << "\n"; std::exit(1); }
-        return g->position();
-    };
+Ephem build_ephem(const std::string& sp3path, const std::string& tag_id, const time::LeapTable& leaps) {
+    auto parsed = odl::io::read_sp3(slurp(sp3path));
+    if (!parsed.has_value()) { std::cerr << "SP3: " << parsed.error().id << " " << parsed.error().message << "\n"; std::exit(1); }
+    auto sp3_eph = odl::io::Sp3Ephemeris::build(*parsed, tag_id);
+    if (!sp3_eph.has_value()) { std::cerr << "Sp3Ephemeris: " << sp3_eph.error().id << " " << sp3_eph.error().message << "\n"; std::exit(1); }
+    const auto& fe = sp3_eph->first_epoch();
+    time::Calendar c{fe.year, fe.month, fe.day, fe.hour, fe.minute, fe.second};
+    auto t0 = time::Epoch::from_calendar(time::TimeScale::GPS, c, leaps);
+    if (!t0.has_value()) { std::cerr << "epoch: " << t0.error().message << "\n"; std::exit(1); }
+    return Ephem{*t0, std::move(*sp3_eph)};
+}
 
-    time::Epoch t0 = make_epoch(sp3[0].y, sp3[0].mo, sp3[0].d, sp3[0].h, sp3[0].mi, sp3[0].sec);
-    Ephem e{{}, {}, {}, sp3[0].y, sp3[0].mo, sp3[0].d, t0};
-    e.t.resize(sp3.size());
-    e.r.resize(sp3.size());
-    for (std::size_t i = 0; i < sp3.size(); ++i) {
-        auto ti = make_epoch(sp3[i].y, sp3[i].mo, sp3[i].d, sp3[i].h, sp3[i].mi, sp3[i].sec);
-        e.t[i] = static_cast<double>(ti.tai_seconds() - t0.tai_seconds());
-        e.r[i] = ecef_to_gcrs(ti, sp3[i].r_ecef_km);
-    }
-    e.v.resize(sp3.size());
-    for (std::size_t i = 0; i < sp3.size(); ++i) {
-        std::size_t im = i == 0 ? 0 : i - 1, ip = i + 1 == sp3.size() ? i : i + 1;
-        e.v[i] = (1.0 / (e.t[ip] - e.t[im])) * (e.r[ip] - e.r[im]);
-    }
-    return e;
+odl::Result<Vec3, odl::Diagnostic> ecef_to_gcrs(const time::Epoch& t, const Vec3& v_ecef_km,
+                                                const time::LeapTable& leaps, const eop::EopSeries& c04) {
+    auto eop_rec = c04.at(t, eop::EopPolicy{});
+    if (!eop_rec.has_value()) return odl::err(eop_rec.error());
+    frames::ItrsState itrs{t, v_ecef_km, Vec3{0, 0, 0}};
+    auto g = frames::to_gcrs(itrs, *eop_rec, leaps);
+    if (!g.has_value()) return odl::err(g.error());
+    return g->position();
+}
+
+struct GcrsState { Vec3 r, v; };
+
+/// Interpolated GCRS position AND velocity at an exact elapsed time
+/// (`e.t0` plus `target_s`) -- the tree's one interpolation facility
+/// (`io::Sp3Ephemeris`), used identically by every mode in this file.
+odl::Result<GcrsState, odl::Diagnostic> state_at(const Ephem& e, double target_s,
+                                                 const time::LeapTable& leaps, const eop::EopSeries& c04) {
+    auto epoch_at = [&](double t_s) { return e.t0.add(time::Duration::from_seconds(t_s)); };
+
+    auto r_ecef = e.sp3.position_km_at(target_s);
+    if (!r_ecef.has_value()) return odl::err(r_ecef.error());
+    auto r_gcrs = ecef_to_gcrs(epoch_at(target_s), *r_ecef, leaps, c04);
+    if (!r_gcrs.has_value()) return odl::err(r_gcrs.error());
+
+    auto r_minus_ecef = e.sp3.position_km_at(target_s - odl::io::kVelocityStepS);
+    auto r_plus_ecef = e.sp3.position_km_at(target_s + odl::io::kVelocityStepS);
+    if (!r_minus_ecef.has_value()) return odl::err(r_minus_ecef.error());
+    if (!r_plus_ecef.has_value()) return odl::err(r_plus_ecef.error());
+    auto g_minus = ecef_to_gcrs(epoch_at(target_s - odl::io::kVelocityStepS), *r_minus_ecef, leaps, c04);
+    if (!g_minus.has_value()) return odl::err(g_minus.error());
+    auto g_plus = ecef_to_gcrs(epoch_at(target_s + odl::io::kVelocityStepS), *r_plus_ecef, leaps, c04);
+    if (!g_plus.has_value()) return odl::err(g_plus.error());
+    Vec3 v_gcrs = (1.0 / (2.0 * odl::io::kVelocityStepS)) * (*g_plus - *g_minus);
+
+    return GcrsState{*r_gcrs, v_gcrs};
 }
 
 // --- DORIS quaternion ancillary file ---------------------------------------
@@ -299,24 +285,18 @@ EnvBits load_env(const std::string& leappath) {
     return EnvBits{std::move(*leaps), std::move(*c04), std::move(*ephem)};
 }
 
-/// Find the SP3 sample nearest a query's own FULL calendar date and time
-/// (UTC, the quaternion file's own time scale, rule 4) -- by ABSOLUTE
-/// elapsed time from `e.t0`, not by (hour, minute) alone. A first version
-/// of this function matched by `(hour, minute)` computed from `e.t[i]`
-/// itself, which is elapsed time SINCE `e.t0`, not wall-clock time of day --
-/// correct only on `e.t0`'s own first day, silently wrong on every later
-/// day of a multi-day SP3 arc (query "22:00" resolved to "22 hours after
-/// the arc's own start", not "22:00 on the query's own date") -- the actual
-/// cause of a stable-but-wrong ~150-155 deg nadir result this bug produced,
-/// found and fixed before being trusted.
-/// The query's own elapsed time from `e.t0`, TAI seconds, exact (not a
-/// nearest-sample rounding) -- `shift_s` added AFTER the UTC-to-TAI
-/// conversion, for testing whether an unaccounted time-scale offset (the
-/// manager's own hypothesis for the residual) is present: a REAL such
-/// offset would need correcting BEFORE the conversion in production code,
-/// but adding it after, here, in a diagnostic-only function, tests the
-/// SAME numerical effect a before-conversion fix would have, without
-/// implying one is believed to exist yet.
+/// The query's own elapsed time from `e.t0`, TAI seconds, exact -- `shift_s`
+/// added AFTER the UTC-to-TAI conversion, for testing whether an unaccounted
+/// time-scale offset (the manager's own hypothesis for an earlier residual)
+/// is present: a REAL such offset would need correcting BEFORE the
+/// conversion in production code, but adding it after, here, in a
+/// diagnostic-only function, tests the SAME numerical effect a
+/// before-conversion fix would have, without implying one is believed to
+/// exist. `nearest_sp3` (this function's own former sibling, a coarser,
+/// nearest-1-minute-sample position lookup `run_nadir` alone still used)
+/// and `interp_ephem` (a hand-rolled linear blend the rest of this file
+/// used) are BOTH retired this round -- `state_at`, above, is now every
+/// mode's own one route to a position, at this exact elapsed time.
 double target_elapsed_s(const Ephem& e, int y, int mo, int d, int hh, int mm, double sec,
                         const time::LeapTable& leaps, double shift_s) {
     time::Calendar c;
@@ -324,33 +304,6 @@ double target_elapsed_s(const Ephem& e, int y, int mo, int d, int hh, int mm, do
     auto query = time::Epoch::from_calendar(time::TimeScale::UTC, c, leaps);
     if (!query.has_value()) { std::cerr << "epoch: " << query.error().message << "\n"; std::exit(1); }
     return static_cast<double>(query->tai_seconds() - e.t0.tai_seconds()) + shift_s;
-}
-
-std::size_t nearest_sp3(const Ephem& e, int y, int mo, int d, int hh, int mm, double sec,
-                        const time::LeapTable& leaps) {
-    const double target = target_elapsed_s(e, y, mo, d, hh, mm, sec, leaps, 0.0);
-    std::size_t best = 0;
-    double best_d = 1e18;
-    for (std::size_t i = 0; i < e.t.size(); ++i) {
-        double d_s = std::abs(e.t[i] - target);
-        if (d_s < best_d) { best_d = d_s; best = i; }
-    }
-    return best;
-}
-
-/// Linearly interpolated GCRS position AND velocity at an exact elapsed
-/// time (SP3's own 1-minute sample grid is too coarse to resolve a
-/// sub-minute time-scale offset by nearest-sample selection alone -- an 18s
-/// shift often would not even change which sample is nearest).
-struct InterpState { Vec3 r, v; };
-InterpState interp_ephem(const Ephem& e, double target) {
-    std::size_t hi = 0;
-    while (hi + 1 < e.t.size() && e.t[hi + 1] < target) ++hi;
-    std::size_t lo = hi == 0 ? 0 : hi - 1;
-    if (hi + 1 >= e.t.size()) { lo = e.t.size() >= 2 ? e.t.size() - 2 : 0; hi = e.t.size() - 1; }
-    const double span = e.t[hi] - e.t[lo];
-    const double frac = span > 0.0 ? (target - e.t[lo]) / span : 0.0;
-    return InterpState{e.r[lo] + frac * (e.r[hi] - e.r[lo]), e.v[lo] + frac * (e.v[hi] - e.v[lo])};
 }
 
 /// RULE 4, applied per the manager's own instruction: `SALP-IF-M/IDS-
@@ -406,7 +359,7 @@ InterpState interp_ephem(const Ephem& e, double target) {
 /// resolve an 18s shift -- it would often not even change which sample is
 /// nearest).
 void nadir_at_shift(const Ephem& e, const std::vector<QRow>& q, const time::LeapTable& leaps,
-                    double shift_s, int max_epochs) {
+                    const eop::EopSeries& c04, double shift_s, int max_epochs) {
     std::cout << std::fixed << std::setprecision(4);
     std::cout << "  shift = " << std::showpos << shift_s << std::noshowpos << " s\n";
     std::cout << "  epoch (UTC)       | total (deg) | along-track (deg) | cross-track (deg)\n";
@@ -419,10 +372,11 @@ void nadir_at_shift(const Ephem& e, const std::vector<QRow>& q, const time::Leap
         const QRow& row = q[qi];
         const double target = target_elapsed_s(e, row.y, row.mo, row.d, row.h, row.mi, row.sec,
                                                 leaps, shift_s);
-        const InterpState st = interp_ephem(e, target);
-        const Vec3 r_hat = normalized(st.r);
+        const auto st = state_at(e, target, leaps, c04);
+        if (!st.has_value()) { std::cerr << "  state_at: " << st.error().id << " " << st.error().message << "\n"; continue; }
+        const Vec3 r_hat = normalized(st->r);
         const Vec3 nadir_gcrs = -1.0 * r_hat;
-        const Vec3 n_hat = normalized(st.r.cross(st.v));
+        const Vec3 n_hat = normalized(st->r.cross(st->v));
         const Vec3 t_hat = n_hat.cross(r_hat);
 
         Vec3 z_direct_gcrs = body_z_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
@@ -442,7 +396,7 @@ void nadir_at_shift(const Ephem& e, const std::vector<QRow>& q, const time::Leap
 
 void run_nadir(const std::string& sp3path, const std::string& qpath, const std::string& leappath) {
     auto env = load_env(leappath);
-    auto e = build_ephem(sp3path, "L39", env.leaps, env.c04);
+    auto e = build_ephem(sp3path, "L39", env.leaps);
     auto q = read_qbody(qpath);
     if (q.empty()) { std::cerr << "no quaternion rows in " << qpath << "\n"; std::exit(1); }
 
@@ -455,11 +409,15 @@ void run_nadir(const std::string& sp3path, const std::string& qpath, const std::
     int checked = 0;
     for (std::size_t qi = 0; qi < q.size() && checked < 8; qi += (q.size() / 8 == 0 ? 1 : q.size() / 8), ++checked) {
         const QRow& row = q[qi];
-        // Nearest SP3 sample to this quaternion row's own wall-clock time
-        // (SP3 epochs are on this satellite's own minute grid; the
-        // quaternion file's own ~32s cadence does not align exactly).
-        std::size_t si = nearest_sp3(e, row.y, row.mo, row.d, row.h, row.mi, row.sec, env.leaps);
-        Vec3 nadir_gcrs = -1.0 * normalized(e.r[si]);
+        // Position at this quaternion row's own EXACT wall-clock time
+        // (state_at, the tree's one interpolation facility -- the SP3
+        // reader's own minute grid and the quaternion file's own ~32s
+        // cadence do not align, and no longer need to: this is no longer a
+        // nearest-sample lookup).
+        const double target = target_elapsed_s(e, row.y, row.mo, row.d, row.h, row.mi, row.sec, env.leaps, 0.0);
+        const auto st = state_at(e, target, env.leaps, env.c04);
+        if (!st.has_value()) { std::cerr << "state_at: " << st.error().id << " " << st.error().message << "\n"; continue; }
+        Vec3 nadir_gcrs = -1.0 * normalized(st->r);
 
         // Q0 (scalar) = row.q1; [Q1,Q2,Q3] (vector) = row.q2,q3,q4 -- rule-4
         // confirmed, applied directly to GCRS, NO ECEF step.
@@ -487,9 +445,9 @@ void run_nadir(const std::string& sp3path, const std::string& qpath, const std::
                  "offset, ~18s at this orbit's own rate, is about the size of the residual "
                  "above) -- along-/cross-track decomposition at three shifts, interpolated "
                  "exactly, not nearest-sample:\n";
-    nadir_at_shift(e, q, env.leaps, 0.0, 8);
-    nadir_at_shift(e, q, env.leaps, 18.0, 8);
-    nadir_at_shift(e, q, env.leaps, -18.0, 8);
+    nadir_at_shift(e, q, env.leaps, env.c04, 0.0, 8);
+    nadir_at_shift(e, q, env.leaps, env.c04, 18.0, 8);
+    nadir_at_shift(e, q, env.leaps, env.c04, -18.0, 8);
 }
 
 /// MODE 2, run only after `--nadir` shows one sense converging cleanly.
@@ -532,7 +490,7 @@ double nominal_yaw_rate_deg_per_s(const Vec3& r, const Vec3& v, const Vec3& sun_
 void run_compare(const std::string& sp3path, const std::string& qpath, const std::string& leappath,
                  bool use_transpose) {
     auto env = load_env(leappath);
-    auto e = build_ephem(sp3path, "L39", env.leaps, env.c04);
+    auto e = build_ephem(sp3path, "L39", env.leaps);
     auto q = read_qbody(qpath);
     if (q.empty()) { std::cerr << "no quaternion rows in " << qpath << "\n"; std::exit(1); }
 
@@ -550,11 +508,13 @@ void run_compare(const std::string& sp3path, const std::string& qpath, const std
         // INTERPOLATED, not nearest-sample (the `--nadir` diagnostic found
         // nearest-1-minute-sample rounding was the dominant remaining
         // residual, ~0.86-1.07 deg along-track, once the frame/order/time-
-        // scale bugs were already fixed -- this mode inherits that fix).
+        // scale bugs were already fixed -- this mode inherits that fix, now
+        // through state_at's own order-10 fit rather than a linear blend).
         const double target = target_elapsed_s(e, row.y, row.mo, row.d, row.h, row.mi, row.sec,
                                                 env.leaps, 0.0);
-        const InterpState st = interp_ephem(e, target);
-        const Vec3 r = st.r, v = st.v;
+        const auto st = state_at(e, target, env.leaps, env.c04);
+        if (!st.has_value()) { std::cerr << "state_at: " << st.error().id << " " << st.error().message << "\n"; continue; }
+        const Vec3 r = st->r, v = st->v;
 
         time::Epoch t = [&] {
             time::Calendar c; c.year = row.y; c.month = row.mo; c.day = row.d;

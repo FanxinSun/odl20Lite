@@ -35,7 +35,12 @@ orbits), **TLE** (NORAD two-line elements), **CRD** (ILRS laser-ranging data), *
 (ILRS laser-ranging predictions), **IOD** (optical angle observations), **SINEX**
 (solution/parameter exchange, read at the general block-structure level), **ANTEX**
 (antenna phase-centre calibration). Each reader also writes: round-tripping (read,
-write, re-read, structures equal) is this step's own stated gate.
+write, re-read, structures equal) is this step's own stated gate. One further facility,
+added after this step's own first round (`plan/subplan_L6/L6-1.md`, ruled 2026-09-25):
+**`Sp3Ephemeris`** (§3.8), a single satellite's own interpolated position between SP3
+samples, the tree's one interpolation facility — data access, not a measurement model,
+so it lives beside the reader it consumes rather than in `measmod` (L6 step 4), which
+uses it.
 
 **Not in scope**: the Horizons client and its own ephemeris-table format (L6 step 2,
 `SPEC-io-horizons.md`); SGP4 propagation itself, which consumes this module's own `Tle`
@@ -64,18 +69,31 @@ exist.
 | `IODFMT` | Lewis, G. D. | *IOD Observation Format Description* | Version 0, 10 October 1998, clarified 24 February 2002 | `https://www.satobs.org/position/IODformat.html`, fetched directly 2026-09-25, SHA256 `c781b04fcaccd66fea6f96d601a27c8b0e1d76121d20d212dee4b2381586fa04` | **primary**, obtained in full | the IOD reader: the 80-column field layout, the seven RA/DEC and AZ/EL angle-format codes, the mantissa-exponent uncertainty encoding |
 | `SINEX2` | IGS/IERS/ILRS/IVS SINEX Working Group | *SINEX — Solution (Software/technique) INdependent EXchange Format*, Version 2.02 | 1 December 2006 | `https://ivscc.gsfc.nasa.gov/products-data/sinex_v202.pdf`, fetched directly 2026-09-25, SHA256 `246f42b88032d3357289cd698224fed3f2ac5b360ecd27e8f2c3d95e54eb69b8` | **primary, partial** — the general file/block structure (§2), the header line (§3) and the `FILE/REFERENCE`/comment-line conventions extracted cleanly; the per-block field tables for the ~20 named blocks (`SITE/ID`, `SOLUTION/ESTIMATE`, etc.) were not individually transcribed this round, per this spec's own §1 scoping — a caller reads a specific block's own fields against `SINEX2` directly, the same way `IGSMETA`'s `SATELLITE/MASS` field was read at L5 | normative for the general reader (header line, block delimiters `+`/`-`, comment lines, footer); a specific block's own semantics are each block's own future consumer's responsibility |
 | `ANTEX14` | Rothacher, M., Schmid, R. (TU München) | *ANTEX: The Antenna Exchange Format*, Version 1.4 | 15 September 2010 | `https://files.igs.org/pub/data/format/antex14.txt`, fetched directly 2026-09-25, SHA256 `86458154367916d2fa6282ca2f8e5137c3d9663d7c18eb44eaf344c8e7eba621` | **primary**, obtained in full | the ANTEX reader: the header block, the per-antenna PCO (north/east/up) and PCV (`NOAZI` and azimuth-dependent) grid records |
+| `SCHEN03` | Schenewerk, M. | *A brief review of basic GPS orbit interpolation strategies*, GPS Solutions 6:265–267 | 2003 | `http://www.acc.igs.org/orbits/orbit-interp_gpssoln03.pdf`, fetched directly 2026-09-25, SHA256 (recorded in `PROVENANCE.md`, this round's own entry) | **primary**, obtained in full | §3.8's own interpolation order: a real IGS 15-minute file, ECF coordinates, 9–13 term polynomials adequate, 11 terms (10th order) best |
+| `HORA06` | Horemuž, M., Andersson, J. V. | *Polynomial interpolation of GPS satellite coordinates*, GPS Solutions 10:67–72 | 2006 | `http://www.acc.igs.org/orbits/orbit-interp_gpssoln06.pdf`, fetched directly 2026-09-25, SHA256 (recorded in `PROVENANCE.md`, this round's own entry) | **primary**, obtained in full | §3.8's own interpolation order: a second, independent real IGS 15-minute file; order 10 already negligible Runge-phenomenon error |
+| `ZEIT24` | Zeitlhöfler, J., Alkahal, R., Rudenko, S., Bloßfeld, M., Seitz, F. | *Performance assessment of interpolation methods for orbits of altimetry satellites*, Earth, Planets and Space 76:158, DOI `10.1186/s40623-024-02102-8` | 2024 | `https://earth-planets-space.springeropen.com/articles/10.1186/s40623-024-02102-8`, fetched directly 2026-09-25 (open access), SHA256 (recorded in `PROVENANCE.md`, this round's own entry) | **primary**, obtained in full | §3.8's own interpolation order for the LEO/altimetry case (Jason-2-class, 30–120 s step): degree 8–11 sub-millimetre, degrees above 13 show Runge-phenomenon growth |
 
-**Licence note, all eight sources.** Every document above is a public, first-party format
-specification, fetched directly by plain HTTP GET, no login, no account, no request
-form — the same retrievability bar every other rule-4 search in this tree applies. None
-states redistribution terms for the DOCUMENT itself, which this module does not
-redistribute: it implements a reader from the format's own printed description, the same
-"clean-room, spec-derived code" treatment the IERS Conventions tables and the RKF7(8)
-coefficients already receive in this tree (`../plan/PLAN.md` §3.11 point 4), not a
-transcription of the document's own prose or a vendoring of its bytes. `IODFMT` alone
-states a copyright ("Copyright (C) 1998, G. Lewis") on the document; the same reasoning
-applies — implementing a parser for the FORMAT it describes is not a reproduction of the
-document.
+**Licence note, the eight format specifications.** Every document in the first eight rows
+above is a public, first-party format specification, fetched directly by plain HTTP GET,
+no login, no account, no request form — the same retrievability bar every other rule-4
+search in this tree applies. None states redistribution terms for the DOCUMENT itself,
+which this module does not redistribute: it implements a reader from the format's own
+printed description, the same "clean-room, spec-derived code" treatment the IERS
+Conventions tables and the RKF7(8) coefficients already receive in this tree
+(`../plan/PLAN.md` §3.11 point 4), not a transcription of the document's own prose or a
+vendoring of its bytes. `IODFMT` alone states a copyright ("Copyright (C) 1998, G. Lewis")
+on the document; the same reasoning applies — implementing a parser for the FORMAT it
+describes is not a reproduction of the document.
+
+**`SCHEN03`/`HORA06`/`ZEIT24`.** Three further sources, added when §3.8's own
+interpolation order needed a stated reason rather than an assertion. Each is a normal,
+publicly-indexed journal article (GPS Solutions, Springer; Earth, Planets and Space, a
+SpringerOpen open-access journal), fetched directly with no login, cited here for a
+specific STATED FINDING quoted in §3.8 (an order, an achieved accuracy) — the same
+citation-not-redistribution treatment this tree's own literature entries already receive
+(plan §5 constraint 3): no table, figure or extended passage is reproduced, and this
+module builds no data structure from their contents the way it does from the eight format
+specifications above.
 
 ---
 
@@ -187,6 +205,86 @@ azimuth-dependent grid (`ZEN1`/`ZEN2`/`DZEN` from the header define the zenith-a
 axis; the azimuth axis is 0–360° in `ANTEX14`'s own fixed 5° steps where present).
 `AntexPco { north_mm: double, east_mm: double, up_mm: double }`.
 
+### 3.8 SP3 ephemeris — interpolated position
+
+`plan/subplan_L6/L6-1.md`, ruled 2026-09-25, after this spec's own first round already
+built the seven readers: the comparison tools' own three position-lookup defects
+(nearest-sample selection, elapsed time in place of a calendar date, an assumed frame)
+lived in their own per-tool interpolation code, and each tool still interpolated SP3
+positions in its own way (linear for the GNSS-comparison tools that need it at all;
+`doris_jason_check.cpp`'s own separate fix for Jason). **Interpolation is data access,
+the same kind of thing §3.1's `to_time_scale` already is, not a measurement model** —
+so it is built once, here, and every tool that needs a position between SP3 samples uses
+it, rather than carrying its own copy.
+
+`Sp3Ephemeris` is built from an already-read `Sp3File` and one satellite id: it extracts
+that satellite's own position record from every epoch that carries one, in file order
+(`IOFM-R-001` already guarantees this is chronological), and is ready for repeated
+interpolation. Like every reader in §3.1–§3.7, it never constructs an `odl::time::Epoch`
+— no `LeapTable` is available here — so time is measured as **elapsed calendar seconds**
+from the ephemeris's own first sample (`calendar_elapsed_seconds`, a pure function of the
+`Calendar` fields, a proleptic-Gregorian day count plus time-of-day). This is EXACT for a
+continuous time system — TAI, GPS, the system every real SP3 file this tree holds
+actually uses — and a stated, bounded approximation for a UTC-tagged file: off by at
+most the leap seconds actually crossed, and only across the instant of the leap second
+itself, never silently assumed away.
+
+**The order, per sampling interval, and why (`IOFM-R-003`).** A Lagrange polynomial
+through 11 points (10th order) is used by default, for both a 15-minute GNSS file and a
+60-second LEO file — the SAME order, not a formula that varies with the interval, because
+three independent sources, spanning both regimes on real IGS/GSFC data, converge on
+essentially this same range:
+
+- Schenewerk, M. (2003), *"A brief review of basic GPS orbit interpolation strategies,"*
+  GPS Solutions 6:265–267 (fetched directly, `acc.igs.org`, no login) — a real IGS rapid
+  ephemeris (`igr11472.sp3`, 15-minute), ECF coordinates: 9–13 term (8th–12th order)
+  polynomials are "more than adequate," under 9 terms "unable to match the more subtle
+  variations," over 13 terms have "too much freedom and overreact" — 11 terms (10th
+  order) gives 0.2 cm population SD.
+- Horemuž, M., Andersson, J. V. (2006), *"Polynomial interpolation of GPS satellite
+  coordinates,"* GPS Solutions 10:67–72 (fetched directly, `acc.igs.org`) — a second real
+  IGS file (`igs13036.sp3`, 15-minute), independently: *"results were already negligibly
+  small ... for polynomial order 10."*
+- Zeitlhöfler, J., Alkahal, R., Rudenko, S., Bloßfeld, M., Seitz, F. (2024), *"Performance
+  assessment of interpolation methods for orbits of altimetry satellites,"* Earth, Planets
+  and Space 76:158, DOI `10.1186/s40623-024-02102-8` (open access, fetched directly) —
+  Jason-2-class LEO orbits at 30/60/120 s step sizes: degree 8 (Newton, the same
+  interpolating polynomial a Lagrange fit through the same points is) already reaches
+  sub-millimetre accuracy at up to 120 s step size; degree 13 shows Runge-phenomenon
+  growth at the window edges, so *"we recommend degrees up to 11."*
+
+Order 10 (11 points) sits inside every one of these three ranges, for a file whose own
+sample interval is 900 s or 60 s alike — the convergence itself, not merely a citation,
+is why one order serves both regimes (measured directly against real data, `IOFM-A-030`/
+`031`, §8). When a file offers fewer than 11 epochs for the named satellite (a short or
+hand-built fixture; every real file this tree holds offers far more), the order actually
+used is reduced to `sample_count − 1` rather than refusing outright — interpolation with
+fewer points, strictly inside the sampled span, is still interpolation, not the
+extrapolation `IOFM-R-004` refuses.
+
+**Never extrapolates (`IOFM-R-004`).** A query outside `[first sample, last sample]`
+refuses (`IOFM-F-009`) rather than returning a value nothing in the file supports.
+
+**Refuses across a gap or a manoeuvre (`IOFM-R-005`).** The window of points an
+interpolation query would use is checked, before fitting: if any two consecutive points
+in that window are separated by more than 1.5× the file's own stated epoch interval (a
+missed epoch — a genuine gap, not floating-point jitter on an otherwise uniform grid), or
+if any point in that window is itself flagged `M` (Maneuver Flag, `SP3D` column 79,
+already read into `Sp3PositionRecord::maneuver` by §3.2's own reader), the query refuses
+(`IOFM-F-010`/`IOFM-F-011`) rather than fitting a smooth polynomial across a real
+discontinuity a satellite's own position does not smoothly interpolate through.
+
+**Velocity is not `Sp3Ephemeris`'s own scope** — the ruling's own words are "interpolated
+POSITION." `central_difference_velocity_km_s` (§5) is offered alongside it, not as a
+class member, as the position facility's own obvious derivative (a central finite
+difference over a 1 s step, refusing whenever either probe it needs does), for a caller
+needing velocity at an arbitrary query time rather than only at a real sample (where the
+SP3 file's own `V` record already states it directly). `GALY-Q-002` (`SPEC-galileo-
+attitude.md`) names the OLD two-real-sample central difference (a span of one whole SP3
+interval, not one second) as a suspect for a small unexplained residual; re-pointing onto
+this function's own much shorter step is the direct test of that suspicion, reported in
+`PROVENANCE.md`, this round's own entry, not re-litigated here.
+
 ---
 
 ## 4. Required behaviour
@@ -213,6 +311,24 @@ seven and stated once here rather than seven times:
   field** (`IOFM-A-001` shows it firing, against SP3's own Epoch Interval, `SP3D` line
   two, columns 25–38, not the GPS-week/seconds-of-week pair that precede it on the same
   line).
+
+§3.8's `Sp3Ephemeris` states three more, its own:
+
+- **IOFM-R-003.** Position at an epoch between two SP3 samples is a Lagrange polynomial
+  of a STATED order (default 10, 11 points), the order stated and justified per sampling
+  interval, not silently varying by file — §3.8's own three-source convergence.
+- **IOFM-R-004.** Interpolation never extrapolates: a query outside the sampled span
+  refuses (`IOFM-F-009`).
+- **IOFM-R-005.** Interpolation refuses rather than fitting across a real discontinuity:
+  a query whose own interpolation window spans a gap larger than 1.5× the file's stated
+  interval (`IOFM-F-010`), or includes a manoeuvre-flagged sample (`IOFM-F-011`).
+- **IOFM-R-006.** Elapsed time between two epochs is computed by exact proleptic-
+  Gregorian calendar arithmetic (a day count plus time-of-day), never a `LeapTable` —
+  correct across a month, a leap-year February, and a year boundary alike.
+- **IOFM-R-007.** Velocity at an arbitrary query time, where one is needed, is a central
+  finite difference of `position_km_at` over a short (1 s default) step, refusing
+  whenever either position probe it needs does — never a wider, less accurate
+  difference between two real, possibly far-apart samples.
 
 ---
 
@@ -242,6 +358,20 @@ seven and stated once here rather than seven times:
   -> Result<string, SinexError>`.
 - `read_antex(text: string) -> Result<AntexFile, AntexError>` / `write_antex(AntexFile)
   -> Result<string, AntexError>`.
+- `Sp3EphemerisError = odl::Diagnostic`. `Sp3Ephemeris::build(Sp3File, satellite_id: string,
+  target_order: int = 10) -> Result<Sp3Ephemeris, Sp3EphemerisError>` /
+  `.position_km_at(t_s: double) -> Result<Vec3, Sp3EphemerisError>` (§3.8).
+  `calendar_elapsed_seconds(from: Calendar, to: Calendar) -> double` is a pure function,
+  no `LeapTable`, the same "pure mapping, no table" shape `to_time_scale` already is.
+  `lagrange_interpolate(points: vector<pair<double, Vec3>>, t_query: double) -> Vec3` is
+  the raw fit with no span/gap/manoeuvre policy at all, exposed separately so the accuracy
+  self-check (`IOFM-A-030`/`031`) can measure the polynomial's own error against a real,
+  individually held-out sample without that sample's own absence being read as a data gap
+  — a different, and deliberately stricter, question `position_km_at` alone answers for a
+  caller who does not already know the answer.
+  `central_difference_velocity_km_s(Sp3Ephemeris, t_s: double, h_s: double = 1.0) ->
+  Result<Vec3, Sp3EphemerisError>` is `position_km_at`'s own obvious derivative (§3.8),
+  not a class member — velocity is not this round's own stated scope for the class itself.
 
 Every returned structure is **immutable after construction** (matching `Macromodel`'s own
 `SPEC-macromodel.md` `MCRM-R-001` precedent) — a reader either succeeds with a complete,
@@ -280,6 +410,10 @@ state a caller could observe mid-parse.
 | `IOFM-F-006` | A SINEX line's own first character is not one of `%`, `*`, `+`, `-`, or a space | the character found (or its absence, for an empty line), and the line number |
 | `IOFM-F-007` | A TLE line's own trailing checksum digit does not match `tle_checksum` computed over the rest of the line | both digits, and which line |
 | `IOFM-F-008` | An ANTEX antenna record's own `PCV TYPE` is neither `A` (absolute) nor `R` (relative) | the character found |
+| `IOFM-F-009` | `Sp3Ephemeris::position_km_at` is called with `t_s` outside `[first sample, last sample]` | the query time and the sampled span's own two endpoints |
+| `IOFM-F-010` | The interpolation window a query would use spans a gap more than 1.5× the file's stated epoch interval | the query time, the gap's own size, the file's own stated interval, and the two bracketing sample times |
+| `IOFM-F-011` | The interpolation window a query would use includes a sample flagged `M` (Maneuver Flag) | the query time and the flagged sample's own time |
+| `IOFM-F-012` | `Sp3Ephemeris::build` is called with a `satellite_id` that has fewer than 2 samples in the file | the satellite id and how many samples were found |
 | (inherited) `R-ERR-1`/`R-ERR-2`/`R-ERR-3` | `SPEC-template.md` §5's own standing rules | unchanged; no persistent error state, no silently-dropped dependency warning, at most one named override anywhere in this module (none is needed by any reader here — every refusal above is a genuine format violation, not a legitimate operational case needing a documented escape hatch) |
 
 ---
@@ -339,6 +473,16 @@ in `speccheck.py` itself (`tools/speccheck.py`, the row-finding regex), not work
 | `IOFM-A-020` | A truncated SP3 line refuses `IOFM-F-001`, naming the field | the refusal | `IOFM-F-001` | — | F-001 |
 | `IOFM-A-021` | An unrecognised SP3 Time System code refuses `IOFM-F-002` | the refusal | `IOFM-F-002` | — | F-002 |
 | `IOFM-A-022` | **A real-world finding, not from either spec example.** An entirely BLANK `++` accuracy line (found on a real GSFC-produced Jason-3 SP3 file, `gscja3`, 2025-12 — not only `SP3D`'s own `0`-filled examples) is accepted, every slot reading `0`, the same "no accuracy given" meaning explicit zero-padding already states | every slot reads 0 | a real SP3 file this tree already holds (`PROVENANCE.md`, this round's own entry) | exact | R-001 |
+| `IOFM-A-023` | `Sp3Ephemeris::position_km_at` reproduces every one of its own 15 sample nodes exactly, on a hand-built fixture | the fixture's own values | self-consistency (a Lagrange polynomial is exact at its own nodes, a property of the mathematics, checked directly rather than assumed) | 1e-8 km | R-003 |
+| `IOFM-A-024` | A query before the first sample and a query after the last both refuse; the span's own two endpoints do not | the refusal, both directions; the two successes | `IOFM-F-009` | — | R-004, F-009 |
+| `IOFM-A-025` | A query whose own window would span a genuine 120 s gap (a file with epoch index 6 of a 60 s series entirely absent) refuses; the same file interpolates cleanly clear of the gap | the refusal; the two successes | `IOFM-F-010` | — | R-005, F-010 |
+| `IOFM-A-026` | A query whose own window includes a manoeuvre-flagged sample refuses; the same file interpolates cleanly clear of it | the refusal; the two successes | `IOFM-F-011` | — | R-005, F-011 |
+| `IOFM-A-027` | `build` on a satellite id absent from the file, and on one present only once, both refuse | the refusal, both cases | `IOFM-F-012` | — | F-012 |
+| `IOFM-A-028` | `build` with `target_order=10` on a 5-epoch file uses order 4 (`sample_count-1`), not the unreachable target, and still interpolates between nodes at that reduced order | `order() == 4`; a successful interior query | self-consistency | exact (order); a value returned | R-003 |
+| `IOFM-A-029` | `calendar_elapsed_seconds` is exact across a plain day, a non-leap-year February (2026, 28 days), a leap-year February (2028, 29 days — the SAME nominal dates giving a DIFFERENT elapsed time), a year boundary, and a sub-minute fraction; antisymmetric when `from`/`to` are swapped | 86400 s / 86400 s / 172800 s / 86400 s / 29.5 s / −86400 s | self-consistency (proleptic Gregorian calendar arithmetic, a property of the algorithm) | exact | R-006 |
+| `IOFM-A-032` | `central_difference_velocity_km_s` matches a synthetic fixture's own KNOWN analytic derivative at an interior, non-node query time; a query within `h_s` of the sampled span's own edge refuses, propagating `position_km_at`'s own `IOFM-F-009` | the analytic derivative; the refusal | self-consistency (the fixture's own closed-form derivative, a property of the polynomial, not assumed) | 1e-6 km/s | R-007, F-009 |
+| `IOFM-A-030` | **Real-data accuracy.** An 11-point Lagrange fit against 13 real, individually held-out GPS G01 samples (IGS rapid combined solution, 900 s interval, `igs.bkg.bund.de`, no login) stays under 1 cm — measured 1.07 mm RMS, 1.47 mm max | error < 1 cm | a real IGS rapid-product SP3 file (`PROVENANCE.md`, this round's own entry); the 1 cm bound from Schenewerk (2003) / Horemuž & Andersson (2006), §3.8 | < 1 cm | R-003 |
+| `IOFM-A-031` | **Real-data accuracy.** The same methodology against 13 real, individually held-out Jason-3 L39 samples (GSFC SLR+DORIS dynamic orbit, 60 s interval, `doris.ign.fr`, anonymous FTP) stays under 1 cm — measured 2.23 mm RMS, 4.43 mm max | error < 1 cm | a real GSFC dynamic-orbit SP3 file (`PROVENANCE.md`, this round's own entry); the 1 cm bound from Zeitlhöfler et al. (2024), §3.8 | < 1 cm | R-003 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row; none require excusing.
 
@@ -356,6 +500,12 @@ in `speccheck.py` itself (`tools/speccheck.py`, the row-finding regex), not work
   than `TLEFMT` does); the CRD/SINEX scope decisions (§3.3, §3.6) naming exactly which
   record/block kinds are parsed field-by-field versus carried opaque, and why; the SP3
   GLO/GAL/BDT/QZS refusal design (§3.1) and its own reasoning.
+- The same section also records §3.8's own round: the three interpolation-order sources
+  (`SCHEN03`, `HORA06`, `ZEIT24`) and their own converging findings; the real GNSS and
+  Jason-3 SP3 files obtained for `IOFM-A-030`/`031` (host, path, licence/retrievability
+  basis, SHA256); the measured holdout accuracy on each (RMS and max, both under 1 cm);
+  and the six comparison tools re-pointed at `Sp3Ephemeris`, retiring their own per-tool
+  lookup and interpolation code.
 
 ---
 

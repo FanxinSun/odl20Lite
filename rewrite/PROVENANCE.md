@@ -6646,12 +6646,152 @@ treatment only if a future consumer needs it), `IOFM-Q-002` (SINEX block semanti
 `IOFM-Q-003` (`STR3`'s own unreadable T-card/G-card sheet, `TLEFMT` sufficient for now). L6 steps 2–4
 (Horizons client, `sgp4`, `measmod`) not started.
 
+### 36.13 A second round: the manager's own ruling that step 1 also carries SP3 interpolation
+
+`plan/subplan_L6/L6-1.md`, ruled 2026-09-25, on the flagged question at §36.11/the L6 report: the three
+comparison-tool defects §35's own handover named (`../handover/2026-09-25-odl-rewrite-L6.md`) — nearest-
+sample selection, elapsed time in place of a calendar date, an assumed frame — lived in the tools' own
+POSITION LOOKUP, not their parsing, and each tool still interpolated in its own way (linear for the
+GNSS-comparison tools that need it at all; `doris_jason_check.cpp`'s own separate fix). Re-pointing the
+parser alone (§36.1–36.11) left that defect class with several places to live. **Interpolation is data
+access, the same kind of thing `to_time_scale` already is, not a measurement model** — built once here,
+`measmod` (L6 step 4) a consumer, not the owner.
+
+### 36.14 The order: three real, independent sources, then measured directly against real held-out data
+
+`SPEC-io-formats.md` §3.8 states the full account; summarised here. Three papers, each fetched directly
+(no login) and each using REAL IGS/GSFC orbit products, converge on an 11-point (10th-order) Lagrange
+fit for BOTH regimes this tree holds files for, despite very different orbital dynamics:
+
+- Schenewerk (2003), a real 15-minute IGS rapid ephemeris: 9–13 terms "more than adequate," 11 terms
+  best (0.2 cm SD).
+- Horemuž & Andersson (2006), a second, independent real 15-minute IGS file: order 10 already
+  negligible Runge-phenomenon error.
+- Zeitlhöfler et al. (2024), real Jason-2-class LEO orbits at 30–120 s step sizes: degree 8 (Newton,
+  the same polynomial a Lagrange fit through the same points is) already sub-millimetre; degrees above
+  13 show growth at the window edges, "we recommend degrees up to 11."
+
+**Then measured, not merely trusted**, on two fresh real files this round fetched directly: `IOFM-A-030`
+holds out 13 individual real GPS G01 samples (IGS rapid combined solution, `igs.bkg.bund.de`, 900 s
+interval) from an 11-point fit built from their own real neighbours and measures 1.07 mm RMS, 1.47 mm
+max against the real, known, withheld value. `IOFM-A-031` does the same against 13 real Jason-3 L39
+samples (GSFC SLR+DORIS dynamic orbit, `doris.ign.fr` anonymous FTP, 60 s interval): 2.23 mm RMS,
+4.43 mm max. Both comfortably inside the 1 cm bound the literature states, on real data this tree
+fetched itself rather than trusted from either paper's own numbers.
+
+**A test-harness bug, caught by its own assertion, not trusted output**: the FIRST holdout sweep showed
+a 129 mm outlier on the GNSS file and a 38 mm outlier on the Jason file, both at the LAST index tested —
+traced to the verification harness's own off-by-one (a window needing 6 points on one side of the
+held-out sample, not 5, at an odd point count), reading one array slot past the end. Fixed in the
+harness (not production code, which the bounds guard added while debugging confirmed never received
+the bad read); the corrected sweep is what §3.8/`IOFM-A-030`/`031` state.
+
+### 36.15 A raw evaluator, separated from the refusal policy it sits inside
+
+Writing the holdout test the direct way — delete the held-out epoch from a copy of the real `Sp3File`,
+build an `Sp3Ephemeris`, interpolate at the deleted epoch's own time — hit `IOFM-A-025`'s own gate
+immediately: removing an interior sample creates EXACTLY a two-interval gap, which `position_km_at`
+correctly refuses (`IOFM-F-010`), since from the ephemeris's own point of view a held-out test sample
+and a genuine dropout are the same shape. Recognising that a caller who ALREADY KNOWS the withheld
+value is asking a different, deliberately less conservative question than an arbitrary caller who does
+not, `lagrange_interpolate` (the raw fit, no span/gap/manoeuvre policy) was factored out and exposed
+separately, with `position_km_at` becoming a thin wrapper (window selection, then the same function) —
+the accuracy self-check calls the raw evaluator directly, on a hand-selected window that excludes the
+one held-out point, while the refusal policy itself stays exactly as strict for every other caller.
+
+### 36.16 A third bug class this round found: a day-rollover a hand-rolled `epoch_at` could not represent
+
+Re-pointing `orbex_galileo_check.cpp` onto `Sp3Ephemeris` needed velocity at an arbitrary time near
+every real sample, including the file's own last one — and running the REAL, already-pinned Galileo
+control file (`COD0MGXFIN_20232800000_01D_05M_ORB.SP3`, re-fetched this round, SHA256 confirmed
+identical to the value already recorded in this file's own header) through the new code crashed:
+`calendar field out of range: 2023-10-7T24:0:0`. The real file's own last epoch is genuinely stamped at
+the NEXT day's 00:00:00 (a closing bookend sample, confirmed directly: 289 epochs, `2023 10 7 0 0 0`
+through `2023 10 8 0 0 0`) — and `epoch_at`'s own hh/mm/ss-reconstruction-from-elapsed-seconds assumed
+every query stays on the arc's own first calendar day, a genuine, previously-latent defect nothing had
+exercised before, since every EXISTING call site's own registered comparison epochs happened to avoid
+this exact boundary. `doris_jason_check.cpp` already carries the correct fix, from an earlier round, for
+the identical reason (its own header comment records the earlier bug this one is a sibling of): store an
+absolute `time::Epoch t0` and use `Epoch::add`, pure TAI-seconds arithmetic with no calendar
+decomposition to overflow. Applied identically to `orbex_galileo_check.cpp`, `orbex_glonass_check.cpp`
+and `orbex_qzss_check.cpp` (the three sibling tools sharing this exact pre-existing pattern); verified
+directly on the real file afterward, both `--compare` and `--scan` modes, the latter iterating every one
+of the 289 epochs including the previously-crashing last one.
+
+### 36.17 The Galileo control, re-run through the new facility: the residual moved, in both directions
+
+`GALY-Q-002` (`SPEC-galileo-attitude.md`) named the OLD velocity — a central difference between two
+REAL, 5-minute-apart neighbouring samples — as a plausible contributor to FOC's own small (0.06–0.10
+deg) unexplained real-data residual. Re-run on the SAME real, re-fetched, hash-confirmed file
+(`COD0MGXFIN_20232800000_01D_05M_ORB.SP3`/`...ATT.OBX`), baseline reproduced EXACTLY first (0.00192,
+0.00176, 0.0615, 0.0997 deg, matching this file's own header record) before any code changed, per rule 5:
+
+| check | before | after |
+|---|---|---|
+| E11 (IOV) 03:45 | 0.00192 | 0.00192 |
+| E11 (IOV) 10:50 | 0.00176 | 0.00176 |
+| E33 (FOC) 21:15 | 0.0615 | 0.0917 |
+| E33 (FOC) 00:05 | 0.0997 | 0.0702 |
+
+IOV unchanged (position itself is UNCHANGED by construction — Lagrange interpolation is exact at its
+own sample nodes, so the only thing that could move is velocity, and IOV's own residual was apparently
+not velocity-sensitive at this scale). FOC's own two crossings moved by a similar magnitude (~0.03 deg)
+in OPPOSITE directions, remaining in the same overall band and comfortably inside the registered 2-deg
+criterion both before and after. **Read honestly**: this confirms velocity WAS a real contributor at
+roughly this scale, exactly GALY-Q-002's own suspicion, but the fact that it moved one crossing worse
+and the other better — not a uniform collapse toward zero the way the earlier along-track nearest-
+sample fix in `doris_jason_check.cpp` produced — means it is not shown to be the SOLE or DOMINANT cause
+of the residual; the other two candidates GALY-Q-002 already named (beta held constant across the
+window; CODE's own attitude solution's own estimation noise) remain equally live. `GALY-Q-002` is left
+open, its own wording ("not investigated further this round") still accurate, now with one candidate
+partially tested rather than untested.
+
+### 36.18 `doris_jason_check.cpp`: both of its own remaining interpolation paths retired, one left standing
+
+`nearest_sp3` (still used by `--nadir` alone, the coarsest of the three paths this whole round found) and
+`interp_ephem` (the linear blend the file's own header already credits with collapsing an earlier ~1 deg
+residual to ~0.03–0.18 deg) are BOTH retired -- `state_at`, one function, is now every mode's own route to
+a position. `Ephem` itself simplifies: the precomputed per-sample `t[]`/`r[]`/`v[]` arrays this file
+built once at `build_ephem` time are gone entirely (nothing outside those two retired functions ever
+read them directly, confirmed by search before deleting), replaced by the `Sp3Ephemeris` itself plus the
+absolute `t0` every query is measured from; GCRS is now a per-query transform, not a precomputed array.
+
+**Verification this round was network-limited, recorded honestly rather than assumed clean.** The exact
+real Jason-3 SP3 arc this file's own header already documents (`products/orbits/gsc/ja3/`, `doris.ign.fr`
+anonymous FTP) was re-fetched successfully early in this round (a fresh, real, 15 950-epoch, 60 s-interval
+file, SHA256 recorded) and used for `IOFM-A-031`'s own accuracy measurement (§36.14) — but the matching
+real DORIS quaternion file (`ancillary/quaternions/ja3/...`) could not be re-fetched later the same
+round: the host's own FTP service stopped completing transfers (a directory listing for the SP3 path
+returned nothing after three attempts at increasing timeouts; a quaternion file transfer returned a
+`229` control response with zero bytes). No login or account route was tried, per this tree's own
+standing discipline. **In place of a live numerical re-run**, the refactored code was verified: (1) a
+full, clean `g++` compile with no warnings; (2) a structural smoke test — the real `IOFM-A-031` SP3
+excerpt already on hand, paired with a clearly-labelled SYNTHETIC quaternion file (fabricated values,
+stated as such, not real telemetry) in the matching date range — which ran every mode (`--nadir`,
+including the time-shift diagnostic) end to end with no crash, correctly refusing each query
+(`EOP-F-007`, the cached EOP series' own real coverage genuinely ends before 2026-03-29) and correctly
+continuing to the next row rather than aborting; (3) `state_at` is, line for line, the SAME composition
+(`Sp3Ephemeris::position_km_at`, ECEF-to-GCRS per side, then difference) already exercised live, with
+a REAL numerical residual measured to move, on `orbex_galileo_check.cpp`'s own real data (§36.17) — the
+part of this file's own change with the most numerical risk was proved correct there, not assumed here.
+A live, real-quaternion re-run of `doris_jason_check.cpp` itself is worth doing whenever `doris.ign.fr`
+is next reachable; not blocking, since the shared core logic already has independent real-data proof.
+
+### 36.19 What remains open, updated
+
+`IOFM-Q-001`/`002`/`003` (§36.12) still stand, untouched. New from this round: `GALY-Q-002` narrowed but
+not closed (§36.17); a live `doris_jason_check.cpp` real-quaternion re-run still owed, blocked by a
+network condition outside this tree's own control, not by anything left undone in the code (§36.18).
+Step 1 is now complete per the manager's own ruling (`plan/subplan_L6/L6-1.md`); L6 steps 2–4 (Horizons
+client, `sgp4`, `measmod`) not started.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-25 | **L6 step 1 closes: SP3 interpolation built as one tree-wide facility (an 11-point Lagrange fit, three independent real-data sources converging on that order for both a 15-min GNSS file and a 60 s LEO file), measured directly against real held-out samples (1.5 mm / 4.4 mm max on two fresh real files), and the six comparison tools re-pointed at it — finding, along the way, a genuine day-rollover bug in three tools' own hand-rolled epoch arithmetic, and a real, mixed-direction movement in Galileo's own small real-data residual.** `SPEC-io-formats` §3.8/§4/§5/§7/§8 extended (`IOFM-R-003`–`007`, `IOFM-F-009`–`012`, `IOFM-A-023`–`032`), `plan/subplan_L6/L6-1.md` carries the manager's own ruling. `Sp3Ephemeris::position_km_at` (order 10 default, reduced gracefully on a short file, never extrapolating) and the free function `central_difference_velocity_km_s` (velocity is explicitly NOT the class's own scope, per the ruling's literal words) are `modules/io`'s only new public surface; `lagrange_interpolate`, the raw fit with no refusal policy, is exposed separately because the accuracy self-check's own "delete a real sample and interpolate it back" methodology would otherwise collide with the SAME gap refusal it is trying to measure around. The order (11 points / 10th) is not asserted: Schenewerk (2003) and Horemuž & Andersson (2006), two independent papers each using a real IGS 15-minute file, and Zeitlhöfler et al. (2024), using real Jason-2-class LEO orbits at 30-120s, all converge on essentially this same range despite very different orbital dynamics — corroborated directly on two FRESH real files this round fetched itself (IGS rapid GPS G01, `igs.bkg.bund.de`; Jason-3 L39, `doris.ign.fr` anonymous FTP), holding out 13 real samples each and measuring 1.07/2.23 mm RMS, 1.47/4.43 mm max against real withheld values — a test-harness off-by-one that first produced a spurious 129 mm outlier was caught by its own bounds assertion before being trusted. Re-pointing `orbex_galileo_check.cpp` onto the new facility crashed on the REAL, re-fetched, hash-confirmed control file: its last epoch is genuinely stamped at the next day's 00:00:00, which a hand-rolled `epoch_at` (reconstructing hour/minute/second from elapsed seconds assuming one fixed calendar day) cannot represent — a real, previously-latent bug, fixed the same way `doris_jason_check.cpp` already fixed it in an earlier round (store an absolute `Epoch`, use `Epoch::add`), applied to all three sibling GNSS-comparison tools. The SAME real Galileo control file, re-run baseline-then-after per rule 5: IOV unchanged (position is exact at its own sample nodes by construction, so only velocity could move, and IOV was not velocity-sensitive here); FOC's own two crossings moved ~0.03 deg in OPPOSITE directions (0.0615->0.0917, 0.0997->0.0702), both still comfortably inside the 2-deg criterion — confirming velocity was a real contributor to `GALY-Q-002`'s own named residual, at roughly this scale, but not shown to be its sole or dominant cause, since a genuine fix would be expected to move both consistently rather than in opposite directions; left open, narrowed rather than closed. `doris_jason_check.cpp` itself lost BOTH of its own remaining interpolation paths (`nearest_sp3`, still used by `--nadir` alone, and `interp_ephem`, a linear blend) to one shared function, `state_at`, and its own precomputed per-sample array trio is gone entirely, replaced by the ephemeris itself plus one absolute reference epoch; a live real-quaternion re-run could not be completed this round (`doris.ign.fr`'s own FTP service stopped completing transfers partway through, after the real SP3 arc for `IOFM-A-031` had already been fetched successfully) — verified instead by a clean compile, a structural smoke test against a clearly-labelled synthetic quaternion fixture (every mode ran end to end, correctly refusing where the cached EOP series' own real coverage ends, never crashing), and the fact that its own core composition is line-for-line what was already proved to move a real number correctly on the Galileo file. Tree-wide: 437 tests, all 13 `ci.sh` gates green, 738 artefacts byte-identical. |
 | 2026-09-25 | **L6 opens: `io` built — seven formats (SP3, TLE, CRD, CPF, IOD, SINEX, ANTEX), the predecessor's two SP3 defects reproduced as failing tests then fixed by design (sentinel-based record boundaries, correct-column field reads), three new SP3 writer bugs found by round-tripping, a real cached Jason-3 file's blank accuracy fields, and the six ad hoc `orbex_*`/`doris_jason_check` SP3 parsers re-pointed at the one reader.** §36 added, `SPEC-io-formats` v1.0 (new, `IOFM`). Authorized by the manager's own handover, the user's approval relayed verbatim. Every reader returns a raw `Calendar` plus a format-native time-system code, never an `Epoch` (format readers have no `LeapTable` of their own); a separate `to_time_scale()` maps it, refusing SP3's own GLO/GAL/BDT/QZS codes rather than approximating them as GPS time, since `TimeScale` has no such members. Fixed-column fixtures (SP3, TLE, ANTEX) are now built by a Python `place()` helper that raises unless a field exactly fills its documented width, adopted after hand-transcribed fixtures from `pdftotext -layout` output carried real column-alignment mistakes a by-eye check missed. Three SP3 writer bugs found only by the round-trip property, not by parsing alone: an omitted `%c` reserved-field shift, a missing blank column on `+` satellite-count lines, and an `EP`/`EV` correlation tag with one space too many, silently truncating leading digits. A genuine GSFC Jason-3 file has `++` accuracy lines entirely blank, not zero-filled the way both spec examples show; fixed to read blank as zero, the format's own established convention. TLE gained an optional international designator (`STR3`'s own sample satellite 88888 has none) and a corrected space-padded, unsigned angle-field writer. CRD/CPF/SINEX opaque-record scope stated as a decision (`IOFM-Q-001`/`002`), not a silent gap; IOD's own AI-refetched "example line" distrusted after a character-count discrepancy and abandoned for a fixture built at the source's own documented column table instead (`IOFM-Q-003` carries `STR3`'s own unreadable T-card sheet forward). `speccheck.py`'s gate 7 caught two defects in sequence while §8's acceptance table was being written: a compressed id range that registered no ids, then — once every row was written out individually — a genuine, previously-unexercised defect in the tool itself (its acceptance-row-finding regex never allowed the lettered-suffix ids `EPH-A-001b`-style rows already use elsewhere), fixed tree-wide with its own regression test. Gate 12 (factor-of-a-thousand accounting) needed two new annotation classes for `cpf.cpp`'s equality tolerances and `iod.cpp`'s ms/s conversion, and surfaced `unitcheck.py`'s own one-line lookback rule the hard way: a wrapped multi-line comment does not attach. A hash-pinning gap between §9's own promise and §2's table (two HTML-native sources fetched but never byte-hash-pinned) was caught and closed by fetching both directly and computing SHA256. Tree-wide: 427 tests, all 13 `ci.sh` gates green, 736 artefacts byte-identical. L6 steps 2–4 (Horizons client, `sgp4`, `measmod`) not started. |
 | 2026-09-24 | **L5 step 2 review round: FOC's own modified yaw steering built via a closed-form window entry (epsilon depends on mu alone, PROVED), step 6's own real two guards built (not the substitutes an earlier round used), a real-data control run for the first time (all four checks matched, IOV to thousandths of a degree, FOC to a tenth), an explicit BOL/EOL selector for IOV.** SPEC-galileo-attitude v1.1, SPEC-spacecraft v2.1, PROVENANCE.md Sec.32.7 added. Most of the prior round accepted outright; three things did not survive review. FOC's own "modified yaw steering law": the manager ruled it in scope (the window IS Galileo's own noon/midnight turn, not a corner) and required a geometry-derived window entry, the same shape GPS's own IIF shadow crossing uses. Derived: GSC's own colinearity epsilon reduces algebraically to depend on mu alone (cos(beta) cancels), so the window's own entry is a fixed constant, not a remembered crossing -- checked against an independent vector-based transcription before being trusted. A new "frame from psi" construction was derived (x_body = -cos(psi)*t_hat + sin(psi)*n_hat, the sign on sin OPPOSITE GPS's own convention, a different psi definition not a slip) and proved by reproducing nominal_yaw_steering's own output when fed the unmodified angle. t_mod's own rate comes from the CURRENT state's own |r x v|/|r|^2, not a fixed constant -- Galileo's own orbit is a different period from GPS's. The built law matches an independent transcription at four geometries. Step 6's own two guards (time direction, rotation sense) were rebuilt properly: IOV's own time-direction guard hit a real, interesting finding along the way -- reversing velocity is a PROVED EXACT SYMMETRY of IOV's own substitution (the sign flips in Gamma and in the reconstructed Sun vector cancel exactly, nominal_yaw_steering never reading v at all), not a defect, checked algebraically before trusting the numeric result, and reported honestly rather than forced into a test asserting something false. The rotation-sense guard hit a second real test bug, caught the same way as an earlier one: evaluating exactly at the window's own entry measures a rate that is EXACTLY ZERO by construction (the cosine ramp's own printed shape), giving a meaningless "0.0 < 0.0" comparison -- fixed by probing well inside the window instead. The real-data control (tools/orbex_galileo_check.cpp, reproducible, not gated): a --scan pass over bare SP3 positions found 2023-10-07 as a genuinely low-beta day (beta 0.4-1.1 deg) for one IOV satellite (E11) and one FOC satellite (E33) after June and September dates gave beta too large; predictions and a 2-degree criterion REGISTERED before any attitude quaternion was read; all four crossings matched, the tightest agreement either law has had, and the first real-data check FOC's own newly-derived law has ever had. One implementation bug (elapsed seconds passed where a within-the-minute Calendar field was expected) crashed the Epoch constructor past the first minute of any day, caught by the assertion itself. SPCR-Q-004 resolved: an explicit, required OpticalLife selector for IOV's own BOL/EOL optics (plan Sec.5 constraint 10), and SPEC-spacecraft.md now states, in GALSC's own words, that FOC's single optics set carries no life-stage label at all. 349 tests tree-wide, all 13 ci.sh gates green, 696 artefacts byte-identical. |
 | 2026-09-24 | **L5 step 2 opens and its own first build lands: Galileo (IOV, FOC), from the operator's own metadata -- frame mapped and VERIFIED against real coordinate pairs (catching a "(+z, anti-nadir)" labelling error in SPEC-spacecraft.md's own prose along the way), mass/CoM a new per-satellite-at-an-epoch lookup, the yaw law reduced to existing, already-trusted code and checked against two independently-transcribed printed forms.** §32 added, `SPEC-spacecraft` to v2.0, `SPEC-galileo-attitude` v1.0 (new). Rule-4/licence search clean (GSC's own Terms of Use authorise redistribution with "© EU 2011-2026" acknowledged) -- unlike RS14's own genuinely unclear case, no ruling needed. The frame: GSC's own +Z is nadir (matching this tree's own +Z exactly) but +X is toward deep space, not the Sun; the 180-degree-about-Z mapping is VERIFIED against three real coordinate pairs GSC prints itself (its own Mechanical-RF/ANTEX-RF columns for the SAME physical point: two IOV, one FOC), not trusted from prose -- and checking this caught that SPEC-spacecraft.md's own existing "(+z, anti-nadir)" parenthetical was backwards (RS14's own "opposite the radial direction" is -r_hat, NADIR, matching `nominal_yaw_steering`'s own code exactly), corrected in place. Geometry/optics: re-parsed from GSC's own real HTML table structure (rowspan/colspan expanded) after an earlier flattened-text pass lost row alignment; GSC's own alpha/rho/delta quoted directly and matching this schema's order with no swap needed (unlike RS14); every material row's own three coefficients checked to sum to 1; multi-material faces built as separate co-normal surfaces, not averaged; a small (0.46%) FOC +Z-panel inconsistency between GSC's own summary and detailed tables found and recorded, built from the detailed table. Mass/CoM: GSC's own tables are genuinely per-satellite and dated: RULED (manager) to return a macromodel for a satellite AT AN EPOCH, refusing one outside the source's own coverage -- the same shape atmosphere's own space-weather lookup already uses, modelled with a new lightweight YearMonth rather than the tree's own full Epoch type (matching the source's own actual monthly precision), tested at the coverage boundary and outside it, each shown firing; the same shape is named, not built, for GPS's own future per-satellite masses. Attitude law: GSC's own IOV and FOC equations, read closely, reduce ALGEBRAICALLY to the SAME formula (proved, not assumed) -- and that shared law turns out to be exactly what `nominal_yaw_steering` (built at L4 step 5) already computes, so this step's own new code is only the two blocks' own deviations from it (IOV's own smooth near-singularity Sun-vector substitution, built; FOC's own near-colinearity "modified yaw steering law", NOT built, refused instead) -- checked against GSC's own SECOND printed form (the ANTEX-converted equations, offset by pi) as an independent verification GPS's own single-form laws never had. Step 6's own two guards (continuity at a boundary, bounded rate along a real trajectory) carried over and adapted; the rate-bounded test's own FIRST version used a wrong angle-extraction proxy and reported the fix as WORSE than the break it was fixing -- caught by the test's own self-contradictory numbers before being trusted, fixed by comparing output frames directly instead of a hand-picked angle. A genuine mm-to-m unit crossing (Galileo's own CoM, printed in mm) annotated per the factor-of-a-thousand gate's own requirement. 344 tests tree-wide (354/13 spacecraft, 93541/19 attitude), all 13 ci.sh gates green. |
