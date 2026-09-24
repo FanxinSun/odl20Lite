@@ -241,19 +241,20 @@ table is the answer to "is the derivation real?" and it is deliberately blunt ab
 | `ERFA` | ERFA source and in-source documentation, v2.0.1 | **primary** | 2026-09-18 | `github.com/liberfa/erfa` |
 | `VAL06` | Vallado, Crawford, Hujsak & Kelso, *Revisiting Spacetrack Report #3*, AIAA 2006-6753 Rev 2 | **primary** | 2026-09-18 | `celestrak.org/publications/AIAA/2006-6753/`; DOI `10.2514/6.2006-6753` |
 | `CGPM27-4` | CGPM (2022) Resolution 4 — future of UTC and leap seconds | **secondary** — consistent secondary reporting only; the resolution text was not retrieved | 2026-09-18 | `bipm.org/en/cgpm-2022/resolution-4` |
-| `ARN15` | Arnold, Meindl, Beutler *et al.*, *CODE's new solar radiation pressure model for GNSS orbit determination*, J. Geodesy 89: 775–791 | **secondary** — abstract only; paywalled at Springer | 2026-09-18 | DOI `10.1007/s00190-015-0814-4` |
+| `ARN15` | Arnold, Meindl, Beutler *et al.*, *CODE's new solar radiation pressure model for GNSS orbit determination*, J. Geodesy 89: 775–791 | **primary** — authors' accepted manuscript (green OA, BORIS deposit 69654, fetched via CORE.ac.uk after the publisher, BORIS itself, ResearchGate and ADS all refused automated access; this is the pre-typeset manuscript, so its own page numbers may differ from the published version of record — equation numbers cited here are the manuscript's own) | 2026-09-24 | DOI `10.1007/s00190-015-0814-4` |
 | `BEU94` | Beutler *et al.*, *Extended orbit modelling techniques at the CODE processing center …*, Manuscripta Geodaetica 19: 367–386 | **not obtained** — no accessible archive found | 2026-09-18 | — |
 | `BERN52` | Dach, Lutz, Walser & Fridez (eds.), *Bernese GNSS Software Version 5.2* documentation | **not obtained** — `ftp.aiub.unibe.ch` refused the connection on both HTTP and HTTPS | 2026-09-18 | DOI `10.7892/boris.72297` |
 | `ISGPS200` | IS-GPS-200, GPS Space Segment / Navigation User Interfaces | **not obtained** | 2026-09-18 | `gps.gov/technical/icwg/` |
 | `RAY94` | Ray, Steinberg, Chao & Cartwright, Science 264: 830–832 (1994) | **not obtained** — its coefficients are reproduced in `TN36-8`, which was obtained | 2026-09-18 | DOI `10.1126/science.264.5160.830` |
 
-**What rests on a gap, and how much.** Only one requirement in the P1 specs depends on a
-source that was not obtained in primary form: the DYB frame definition of
-`SPEC-frames.md` §4.7, whose origin is `BEU94`/`ARN15`. The definition there is stated from
-first principles and is internally unambiguous, but the **sign of ê_D** and the
-**construction of ê_Y** are conventions fixed by this spec rather than inherited from the
-source. See `FRAME-Q-002`. Everything else — every equation, every constant, every format —
-traces to a document held in primary form.
+**What rests on a gap, and how much.** **Amended 2026-09-24**: `ARN15` is now obtained in primary
+form (above) — `SPEC-frames.md` §4.7's own DYB frame, stated from first principles against both
+`BEU94` and `ARN15` originally, is CONFIRMED against `ARN15`'s own printed Eq. 1: ê_Y as this spec
+builds it, (ê_D×ê_r)/|ê_D×ê_r|, is the identical vector to Arnold's own −(e_r×e_D)/|e_r×e_D|
+(cross-product anti-commutativity — negating one order is the other order), and ê_D's own sense
+(spacecraft→Sun) matches too. `FRAME-Q-002` is CLOSED on this evidence. Only `BEU94` (Beutler
+1994, no accessible archive found) remains an un-obtained source in the P1 specs, and nothing in
+§4.7 was shown to depend on it specifically once `ARN15` alone settles the convention.
 
 ---
 
