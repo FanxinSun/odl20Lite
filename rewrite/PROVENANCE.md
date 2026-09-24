@@ -5810,6 +5810,76 @@ than trusting the message was written correctly by inspection alone.
 `modules/spacecraft/tests/beidou_tests.cpp` (new, 1 test case, `SPCR-A-024`) — 24 test cases
 tree-wide in `modules/spacecraft`, 616 assertions, all passing, no regression.
 
+### 33.11 Review round: QZSS's own orbit-normal mode searched further, GLONASS's flat law bounded with a number
+
+`SPEC-qzss-attitude.md` v1.1, `SPEC-spacecraft.md` v2.4 (GLONASS bound). The manager's own review of
+§33.1–33.10 (verified on `5ec89a1`, ci.sh exit 0, then pushed as `89deece` with a review note added
+to `plan/subplan_L5/L5-3.md`) accepted the great majority of the round and asked for two things to be
+finished before step 3 closes.
+
+**QZSS orbit-normal mode: a real day-by-day scan, and the source basis for sharing a law across
+satellites, both checked directly rather than assumed.** Fetching and reading all four of QZS-1/2/
+3/4's own SPI documents (only QZS-1's own had been read before this round) found: §2 (Reference
+Frame) is WORD-FOR-WORD IDENTICAL across all four — the frame mapping is safely constellation-wide,
+now quoted directly rather than inferred from one document. §3 (Attitude Law) is NOT uniformly
+shared, a genuine finding: QZS-1 switches between yaw-steering and orbit-normal by beta; QZS-3's own
+words state it is "CONTINUOUSLY controlled in the orbit normal mode," word-for-word the SAME
+construction QZS-1's own document gives, confirming that specific mode's own shape is shared with
+QZS-3; QZS-2 and QZS-4 instead stay in ordinary yaw-steering always (except during maneuvers), using
+a DIFFERENT rate-limited "pseudo-yaw-steering" correction near beta=0 that this tree does not build
+(QZS-1-specific scope) — so the earlier round's own assumption that "the attitude law is
+constellation-wide" was right for ordinary yaw-steering (which J02/J04 already confirmed) but
+overstated for orbit-normal specifically, corrected here.
+
+A ~monthly (45-date) position-only scan across the ONLY archive this session could reach (a Swiss S3
+mirror of CODE's own MGEX products, 2022-12 through 2026-07 — CODE's own true multi-year archive at
+`ftp.aiub.unibe.ch` timed out under this environment's own network policy, direct FTP and HTTPS
+alike; CDDIS redirects to an EarthData login this project's own standing no-account discipline does
+not cross, the same class of dead end as AGU's/AIAA's own paywalls) found QZS-1 (J01) present in
+ZERO of the 45 files checked, while `any_qzss_records` confirmed J02/J03/J04 parse correctly in
+every one of the same 45 files — the absence is QZS-1's own, not a scan defect. Recorded as the
+absence, per rule 4, exactly the outcome the manager's own instructions named as acceptable.
+
+Since QZS-3 shares QZS-1's own orbit-normal law by the source's own identical wording, and needs no
+low-beta window (always active), `orbit_normal_attitude` was called directly against QZS-3's own
+real attitude (2023-10-07, data already on hand from the earlier round) as an EXPLORATORY check, not
+held to the registered 2-degree criterion since it was not registered in advance of this specific
+idea. Result: NOT a clean match — 170.9° off at 00:00, 13.5° off at 12:00. A 30-minute sweep across
+the whole day, run before concluding anything, showed the error tracing a SMOOTH curve between the
+built construction and its own 180°-yaw-flipped counterpart, crossing near 90° twice and bottoming
+out at two daily closest approaches (6.56° near 08:00–08:30, 6.69° near 20:00–20:30) — ruling out a
+simple constant-sign bug directly (checked, not assumed: neither the built sign nor its own flip
+matches cleanly at every hour, which a genuine convention error would). The pattern is consistent
+with a real, slow, day-periodic attitude dynamic (a genuine GEO/IGSO yaw-management behaviour is one
+plausible cause, unconfirmed) that this tree's own static ideal-geometry construction does not
+capture. Reported as a genuine, unresolved finding (`QZSY-Q-004`), not smoothed into a false
+confirmation or hidden — `orbit_normal_attitude`'s own construction stays independently verified
+correct algebraically and its own shape confirmed shared with QZS-3 by the source's own text, but
+real-data agreement for it remains open.
+
+**GLONASS's cylindrical bus faces: the flat-law approximation kept, bounded with a number.** `RS14`'s
+own Eq. 4.5 was re-read from the rendered PDF page (the first pass's own OCR extraction failed its
+own internal consistency check against Eq. 4.4's and Eq. 9's own limiting cases — s=0 and s=1 did not
+reduce to the expected formulas under that reading — so it was not trusted, the same "render the
+page, don't trust the flattened text" discipline this session has needed before). Eq. 4.5 IS the flat
+law at shape=0 and the cylindrical law at shape=1 by RS14's own construction, so the built (flat) and
+RS14's own true-blend forces were computed self-consistently from the ONE formula rather than
+cross-checked against a second transcription. At the manager's own stated geometry (Sun along the +X
+face normal, and at 45° toward +X/+Z), summing all six bus faces plus the panel: the whole-satellite
+force difference is 0.57–0.90% for GLONASS, 0.70–1.10% for GLONASS-M — small, self-checked (the
+affected-faces-only difference equals the whole-satellite difference exactly, since the unaffected
+faces/panel are identical either way). Recorded in `SPEC-spacecraft.md` §3 next to the citation,
+`SPCR-Q-007` resolved. Curved surfaces in the schema remain one carried question together with
+BeiDou's own, decided when a consumer needs them and gated on their own (the photon-pressure kernel
+is itself gated for flat panels only) — no schema change made or proposed this round.
+
+### 33.12 Review round test counts
+
+No production code changed this round (the QZSS orbit-normal EXPLORATORY check was added to
+`tools/orbex_qzss_check.cpp`, itself not part of the automatic gate; the GLONASS bound was computed
+in an uncommitted standalone script). Test counts unchanged from §33.8/§33.10: `modules/attitude` 32
+cases/93756 assertions, `modules/spacecraft` 24 cases/616 assertions, both all passing.
+
 ---
 
 ## Changelog

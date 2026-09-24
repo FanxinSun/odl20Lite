@@ -7,60 +7,106 @@
 // SCOPE NOTE: `SPEC-spacecraft.md`'s own `qzss_1()` builds QZS-1's own
 // specific macromodel (mass, CoM, geometry) from its own SPI document
 // (`SPI_QZS1_B`). QZS-1 itself (PRN J01) is not present in CODE's own MGEX
-// SP3/ATT files on the days checked -- decommissioned/replaced by QZS-1R
-// by 2023, per this session's own scan. The ATTITUDE LAW and FRAME MAPPING
-// this program checks (`odl::attitude::qzss_yaw_attitude`,
-// `odl::spacecraft::qzss_frame_from_native`) are a DIFFERENT, constellation
-// -wide fact from one satellite's own geometry -- QZS-1's own SPI document
-// states the law and frame convention for the QZSS bus family generally,
-// not as a QZS-1-specific idiosyncrasy, so this control uses QZS-2 (J02)
-// and QZS-4 (J04), the two other IGSO-type QZSS satellites present in the
-// SAME pinned CODE files, to check that shared law and mapping against
-// real data -- NOT to validate QZS-1's own specific mass/CoM/geometry,
-// which this program does not touch. QZS-3 (J03, GEO, a different orbit
-// type from QZS-1/2/4's own IGSO) is deliberately NOT used here, to keep
-// the comparison to satellites of the SAME orbit family QZS-1 itself flies.
+// SP3/ATT files on ANY day this session could reach (see the DAY-BY-DAY
+// SCAN below) -- decommissioned/replaced by QZS-1R, apparently before this
+// mirror's own coverage begins (late 2022). The ATTITUDE LAW and FRAME
+// MAPPING this program checks (`odl::attitude::qzss_yaw_attitude`,
+// `odl::attitude::orbit_normal_attitude`, `odl::spacecraft::qzss_frame_
+// from_native`) are checked instead against QZS-2 (J02), QZS-3 (J03) and
+// QZS-4 (J04) -- NOT to validate QZS-1's own specific mass/CoM/geometry,
+// which this program does not touch, but because the manager's own review
+// asked for the SOURCE BASIS of applying a law/mapping checked on other
+// QZSS satellites to QZS-1. That basis, checked directly (each of QZS-1/
+// 2/3/4's own SPI documents fetched and read this round, not assumed):
+// **§2 (Reference Frame) is WORD-FOR-WORD IDENTICAL across all four** --
+// "The QZS-N satellite coordinate system is aligned with the main body
+// axes and originates at the center of the launch adapter plane... +Z...
+// bore sight direction of the L-ANT antenna... +Y... parallel to the
+// rotation axis of the solar panels... +X... constituted by a right handed
+// system with +Y/+Z axis" (quoted, N substituted) -- the frame mapping is
+// safely constellation-wide, confirmed both by this quote and by the
+// real-data match below. **§3 (Attitude Law) is NOT uniformly shared**,
+// found reading all four documents rather than assumed from QZS-1's own
+// alone: QZS-1 switches between yaw-steering (|beta|>~20deg) and orbit-
+// normal (|beta|<=~20deg); QZS-3's own words are "QZS-3 is CONTINUOUSLY
+// controlled in the orbit normal mode" (quoted) -- ALWAYS orbit-normal,
+// its own mode description word-for-word the SAME construction QZS-1's own
+// document states; QZS-2 and QZS-4 instead "take always attitude of the
+// yaw steering mode except the period that the orbit control maneuver is
+// conducted" (quoted, both documents identical) -- ordinary yaw-steering
+// ALWAYS, using a DIFFERENT, rate-limited "pseudo-yaw-steering" correction
+// near beta=0 (their own explicit formula, not orbit-normal, not built in
+// this tree -- QZS-1-specific scope, `SPEC-qzss-attitude.md` §3) rather
+// than switching to orbit-normal the way QZS-1 does. So J02/J04 validate
+// ONLY the shared yaw-steering law and frame (which is what they exercise
+// at every beta they were found at); QZS-3, uniquely among the three,
+// shares QZS-1's own orbit-normal construction by its own document's exact
+// wording, and needs no low-beta window at all to exercise it -- checked
+// below, EXPLORATORY, not the same clean result (see RESULT).
+//
+// DAY-BY-DAY SCAN for QZS-1 (J01), per the manager's own review: ~monthly
+// sampling (45 dates, cheap position-only checks, no quaternions read)
+// across this mirror's own ENTIRE available span (2022-12-01 through
+// 2026-07-20 -- CODE's own true multi-year archive, and CDDIS, were both
+// unreachable from this environment: direct FTP/HTTPS to ftp.aiub.unibe.ch
+// timed out, CDDIS redirects to an EarthData login this project's own
+// standing no-account discipline does not cross) found J01 present in
+// ZERO of the 45 files checked -- `any_qzss_records` confirms J02/J03/J04
+// ARE present and correctly parsed in every one of the same 45 files, so
+// the absence is J01's own, not a scan defect. RECORDED as the absence,
+// per rule 4: no window exists in the data this session can reach.
 //
 // WHAT THIS PROGRAM DOES: for a named (PRN, day, hh:mm), reads the real
 // attitude quaternion from CODE's own ORBEX file, converts its own body-X
-// axis to GCRS, and compares it against `odl::attitude::qzss_yaw_attitude`'s
-// own prediction at the SAME real (r, v, Sun).
+// axis to GCRS, and compares it against a prediction at the SAME real
+// (r, v, Sun) -- `qzss_yaw_attitude` for J02/J04, `orbit_normal_attitude`
+// called directly (bypassing the beta-based dispatch, since QZS-3 is
+// ALWAYS in this mode regardless of beta) for J03.
 //
-// REGISTERED BEFORE READING THE ATTITUDE FILE: `--scan` mode (position data
-// only) was run across FOUR days -- the three already pinned for the
-// GLONASS control (2023-10-07, 2023-09-23, 2023-09-09) plus one more
-// (2023-12-16, chosen to sample a different point in QZSS's own slow beta
-// cycle) -- for J02, J03 and J04. QZSS's own beta moves far more slowly
-// than GLONASS's own (a geosynchronous orbit, not a ~11h16m MEO cycle), so
-// a satellite at a given beta regime stays there for entire days at a
-// time, but NO crossing below beta=20deg was found for J02 or J04 (the two
-// OTHER IGSO-type satellites besides QZS-1) on any of the four days --
-// closest was 21.7deg (J02, 2023-12-16) -- so this control checks
-// YAW-STEERING MODE ONLY; the orbit-normal mode's own real-data check was
-// SOUGHT, NOT COMPLETED (`SPEC-qzss-attitude.md` §10's own open question),
-// relying instead on the mode's own tight algebraic verification
-// (`QZSY-A-001`, an independent reconstruction proving both the
-// construction and its own right-handedness). The criterion, stated before
-// any quaternion was read: the angle between predicted and real x_body is
-// BELOW 2 DEGREES (GPS's/Galileo's own tightness, since QZSS's own
-// yaw-steering mode reduces to the SAME `nominal_yaw_steering` law those
-// already use).
+// REGISTERED BEFORE READING THE ATTITUDE FILE: the four yaw-steering
+// checks (J02/J04, two epochs each, 2023-10-07/DOY 280) keep the ORIGINAL
+// registration this control's own first version recorded (`--scan` found
+// no low-beta window for these two across four days spanning a year), 2
+// degrees. The two QZS-3 checks are EXPLORATORY, added after the manager's
+// own review pointed at QZS-3's own shared law -- not held to that
+// criterion, reported as found.
 //
-// RESULT (2026-09-24, all four REGISTERED before reading, none adjusted
-// after, 2023-10-07/DOY 280): J02 00:00 (beta=31.4deg): 0.00004deg. J02
-// 12:00 (beta=31.1deg): 0.00003deg. J04 00:00 (beta=-40.3deg): 0.00019deg.
-// J04 12:00 (beta=-40.4deg): 0.00018deg. All four far inside the
-// registered criterion, an order of magnitude tighter than GPS's/Galileo's
-// own best real-data agreement -- strong confirmation that the 180-about-Z
-// frame mapping (`odl::spacecraft::qzss_frame_from_native`, hypothesised
-// from SPI_QZS1_B's own stated Sun-hemisphere property and structural
-// analogy to Galileo's own case) is correct, for two independent
-// satellites, PROVENANCE.md §33's own account.
+// RESULT, yaw-steering (2026-09-24, all four REGISTERED before reading,
+// none adjusted after, 2023-10-07/DOY 280): J02 00:00 (beta=31.4deg):
+// 0.00004deg. J02 12:00 (beta=31.1deg): 0.00003deg. J04 00:00
+// (beta=-40.3deg): 0.00019deg. J04 12:00 (beta=-40.4deg): 0.00018deg. All
+// four far inside the registered criterion, an order of magnitude tighter
+// than GPS's/Galileo's own best real-data agreement -- strong confirmation
+// that the 180-about-Z frame mapping is correct.
+//
+// RESULT, QZS-3 orbit-normal (EXPLORATORY, added after the manager's own
+// review): NOT a clean match. At 00:00 the built construction is 170.9deg
+// off; at 12:00 it is 13.5deg off; a 30-minute sweep across the full day
+// shows the error tracing a SMOOTH curve between the built construction
+// and its own 180-degree-yaw-flipped counterpart, crossing near 90deg
+// twice (around 03:00-03:30 and 13:30-14:00) and bottoming out at its own
+// two closest approaches (6.56deg around 08:00-08:30, 6.69deg around
+// 20:00-20:30) -- NEVER reaching the sub-0.03deg agreement GPS's/GLONASS's/
+// Galileo's/QZSS's-own-yaw-steering controls all reach. This pattern is
+// consistent with a genuine, slow, roughly day-periodic real attitude
+// variation this tree's own static "ideal geometric" construction does not
+// capture (a real GEO/IGSO yaw-flip-style behaviour is one plausible
+// physical cause, not confirmed) -- NOT the constant ~180deg sign error a
+// simple convention bug would produce (ruled out directly: neither the
+// built sign nor its own flip matches cleanly at every hour, `SPEC-qzss-
+// attitude.md` §3/§10's own full account). Orbit-normal mode's own
+// construction is independently verified correct algebraically
+// (`QZSY-A-001`) and its own SHAPE is confirmed shared with QZS-1 by QZS-3's
+// own identical wording, but it REMAINS UNCONFIRMED by real-data agreement
+// to the standard this tree's other controls meet -- reported honestly, a
+// genuine finding from checking further, not a defect papered over.
 //
 // PINNED SOURCE FILES: the SAME CODE MGEX day `orbex_glonass_check.cpp`'s
 // own sibling day pins (2023-10-07, the ORIGINAL day this whole session's
 // own Galileo control also used), read from the same already-fetched local
-// copy -- not repeated here.
+// copy -- not repeated here. The day-by-day scan's own 45 dates and their
+// own `any_qzss_records`/`j01_records` counts are recorded in full in
+// PROVENANCE.md §33's own account, not repeated here.
 //
 // BUILD (from the repo root, after `cmake --build build`):
 //
@@ -220,21 +266,37 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
     auto ephem = eph::Ephemeris::open({"data/cache/de440s-spk/de440s.bsp"}, {});
     if (!ephem.has_value()) { std::cerr << "ephem: " << ephem.error().message << "\n"; std::exit(1); }
 
-    struct Check { const char* prn; int hh, mm; const char* label; };
+    struct Check { const char* prn; int hh, mm; const char* label; bool force_orbit_normal; };
     // REGISTERED via --scan (position data only) across four days spanning
     // most of a year (2023-10-07, 09-23, 09-09, 12-16): QZSS's own beta
     // moves far more slowly than GLONASS's own (geosynchronous, not a fast
     // MEO cycle), and J02/J04 (the two OTHER IGSO-type QZSS satellites
     // besides QZS-1) never dropped below beta=21.7deg on any of the four --
     // no orbit-normal-mode crossing was found for an IGSO satellite in the
-    // days checked (this header's own "not completed" note). All four
-    // checks below are yaw-steering-mode crossings instead, at two
-    // satellites and two epochs each, 2023-10-07 (DOY 280).
+    // days checked. The first four checks below are yaw-steering-mode
+    // crossings, two satellites and two epochs each, 2023-10-07 (DOY 280).
+    //
+    // The LAST TWO checks are `orbit_normal_attitude` called DIRECTLY
+    // (bypassing `qzss_yaw_attitude`'s own beta-based dispatch), against
+    // QZS-3 (J03) -- found, reading QZS-3's own SPI document (`SPI-QZS3_F`)
+    // after the manager's own review asked for the source basis of sharing
+    // a law across satellites: "QZS-3 is CONTINUOUSLY controlled in the
+    // orbit normal mode" (quoted), word-for-word the SAME construction
+    // QZS-1's own document states for its own low-beta mode. QZS-3 needs NO
+    // low-beta window at all -- it is ALWAYS in this mode, so ANY epoch
+    // validates it directly, unlike QZS-1 itself (absent from every file
+    // this session could reach, the --scan above's own record) or QZS-2/
+    // QZS-4 (which do NOT share this mode in normal operation -- their own
+    // SPI documents state they stay in yaw-steering, using a DIFFERENT
+    // rate-limited "pseudo-yaw-steering" correction near beta=0 instead,
+    // not built here, QZS-1-specific scope, `SPEC-qzss-attitude.md` §3).
     const Check checks[] = {
-        {"J02", 0, 0, "yaw-steering, beta=31.4deg"},
-        {"J02", 12, 0, "yaw-steering, beta=31.1deg"},
-        {"J04", 0, 0, "yaw-steering, beta=-40.3deg"},
-        {"J04", 12, 0, "yaw-steering, beta=-40.4deg"},
+        {"J02", 0, 0, "yaw-steering, beta=31.4deg", false},
+        {"J02", 12, 0, "yaw-steering, beta=31.1deg", false},
+        {"J04", 0, 0, "yaw-steering, beta=-40.3deg", false},
+        {"J04", 12, 0, "yaw-steering, beta=-40.4deg", false},
+        {"J03", 0, 0, "orbit-normal (QZS-3 is ALWAYS in this mode)", true},
+        {"J03", 12, 0, "orbit-normal (QZS-3 is ALWAYS in this mode)", true},
     };
 
     bool all_matched = true;
@@ -255,9 +317,15 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
 
         // REGISTERED PREDICTION -- computed here, before this function reads
         // any attitude quaternion below.
-        auto pred = attitude::qzss_yaw_attitude(e.r[idx], e.v[idx], sun_dir_km);
-        if (!pred.has_value()) { std::cerr << chk.prn << " REFUSED: " << pred.error().message << "\n"; continue; }
-        Vec3 x_pred{pred->r[0][0], pred->r[0][1], pred->r[0][2]};
+        Vec3 x_pred;
+        if (chk.force_orbit_normal) {
+            Mat3 pred = attitude::orbit_normal_attitude(e.r[idx], e.v[idx]);
+            x_pred = Vec3{pred.r[0][0], pred.r[0][1], pred.r[0][2]};
+        } else {
+            auto pred = attitude::qzss_yaw_attitude(e.r[idx], e.v[idx], sun_dir_km);
+            if (!pred.has_value()) { std::cerr << chk.prn << " REFUSED: " << pred.error().message << "\n"; continue; }
+            x_pred = Vec3{pred->r[0][0], pred->r[0][1], pred->r[0][2]};
+        }
 
         // NOW read the real quaternion.
         std::ifstream f(attpath);
@@ -292,13 +360,25 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
         Vec3 x_real = normalized(g->position());
 
         double angle_deg = std::acos(std::clamp(x_real.dot(x_pred), -1.0, 1.0)) / kDeg;
+        if (chk.force_orbit_normal) {
+            // QZS-3 is EXPLORATORY, not held to the registered 2-deg
+            // criterion (this header's own account): found, not confirmed
+            // -- reported for what it is, not folded into the pass/fail
+            // verdict the yaw-steering checks below earn honestly.
+            std::cout << chk.prn << " " << chk.hh << ":" << chk.mm << " (" << chk.label << ")  angle="
+                      << angle_deg << " deg  EXPLORATORY, not held to the "
+                      << kMatchCriterionDeg << "-deg criterion (see header)\n";
+            continue;
+        }
         bool matches = angle_deg < kMatchCriterionDeg;
         all_matched = all_matched && matches;
         std::cout << chk.prn << " " << chk.hh << ":" << chk.mm << " (" << chk.label << ")  angle="
                   << angle_deg << " deg  " << (matches ? "MATCHES" : "DOES NOT MATCH")
                   << " the registered " << kMatchCriterionDeg << "-deg criterion\n";
     }
-    std::cout << (all_matched ? "ALL CHECKS MATCH\n" : "AT LEAST ONE CHECK DID NOT MATCH\n");
+    std::cout << (all_matched ? "ALL REGISTERED CHECKS MATCH (yaw-steering; QZS-3's own orbit-normal "
+                                 "checks are exploratory, see above)\n"
+                              : "AT LEAST ONE REGISTERED CHECK DID NOT MATCH\n");
 }
 
 }  // namespace
