@@ -15,3 +15,7 @@ target_link_libraries(orbex_noon_check PRIVATE
 add_executable(orbex_galileo_check orbex_galileo_check.cpp)
 target_link_libraries(orbex_galileo_check PRIVATE
   odl::attitude odl::frames odl::eop odl::ephemerides odl::time)
+
+add_executable(orbex_glonass_check orbex_glonass_check.cpp)
+target_link_libraries(orbex_glonass_check PRIVATE
+  odl::attitude odl::frames odl::eop odl::ephemerides odl::time)

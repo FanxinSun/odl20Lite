@@ -167,4 +167,44 @@ galileo_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
 [[nodiscard]] double galileo_native_yaw_angle_pre_substitution(
     const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& sun_direction_gcrs) noexcept;
 
+// --- SPEC-glonass-attitude: GLNY-R-001..R-004 ------------------------------
+
+/// GLNY-R-001..R-004. GLONASS-M's own yaw-attitude law, Dilssner et al.
+/// (2011), "The GLONASS-M satellite yaw-attitude model," Adv. Space Res.
+/// 47:160-171 (`DIL11`) -- covers GLONASS-M ONLY, the paper's own stated
+/// scope (its own title, and its own text: "hardly anything in this field
+/// is known about the second spacecraft-generation," i.e. -M specifically;
+/// original GLONASS and GLONASS-K are not covered by this or any other
+/// source found this session, `SPEC-glonass-attitude.md` §2). Built from
+/// `DIL11`'s own words for EACH turn, not assumed to be GPS's own KOUBA09
+/// family with new constants (the manager's own explicit instruction,
+/// echoing the IIF night-turn precedent, `SPEC-thrust-yaw.md` `TYAW-R-003`):
+///  - **shadow-crossing (midnight)**: a closed-form geometric window
+///    (`DIL11` Eq.11, no rate-threshold search), a full-hardware-rate ramp
+///    from shadow entry that reaches the nominal exit yaw and then HOLDS
+///    there (constant) until actual shadow exit -- a genuinely different
+///    mechanism from `DIL11`'s own noon turn, confirmed against `DIL11`'s
+///    own real SVN724 data (Fig.5).
+///  - **noon turn**: an iterative onset-angle solve (`DIL11` Eq.16-20, its
+///    own published four-iteration method, reproduced exactly, not replaced
+///    by an from-scratch exact solve), then a SINGLE ramp phase spanning the
+///    whole maneuver -- no hold, unlike the shadow turn (`DIL11`'s own
+///    Eq.16 symmetry and Fig.6).
+///  - **off-turn**: `DIL11`'s own Eq.1 states it uses "the axis conventions
+///    of the GPS Block II/IIA satellites" -- algebraically KOUBA09's own
+///    Eq.4 "as printed" once converted the SAME way `psi_nominal` above
+///    already is, so this reduces EXACTLY to this tree's own existing
+///    `psi_nominal`/`frame_from_yaw`, reused directly (PROVED, not assumed:
+///    `GLNY-A-001`'s own 200000-point numerical check, `SPEC-glonass-
+///    attitude.md` §3).
+///
+/// A stateless provider, the same shape `gps_yaw_attitude`/
+/// `galileo_yaw_attitude` already are: every quantity is computable from the
+/// CURRENT `(r_gcrs_m, v_gcrs_m_per_s, sun_direction_gcrs)` alone. Refuses
+/// (`GLNY-F-001`, forwarded unchanged from `ATTD-F-001`) exactly where
+/// `nominal_yaw_steering` itself would, outside both turns.
+[[nodiscard]] odl::Result<Mat3, AttitudeError>
+glonass_m_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
+                       const Vec3& sun_direction_gcrs);
+
 }  // namespace odl::attitude

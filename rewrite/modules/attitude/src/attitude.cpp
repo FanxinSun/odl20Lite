@@ -607,6 +607,183 @@ struct FocWindow {
            (psi_init - half_pi_signed) * std::cos(2.0 * M_PI / kFocSwingPeriodS * t_mod);
 }
 
+// --- SPEC-glonass-attitude: GLNY-R-001..R-004 ------------------------------
+
+/// DIL11 ("The GLONASS-M satellite yaw-attitude model," Dilssner et al.,
+/// Adv. Space Res. 47:160-171, 2011) Eq.1's own stated mean orbital angular
+/// velocity, substituted into Eq.2 with mu=180deg and R=0.25deg/s to derive
+/// beta_0=2.0deg (DIL11 Sec.5.2, reproduced by `glonass_m_noon_turn` below,
+/// not hardcoded separately) -- a DIFFERENT value from GPS's own
+/// `kMuDotRadPerS` (a different orbit radius and period; GLONASS's own
+/// ~19140 km MEO vs GPS's ~26560 km), so it is its own named constant, not
+/// a reuse of GPS's.
+constexpr double kGlonassMuDotRadPerS = 0.00888 * kDegToRad;
+/// DIL11 Sec.6.1's own words: "we have used an average hardware yaw rate of
+/// R=0.25deg/s for all satellites" -- the SAME single rate for both the
+/// shadow-crossing (Sec.5.1) and the noon-turn (Sec.5.2) maneuver, unlike
+/// GPS's own per-block, per-regime `HardwareYawRates`.
+constexpr double kGlonassHardwareYawRateRadPerS = 0.25 * kDegToRad;
+/// DIL11 Sec.4.1's own printed umbra half-angle, epsilon_0=14.20deg ("as
+/// soon as the satellite enters the umbra of the Earth (epsilon_0=
+/// -14.20deg)" / "...the nominal yaw angle to be expected at the end of the
+/// umbra (epsilon_0=+14.20deg)") -- Eq.11's own mu_e=-mu_s=
+/// arccos(cos(epsilon_0)/cos(beta)). LARGER than GPS's own
+/// `kShadowHalfAngleRad` (13.5deg, KOUBA09): GLONASS orbits lower than GPS,
+/// so Earth's own shadow cone subtends a wider angle there -- physically
+/// consistent with DIL11's own stated figure, not independently re-derived
+/// from orbital geometry here; DIL11's own constant is used directly, per
+/// the manager's own instruction to build each turn from the source's own
+/// words.
+constexpr double kGlonassShadowHalfAngleRad = 14.20 * kDegToRad;
+
+/// DIL11 Eq.2's own nominal-yaw-rate formula ("as printed," the SAME
+/// functional form `psidot_nominal` above already implements for
+/// KOUBA09's own Eq.6, DIL11's own Sec.2.1 stating it uses GPS's own axis
+/// convention) with GLONASS's own mean motion substituted for GPS's --
+/// `psidot_nominal` above hardcodes `kMuDotRadPerS` internally and cannot
+/// be reused for a different orbit's own rate, so this is its own function,
+/// not a parameter added to that one (leaving GPS's own proven code
+/// untouched). NEGATED the same way `psidot_nominal`'s own header comment
+/// explains for KOUBA09 (psi_tree = pi - psi_DIL11 pointwise, since DIL11's
+/// own Eq.1, ATAN2(-tanb,sinmu), is KOUBA09's own Eq.4 "as printed," the
+/// SAME un-converted shape `psi_nominal` below is the converted form of) --
+/// so d(psi_tree)/d(mu) = -d(psi_DIL11)/d(mu) here too. PROVED not assumed:
+/// a 200000-point random-geometry check (this session's own record) built
+/// DIL11's own Eq.12 (the shadow ramp) directly in DIL11's own convention,
+/// converted the WHOLE result by pi-minus, and compared it against
+/// `psi_nominal(beta,mu_s) + SIGN(R, glonass_m_psidot_nominal(beta,mu_s))*
+/// (mu-mu_s)/mu_dot` (this function's own eventual use, below) -- agreement
+/// to 1e-13 rad, confirming the ramp-sign term needs NO extra negation
+/// beyond what this function already carries (the two negations, one from
+/// converting psi itself and one from converting the rate inside DIL11's
+/// own SIGN[], cancel exactly).
+[[nodiscard]] double glonass_m_psidot_nominal(double beta, double mu) noexcept {
+    const double t = std::tan(beta);
+    const double s = std::sin(mu);
+    return -(kGlonassMuDotRadPerS * t * std::cos(mu) / (s * s + t * t));
+}
+
+/// DIL11 Sec.5.1/Eq.11-14, the shadow-crossing (midnight) maneuver, QUOTED
+/// per-turn rather than assumed a KOUBA09 parameterization (the manager's
+/// own explicit instruction): "the GLONASS-M shadow-crossing maneuver
+/// immediately starts after the spacecraft has entered the beginning of the
+/// umbra" (Eq.11: mu_e=-mu_s=arccos(cos(epsilon_0)/cos(beta)), a CLOSED-FORM
+/// geometric constant, no rate-threshold search, unlike the noon turn
+/// below) -- a ramp AT THE FULL HARDWARE RATE from mu_s (Eq.12), converted
+/// to this tree's own psi convention via `glonass_m_psidot_nominal`'s own
+/// proof above -- UNTIL it reaches "the nominal yaw angle to be expected at
+/// the end of the umbra," at which point "the yaw-attitude is kept fixed"
+/// (Eq.13, DIL11's own words, quoted) until actual shadow exit at mu_e:
+/// `psi_hold = psi_nominal(beta, mu_e)`, a CONSTANT, not a continued ramp.
+/// This is confirmed against real SVN724 data DIL11 itself prints (Fig.5):
+/// at each beta, the actual yaw jumps at full rate right at shadow entry
+/// and goes FLAT well before shadow exit, unlike GPS's own II/IIA shadow
+/// law (`evaluate_shadow_crossing`, which keeps tracking the moving nominal
+/// curve throughout the whole shadow) -- a genuinely DIFFERENT mechanism,
+/// not "Kouba's family with new constants," the same class of distinction
+/// GPS's own IIF night turn (`evaluate_shadow_constant_rate`) already is
+/// from GPS's own II/IIA shadow law. `mu_f` (DIL11 Eq.14, "the orbital
+/// angle... where the actual yaw angle has reached the nominal yaw angle...
+/// upon shadow exit") is SOLVED directly from the two already-converted,
+/// already-proved formulas above (the ramp is linear in mu) rather than by
+/// converting Eq.14's own printed form term by term -- fewer independent
+/// conversions to get wrong.
+[[nodiscard]] TurnResult glonass_m_shadow_turn(double beta, double mu_current) noexcept {
+    const double cos_ratio = std::cos(kGlonassShadowHalfAngleRad) / std::cos(beta);
+    if (cos_ratio > 1.0) return {false, 0.0};  // outside eclipse season for this beta
+    const double mu_e = std::acos(cos_ratio < -1.0 ? -1.0 : cos_ratio);
+    const double mu_s = -mu_e;
+    const double mu_q = wrap_near(mu_current, 0.0);
+    if (mu_q < mu_s || mu_q > mu_e) return {false, 0.0};
+
+    const double psi_s = psi_nominal(beta, mu_s);
+    const double psidot_s = glonass_m_psidot_nominal(beta, mu_s);
+    // DIL11's own SIGN[R, psi_dot_n(mu_s)] (sign(0):=+1, TYAW-R-007's own
+    // ruled tie-break convention, reused here for the same beta-near-zero
+    // edge case).
+    const double ramp_sign = (psidot_s < 0.0) ? -kGlonassHardwareYawRateRadPerS
+                                               : kGlonassHardwareYawRateRadPerS;
+    const double psi_hold = psi_nominal(beta, mu_e);
+    const double mu_f = mu_s + (psi_hold - psi_s) / ramp_sign * kGlonassMuDotRadPerS;
+
+    if (mu_q < mu_f) return {true, psi_s + ramp_sign * (mu_q - mu_s) / kGlonassMuDotRadPerS};
+    return {true, psi_hold};
+}
+
+/// DIL11 Sec.5.2/Eq.16-20, the noon-turn maneuver's own onset angle mu_s --
+/// an intersection (the linear ramp, Eq.17, against the nominal yaw curve's
+/// own small-angle tan(beta)~=beta approximation, Eq.19) with NO closed
+/// form: DIL11's own words, "the equation has to be solved iteratively,"
+/// mu_0=176.8deg "a reasonable value for the initial run," FOUR iterations
+/// "to ensure adequate precision for every possible noon-turn maneuver
+/// scenario (0deg<|beta|<2.0deg)" (quoted, not paraphrased). Reproduced
+/// here as exactly four fixed-point iterations of Eq.20 from that same
+/// numeric seed -- DIL11's own published, validated method, not a
+/// from-scratch exact solve of the un-approximated equations (which would
+/// not be what the source states, per the manager's own instruction to
+/// build from the source's own words). Uses beta_abs=|beta| throughout,
+/// DIL11's own stated simplification ("we focus on the case
+/// psi_dot_n(mu_s)<0... along with the small angle approximation") -- the
+/// SAME beta-magnitude-only treatment `evaluate_turn`'s own
+/// width_sq=onset*|beta|-beta^2 already uses for GPS, direction handled
+/// separately by a sign term, not by this angle. CHECKED against DIL11's
+/// own printed beta=0 result (mu_s=176.8deg exactly, to four decimal
+/// places) before being trusted, this session's own numerical record; a
+/// convergence sweep (4 vs 20 iterations) found sub-arcsecond agreement
+/// through most of (0,2)deg, degrading to ~207 arcsec (~0.06deg) right at
+/// beta=1.99deg, next to the beta_0=2.03deg edge -- DIL11's own stated
+/// "adequate precision," not exact, a property of the published method
+/// reproduced here, not a defect this implementation introduces.
+[[nodiscard]] double glonass_m_noon_onset_rad(double beta_abs) noexcept {
+    double mu = 176.8 * kDegToRad;  // DIL11's own stated initial value
+    for (int i = 0; i < 4; ++i) {
+        const double s = std::sin(mu);
+        const double c = std::cos(mu);
+        const double denom_common = beta_abs * beta_abs + s * s;
+        const double num = std::atan(beta_abs / s) + beta_abs * mu * c / denom_common +
+                            M_PI * kGlonassHardwareYawRateRadPerS / kGlonassMuDotRadPerS - M_PI / 2.0;
+        const double den = kGlonassHardwareYawRateRadPerS / kGlonassMuDotRadPerS +
+                            beta_abs * c / denom_common;
+        mu = num / den;
+    }
+    return mu;
+}
+
+/// DIL11 Eq.15, structurally identical to Eq.12 (the shadow ramp, same
+/// SIGN[R,...] ramp shape, same conversion proof, `glonass_m_shadow_turn`'s
+/// own header) but centred on mu=pi (orbit noon) rather than mu=0, and
+/// with an onset `mu_s` found by `glonass_m_noon_onset_rad`'s own
+/// rate-threshold intersection (Eq.16-20) rather than pure eclipse
+/// geometry. Active only for |beta| < beta_0 = atan(mu_dot/R) (DIL11's own
+/// Sec.5.2, quoted: "computing the threshold value beta_0... yields
+/// beta_0=2.0deg. This means only satellites with |beta|<2.0deg will
+/// experience a noon-turn maneuver" -- reproduced as a DERIVED quantity,
+/// matching `evaluate_turn`'s own `noon_onset=atan(kMuDotRadPerS/
+/// noon_rate)` shape, not a separately hardcoded 2.0deg literal that could
+/// drift out of sync with R/mu_dot). NO hold phase, unlike the shadow turn
+/// -- DIL11's own Eq.16 (pi-mu_s=mu_e-pi) states mu_s and mu_e are the
+/// orbital angles "at the START and the END of the maneuver" (quoted): the
+/// ramp's own duration, by the very construction that solves for mu_s (the
+/// point where the full-rate ramp reaching +/-90deg AT mu=pi intersects the
+/// nominal curve), exactly spans the maneuver -- confirmed against DIL11's
+/// own Fig.6 (no flat plateau visible in the real SVN724 data there, unlike
+/// Fig.5's own shadow-turn plots).
+[[nodiscard]] TurnResult glonass_m_noon_turn(double beta, double mu_current) noexcept {
+    const double beta0 = std::atan(kGlonassMuDotRadPerS / kGlonassHardwareYawRateRadPerS);
+    if (std::abs(beta) >= beta0) return {false, 0.0};
+
+    const double mu_s = glonass_m_noon_onset_rad(std::abs(beta));  // DIL11 Eq.20, e.g. 176.8deg at beta=0
+    const double mu_e = 2.0 * M_PI - mu_s;                          // DIL11 Eq.21 (Eq.16's own symmetry)
+    const double mu_q = wrap_near(mu_current, M_PI);
+    if (mu_q < mu_s || mu_q > mu_e) return {false, 0.0};
+
+    const double psi_s = psi_nominal(beta, mu_s);
+    const double psidot_s = glonass_m_psidot_nominal(beta, mu_s);
+    const double ramp_sign = (psidot_s < 0.0) ? -kGlonassHardwareYawRateRadPerS
+                                               : kGlonassHardwareYawRateRadPerS;
+    return {true, psi_s + ramp_sign * (mu_q - mu_s) / kGlonassMuDotRadPerS};
+}
+
 }  // namespace
 
 odl::Result<Mat3, AttitudeError>
@@ -746,6 +923,30 @@ double galileo_native_yaw_angle_pre_substitution(const Vec3& r_gcrs_m, const Vec
     const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
     const Vec3 s_hat = normalized(sun_direction_gcrs);
     return galileo_psi_nominal(galileo_orbital_sun(tri, s_hat));
+}
+
+odl::Result<Mat3, AttitudeError>
+glonass_m_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
+                       const Vec3& sun_direction_gcrs) {
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    const Vec3 s_hat = normalized(sun_direction_gcrs);
+    const double beta = signed_beta_rad(s_hat, tri.n_hat);
+    const double mu = mu_rad(tri, s_hat);
+
+    TurnResult result = glonass_m_noon_turn(beta, mu);
+    if (!result.active) result = glonass_m_shadow_turn(beta, mu);
+
+    if (result.active) {
+        // DIL11 Sec.2.1's own words: "we consistently use here the axis
+        // conventions of the GPS Block II/IIA satellites" -- the SAME body
+        // frame `frame_from_yaw` already builds for GPS, reused directly
+        // (not a separate glonass_frame_from_psi): DIL11 states no
+        // convention difference to encode, unlike Galileo's own
+        // `galileo_frame_from_psi` (a genuinely different psi convention).
+        return frame_from_yaw(tri, result.psi_rad);
+    }
+    // GLNY-F-001: forwarded unchanged from ATTD-F-001, outside both turns.
+    return nominal_yaw_steering(r_gcrs_m, sun_direction_gcrs);
 }
 
 }  // namespace odl::attitude

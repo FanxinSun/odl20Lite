@@ -5555,6 +5555,142 @@ catch along the way (§32.3-adjacent, this round): none new — gate 12's own ea
 
 ---
 
+## 33. L5 step 3 — GLONASS, GLONASS-M, GLONASS-K, QZSS, and BeiDou carried
+
+### 33.1 Rule-4 and licence search, reported before anything was built
+
+Performed 2026-09-24, covering each of the three remaining constellations' own DATA and its own
+eclipse-season ATTITUDE LAW together (carried forward from L4 step 6's own scope). **GLONASS**: no
+operator metadata source was found (unlike Galileo's `GALSC`); `RS14` (already ruled usable for GPS,
+§31.6/§2.2 above) prints its own box-wing tables for GLONASS, GLONASS-M and GLONASS-K (its own
+Tables 5.6–5.8), the last with dimensions from a personal communication it names but does not
+reprint. Its own attitude law is `DIL11` (Dilssner et al. 2011), freely hosted at the IGS ACC
+mirror, no licence ambiguity. **BeiDou**: the CSNO 2019 standard (`BD 420025-2019`, via an ILRS
+mirror) prints data and attitude in one document, but states no centre of mass field, prints curved
+surface types (cylinders, rings, a parabolic reflector) this schema cannot hold, one of its own
+three attitude modes ("maneuver yaw") extracted with OCR-garbled equations, and no redistribution
+terms found anywhere the document or `beidou.gov.cn`'s own generic footer state. **QZSS**: the
+Cabinet Office's own per-satellite SPI documents print frame, both attitude modes, mass at beginning
+and end of life, and geometry/optics labelled in plain English words (no ambiguous Greek-letter
+notation to resolve), and are stated "freely available to any user... shall indicate proper credit."
+
+### 33.2 The manager's ruling, same day, constellation by constellation
+
+**GLONASS: build it.** `RS14`'s own ruling (already covering GPS) extends to its GLONASS,
+GLONASS-M and GLONASS-K tables, cited per value as a secondary source. `DIL11`'s own law built from
+the source's own words for EACH turn, quoted per turn, not assumed a KOUBA09 parameterization with
+new constants — the shadow-crossing maneuver may be (and, built and checked below, IS) a genuinely
+different mechanism from the noon turn, the same class of distinction GPS's own IIF night turn
+already is from its own noon turn. **QZSS: build it.** The frame mapped and TESTED by the document's
+own stated property (the Sun in the −X hemisphere of the operator's own frame), since no paired
+coordinates are printed the way `GALSC` gives for Galileo; mass chosen explicitly at beginning or
+end of life, no default; yaw-steering built as a parameterisation of the already-trusted nominal
+law; orbit-normal mode built as a new, general mechanism, reusable later. **BeiDou: carried, and the
+library refuses it** — four compounding, independent reasons (schema-incompatible curved surfaces,
+no centre of mass, one attitude mode's own equations unread, no stated redistribution terms) and no
+current consumer; a schema is not extended for a client that does not yet exist. Every built law
+carries step 6's own two guards (time direction, rotation sense) and a real-data control, as
+Galileo's own do.
+
+### 33.3 GLONASS-M's own attitude law, built from `DIL11`'s own words, each turn re-verified against the rendered PDF page
+
+`SPEC-glonass-attitude.md` v1.0 (new). The equations were NOT trusted from the first pass's own
+flattened-text extraction: given this tree's own prior history of a dropped minus sign in exactly
+this kind of extraction (`MSGA15`, §30.19 above), every equation this section relies on (Eq. 1–2,
+11–21, and Fig. 1's own mu/beta definition) was re-read from the RENDERED PDF page (200 DPI render,
+read directly, not OCR'd) before being trusted.
+
+**The nominal law reduces to existing code, proved not assumed.** `DIL11`'s own Fig. 1 states its
+own mu explicitly: "Midnight (mu=0deg)," "Noon (mu=180deg)" — the SAME "orbit angle from midnight"
+convention this tree's own `mu_rad` already implements for KOUBA09 (checked directly against the
+header comment, not assumed from the name alone). `DIL11`'s own Eq. 1, `ATAN2(-tan(beta),
+sin(mu))`, is stated to use "the axis conventions of the GPS Block II/IIA satellites" — algebraically
+KOUBA09's own Eq. 4 "as printed," the SAME un-converted shape this tree's own `psi_nominal` is
+already the converted form of. No new frame-construction code was needed: `psi_nominal` and
+`frame_from_yaw` (GPS's own, unmodified) are reused directly.
+
+**The shadow-crossing maneuver's own mechanism, confirmed against `DIL11`'s own real data before
+being built.** `DIL11`'s own Fig. 5 (SVN724's own estimated vs. nominal yaw across three real
+eclipse crossings) shows the actual yaw jumping at full rate right at shadow entry and going FLAT
+well before shadow exit — read from the rendered figure directly, not assumed from the equations
+alone. This confirmed the ramp-then-hold mechanism `DIL11`'s own Eq. 11–14 states in words ("the
+yaw-attitude is kept fixed," Eq. 13) before any code was written. `mu_f` (Eq. 14, the ramp/hold
+boundary) is solved directly from the two already-converted formulas (the ramp is linear in mu),
+not by converting Eq. 14's own printed form term by term.
+
+**The ramp-sign conversion, PROVED by a 200000-point numerical check, not assumed by analogy with
+GPS's own `turn_ramp_sign`.** Converting `DIL11`'s own SIGN[R, psi_dot_n(mu_s)] term into this
+tree's own psi convention turned out to need NO extra negation beyond what the converted rate
+function (`glonass_m_psidot_nominal`) already carries — DIFFERENT from GPS's own `turn_ramp_sign`,
+which DOES carry an extra negation relative to KOUBA09's own printed term (§30.16 above) — a
+genuinely different result from a fresh derivation, confirmed numerically before being trusted, not
+copied from the GPS precedent because the shapes looked similar.
+
+**A genuine floating-point degeneracy at beta=0 exactly, found by the test suite, resolved by fixing
+the test, not production.** An independent test reconstruction, built to verify the ramp-sign proof
+above, disagreed with production at beta=0.0 exactly for one of four noon-turn test geometries —
+traced to the fact that `DIL11`'s own rule ("the sign of the actual rate matches the sign of the
+nominal rate at entry") names no unique answer when that nominal rate is EXACTLY zero: a raw
+(un-converted) and a tree-converted rate that are supposed to be exact opposites both collapse to
+the SAME "not negative" branch at a signed zero, since IEEE754 treats +0.0 and −0.0 as equal under
+`<`. Production's own tie-break (`sign(0):=+1`) is the SAME `TYAW-R-007`-established convention GPS
+already uses for this class of edge case, and is not wrong — the test was changed to use
+beta=0.001deg instead of exactly 0.0, a physically meaningless input a real ephemeris essentially
+never produces exactly. Three other apparent test failures during this build were ALSO the test's
+own bugs, not production's: an identity check with the wrong sign (`atan2(y,-x) = pi - atan2(y,x)`
+is additive, not "differs by pi" as first written); and a guard that compared raw, rotating
+GCRS-frame `Mat3` outputs at two different `mu` values directly (which will always differ
+substantially regardless of whether the underlying yaw angle is flat, since the orbit triad itself
+rotates with orbital position) instead of the frame-invariant extracted psi angle — found because a
+small standalone diagnostic, built to trace the disagreement directly against the compiled library,
+showed production already flat at both probe points before the test itself was corrected.
+
+**Step 6's own two guards, and a real-data control across two different days.** Time-direction and
+rotation-sense guards built for both turns (`GLNY-A-005`/`GLNY-A-006`), the same shape
+`TYAW-A-012`/`TYAW-A-015` and Galileo's own `GALY-A-011`/`GALY-A-012` already are. The real-data
+control (`tools/orbex_glonass_check.cpp`) needed THREE days scanned (position data only, no
+attitude read) before a usable crossing was found: Galileo's own day (2023-10-07) has no GLONASS-M
+satellite below beta=18.5deg all day, outside even the shadow turn's own window; a day nearer the
+equinox (2023-09-23) found satellites down to ~9.25deg, inside the shadow window but not the
+noon-turn's own tighter one; 2023-09-09 found two satellites (R19, R20) crossing beta essentially 0,
+a genuine deep eclipse-season day. All four registered checks (two satellites, shadow and noon turn
+each) matched to 0.0007deg–0.026deg — the tightest real-data agreement any attitude law in this
+tree has had, and the first real-data confirmation either DIL11 mechanism has ever had.
+
+### 33.4 GLONASS, GLONASS-M and GLONASS-K's own macromodel data, and a genuine schema-fidelity gap found and reported, not built around
+
+`SPEC-spacecraft.md` v2.2. `modules/spacecraft/src/glonass.cpp` (new), mirroring
+`spacecraft.cpp`'s own RS14-row/bus-face/solar-panel/assemble pattern (duplicated locally, the same
+per-constellation-file convention `galileo.cpp` already established) rather than Galileo's own
+per-satellite-metadata pattern, since RS14 gives one table per BLOCK, no per-satellite variation —
+closer in kind to GPS's own RS14-sourced blocks than to Galileo.
+
+**A finding RS14's own Table 5.6/5.7 surfaced, not visible from the earlier rule-4 search's own
+more superficial read.** RS14 §4.2 states its own GLONASS and GLONASS-M bus is "actually" a
+cylinder-wing model, not a box-wing one: the ±X/±Y bus faces carry a "shape" column RS14 itself
+defines as a 0–1 blend ratio ("0 indicates flat and 1 indicates cylindrical"), with a DISTINCT force
+formula (Eq. 4.5) for the blended fraction this schema's own `FlatSurface` cannot represent (no
+cylinder surface type — the same class of gap BeiDou's own curved surfaces hit, §33.6 below, found
+independently for a DIFFERENT constellation the same day). GLONASS-K's own Table 5.8 carries no
+"shape" column at all — an ordinary flat box-wing model, no complication. Given the manager's own
+ruling was already "GLONASS: BUILD IT," and the gap affects only 2 of 6 bus faces (mass, ±Z bus,
+solar panels, and the whole of GLONASS-K are unaffected), and RS14 itself gives the flat-law
+(shape=0) case as one well-defined endpoint of its own formula (unlike BeiDou's curved surfaces,
+which have no flat fallback in the CSNO standard at all) — a judgment call was made to build those
+four faces under the flat-law special case, STATED EXPLICITLY in each affected value's own citation
+string, not silently normalized away, and reported to the manager as `SPCR-Q-007` for a ruling
+(`SPEC-spacecraft.md` §3/§10) rather than decided unilaterally either way.
+
+### 33.5 GLONASS attitude and data test counts
+
+Attitude: `modules/attitude/tests/glonass_tests.cpp` (new, 6 test cases, `GLNY-A-001`–`GLNY-A-006`)
+— 29 test cases tree-wide in `modules/attitude`, 93662 assertions, all passing, no regression in
+the existing GPS/Galileo suite. Spacecraft: `modules/spacecraft/tests/glonass_tests.cpp` (new, 5
+test cases, `SPCR-A-015`–`SPCR-A-019`) — 19 test cases tree-wide in `modules/spacecraft`, 538
+assertions, all passing.
+
+---
+
 ## Changelog
 
 | date | change |

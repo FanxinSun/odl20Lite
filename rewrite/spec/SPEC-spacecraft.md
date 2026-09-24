@@ -4,9 +4,9 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 2.1 — `galileo_iov`'s own required `OpticalLife` (BOL/EOL) selector, `SPCR-Q-004` resolved; `SPCR-R-010`'s own text states, in `GALSC`'s own words, that FOC's single optics set carries no life-stage label |
+| **Version** | 2.2 — L5 step 3: `glonass()`/`glonass_m()`/`glonass_k()` built from RS14's own tables 5.6–5.8; a genuine schema-fidelity limitation found and reported, not silently built around (§3, `SPCR-Q-007`) |
 | **Date** | 2026-09-24 |
-| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS) and 2 (Galileo) |
+| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo) and 3 (GLONASS) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
 | **Depended on by** | L7's own box-wing fit, which reads this library |
 
@@ -34,18 +34,25 @@ refuses to build if any does not." This spec covers:
   operator's own published metadata, first-party, per-satellite, and dated: a satellite's own
   macromodel is returned for a stated epoch, refusing one the source's own table does not cover
   (§3, §4).
+- **L5 step 3, GLONASS**, across its own three blocks: GLONASS, GLONASS-M and GLONASS-K
+  (`SPCR-R-012`–`-014`) — `RS14`'s own secondary-source ruling (§2.2), extended from GPS to these
+  three tables 2026-09-24 (the manager's own ruling, `../plan/subplan_L5/L5-3.md`). A genuine
+  schema-fidelity limitation, found while building GLONASS's and GLONASS-M's own bus faces and
+  REPORTED rather than silently built around, is recorded in full at §3 below and `SPCR-Q-007`.
 
 **Not in scope.** The schema itself (`SPEC-macromodel.md`, L4 step 2) — this spec populates it,
 never extends it; a value the schema cannot hold is a finding reported to the manager, not a
 silent schema change (`../plan/PLAN.md` §3.6's own instruction). Estimating any parameter from
 observations (`SPEC-dynamics`, L7) — this library states values, it does not fit them. The
-ATTITUDE LAW's own equations (Galileo's own yaw-steering law included) — code, not cited data,
-built in `modules/attitude` and specified in `SPEC-galileo-attitude.md`, beside GPS's own
-`SPEC-thrust-yaw.md`; this spec's own §3 states only the FRAME the macromodel's own face normals
-are stated in, which that law's own output must agree with (checked, `SPCR-A-009`, not merely
-assumed by the two specs matching prose). GLONASS, BeiDou, QZSS and altimetry satellites
-(`SPEC-spacecraft` grows to cover L5 steps 3–4 as they are built). The force law itself
-(`srp_analytic`, `photon_force`) — this spec's own output is consumed by that module, unchanged.
+ATTITUDE LAW's own equations (Galileo's own and GLONASS-M's own yaw-steering laws included) —
+code, not cited data, built in `modules/attitude` and specified in `SPEC-galileo-attitude.md`/
+`SPEC-glonass-attitude.md`, beside GPS's own `SPEC-thrust-yaw.md`; this spec's own §3 states only
+the FRAME the macromodel's own face normals are stated in, which that law's own output must agree
+with (checked, `SPCR-A-009`, not merely assumed by the two specs matching prose). BeiDou (carried,
+refused — `SPEC-spacecraft` §2's own rule-4 search names the reasons, `SPCR-F-006`), QZSS
+(`SPEC-spacecraft` grows to cover L5 step 3's remaining constellation) and altimetry satellites.
+The force law itself (`srp_analytic`, `photon_force`) — this spec's own output is consumed by that
+module, unchanged.
 
 ---
 
@@ -55,7 +62,7 @@ assumed by the two specs matching prose). GLONASS, BeiDou, QZSS and altimetry sa
 |---|---|---|---|---|---|---|
 | `FLGA92` | Fliegel, H. F., Gallini, T. E., Swift, E. R. | *Global Positioning System radiation force model for geodetic applications* | J. Geophysical Research 97(B1): 559–568, 1992 | DOI (paywalled) | **not obtained** — see §2.1 | normative for Block I, II, IIA; not read directly, reached only through `RS14`'s own derived table |
 | `FLGA96` | Fliegel, H. F., Gallini, T. E. | *Solar force modeling of block IIR Global Positioning System satellites* | J. Spacecraft and Rockets 33(6): 863–866, 1996 | DOI `10.2514/3.26851` (paywalled) | **not obtained** — see §2.1 | normative for Block IIR; not read directly, reached only through `RS14`'s own derived table |
-| `RS14` | Rodríguez-Solano, C. J. | *(doctoral dissertation)*, TU München | 2014 | `data/literature/rodriguez-solano-2014-dissertation/719708.pdf`, retrieved at L4 step 2 (`PROVENANCE.md` §26.1) | **secondary** — retrievable, no login; redistribution terms not stated by the source, see §2.2 | the actual source of every Block I/II/IIA/IIR numeric value this spec states — a derivation from `FLGA92`/`FLGA96`, not a transcription of either |
+| `RS14` | Rodríguez-Solano, C. J. | *(doctoral dissertation)*, TU München | 2014 | `data/literature/rodriguez-solano-2014-dissertation/719708.pdf`, retrieved at L4 step 2 (`PROVENANCE.md` §26.1) | **secondary** — retrievable, no login; redistribution terms not stated by the source, see §2.2 | the actual source of every Block I/II/IIA/IIR numeric value this spec states — a derivation from `FLGA92`/`FLGA96`, not a transcription of either. **Extended 2026-09-24** (the manager's own ruling, `../plan/subplan_L5/L5-3.md`) to GLONASS, GLONASS-M and GLONASS-K (its own Tables 5.6–5.8, §5.4 below) — the SAME secondary-source status, cited per value |
 | `MSGA15` | Montenbruck, O., Schmid, R., Mercier, F., Steigenberger, P. *et al.* | *GNSS satellite geometry and attitude models* | Adv. Space Res. 56: 1015–1029, 2015 | `https://elib.dlr.de/97732/1/ASR_151015_GNSS_SatGeomAtt.pdf` | **primary**, already used at L4 step 6 | the IGS body-frame convention (§3), and IIR-M's own basis for sharing IIR's geometry (§4, `SPCR-R-005`) |
 | `IGSMETA` | Steigenberger, P., Montenbruck, O. (maintainers); IGS | *IGS Satellite Metadata (SINEX)* | continuously updated; this pin 2026-09-24 | `https://files.igs.org/pub/station/general/igs_satellite_metadata.snx` | **primary**, open with attribution (IGS's own open data policy, re-checked this session for the redistribution bar, not only retrievability) | which physical block each frozen baseline SVN is (already used, `PROVENANCE.md` §30.1); **as of this version, the primary mass source for `gps_block_iir`/`_iir_m`/`_iif`** (§3, §4 `SPCR-R-003`/`-004`/`-005`) — its own `SATELLITE/MASS` field, per-satellite, SVN50/SVN63 |
 | `SMSD24` | Steigenberger, P., Montenbruck, O. | *IGS Satellite Metadata File Description*, v1.10 | 30 September 2024, DOI `10.57677/metadata-sinex` | `https://files.igs.org/pub/resource/working_groups/multi_gnss/Metadata_SINEX_1.10.pdf`, fetched directly 2026-09-24 (same `files.igs.org` domain as `IGSMETA`; redistribution not separately re-verified beyond that) | **primary**, obtained | states what `IGSMETA`'s own `SATELLITE/MASS` field IS — "in-orbit satellite mass," required "to compute the acceleration caused by non-gravitational forces... at ~1% accuracy" (§1.1) — settling `SPCR-Q-003` and its own Table 5 (§4.3), the block-level figures §3 below cites |
@@ -256,6 +263,31 @@ building anyway, per instruction, not because the result turned out ambiguous.
   verified cell by cell for every row (`SPCR-A-010`), the same independent arithmetic check
   `SPCR-A-001` already applies to every GPS surface, not a substitute for reading the quoted
   definition but a second, independent confirmation of it.
+- **A genuine schema-fidelity limitation, found building GLONASS and GLONASS-M, REPORTED rather
+  than silently built around (`SPCR-Q-007`).** `RS14` §4.2 states plainly: "the bus of GLONASS and
+  GLONASS-M satellites have a characteristic cylindrical shape. Therefore for these satellites
+  actually cylinder-wing models were constructed... The only surfaces of the satellite that are
+  affected by this change are the ±Y and ±X surfaces" — its own Tables 5.6/5.7 print a "shape"
+  column for exactly those four faces, and state its own meaning directly: "the ratio of the sum
+  of cylindrical areas w.r.t. sum of flat areas is given in the 'shape' column, where 0 indicates
+  flat and 1 indicates cylindrical" (0.620/0.494 for GLONASS, 0.728/0.550 for GLONASS-M). `RS14`'s
+  own Eq. 4.5 gives a DISTINCT force formula for the blended fraction — a weighted sum of the
+  standard flat law (Eq. 9 of `RS14`'s own P-II, what this schema's `FlatSurface` already
+  implements) and a genuinely different cylindrical-surface law (Eq. 4.4, Fliegel et al. 1992) —
+  which this schema cannot represent (no cylinder surface type exists, `SPEC-macromodel.md`'s own
+  stated scope, the SAME gap BeiDou's own curved surfaces hit, narrower here: two face PAIRS of
+  six, not a whole satellite, and `RS14` itself gives the flat-law, shape=0 case as one
+  well-defined endpoint of its own formula, unlike BeiDou's cylinders/rings/parabolic surfaces,
+  which have no flat-law fallback in the CSNO standard at all). **Built here under RS14's own
+  flat-law (shape=0) special case ONLY**, using `RS14`'s own printed alpha/delta/rho for those four
+  faces as given — UNDERSTATING the true cylindrical contribution — a judgment call made to keep
+  GLONASS and GLONASS-M buildable (the manager's own ruling was "BUILD IT," and the majority of
+  each satellite — mass, ±Z bus, solar panels, and the WHOLE of GLONASS-K, whose own Table 5.8
+  prints no "shape" column at all — is unaffected), stated EXPLICITLY and VISIBLY in each affected
+  value's own citation string (`SPCR-A-016` checks the citation differs from an uncaveated one),
+  not silently normalized away. GLONASS-K needs no such caveat: its own dimensions come from a
+  DIFFERENT source (`RS14`'s own "Mitrikas, personal communication, 2011," §4 below) with no
+  "shape" column printed at all.
 
 ---
 
@@ -373,6 +405,23 @@ building anyway, per instruction, not because the result turned out ambiguous.
 - **SPCR-R-011.** Every numeric value `SPCR-R-008`–`SPCR-R-010` state is a `Cited<double>` or
   `Cited<Vec3>` (`SPEC-macromodel`'s own `MCRM-R-004`), the same rule `SPCR-R-006` states for GPS —
   this spec adds no exemption for Galileo either.
+- **SPCR-R-012.** `glonass() -> Result<Macromodel, SpacecraftError>` — `RS14` Table 5.6's own six
+  bus faces and solar panel (mass 1415 kg, `RS14`'s own caption), dimensions cited to Revnivykh and
+  Mitrikas (1998), optics marked ASSUMED (`RS14`'s own generic Ziebart (2001) §7.1 fallback, the
+  SAME status GPS-IIF's own optics carry). The ±X/±Y bus faces carry the additional shape-blend
+  caveat §3 states, built under the flat-law special case; ±Z and the panels do not. Always
+  succeeds — `RS14` gives one table for this block, no per-satellite or per-epoch parameter.
+- **SPCR-R-013.** `glonass_m() -> Result<Macromodel, SpacecraftError>` — `RS14` Table 5.7, the same
+  shape as `SPCR-R-012`, dimensions cited to Mitrikas (2005), mass 1415 kg.
+- **SPCR-R-014.** `glonass_k() -> Result<Macromodel, SpacecraftError>` — `RS14` Table 5.8's own six
+  ORDINARY flat bus faces (no "shape" column at all, §3) and solar panel, mass 935 kg. Dimensions
+  cited to `RS14`'s own stated chain end, "Mitrikas (personal communication, 2011)" — recorded, not
+  resolved further, the same treatment GPS-IIF's own "an unpublished document" source gets
+  (`SPCR-R-004`).
+- **SPCR-R-015.** Every numeric value `SPCR-R-012`–`SPCR-R-014` state is a `Cited<double>` or
+  `Cited<Vec3>`, the same rule `SPCR-R-006`/`SPCR-R-011` state for GPS and Galileo — this spec adds
+  no exemption for GLONASS either; the shape-blend caveat (§3) is carried INSIDE the optics
+  citation string, not a separate uncited annotation.
 
 ---
 
@@ -396,6 +445,10 @@ building anyway, per instruction, not because the result turned out ambiguous.
   `SPCR-R-010`. No `life` parameter — `GALSC`'s own FOC table carries no BOL/EOL label at all.
 - `YearMonth { year: int, month: int }`, ordered — §3's own stated precision match to `GALSC`'s
   own dated entries.
+- `glonass() -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-012`, built from `RS14` Table 5.6.
+- `glonass_m() -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-013`, built from `RS14` Table 5.7.
+- `glonass_k() -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-014`, built from `RS14` Table 5.8.
+  All three parameterless: `RS14` gives one table per block, no per-satellite or per-epoch axis.
 
 Each function is a pure, parameterless (or SVN-/GSAT-/epoch-parameterised) constructor: no file is
 read, no network reached; the cited literature is data this module states directly, the same shape
@@ -433,6 +486,11 @@ read, no network reached; the cited literature is data this module states direct
   inconsistency (FOC, ~0.46%, `SPCR-R-010`) is the only area discrepancy found between its own
   summary and detailed tables — every other face and both blocks' own wing totals match exactly
   (`SPCR-A-011`).
+- **SPCR-P-3.** `RS14`'s own GLONASS/GLONASS-M/GLONASS-K values are stated to the same precision as
+  its GPS tables (three decimal places). The ±X/±Y bus faces of `glonass()`/`glonass_m()` are built
+  under RS14's own flat-law (shape=0) special case, UNDERSTATING the true cylindrical contribution
+  RS14's own Eq. 4.5 would give (§3's own full account, `SPCR-Q-007`) — a stated approximation, not
+  a rounding-level one: the shape fractions RS14 prints (0.494–0.728) are not small.
 
 ---
 
@@ -467,6 +525,11 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-A-012` | mass/CoM lookup: the right value at a known GSAT; refused for an unknown GSAT (`SPCR-F-004`); refused for an epoch one month before coverage, shown firing exactly at that boundary; succeeds exactly at the coverage start and well after (open-ended coverage) | the diagnostics; the stated values | `SPCR-R-009`/`-010`'s own domain | 1e-9 | F-004, F-005, R-009, R-010 |
 | `SPCR-A-013` | every built IOV/FOC macromodel is fully cited (mass, CoM, every surface's own area and absorptivity); the citation-refusal guard (`MCRM-F-001`) reaches this module's own call path; the centre of mass is a real, nonzero offset (unlike GPS's own (0,0,0) default) | no empty citation; the refusal fires; `\|com\| > 0.1` m | `SPCR-R-011` | — | R-011 |
 | `SPCR-A-014` | `galileo_iov`'s own BOL and EOL optics genuinely differ where `GALSC` prints different coefficients (the Optical surface radiator, +X/+Y/-Y) and agree exactly where it prints the same ones (the Germanium-coated Kapton foil, +Z; Material 1; both wings) — every surface's own area and normal unchanged either way, only optics vary | BOL/EOL differ on 3 faces, agree on the rest; areas identical | `GALSC` §6.1, read directly in the test | exact | R-009 |
+| `SPCR-A-015` | every surface of `glonass()`/`glonass_m()`/`glonass_k()`: α + specular + diffuse = 1; 7 surfaces each; the +Z bus row matches `RS14` Table 5.6 cell by cell, δ/ρ mapping applied; masses 1415/1415/935 kg | exactly 1; 7 surfaces; agreement to `RS14`'s own printed precision; the stated masses | `RS14` Tables 5.6–5.8, read directly in the test | 1e-9/1e-12 | R-012, R-013, R-014 |
+| `SPCR-A-016` | the ±X/±Y bus faces of `glonass()`/`glonass_m()` carry a citation stating RS14's own cylinder-wing "shape" blend and this build's own flat-law approximation; the ±Z faces and panels, and EVERY `glonass_k()` face (no "shape" column in RS14's own Table 5.8), do not — the split is real, checked by substring | 4 caveated / 3 plain, both blocks; `glonass_k()` entirely plain | this file's own §3 finding | — | R-012, R-013, R-014 |
+| `SPCR-A-017` | `glonass_k()`'s own dimension citation names RS14's own stated chain end, "Mitrikas (personal communication, 2011)" | citation contains that string | `RS14` Table 5.8's own "Information sources" | — | R-014 |
+| `SPCR-A-018` | **the guard shown firing**: a deliberately blank citation on a test-local value, through this module's own `Cited`/`body_direction` call path, is refused by `MCRM-F-001` | the refusal, `MCRM-F-001` | `SPCR-R-015` | — | R-015 |
+| `SPCR-A-019` | `glonass()`/`glonass_m()`'s own ±X/±Y optics and `glonass_k()`'s own optics (every face) are marked ASSUMED, `RS14`'s own generic Ziebart (2001) fallback | citation contains "ASSUMED" | `RS14` Tables 5.6–5.8's own "Information sources" | — | R-012, R-013, R-014 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -503,6 +566,14 @@ read, no network reached; the cited literature is data this module states direct
   the α/ρ/δ quote and its own sum-to-1 confirmation; the FOC +Z-panel area inconsistency
   (`SPCR-R-010`); the HTML table re-parse that replaced an earlier, alignment-losing flattened-text
   pass.
+- **L5 step 3 (GLONASS)**: the manager's own ruling extending `RS14`'s own secondary-source status
+  to its GLONASS/GLONASS-M/GLONASS-K tables; the GENUINE schema-fidelity limitation found reading
+  `RS14` §4.2 closely — the ±X/±Y bus faces of GLONASS and GLONASS-M are a cylinder/flat "shape"
+  blend with a distinct force formula (Eq. 4.5) this schema cannot represent — and the judgment call
+  made to build those four faces under the flat-law special case anyway, stated explicitly in each
+  affected citation, reported for the manager's own ruling rather than decided silently either way
+  (`SPCR-Q-007`); GLONASS-K's own dimension chain ending at "Mitrikas, personal communication,
+  2011," recorded the same way GPS-IIF's "an unpublished document" is.
 
 ---
 
@@ -516,3 +587,4 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-Q-004` | **`GALSC`'s own End-Of-Life optical coefficients for IOV — RESOLVED** (manager, 2026-09-24). Ruled: an explicit `OpticalLife` selector, REQUIRED, no default (`SPCR-R-009`) — both BOL and EOL now built, chosen by the caller, since every IOV satellite is long past early life and a silent default would be the wrong answer for present use. `SPCR-A-014` checks the selector actually reaches the built surfaces. |
 | `SPCR-Q-005` | **FOC's own "modified yaw steering law" is not built (`GALY-Q-001`, `SPEC-galileo-attitude.md`) — `galileo_yaw_attitude` refuses instead, near colinearity.** Does any consumer need FOC attitude that close to colinearity (β < 4.1°, ε < 10°) before this is worth building? The condition is rare (a narrow geometric window) and GSC's own text frames it as a smoothing measure, not a large-swing regime the way GPS's own noon/midnight turns are. |
 | `SPCR-Q-006` | **A genuine per-SVN mass table for Galileo satellites GSC does not currently list (205, 228–231) or for GSAT numbers retired since this pin.** Not searched this round — `GALSC`'s own table is used as printed, absences not filled in or guessed at. Worth a follow-up search if L7 needs one of these specifically. |
+| `SPCR-Q-007` | **The GLONASS/GLONASS-M cylinder-wing shape-blend approximation — a judgment call made this round, NOT yet reviewed.** `RS14` states its own ±X/±Y bus faces for these two blocks are a "shape"-weighted blend of a flat surface and a cylindrical one (0.494–0.728, "0 indicates flat and 1 indicates cylindrical"), with a distinct force formula (Eq. 4.5) this schema's `FlatSurface` cannot represent (no cylinder type, §3's own full account). Built here under RS14's own flat-law (shape=0) special case for those four faces, UNDERSTATING the true cylindrical contribution, stated explicitly in each affected citation — chosen over omitting the four faces (which would understate total cross-section instead, arguably worse) or refusing the whole block (BeiDou's own treatment, which this session judged too strong here: unlike BeiDou's cylinders/rings, `RS14` itself gives the flat-law case as one well-defined formula endpoint, and only 2 of 6 bus faces are affected, not the whole geometry). **Options for the manager's own ruling**: (a) accept this round's own flat-law approximation as built; (b) omit the four caveated faces instead, accepting the smaller cross-section; (c) treat GLONASS/GLONASS-M the same as BeiDou, carried and refused, until the schema grows a cylinder surface type. No consumer currently reads `glonass()`/`glonass_m()`'s own macromodel yet (the same "no consumer" state GPS-IIIA's own refusal names, `SPCR-R-007`), so any of the three is reversible without breaking a caller. |
