@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L5 closed; **L6 open** — steps 1–4 to come; L7–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L5 closed; **L6 open** — step 1 done, steps 2–4 to come; L7–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -455,14 +455,14 @@ serves at baseline; and a sail's own macromodel (§3.9).
 
 ---
 
-### 3.7 L6 `io-measurements` — 0 of 4 done; **the open layer**
+### 3.7 L6 `io-measurements` — 1 of 4 done; **the open layer**
 
 Formats in, measurements out. Public specifications throughout — nothing here is anyone's
 intellectual property but the format authors'.
 
 **Entry:** L1 exit gate.
 
-1. **TODO** — Formats → [`subplan_L6/L6-1.md`](subplan_L6/L6-1.md)
+1. **DONE** — Formats → [`subplan_L6/L6-1.md`](subplan_L6/L6-1.md)
 2. **TODO** — Horizons client → [`subplan_L6/L6-2.md`](subplan_L6/L6-2.md)
 3. **TODO** — `sgp4` → [`subplan_L6/L6-3.md`](subplan_L6/L6-3.md)
 4. **TODO** — `measmod` → [`subplan_L6/L6-4.md`](subplan_L6/L6-4.md)
