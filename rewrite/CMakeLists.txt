@@ -159,6 +159,9 @@ add_subdirectory(modules/erp)
 add_subdirectory(modules/antenna_thrust)
 add_subdirectory(modules/ecom)
 
+# L5 spacecraft: the macromodel library as cited data (PLAN.md §3.6).
+add_subdirectory(modules/spacecraft)
+
 add_subdirectory(tools)
 
 # --------------------------------------------------------------------------- #
