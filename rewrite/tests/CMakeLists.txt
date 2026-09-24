@@ -84,12 +84,17 @@ target_link_libraries(odl_l4_ranking_tests
   PRIVATE odl::core odl::time odl::frames odl::eop odl::atmosphere
           odl::ephemerides odl::dynamics odl::macromodel odl::srp_analytic
           odl::drag odl::srp odl::erp odl::antenna_thrust odl::ecom
+          odl::gravity odl::thirdbody odl::relativity
           Catch2::Catch2WithMain odl_warnings)
 if(BUILD_TESTING)
   odl_manifest_get(de440s-spk _de440s)
   odl_manifest_get(iers-leap-seconds _leap)
+  odl_manifest_get(naif-gm-de440 _gm)
   target_compile_definitions(odl_l4_ranking_tests PRIVATE
     ODL_DE440S_BSP="${_de440s_CACHE_PATH}"
-    ODL_LEAP_SECOND_FILE="${_leap_CACHE_PATH}")
+    ODL_LEAP_SECOND_FILE="${_leap_CACHE_PATH}"
+    ODL_EGM2008_COEFFICIENTS="${ODL_CACHE_DIR}/egm2008-coefficients/extracted/EGM2008_to2190_TideFree"
+    ODL_GM_DE440_TPC="${_gm_CACHE_PATH}"
+    ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}")
 endif()
 catch_discover_tests(odl_l4_ranking_tests EXTRA_ARGS --warn NoAssertions)
