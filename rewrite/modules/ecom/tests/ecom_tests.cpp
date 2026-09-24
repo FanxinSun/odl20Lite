@@ -1,4 +1,4 @@
-// ecom_tests.cpp — SPEC-ecom.md §8, ECOM-A-001 through ECOM-A-009.
+// ecom_tests.cpp — SPEC-ecom.md §8, ECOM-A-001 through ECOM-A-010.
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -57,6 +57,42 @@ double angle_from_node(const Vec3& vec_hat, const Vec3& node_hat, const Vec3& no
     const double c = vec_hat.dot(node_hat);
     const double s = normal_hat.dot(node_hat.cross(vec_hat));
     return std::atan2(s, c);
+}
+
+struct NodeAngles {
+    double u, u_s;
+};
+
+/// The satellite's own argument of latitude and the Sun's, from an
+/// independently-built ascending node -- never calling into this module's
+/// own Delta-u. Shared by ECOM-A-005 and ECOM-A-010 so the SAME independent
+/// construction backs both, rather than two copies that could drift apart.
+NodeAngles node_based_u_and_us(const Vec3& r, const Vec3& v, const Vec3& sun) {
+    const Vec3 r_hat = normalized(r);
+    const Vec3 n_hat = normalized(r.cross(v));
+    const Vec3 node_hat = normalized(Vec3{0.0, 0.0, 1.0}.cross(n_hat));
+    const double u = angle_from_node(r_hat, node_hat, n_hat);
+    const Vec3 sun_hat = normalized(sun);
+    const Vec3 s_proj = normalized(sun_hat - sun_hat.dot(n_hat) * n_hat);
+    const double u_s = angle_from_node(s_proj, node_hat, n_hat);
+    return NodeAngles{u, u_s};
+}
+
+struct Eq1Frame {
+    Vec3 e_D, e_Y, e_B;
+};
+
+/// ARN15 Eq.1, transcribed fresh here -- not calling into this module's own
+/// geometry_at at all. ECOM-A-010's own independent frame, the same
+/// property A-001 checks the production frame against, one level up:
+/// composed into a full acceleration rather than compared component by
+/// component.
+Eq1Frame eq1_frame(const Vec3& r, const Vec3& sun_direction) {
+    const Vec3 r_hat = normalized(r);
+    const Vec3 e_D = normalized(sun_direction);
+    const Vec3 e_Y = normalized((-1.0) * r_hat.cross(e_D));
+    const Vec3 e_B = e_D.cross(e_Y);
+    return Eq1Frame{e_D, e_Y, e_B};
 }
 
 struct Fixture {
@@ -280,49 +316,67 @@ TEST_CASE("ECOM-A-005  the reduction: D4B1-family output at n_D=0, n_B=1 matches
         REQUIRE(result.has_value());
         const double b_production = b_of(order, c, result->delta_u_rad);
 
-        // Independent node-based construction of u and u_s -- not calling
-        // into this module's own geometry at all.
-        const Vec3 r_hat = normalized(f.r);
-        const Vec3 n_hat = normalized(f.r.cross(f.v));
-        const Vec3 node_hat = normalized(Vec3{0.0, 0.0, 1.0}.cross(n_hat));
-        const double u = angle_from_node(r_hat, node_hat, n_hat);
-        const Vec3 sun_hat = normalized(f.sun);
-        const Vec3 s_proj = normalized(sun_hat - sun_hat.dot(n_hat) * n_hat);
-        const double u_s = angle_from_node(s_proj, node_hat, n_hat);
-
-        const double bc = c.B_odd_c[0] * std::cos(u_s) - c.B_odd_s[0] * std::sin(u_s);
-        const double bs = c.B_odd_c[0] * std::sin(u_s) + c.B_odd_s[0] * std::cos(u_s);
-        const double b_eq4 = c.B0 + bc * std::cos(u) + bs * std::sin(u);
+        const NodeAngles na = node_based_u_and_us(f.r, f.v, f.sun);
+        const double bc = c.B_odd_c[0] * std::cos(na.u_s) - c.B_odd_s[0] * std::sin(na.u_s);
+        const double bs = c.B_odd_c[0] * std::sin(na.u_s) + c.B_odd_s[0] * std::cos(na.u_s);
+        const double b_eq4 = c.B0 + bc * std::cos(na.u) + bs * std::sin(na.u);
 
         CHECK_THAT(b_eq4, WithinAbs(b_production, 1.0e-9));
     }
 
-    // Guard: the WRONG rotation (sin/cos roles swapped) does NOT generally
+    // Guard A: the WRONG rotation (sin/cos roles swapped) does NOT generally
     // reproduce the same value -- proving the specific formula is checked,
     // not just "some rotation by u_s".
-    const Fixture f = random_fixture(rng);
-    EcomCoefficients c;
-    c.D0 = 0.2;
-    c.Y0 = 0.1;
-    c.B0 = 0.4;
-    c.B_odd_c = {0.9};
-    c.B_odd_s = {-0.6};
-    auto result = ecom_acceleration(f.r, f.v, f.sun, order, c);
-    REQUIRE(result.has_value());
-    const double b_production = b_of(order, c, result->delta_u_rad);
+    {
+        const Fixture f = random_fixture(rng);
+        EcomCoefficients c;
+        c.D0 = 0.2;
+        c.Y0 = 0.1;
+        c.B0 = 0.4;
+        c.B_odd_c = {0.9};
+        c.B_odd_s = {-0.6};
+        auto result = ecom_acceleration(f.r, f.v, f.sun, order, c);
+        REQUIRE(result.has_value());
+        const double b_production = b_of(order, c, result->delta_u_rad);
 
-    const Vec3 r_hat = normalized(f.r);
-    const Vec3 n_hat = normalized(f.r.cross(f.v));
-    const Vec3 node_hat = normalized(Vec3{0.0, 0.0, 1.0}.cross(n_hat));
-    const double u = angle_from_node(r_hat, node_hat, n_hat);
-    const Vec3 sun_hat = normalized(f.sun);
-    const Vec3 s_proj = normalized(sun_hat - sun_hat.dot(n_hat) * n_hat);
-    const double u_s = angle_from_node(s_proj, node_hat, n_hat);
+        const NodeAngles na = node_based_u_and_us(f.r, f.v, f.sun);
+        const double bc_wrong = c.B_odd_c[0] * std::sin(na.u_s) - c.B_odd_s[0] * std::cos(na.u_s);
+        const double bs_wrong = c.B_odd_c[0] * std::cos(na.u_s) + c.B_odd_s[0] * std::sin(na.u_s);
+        const double b_wrong = c.B0 + bc_wrong * std::cos(na.u) + bs_wrong * std::sin(na.u);
+        CHECK(std::abs(b_wrong - b_production) > 1.0e-3);
+    }
 
-    const double bc_wrong = c.B_odd_c[0] * std::sin(u_s) - c.B_odd_s[0] * std::cos(u_s);
-    const double bs_wrong = c.B_odd_c[0] * std::cos(u_s) + c.B_odd_s[0] * std::sin(u_s);
-    const double b_wrong = c.B0 + bc_wrong * std::cos(u) + bs_wrong * std::sin(u);
-    CHECK(std::abs(b_wrong - b_production) > 1.0e-3);
+    // Guard B: THE FAILURE THIS CHECK EXISTS FOR is a production Delta-u
+    // with the wrong sign or the wrong origin -- the mu_rad class of bug
+    // (PROVENANCE.md Sec.30.16-.20). Guard A only shows the ROTATION
+    // formula is not vacuous; it says nothing about whether a wrong-signed
+    // or wrong-origin Delta-u would be caught. So: take the CORRECT Eq.4
+    // side (from the correct u/u_s), and show that b_of evaluated at
+    // -Delta-u, and at Delta-u + pi, both disagree with it -- exactly the
+    // two ways a sign or a pi-origin error would show up in
+    // b_production if ecom_acceleration's own Delta-u had one.
+    {
+        const Fixture f = random_fixture(rng);
+        EcomCoefficients c;
+        c.D0 = -0.3;
+        c.Y0 = 0.5;
+        c.B0 = -0.2;
+        c.B_odd_c = {0.7};
+        c.B_odd_s = {0.4};
+        auto result = ecom_acceleration(f.r, f.v, f.sun, order, c);
+        REQUIRE(result.has_value());
+        const double du_production = result->delta_u_rad;
+
+        const NodeAngles na = node_based_u_and_us(f.r, f.v, f.sun);
+        const double bc = c.B_odd_c[0] * std::cos(na.u_s) - c.B_odd_s[0] * std::sin(na.u_s);
+        const double bs = c.B_odd_c[0] * std::sin(na.u_s) + c.B_odd_s[0] * std::cos(na.u_s);
+        const double b_eq4 = c.B0 + bc * std::cos(na.u) + bs * std::sin(na.u);
+
+        const double b_wrong_sign = b_of(order, c, -du_production);
+        const double b_wrong_origin = b_of(order, c, du_production + std::numbers::pi);
+        CHECK(std::abs(b_wrong_sign - b_eq4) > 1.0e-3);
+        CHECK(std::abs(b_wrong_origin - b_eq4) > 1.0e-3);
+    }
 }
 
 // --- ECOM-A-006 --------------------------------------------------------------
@@ -542,4 +596,86 @@ TEST_CASE("ECOM-A-009  d4b1_order() names CODE's own operational configuration, 
     // order was returned".
     const EcomOrder wrong{2, 0};
     CHECK_FALSE((wrong.n_D == order.n_D && wrong.n_B == order.n_B));
+}
+
+// --- ECOM-A-010 --------------------------------------------------------------
+
+TEST_CASE("ECOM-A-010  the assembled acceleration matches an independently-built D/Y/B frame "
+          "(Eq.1, transcribed fresh) and an independently-built Delta-u (the node-based u - "
+          "u_s) recombined as a = D(Delta_u) e_D + Y0 e_Y + B(Delta_u) e_B -- the PRODUCT, not "
+          "just the ingredients A-001 through A-007 check in isolation",
+          "[ecom]") {
+    std::mt19937_64 rng(20260924 + 10);
+    std::uniform_real_distribution<double> c_dist(-3.0, 3.0);
+
+    for (int n_D : {0, 1, 2}) {
+        for (int n_B : {0, 1, 2}) {
+            const EcomOrder order{n_D, n_B};
+            for (int trial = 0; trial < 30; ++trial) {
+                const Fixture f = random_fixture(rng);
+                EcomCoefficients c;
+                c.D0 = c_dist(rng);
+                for (int i = 0; i < n_D; ++i) {
+                    c.D_even_c.push_back(c_dist(rng));
+                    c.D_even_s.push_back(c_dist(rng));
+                }
+                c.Y0 = c_dist(rng);
+                c.B0 = c_dist(rng);
+                for (int i = 0; i < n_B; ++i) {
+                    c.B_odd_c.push_back(c_dist(rng));
+                    c.B_odd_s.push_back(c_dist(rng));
+                }
+
+                auto result = ecom_acceleration(f.r, f.v, f.sun, order, c);
+                REQUIRE(result.has_value());
+
+                // Independent frame (Eq.1, transcribed fresh, not calling
+                // into geometry_at) and independent Delta-u (the node
+                // construction, not calling into this module's own Delta-u
+                // at all) -- only d_of/b_of themselves, already separately
+                // verified by A-003/A-004, are reused, to check the
+                // ASSEMBLY rather than re-check the Fourier sums again.
+                const Eq1Frame frame = eq1_frame(f.r, f.sun);
+                const NodeAngles na = node_based_u_and_us(f.r, f.v, f.sun);
+                const double du = na.u - na.u_s;  // unwrapped: cos/sin are exactly 2*pi-periodic
+
+                const double d_val = d_of(order, c, du);
+                const double b_val = b_of(order, c, du);
+                const Vec3 a_expected = d_val * frame.e_D + c.Y0 * frame.e_Y + b_val * frame.e_B;
+
+                CHECK_THAT(a_expected.x, WithinAbs(result->acceleration_m_s2.x, 1.0e-9));
+                CHECK_THAT(a_expected.y, WithinAbs(result->acceleration_m_s2.y, 1.0e-9));
+                CHECK_THAT(a_expected.z, WithinAbs(result->acceleration_m_s2.z, 1.0e-9));
+            }
+        }
+    }
+
+    // Guard: swap B onto e_D -- if production put B's own contribution on
+    // e_D instead of e_B (with a correspondingly "consistent" sensitivity
+    // column, so A-006's own guard would not catch it either), every other
+    // test in this file would still pass. Show this composition test does.
+    {
+        const Fixture f = random_fixture(rng);
+        const EcomOrder order{1, 1};
+        EcomCoefficients c;
+        c.D0 = 1.0;
+        c.D_even_c = {0.5};
+        c.D_even_s = {-0.3};
+        c.Y0 = 0.4;
+        c.B0 = 0.6;
+        c.B_odd_c = {0.8};
+        c.B_odd_s = {-0.5};
+        auto result = ecom_acceleration(f.r, f.v, f.sun, order, c);
+        REQUIRE(result.has_value());
+
+        const Eq1Frame frame = eq1_frame(f.r, f.sun);
+        const NodeAngles na = node_based_u_and_us(f.r, f.v, f.sun);
+        const double du = na.u - na.u_s;
+        const double d_val = d_of(order, c, du);
+        const double b_val = b_of(order, c, du);
+
+        const Vec3 a_wrong = (d_val + b_val) * frame.e_D + c.Y0 * frame.e_Y;  // nothing on e_B
+        const Vec3 diff = a_wrong - result->acceleration_m_s2;
+        CHECK((std::abs(diff.x) + std::abs(diff.y) + std::abs(diff.z)) > 1.0e-3);
+    }
 }

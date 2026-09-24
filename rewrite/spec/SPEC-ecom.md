@@ -271,6 +271,7 @@ as silence to fill in.
 | `ECOM-A-007` | The analytic velocity Jacobian (`ECOM-R-006`) against a central finite difference of the acceleration w.r.t. v, at randomized coefficient sets and geometries | agreement | `ECOM-R-006`'s own closed form | finite-difference floor | R-006 |
 | `ECOM-A-008` | `ECOM-F-001`/`ECOM-F-002` fire at their own stated degeneracies, forwarded/carrying correctly | the diagnostics | `ECOM-R-001`/`R-002` | — | F-001, F-002 |
 | `ECOM-A-009` | `d4b1_order()` returns *n*_D = 2, *n*_B = 1 | (2, 1) | `ECOM-R-004`'s own named default | exact (integers) | R-004 |
+| `ECOM-A-010` | The assembled acceleration against *a* = *D*(Δu)ê_D + *Y*₀ê_Y + *B*(Δu)ê_B, with ê_D/ê_Y/ê_B built fresh from Eq. 1 (not `ECOM-R-001`'s own code) and Δu from the node-based *u* − *u*_s (not `ECOM-R-002`'s own code) — checks the PRODUCT the other rows check only the ingredients of, at randomized truncation orders, coefficients and geometries | agreement | Eq. 5's own printed sum | 1e-9 | R-001, R-002, R-003 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
