@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L3 closed; **L4 open** — all 7 steps done, exit gate under review; L5–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L4 closed; **L5 open** — steps 1–4 to come; L6–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -332,7 +332,7 @@ reason the second clause of that sentence is a gate and not a description.
 
 ---
 
-### 3.5 L4 `forces-analytic` — 7 of 7 done, exit gate under review; **the open layer**
+### 3.5 L4 `forces-analytic` — **7 of 7 done; exit gate passed 2026-09-24**
 
 Every non-gravitational force that can be written in closed form. The ray-traced treatment of
 the same physics is L9 and deliberately later: this layer must stand alone, because it is what
@@ -401,9 +401,21 @@ was built — an obligation stated only where a plan's reader would not look, by
 > exit on what they can reach. Found by the executor's rule-4 search for step 7, whose own gate had
 > the same shape; the resolution it corrects was the manager's.
 
+**Exit gate — PASSED 2026-09-24.** `tools/ci.sh` exits 0: 13 gates, 326 tests, 687 artefacts
+byte-identical — verified by the manager on `05f5377`, with `cc157d1` changing comments only.
+Every force's evidence is audited in the L4 report (§10). The published cases this layer
+reproduces are Kouba's printed turn thresholds; every other force rests on properties its
+specification names, each absence of a published case recorded with its search; and the strongest
+external evidence — CODE's published attitude and Dilssner's digitised Figure 8 — is reproducible,
+not gated. The ranking table (`tests/l4_ranking.cpp`) measures every L4 force through the registry
+beside L2's terms at three stated points — GPS, LEO drag at two radii, LightSail-2 — and its one
+pre-registered expectation missed by more than 10× stays as written. Carried: the true IIIA law;
+Galileo, GLONASS and BeiDou attitude; II/IIA's post-shadow recovery as an integrator event; and
+L2's models as plugins, now L7 step 1.
+
 ---
 
-### 3.6 L5 `spacecraft` — 0 of 4 done
+### 3.6 L5 `spacecraft` — 0 of 4 done; **the open layer**
 
 The macromodel library as **data with per-value citations**, not as code.
 
