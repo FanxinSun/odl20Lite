@@ -6787,10 +6787,143 @@ client, `sgp4`, `measmod`) not started.
 
 ---
 
+## 37. L6 step 2 — the Horizons client, and the frozen oracle case it turned out not to feed
+
+Authorised by the manager's own verdict on step 1's own closing round (ci.sh 0 on `9684b5b`, 437
+tests, 738 artefacts byte-identical, pushed as `17d5739`) with two required additions before
+building, both addressed here before any code was written (§37.1/37.2), per the manager's own
+explicit instruction.
+
+### 37.1 The reconciliation: a parser that never touches the network, a fetch that is not new code
+
+The layer's own standing design tension — this tree refuses fetching at run time (pin by hash,
+refuse outside coverage), yet a Horizons client's whole point is fetching — resolves the same way
+`SPEC-io-formats.md`'s own seven readers already do, extended by one more piece already in the
+tree: `read_horizons(text) -> Result<HorizonsEphemeris, HorizonsError>` (`modules/io`) is a pure
+parser, no file or network access, identical in shape to `read_sp3`/`read_tle`/etc. **No new fetch
+code was written at all** — a Horizons query is a fully-parameterised URL like any other manifest
+entry's, so `manifest/manifest.json` plus the tree's own existing, unmodified `tools/fetch.py`
+is the whole fetch mechanism; CI reads a pinned, hash-verified capture exactly the way it already
+reads every SPK kernel or EOP series, never the live API. One genuine wrinkle, checked directly
+rather than assumed and accepted by the manager as one of the two required additions: Horizons is
+not guaranteed byte-stable on a re-fetch of the same URL the way a tagged software archive is — JPL
+revises orbit solutions for actively-tracked objects as new tracking data arrives (§37.3 proves
+this concretely, not hypothetically) — so a Horizons manifest entry is marked
+`upstream_mutable: true`, the same field the manifest schema already carries for exactly this
+distinction (used as `false` for e.g. `catch2`'s own immutable GitHub release tarball), with a note
+that the pinned hash is authoritative from the moment of capture and is never re-verified against a
+fresh fetch — `oracle/cases.tsv`'s own "frozen, run to exhaustion" philosophy, applied here for the
+identical reason. **No manifest entry has actually been added yet** — §37.4 states why.
+
+### 37.2 The timescale refusal, verified against a real response, not merely the documentation
+
+`HZAPI` (the real Horizons API documentation, fetched directly and hash-pinned, `SPEC-io-horizons.md`
+§2) states vector tables accept `TIME_TYPE=TDB` or `UT`, with a default that "varies" — so the
+client always requests `TDB` explicitly, never relying on a default. A real query was then run
+directly (object `-159588`, ACS3, the same real object oracle case `T-01` and `O-*` already use,
+§37.3) to verify the documented format against actual output before trusting it, the same
+"published description, verified against a real response" discipline every reader in
+`SPEC-io-formats.md` already used for its own real CRD2/CPF2 samples. This paid off twice: (1) it
+confirmed every data line ends with the literal token `TDB`, checked per RECORD
+(`IOHZ-R-002`/`IOHZ-F-002`), not once for the whole file, since nothing in `HZAPI` states a single
+response cannot mix conventions; (2) it surfaced a SECOND correction parameter, `VEC_CORR`
+(`NONE`/`LT`/`LT+S` — geometric, or two different light-time/aberration-corrected variants), not
+mentioned in this layer's own original scoping — a `VEC_CORR=LT` table is a DIFFERENT physical
+quantity (light-time-corrected, not instantaneous) than SGP4's own TEME output, and comparing the
+two would measure a spurious light-time offset rather than the frame-conversion difference `T-01`
+exists to check. `VEC_CORR=NONE` is now requested explicitly too, and the header's own `Output
+type` line is checked to read exactly `GEOMETRIC cartesian states`, refusing otherwise
+(`IOHZ-R-003`/`IOHZ-F-005`) — a real, previously-unscoped requirement found only because a real
+query was run rather than trusted from the documentation's own parameter table alone. The same
+real query also settled `CENTER=500@399` (Earth body center, geocentric — matching a TEME/J2000
+state, never topocentric) and confirmed `$$SOE`/`$$EOE` sentinel-bounded, three-line-per-record
+structure, `IOHZ-R-001`'s own basis, the same "boundary by marker, not fixed count" shape
+`IOFM-R-001` already established for SP3.
+
+**A real bug found while writing the test suite, caught by its own failing assertion, not
+shipped.** The first draft's own acceptance test asserted `target_body == "TESTSAT (spacecraft)
+(-999999)"`, stripping the real format's own trailing `{source: ...}` annotation the fixture (built
+faithfully to the real response's own column layout) actually carries — failed immediately,
+correctly, since the interface itself (`SPEC-io-horizons.md` §5) states these fields are carried
+**verbatim**. The parser was right; the test's own expected string was wrong, corrected in place
+rather than loosening the interface to match a mistaken test.
+
+### 37.3 Oracle case `T-01`'s own frozen 2.246 m is not reproducible by a fresh capture — checked, not assumed
+
+The manager's own second required addition, and the reason it mattered: having just demonstrated
+Horizons' own mutability (§37.1), re-fetching `T-01`'s own object and calling the result "the same
+input" would have been exactly the error `plan/PLAN.md` §4 rule 3 exists to prevent — asserting a
+number without checking what it is actually conditional on. `oracle/environment.txt` (read, per
+`ORACLE.md` §1's own explicit permission to run and read the oracle's frozen output; `capture.sh`
+was NOT opened, per that same section's own explicit instruction not to) records SHA-256 hashes for
+`T-01`'s own two historical inputs:
+
+| input | recorded hash | this round's own fresh fetch | match? |
+|---|---|---|---|
+| `res/teme_check/acs3.tle` | `fb20103bf60ece4ed7af67c0c8b0085303b717a0d5e2606a762128c33de9d0da` | `16449566a3cdaba5e2f1fc020839280a1d1189583318a13d14bef72645f3bd07` (`celestrak.org`, NORAD 59588, epoch day 267/2026) | **no** |
+| `res/teme_check/acs3_horizons_20260914.eci` | `b9e73e297f9c1dd3fc99d479cdda38f284acc26e37b3903c90cb82293d1d58cb` | `d639914a7b82678b741962f61b4f872d42b651116965de21a1a737850511350c` (this round's own real query, §37.2) | **no** |
+
+The recorded file's own name already states its capture date, 2026-09-14, eleven days before this
+round; the mismatch is expected and conclusive, not a formatting question — a TLE for an actively-
+tracked LEO object is reissued every one to a few days, and `oracle/ORACLE.md` §6 itself states
+directly why the Horizons side is not independent either: *"the comparison ephemeris is not
+independent: Horizons' ephemeris for that object forward of a TLE epoch **is that TLE**."* For an
+object like ACS3, with no independent high-precision tracking feeding Horizons beyond what is
+derived from its own TLE, Horizons' own output is only ever as current as whichever TLE it last
+ingested.
+
+**The implication for step 3, stated now rather than left for step 3 to discover.**
+`T-01`'s own required-disagreement gate (`plan/PLAN.md` §4 rule 1) tests the accumulated
+IAU-76-vs-IAU-2006 precession difference between two FRAME-CONVERSION MODELS — a property of which
+models are used, not of which specific TLE — so the ~2.2 m size-and-direction assertion can still
+be built and gated on freshly-captured data. The literal frozen figure, 2.246 m, belongs to the
+predecessor's own 2026-09-14 capture specifically and must not be asserted as the expected value
+against a new one.
+
+### 37.4 The licence question, escalated rather than decided — the manifest entry not yet added
+
+The manager's own first required addition: a committed, manifest-pinned Horizons response is data
+this tree redistributes, needing a licence basis the same way every other manifest entry states one
+(plan §5 constraint 3, gate 2). Searched this round: `HZAPI`'s own manual page (no terms found);
+`ssd.jpl.nasa.gov/policy.html` (404); JPL's own site-wide Image Use Policy (`jpl.nasa.gov/jpl-image-
+use-policy`) — explicitly scoped to images/video, requires "Courtesy NASA/JPL-Caltech" attribution,
+and states Caltech "makes no representations or warranties with respect to ownership of
+copyrights"; NASA's own general brand-center page — "NASA content – images, audio, video, and media
+files..." generally not copyrighted in the US, again an enumerated list that does not clearly reach
+a scientific-data API's own numeric output; the SSD site's own citation guidance (a courtesy
+request, not a stated redistribution right). **No explicit statement was found, on `ssd.jpl.nasa.gov`
+or by search, that Horizons ephemeris OUTPUT DATA specifically may be freely redistributed** — a
+genuine gap, the same shape RS14's own licence question took at L5 step 1, not a conclusion either
+way. Consequently: no `manifest/manifest.json` entry has been added, no real Horizons response is
+committed anywhere in this tree, and every acceptance test this round (`IOHZ-A-001`–`007`) is built
+from a hand-built fixture at `HZAPI`'s own documented/verified shape (§37.2) rather than a real
+capture, per `SPEC-io-formats.md`'s own "verified placement, not real bytes pending a ruling"
+precedent. Real-data verification WAS still done, just not committed: the parser was run locally,
+uncommitted, against the real query's own full response (§37.2), confirming all five real records
+parse correctly, byte for byte matching the values printed in that response.
+
+### 37.5 What was built, and what remains open
+
+`modules/io` gains `horizons.hpp`/`.cpp` (the parser above) and `horizons_tests.cpp` (7 acceptance
+rows, `IOHZ-A-001`–`007`, all against hand-built fixtures). `SPEC-io-horizons.md` v1.0 (new,
+`IOHZ`) states the design in full, including the query parameters (§37.2) stated for whoever adds
+the fetch, since this module itself contains no fetch code. Tree-wide: 444 tests, all 13 `ci.sh`
+gates green, 740 artefacts byte-identical.
+
+Open: `IOHZ-Q-001` (the header's remaining metadata carried opaque, worth field-level treatment
+only if a future consumer needs it); `IOHZ-Q-002` (the licence ruling, §37.4, blocking the manifest
+entry and therefore any CI-gated acceptance test built from a real capture); the fetch itself is
+unwritten config, not code — a `manifest/manifest.json` entry once `IOHZ-Q-002` rules, needing no
+new tool. L6 steps 3–4 (`sgp4`, `measmod`) not started; step 3's own rule-4 report must now account
+for §37.3's own finding when it designs `T-01`'s own gate.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-25 | **L6 step 2: a Horizons vector-table reader built, requiring no new fetch code (a query is a URL like any manifest entry's); a real query run to verify the documented format, finding an unscoped light-time-correction trap along the way; and oracle case T-01 checked, not assumed — its own frozen 2.246 m is conditioned on a specific historical TLE and Horizons capture neither of which today's data reproduces, a hash comparison proves.** `SPEC-io-horizons.md` v1.0 (new, `IOHZ`) adopted; `modules/io` gains `read_horizons`, 7 acceptance rows against hand-built fixtures (verified separately, locally, against a real uncommitted response). No fetch utility was written: a Horizons query is a fully-parameterised URL, so `manifest/manifest.json` plus the tree's own existing `tools/fetch.py` is the whole mechanism once a licence question (below) is ruled; CI would then read a pinned capture exactly like any SPK kernel, never the live API — marked `upstream_mutable: true` in the manifest schema's own existing field for this, since JPL revises orbit solutions for actively-tracked objects (proved, not assumed, by this round's own hash comparison, below). `TIME_TYPE=TDB` is requested explicitly and checked on every printed record, not trusted from the request alone; running a real query (ACS3, the same object oracle cases `T-01`/`O-*` use) surfaced a second, unscoped trap the original design missed — `VEC_CORR` selects geometric vs. light-time/aberration-corrected output, and only the geometric form is the same physical quantity SGP4's own TEME state is, so `Output type` is now checked too, refusing a corrected table outright. A first test draft asserted a stripped `target_body` string, failing immediately against the interface's own stated "verbatim" contract — the test was wrong, not the parser, fixed in place. Oracle case `T-01`'s own two recorded input hashes (`oracle/environment.txt`, read; `capture.sh` was not, per `ORACLE.md` §1's own explicit rule) do not match a fresh TLE (`celestrak.org`) or a fresh Horizons capture fetched this round — expected, since `ORACLE.md` §6 itself states the Horizons side "is" the TLE for an object like this, and a LEO TLE is reissued every few days; the ~2.2 m required-disagreement assertion is a property of the frame-conversion models and can still be gated on fresh data, but the literal 2.246 m must not be asserted as its expected value — reported before step 3 is designed, per the manager's own explicit instruction. The manifest entry itself is not yet added: JPL's own redistribution terms for Horizons OUTPUT DATA specifically (distinct from the API documentation, which this spec cites the same clean-room way every other format's own source is) were searched (the API manual, a 404'd policy page, JPL's own image-specific policy, NASA's own general content page, the SSD site's own citation guidance) and found genuinely unstated — escalated, not decided, the same shape RS14's own licence question took at L5. Tree-wide: 444 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
 | 2026-09-25 | **L6 step 1 closes: SP3 interpolation built as one tree-wide facility (an 11-point Lagrange fit, three independent real-data sources converging on that order for both a 15-min GNSS file and a 60 s LEO file), measured directly against real held-out samples (1.5 mm / 4.4 mm max on two fresh real files), and the six comparison tools re-pointed at it — finding, along the way, a genuine day-rollover bug in three tools' own hand-rolled epoch arithmetic, and a real, mixed-direction movement in Galileo's own small real-data residual.** `SPEC-io-formats` §3.8/§4/§5/§7/§8 extended (`IOFM-R-003`–`007`, `IOFM-F-009`–`012`, `IOFM-A-023`–`032`), `plan/subplan_L6/L6-1.md` carries the manager's own ruling. `Sp3Ephemeris::position_km_at` (order 10 default, reduced gracefully on a short file, never extrapolating) and the free function `central_difference_velocity_km_s` (velocity is explicitly NOT the class's own scope, per the ruling's literal words) are `modules/io`'s only new public surface; `lagrange_interpolate`, the raw fit with no refusal policy, is exposed separately because the accuracy self-check's own "delete a real sample and interpolate it back" methodology would otherwise collide with the SAME gap refusal it is trying to measure around. The order (11 points / 10th) is not asserted: Schenewerk (2003) and Horemuž & Andersson (2006), two independent papers each using a real IGS 15-minute file, and Zeitlhöfler et al. (2024), using real Jason-2-class LEO orbits at 30-120s, all converge on essentially this same range despite very different orbital dynamics — corroborated directly on two FRESH real files this round fetched itself (IGS rapid GPS G01, `igs.bkg.bund.de`; Jason-3 L39, `doris.ign.fr` anonymous FTP), holding out 13 real samples each and measuring 1.07/2.23 mm RMS, 1.47/4.43 mm max against real withheld values — a test-harness off-by-one that first produced a spurious 129 mm outlier was caught by its own bounds assertion before being trusted. Re-pointing `orbex_galileo_check.cpp` onto the new facility crashed on the REAL, re-fetched, hash-confirmed control file: its last epoch is genuinely stamped at the next day's 00:00:00, which a hand-rolled `epoch_at` (reconstructing hour/minute/second from elapsed seconds assuming one fixed calendar day) cannot represent — a real, previously-latent bug, fixed the same way `doris_jason_check.cpp` already fixed it in an earlier round (store an absolute `Epoch`, use `Epoch::add`), applied to all three sibling GNSS-comparison tools. The SAME real Galileo control file, re-run baseline-then-after per rule 5: IOV unchanged (position is exact at its own sample nodes by construction, so only velocity could move, and IOV was not velocity-sensitive here); FOC's own two crossings moved ~0.03 deg in OPPOSITE directions (0.0615->0.0917, 0.0997->0.0702), both still comfortably inside the 2-deg criterion — confirming velocity was a real contributor to `GALY-Q-002`'s own named residual, at roughly this scale, but not shown to be its sole or dominant cause, since a genuine fix would be expected to move both consistently rather than in opposite directions; left open, narrowed rather than closed. `doris_jason_check.cpp` itself lost BOTH of its own remaining interpolation paths (`nearest_sp3`, still used by `--nadir` alone, and `interp_ephem`, a linear blend) to one shared function, `state_at`, and its own precomputed per-sample array trio is gone entirely, replaced by the ephemeris itself plus one absolute reference epoch; a live real-quaternion re-run could not be completed this round (`doris.ign.fr`'s own FTP service stopped completing transfers partway through, after the real SP3 arc for `IOFM-A-031` had already been fetched successfully) — verified instead by a clean compile, a structural smoke test against a clearly-labelled synthetic quaternion fixture (every mode ran end to end, correctly refusing where the cached EOP series' own real coverage ends, never crashing), and the fact that its own core composition is line-for-line what was already proved to move a real number correctly on the Galileo file. Tree-wide: 437 tests, all 13 `ci.sh` gates green, 738 artefacts byte-identical. |
 | 2026-09-25 | **L6 opens: `io` built — seven formats (SP3, TLE, CRD, CPF, IOD, SINEX, ANTEX), the predecessor's two SP3 defects reproduced as failing tests then fixed by design (sentinel-based record boundaries, correct-column field reads), three new SP3 writer bugs found by round-tripping, a real cached Jason-3 file's blank accuracy fields, and the six ad hoc `orbex_*`/`doris_jason_check` SP3 parsers re-pointed at the one reader.** §36 added, `SPEC-io-formats` v1.0 (new, `IOFM`). Authorized by the manager's own handover, the user's approval relayed verbatim. Every reader returns a raw `Calendar` plus a format-native time-system code, never an `Epoch` (format readers have no `LeapTable` of their own); a separate `to_time_scale()` maps it, refusing SP3's own GLO/GAL/BDT/QZS codes rather than approximating them as GPS time, since `TimeScale` has no such members. Fixed-column fixtures (SP3, TLE, ANTEX) are now built by a Python `place()` helper that raises unless a field exactly fills its documented width, adopted after hand-transcribed fixtures from `pdftotext -layout` output carried real column-alignment mistakes a by-eye check missed. Three SP3 writer bugs found only by the round-trip property, not by parsing alone: an omitted `%c` reserved-field shift, a missing blank column on `+` satellite-count lines, and an `EP`/`EV` correlation tag with one space too many, silently truncating leading digits. A genuine GSFC Jason-3 file has `++` accuracy lines entirely blank, not zero-filled the way both spec examples show; fixed to read blank as zero, the format's own established convention. TLE gained an optional international designator (`STR3`'s own sample satellite 88888 has none) and a corrected space-padded, unsigned angle-field writer. CRD/CPF/SINEX opaque-record scope stated as a decision (`IOFM-Q-001`/`002`), not a silent gap; IOD's own AI-refetched "example line" distrusted after a character-count discrepancy and abandoned for a fixture built at the source's own documented column table instead (`IOFM-Q-003` carries `STR3`'s own unreadable T-card sheet forward). `speccheck.py`'s gate 7 caught two defects in sequence while §8's acceptance table was being written: a compressed id range that registered no ids, then — once every row was written out individually — a genuine, previously-unexercised defect in the tool itself (its acceptance-row-finding regex never allowed the lettered-suffix ids `EPH-A-001b`-style rows already use elsewhere), fixed tree-wide with its own regression test. Gate 12 (factor-of-a-thousand accounting) needed two new annotation classes for `cpf.cpp`'s equality tolerances and `iod.cpp`'s ms/s conversion, and surfaced `unitcheck.py`'s own one-line lookback rule the hard way: a wrapped multi-line comment does not attach. A hash-pinning gap between §9's own promise and §2's table (two HTML-native sources fetched but never byte-hash-pinned) was caught and closed by fetching both directly and computing SHA256. Tree-wide: 427 tests, all 13 `ci.sh` gates green, 736 artefacts byte-identical. L6 steps 2–4 (Horizons client, `sgp4`, `measmod`) not started. |
 | 2026-09-24 | **L5 step 2 review round: FOC's own modified yaw steering built via a closed-form window entry (epsilon depends on mu alone, PROVED), step 6's own real two guards built (not the substitutes an earlier round used), a real-data control run for the first time (all four checks matched, IOV to thousandths of a degree, FOC to a tenth), an explicit BOL/EOL selector for IOV.** SPEC-galileo-attitude v1.1, SPEC-spacecraft v2.1, PROVENANCE.md Sec.32.7 added. Most of the prior round accepted outright; three things did not survive review. FOC's own "modified yaw steering law": the manager ruled it in scope (the window IS Galileo's own noon/midnight turn, not a corner) and required a geometry-derived window entry, the same shape GPS's own IIF shadow crossing uses. Derived: GSC's own colinearity epsilon reduces algebraically to depend on mu alone (cos(beta) cancels), so the window's own entry is a fixed constant, not a remembered crossing -- checked against an independent vector-based transcription before being trusted. A new "frame from psi" construction was derived (x_body = -cos(psi)*t_hat + sin(psi)*n_hat, the sign on sin OPPOSITE GPS's own convention, a different psi definition not a slip) and proved by reproducing nominal_yaw_steering's own output when fed the unmodified angle. t_mod's own rate comes from the CURRENT state's own |r x v|/|r|^2, not a fixed constant -- Galileo's own orbit is a different period from GPS's. The built law matches an independent transcription at four geometries. Step 6's own two guards (time direction, rotation sense) were rebuilt properly: IOV's own time-direction guard hit a real, interesting finding along the way -- reversing velocity is a PROVED EXACT SYMMETRY of IOV's own substitution (the sign flips in Gamma and in the reconstructed Sun vector cancel exactly, nominal_yaw_steering never reading v at all), not a defect, checked algebraically before trusting the numeric result, and reported honestly rather than forced into a test asserting something false. The rotation-sense guard hit a second real test bug, caught the same way as an earlier one: evaluating exactly at the window's own entry measures a rate that is EXACTLY ZERO by construction (the cosine ramp's own printed shape), giving a meaningless "0.0 < 0.0" comparison -- fixed by probing well inside the window instead. The real-data control (tools/orbex_galileo_check.cpp, reproducible, not gated): a --scan pass over bare SP3 positions found 2023-10-07 as a genuinely low-beta day (beta 0.4-1.1 deg) for one IOV satellite (E11) and one FOC satellite (E33) after June and September dates gave beta too large; predictions and a 2-degree criterion REGISTERED before any attitude quaternion was read; all four crossings matched, the tightest agreement either law has had, and the first real-data check FOC's own newly-derived law has ever had. One implementation bug (elapsed seconds passed where a within-the-minute Calendar field was expected) crashed the Epoch constructor past the first minute of any day, caught by the assertion itself. SPCR-Q-004 resolved: an explicit, required OpticalLife selector for IOV's own BOL/EOL optics (plan Sec.5 constraint 10), and SPEC-spacecraft.md now states, in GALSC's own words, that FOC's single optics set carries no life-stage label at all. 349 tests tree-wide, all 13 ci.sh gates green, 696 artefacts byte-identical. |
