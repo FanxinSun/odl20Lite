@@ -426,6 +426,96 @@ struct TurnResult {
     return m;
 }
 
+// --- SPEC-galileo-attitude: GALY-R-001..R-005 ------------------------------
+
+/// GSC's own orbital RF (Sec.2, Sec.3.1): +Z toward Earth centre (nadir),
+/// +Y perpendicular to the orbital plane ("across-track"), +X completing
+/// the right-handed system, "pointing mainly in the flight direction"
+/// (along-track). Expressed in terms of THIS file's own OrbitTriad:
+/// Z_orb = -r_hat (nadir), X_orb = t_hat (prograde, matches "along-track"
+/// directly), Y_orb = Z_orb x X_orb = -n_hat -- the unique right-handed
+/// completion, GSC's own text naming no separate sign for Y beyond
+/// "completes the system".
+struct GalileoOrbitalSun { double x, y, z; };
+
+[[nodiscard]] GalileoOrbitalSun galileo_orbital_sun(const OrbitTriad& tri, const Vec3& s_hat) noexcept {
+    return GalileoOrbitalSun{tri.t_hat.dot(s_hat), -tri.n_hat.dot(s_hat), -tri.r_hat.dot(s_hat)};
+}
+
+/// GSC Sec.3.1.1's own IOV equation and Sec.3.1.2's own FOC equation,
+/// REDUCED to one shared form (GALY-A-004 proves the reduction, not merely
+/// asserts it): IOV's own psi_r = atan2(-S_Y/sqrt(1-S_Z^2), -S_X/sqrt(1-S_Z^2))
+/// -- sqrt(1-S_Z^2) is a positive scalar for any physical S (|S_Z|<1) and
+/// cancels inside atan2 -- and FOC's own psi(t) = atan2(s.n, s.(r x n)),
+/// with n = n_hat (orbit normal): s.n_hat = -S_Y (this file's own
+/// galileo_orbital_sun), and s.(r_hat x n_hat) = s.(-t_hat) = -S_X (since
+/// t_hat = n_hat x r_hat here, r_hat x n_hat = -(n_hat x r_hat) = -t_hat) --
+/// giving atan2(-S_Y, -S_X), ALGEBRAICALLY IDENTICAL to IOV's own primary
+/// form. Both blocks' own nominal law is this one function.
+[[nodiscard]] double galileo_psi_nominal(const GalileoOrbitalSun& s) noexcept {
+    return std::atan2(-s.y, -s.x);
+}
+
+/// The inverse of `galileo_orbital_sun`: reconstructs a unit GCRS vector
+/// from its own components in the Galileo orbital RF -- used to turn IOV's
+/// own substituted auxiliary Sun vector back into a real direction
+/// `nominal_yaw_steering` can consume, reusing that function's own frame
+/// construction rather than re-deriving it.
+[[nodiscard]] Vec3 from_galileo_orbital(const OrbitTriad& tri, const GalileoOrbitalSun& s) noexcept {
+    return s.x * tri.t_hat + s.y * (-1.0 * tri.n_hat) + s.z * (-1.0 * tri.r_hat);
+}
+
+/// GSC Sec.3.1.1's own auxiliary-region constants.
+constexpr double kGalileoBetaXRad = 15.0 * kDegToRad;
+constexpr double kGalileoBetaYRad = 2.0 * kDegToRad;
+
+[[nodiscard]] bool galileo_iov_in_auxiliary_region(const GalileoOrbitalSun& s) noexcept {
+    return std::abs(s.x) < std::sin(kGalileoBetaXRad) && std::abs(s.y) < std::sin(kGalileoBetaYRad);
+}
+
+/// GSC Sec.3.1.1's own auxiliary Sun reference vector S_H, substituted for
+/// the real S_o inside the named region so the yaw rate stays bounded as
+/// beta -> 0 near noon/midnight. Gamma ("the sign of S_oy at the beginning
+/// of the auxiliary region") is read at the CURRENT query instant instead
+/// of remembered from region entry: beta moves on the orbital-precession
+/// timescale, far slower than the eta-driven transit through this region,
+/// so its sign is constant across one transit except exactly at beta = 0 --
+/// the SAME stateless tie-break shape `gps_yaw_attitude`'s own sign(beta)
+/// already uses (TYAW-Q-002's own ruled convention), not a new one invented
+/// here. `GALY-A-007` checks continuity at the region's own boundary,
+/// which this approximation does not disturb (Gamma does not change sign
+/// within one transit by construction).
+[[nodiscard]] GalileoOrbitalSun galileo_iov_auxiliary(const GalileoOrbitalSun& s) noexcept {
+    const double gamma = (s.y < 0.0) ? -1.0 : 1.0;
+    const double sin_bx = std::sin(kGalileoBetaXRad);
+    const double sin_by = std::sin(kGalileoBetaYRad);
+    const double hy = 0.5 * (sin_by * gamma + s.y) +
+                      0.5 * (sin_by * gamma - s.y) * std::cos(M_PI * std::abs(s.x) / sin_bx);
+    const double hz_sq = 1.0 - s.x * s.x - hy * hy;
+    const double hz = std::sqrt(hz_sq < 0.0 ? 0.0 : hz_sq) * ((s.z < 0.0) ? -1.0 : 1.0);
+    return GalileoOrbitalSun{s.x, hy, hz};
+}
+
+/// GSC Sec.3.1.2's own colinearity angle epsilon, between the Sun/orbit-
+/// normal plane and the satellite's own position vector -- the FOC
+/// switch-over region's own second gate (the first is |beta| < 4.1 deg).
+/// Degenerate only where n_hat is exactly parallel to s_hat (the Sun in the
+/// orbital plane's own normal direction, |beta| = 90 deg, never reached
+/// where this is called); guarded the same way `nominal_yaw_steering`
+/// guards its own near-parallel cross product, returning 0 (inside every
+/// gate) rather than dividing by a near-zero norm -- harmless here, since
+/// |beta| = 90 deg already fails this function's own caller's beta gate.
+[[nodiscard]] double galileo_foc_colinearity_rad(const OrbitTriad& tri, const Vec3& s_hat) noexcept {
+    const Vec3 x = tri.n_hat.cross(s_hat);
+    const double x_norm = x.norm();
+    if (x_norm < kMinAxisNorm) return 0.0;
+    const Vec3 y_hat = (1.0 / (tri.n_hat.cross(x)).norm()) * tri.n_hat.cross(x);
+    const double c_raw = tri.r_hat.dot(y_hat);
+    const double c = c_raw < -1.0 ? -1.0 : (c_raw > 1.0 ? 1.0 : c_raw);
+    const double raw = std::acos(c);
+    return (raw <= M_PI / 2.0) ? raw : (M_PI - raw);
+}
+
 }  // namespace
 
 odl::Result<Mat3, AttitudeError>
@@ -519,6 +609,53 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
     }
     // TYAW-F-001: forwarded unchanged from ATTD-F-001, outside any turn.
     return nominal_yaw_steering(r_gcrs_m, sun_direction_gcrs);
+}
+
+odl::Result<Mat3, AttitudeError>
+galileo_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
+                     const Vec3& sun_direction_gcrs, GalileoBlock block) {
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    const Vec3 s_hat = normalized(sun_direction_gcrs);
+    const GalileoOrbitalSun s = galileo_orbital_sun(tri, s_hat);
+
+    if (block == GalileoBlock::IOV) {
+        const GalileoOrbitalSun eff =
+            galileo_iov_in_auxiliary_region(s) ? galileo_iov_auxiliary(s) : s;
+        const Vec3 s_eff = from_galileo_orbital(tri, eff);
+        // GALY-F-002: forwarded unchanged from ATTD-F-001 (nominal_yaw_steering's
+        // own singularity guard), reached only if the auxiliary substitution
+        // itself somehow lands exactly on the nadir axis -- not expected, since
+        // the whole point of the substitution is to stay away from it, but not
+        // asserted unreachable either.
+        return nominal_yaw_steering(r_gcrs_m, s_eff);
+    }
+
+    // FOC: GSC's own primary formula outside its own named near-colinearity
+    // switch-over region; refuses inside it rather than building GSC's own
+    // "modified yaw steering law" (GALY-Q-001, not built this version).
+    const double beta = signed_beta_rad(s_hat, tri.n_hat);
+    const double epsilon = galileo_foc_colinearity_rad(tri, s_hat);
+    constexpr double kFocBetaGateRad = 4.1 * kDegToRad;
+    constexpr double kFocEpsilonGateRad = 10.0 * kDegToRad;
+    if (std::abs(beta) < kFocBetaGateRad && epsilon < kFocEpsilonGateRad) {
+        return odl::err(AttitudeError{"GALY-F-001",
+            "FOC's own near-colinearity switch-over region (|beta| < 4.1 deg AND "
+            "colinearity epsilon < 10 deg, GSC Sec.3.1.2): this version does not build "
+            "GSC's own 'modified yaw steering law' (GALY-Q-001), so it refuses rather than "
+            "returning the primary formula's own value there, which GSC's own text states "
+            "is not what the real spacecraft flies this close to colinearity"});
+    }
+    // GALY-F-002: forwarded unchanged from ATTD-F-001, outside the colinearity
+    // region (which is itself outside the nadir singularity nominal_yaw_steering
+    // guards -- the two regions do not coincide).
+    return nominal_yaw_steering(r_gcrs_m, s_hat);
+}
+
+double galileo_native_yaw_angle_pre_substitution(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
+                                                 const Vec3& sun_direction_gcrs) noexcept {
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    const Vec3 s_hat = normalized(sun_direction_gcrs);
+    return galileo_psi_nominal(galileo_orbital_sun(tri, s_hat));
 }
 
 }  // namespace odl::attitude

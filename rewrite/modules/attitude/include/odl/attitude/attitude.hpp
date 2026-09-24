@@ -113,4 +113,58 @@ struct HardwareYawRates {
 gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
                  const Vec3& sun_direction_gcrs, GpsBlock block, const HardwareYawRates& rates);
 
+// --- SPEC-galileo-attitude: GALY-R-001..R-005 ------------------------------
+
+/// Which of GSC's own two printed laws applies -- one mathematical family
+/// (GALY-R-001's own shared orbital-frame Sun projection), differing in the
+/// near-singularity handling each of GSC's own sections gives: IOV (§3.1.1)
+/// substitutes a smooth auxiliary Sun vector; FOC (§3.1.2) is not built
+/// through its own near-colinearity "modified yaw steering law" this
+/// version (`GALY-Q-001`) -- `galileo_yaw_attitude` REFUSES there instead of
+/// silently returning FOC's own unmodified formula, which GSC's own text
+/// states is not what the real spacecraft flies that close to colinearity.
+enum class GalileoBlock { IOV, FOC };
+
+/// GALY-R-001..R-004. GSC's own yaw-steering law ("Galileo Satellite
+/// Metadata" §3), reduced to this tree's own established
+/// `nominal_yaw_steering` wherever GSC's own formula is, algebraically, the
+/// SAME nadir-pointing/Sun-tracking geometry that function already builds
+/// (GALY-A-004 proves the reduction: IOV's own primary formula and FOC's
+/// own formula are IDENTICAL, both equal to `nominal_yaw_steering`'s own
+/// implicit angle, once expressed in the SAME orbital-frame Sun projection)
+/// -- so this function's own new work is exactly the two blocks' own
+/// DEVIATIONS from that shared nominal law, not a re-derivation of the
+/// frame-building formula itself:
+///  - `IOV`: near the Sun/nadir-axis singularity (GSC's own named region,
+///    `|x_sun| < sinβx, |y_sun| < sinβy`), substitutes GSC's own smooth
+///    "auxiliary Sun reference vector" (§3.1.1) for the real Sun direction
+///    before calling `nominal_yaw_steering` -- continuous by construction at
+///    the region's own boundary (`GALY-A-006`).
+///  - `FOC`: GSC's own primary formula (§3.1.2) outside its own named
+///    near-colinearity switch-over region (β < 4.1°, colinearity angle
+///    ε < 10°); REFUSES (`GALY-F-001`) inside it, rather than building
+///    GSC's own "modified yaw steering law" this version does not implement
+///    (`GALY-Q-001`).
+///
+/// Returns M_gcrs_to_body in THIS TREE's own convention (matching
+/// `nominal_yaw_steering`/`gps_yaw_attitude`), not GSC's own native frame --
+/// `odl::spacecraft::galileo_frame_from_mechanical` is the (unrelated, data-
+/// side) mapping for the macromodel's own face normals; this function
+/// already emits the ANTEX-convention frame directly, verified two ways
+/// (`GALY-A-004`/`GALY-A-005`) against GSC's own two printed forms.
+[[nodiscard]] odl::Result<Mat3, AttitudeError>
+galileo_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
+                     const Vec3& sun_direction_gcrs, GalileoBlock block);
+
+/// Exposed for `GALY-A-004`/`GALY-A-005`/`GALY-A-007`'s own verification
+/// only -- `galileo_yaw_attitude` itself never reads this scalar, only the
+/// frame it implies (through `nominal_yaw_steering`). GSC's own §3.1 NATIVE
+/// yaw angle (its own printed atan2 form, IOV and FOC alike -- GALY-A-004
+/// proves they are algebraically the same function), BEFORE IOV's own
+/// auxiliary-vector substitution: the manager's own instruction is to check
+/// against the source's own two printed forms directly, which needs the
+/// angle itself, not only the body frame it produces.
+[[nodiscard]] double galileo_native_yaw_angle_pre_substitution(
+    const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& sun_direction_gcrs) noexcept;
+
 }  // namespace odl::attitude

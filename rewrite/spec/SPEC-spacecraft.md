@@ -4,9 +4,9 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 1.2 — δ/ρ mapping corrected by formula (§3), IIF built (`SPCR-R-004`), IIIA searched and refused (`SPCR-R-007`); mass source corrected to `IGSMETA` for IIR/IIR-M/IIF, launch-vs-on-orbit hypothesis withdrawn (§3, `SMSD24`) |
+| **Version** | 2.0 — step 2 (Galileo) added: `galileo_iov`/`galileo_foc`, GSC's own per-satellite dated mass/CoM, its own frame mapped and tested, its own optical letters quoted and sum-checked |
 | **Date** | 2026-09-24 |
-| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), step 1 (GPS) |
+| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS) and 2 (Galileo) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
 | **Depended on by** | L7's own box-wing fit, which reads this library |
 
@@ -22,20 +22,30 @@ searched or otherwise inspected during this specification's preparation, per `..
 
 ## 1. Purpose and scope
 
-**Named GPS satellite-block constructors**, each returning a `macromodel::Macromodel` built from
-**published values, each with its own citation** — this layer's own exit gate (`../plan/PLAN.md`
-§3.6, amended 2026-09-24): "every value resolves to a citation, and the library refuses to build
-if any does not." This spec covers L5 step 1, GPS, across its own six blocks: I, II, IIA, IIR,
-IIR-M, and IIF — plus one further block, IIIA, searched once and refused (`SPCR-R-007`) rather
-than built, no citable per-surface source having been found for it.
+**Named GPS and Galileo satellite constructors**, each returning a `macromodel::Macromodel` built
+from **published values, each with its own citation** — this layer's own exit gate
+(`../plan/PLAN.md` §3.6, amended 2026-09-24): "every value resolves to a citation, and the library
+refuses to build if any does not." This spec covers:
+
+- **L5 step 1, GPS**, across its own six blocks: I, II, IIA, IIR, IIR-M, and IIF — plus one
+  further block, IIIA, searched once and refused (`SPCR-R-007`) rather than built, no citable
+  per-surface source having been found for it.
+- **L5 step 2, Galileo**, across its own two blocks: IOV and FOC (`SPCR-R-009`/`-010`) — the
+  operator's own published metadata, first-party, per-satellite, and dated: a satellite's own
+  macromodel is returned for a stated epoch, refusing one the source's own table does not cover
+  (§3, §4).
 
 **Not in scope.** The schema itself (`SPEC-macromodel.md`, L4 step 2) — this spec populates it,
 never extends it; a value the schema cannot hold is a finding reported to the manager, not a
 silent schema change (`../plan/PLAN.md` §3.6's own instruction). Estimating any parameter from
-observations (`SPEC-dynamics`, L7) — this library states values, it does not fit them. Galileo,
-GLONASS, BeiDou, QZSS and altimetry satellites (`SPEC-spacecraft` grows to cover L5 steps 2–4 as
-they are built; this version covers step 1 only). The force law itself (`srp_analytic`,
-`photon_force`) — this spec's own output is consumed by that module, unchanged.
+observations (`SPEC-dynamics`, L7) — this library states values, it does not fit them. The
+ATTITUDE LAW's own equations (Galileo's own yaw-steering law included) — code, not cited data,
+built in `modules/attitude` and specified in `SPEC-galileo-attitude.md`, beside GPS's own
+`SPEC-thrust-yaw.md`; this spec's own §3 states only the FRAME the macromodel's own face normals
+are stated in, which that law's own output must agree with (checked, `SPCR-A-009`, not merely
+assumed by the two specs matching prose). GLONASS, BeiDou, QZSS and altimetry satellites
+(`SPEC-spacecraft` grows to cover L5 steps 3–4 as they are built). The force law itself
+(`srp_analytic`, `photon_force`) — this spec's own output is consumed by that module, unchanged.
 
 ---
 
@@ -49,6 +59,7 @@ they are built; this version covers step 1 only). The force law itself (`srp_ana
 | `MSGA15` | Montenbruck, O., Schmid, R., Mercier, F., Steigenberger, P. *et al.* | *GNSS satellite geometry and attitude models* | Adv. Space Res. 56: 1015–1029, 2015 | `https://elib.dlr.de/97732/1/ASR_151015_GNSS_SatGeomAtt.pdf` | **primary**, already used at L4 step 6 | the IGS body-frame convention (§3), and IIR-M's own basis for sharing IIR's geometry (§4, `SPCR-R-005`) |
 | `IGSMETA` | Steigenberger, P., Montenbruck, O. (maintainers); IGS | *IGS Satellite Metadata (SINEX)* | continuously updated; this pin 2026-09-24 | `https://files.igs.org/pub/station/general/igs_satellite_metadata.snx` | **primary**, open with attribution (IGS's own open data policy, re-checked this session for the redistribution bar, not only retrievability) | which physical block each frozen baseline SVN is (already used, `PROVENANCE.md` §30.1); **as of this version, the primary mass source for `gps_block_iir`/`_iir_m`/`_iif`** (§3, §4 `SPCR-R-003`/`-004`/`-005`) — its own `SATELLITE/MASS` field, per-satellite, SVN50/SVN63 |
 | `SMSD24` | Steigenberger, P., Montenbruck, O. | *IGS Satellite Metadata File Description*, v1.10 | 30 September 2024, DOI `10.57677/metadata-sinex` | `https://files.igs.org/pub/resource/working_groups/multi_gnss/Metadata_SINEX_1.10.pdf`, fetched directly 2026-09-24 (same `files.igs.org` domain as `IGSMETA`; redistribution not separately re-verified beyond that) | **primary**, obtained | states what `IGSMETA`'s own `SATELLITE/MASS` field IS — "in-orbit satellite mass," required "to compute the acceleration caused by non-gravitational forces... at ~1% accuracy" (§1.1) — settling `SPCR-Q-003` and its own Table 5 (§4.3), the block-level figures §3 below cites |
+| `GALSC` | European GNSS Service Centre (GSC); EUSPA/EU | *Galileo Satellite Metadata* | continuously updated; this pin 2026-09-24 | `https://www.gsc-europa.eu/support-to-developers/galileo-satellite-metadata`, fetched directly (`curl`, HTTP 200, no login) | **primary**, first-party, open with attribution — see §2.3 | the actual source of EVERY Galileo value this spec states for IOV/FOC: reference frame (§2), yaw-steering law (§3, consumed by `SPEC-galileo-attitude.md`, not this spec), mass and centre-of-mass history per satellite (§4), geometry and optical coefficients per surface (§6) |
 
 ### 2.1 `FLGA92`/`FLGA96`: the search, and the one route this session added
 
@@ -87,18 +98,52 @@ cylindrical elements, `RS14` §5.1.3), not a verbatim transcription of either pa
 table — a materially different case from the predecessor's own compilation. Recorded here, on the
 record, rather than only in a report, per the ruling's own instruction.
 
+### 2.3 `GALSC`: rule-4 and licence search, reported before Galileo was built
+
+Performed 2026-09-24, before any Galileo code existed, per the manager's own instruction ("as for
+GPS"). **What it prints**: the reference frame per IOV and FOC; the yaw-steering law's own
+equations, in GSC's own native frame AND again converted to the GPS/ANTEX convention (§3.2 of the
+page itself); per-satellite dated mass and centre-of-mass (§4, "as of" a stated month, updated in
+place as GSC's own most recent measurement, not a full multi-entry history); per-surface,
+multi-material optical coefficients (§6); antenna, laser-retroreflector and signal-bias data not
+consumed by this spec. Everything is printed directly ON the page (an HTML table structure,
+re-parsed with rowspan/colspan expanded, not from an earlier flattened-text pass that lost some
+row alignment), not behind a separate linked PDF.
+
+**Retrievable without an account**: yes — direct `curl`, HTTP 200, no login, no bot challenge, the
+same plain-request pattern that worked for `IGSMETA` and did NOT work for most sources L5 step 1
+needed (AGU, AIAA/DTIC, IEEE Xplore, Wiley, TUM mediaTUM, ScienceDirect).
+
+**Redistribution terms**, GSC's own Terms of Use (`https://www.gsc-europa.eu/terms-of-use`, fetched
+directly), Copyright Notice, quoted: *"All the materials and the documents published on the
+Website... are fully and exclusively owned by the European Union (EU) (© EU 2011-2026), or by
+third parties as indicated on the Website. Unless otherwise stated, downloading, reproduction and
+use of all the materials and documents published on the Website are authorised provided the source
+is acknowledged as follows: © EU 2011-2026."* The metadata page itself carries no third-party
+attribution of its own (checked directly) — EUSPA/EU's own first-party operational data, not
+licensed-in third-party content. **Result: general redistribution with attribution is authorised —
+clean, unlike `RS14`'s own genuinely unclear case, no ruling needed to use it.** Reported before
+building anyway, per instruction, not because the result turned out ambiguous.
+
 ---
 
 ## 3. Definitions and conventions
 
-- **The body frame is the IGS convention, +x towards the Sun, for every GPS block** (`MSGA15`
-  Fig. 3/4; ruled at L4 step 6 from `MSGA15` and CODE's own G05 attitude — `SPEC-thrust-yaw.md`,
-  and what `odl::attitude` emits in every regime). `RS14` §5.1.1 defines its own XYZ frame
-  identically in substance, independently stated, not copied from `MSGA15`: "X normal to the
-  surface of the satellite which is always illuminated by the Sun" (+x, Sun-facing), "Z opposite
-  to the radial direction" (+z, anti-nadir — the schema's own `body_fixed_normal` for each face is
-  stated in this same frame, §4). The two sources' own frame conventions agree; this spec's own
-  values are stated in it directly, no rotation applied.
+- **The body frame is the IGS convention, +x towards the Sun, +z nadir (toward Earth), for every
+  GPS block** (`MSGA15` Fig. 3/4; ruled at L4 step 6 from `MSGA15` and CODE's own G05 attitude —
+  `SPEC-thrust-yaw.md`, and what `odl::attitude` emits in every regime: `nominal_yaw_steering`'s
+  own `z_body = -r_hat`, `modules/attitude/src/attitude.cpp`, its own comment labelling this
+  "nadir"). `RS14` §5.1.1 defines its own XYZ frame identically in substance, independently
+  stated, not copied from `MSGA15`: "X normal to the surface of the satellite which is always
+  illuminated by the Sun" (+x, Sun-facing), "Z opposite to the radial direction" (+z; **corrected
+  2026-09-24**, L5 step 2 — this is NADIR, `-r_hat`, not "anti-nadir" as an earlier version of
+  this line labelled it: "the radial direction" is the outward `+r_hat`, so "opposite" it is
+  `-r_hat`, matching `RS14`'s own words to the code's own `z_body = -r_hat` exactly; the earlier
+  parenthetical gloss was a labelling error caught while pinning Galileo's own frame against GSC's
+  own real coordinate pairs, `SPEC-spacecraft.md` §2 GALSC, not a convention this tree ever
+  actually used backwards — the schema's own `body_fixed_normal` for each face is stated in this
+  same frame, §4). The two sources' own frame conventions agree; this spec's own values are stated
+  in it directly, no rotation applied.
 - **`RS14`'s own α/δ/ρ notation, resolved by FORMULA, not by prose — and RS14 is internally
   inconsistent about it.** `RS14` §5.1.2's own Appendix prose, citing Milani et al. (1987) —
   `SPEC-macromodel`'s own `MSPB87`, already an informative source there — states: "α absorption
@@ -176,6 +221,41 @@ record, rather than only in a report, per the ruling's own instruction.
   the existing function IS calling it for the reference satellite. A genuine per-SVN mass table,
   for satellites OTHER than these two references, remains unbuilt — named in §10 as before, now
   narrower in scope.
+- **Galileo's own body frame is NOT this tree's own convention, and the mapping is TESTED, not
+  trusted from either source's own prose** (the manager's own instruction, and the IIR 180°
+  precedent, `PROVENANCE.md` §30.19/30.20 — a case where prose alone, even the primary source's
+  own, hid a real sign defect). `GALSC` §2 states plainly: both IOV and FOC have **+Z nadir**
+  (toward the L-band antenna, matching this tree's own +Z exactly, corrected above) but **+X toward
+  DEEP SPACE** — the opposite of this tree's own +X (toward the Sun) — its own words: "this does
+  not meet the GPS block II/IIA attitude convention." The mapping (180° about Z: `(x,y,z) ->
+  (-x,-y,z)`, its own inverse) is VERIFIED against `GALSC`'s own printed numbers, not derived from
+  its prose: its own antenna-reference-point, phase-centre and laser-retroreflector tables print
+  the SAME physical point in BOTH "Mechanical RF" (its own native frame) and "ANTEX RF" (this
+  tree's own convention, CoM-relative) columns, for both IOV and FOC — three such pairs, checked
+  directly, `SPCR-A-009`. `galileo_frame_from_mechanical()` (`modules/spacecraft`) is this mapping;
+  every Galileo face normal and centre of mass in §4/§6 is built through it.
+- **Mass and centre of mass are dated, per satellite, in `GALSC`'s own table — the schema holds
+  ONE value — so the library returns a macromodel for a satellite AT AN EPOCH, ruled 2026-09-24**
+  (`../plan/subplan_L5/L5-2.md`): surfaces and optics come from the satellite's own BLOCK (IOV or
+  FOC, §6, identical across every satellite of that block); mass and centre of mass come from
+  `GALSC`'s own table entry valid at that epoch, refusing an epoch the table does not cover —
+  the SAME shape `odl::atmosphere::SpaceWeatherTable::sample` already uses for a day outside its
+  own space-weather coverage (`space_weather.hpp`'s own header comment). `GALSC`'s own entries are
+  monthly-precision at best ("as of April 2024", no day or time stated) — modelled with a local
+  `YearMonth`, not the tree's own full `odl::time::Epoch` (which would overstate the source's own
+  precision, the same reasoning `odl::atmosphere::Day` already applies to NRLMSISE-00's own daily
+  input), valid from that stated month with no stated end (`GALSC`'s own most recent update, valid
+  until superseded). **This same shape will serve GPS's own per-satellite masses later
+  (`SPCR-Q-002`) — not retrofitted now, only noted that it fits.**
+- **`GALSC`'s own α/ρ/δ notation is quoted directly, and checked by arithmetic, not merely
+  trusted** — `RS14` showed a source's own letters can be backwards relative to its own formula
+  (§3 above). `GALSC` §6's own intro states: *"α ≡ absorption coefficient, ρ ≡ specular reflection
+  coefficient, δ ≡ diffuse reflection coefficient"* — matching this schema's own
+  absorptivity/specular/diffuse order EXACTLY, no swap needed. Checked anyway: every material row
+  `GALSC` prints, for both IOV and FOC, has its own three coefficients summing to exactly 1 —
+  verified cell by cell for every row (`SPCR-A-010`), the same independent arithmetic check
+  `SPCR-A-001` already applies to every GPS surface, not a substitute for reading the quoted
+  definition but a second, independent confirmation of it.
 
 ---
 
@@ -256,6 +336,30 @@ record, rather than only in a report, per the ruling's own instruction.
   independently confirmed, so none is used. **No baseline consumes `gps_block_iiia()` in this
   version** — the refusal blocks nothing currently critical, recorded for completeness at L5 step
   1's own close, not because IIIA is on this version's own critical path.
+- **SPCR-R-008.** `galileo_frame_from_mechanical(mechanical: Vec3) -> Vec3` rotates a unit or
+  offset vector from `GALSC`'s own "Mechanical RF" to this tree's own body-frame convention: 180°
+  about Z, `(x,y,z) -> (-x,-y,z)`. Its own inverse (an involution). VERIFIED against three real
+  coordinate pairs `GALSC` prints itself (§3), `SPCR-A-009`.
+- **SPCR-R-009.** `galileo_iov(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>`
+  — `gsat` one of `GALSC`'s own three currently-listed IOV satellites (101, 102, 103), else refuses
+  `SPCR-F-004`; `epoch` at or after that satellite's own mass/CoM entry's stated month, else
+  refuses `SPCR-F-005` (§3). Six body-fixed `FlatSurface`s (one per face per material — some faces
+  carry two, `GALSC` §6.1) plus one `flat_surface_sun_pointing` (both wings' own area summed per
+  material, §3), mapped through `SPCR-R-008`, cited to `GALSC` §6.1 per material. Mass and centre
+  of mass cited to `GALSC` §4.1's own dated entry for `gsat`. Builds `GALSC`'s own
+  Beginning-Of-Life coefficients; its own End-Of-Life coefficients (printed for the same materials)
+  are NOT built this version (`SPCR-Q-004`).
+- **SPCR-R-010.** `galileo_foc(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>`
+  — `gsat` one of `GALSC`'s own 26 currently-listed FOC satellites, else refuses `SPCR-F-004`;
+  `epoch` on the same terms as `SPCR-R-009`, else refuses `SPCR-F-005`. Surfaces mapped and cited
+  the same way, from `GALSC` §6.2's own table (one set of coefficients per material, not a
+  BOL/EOL pair). `GALSC`'s own +Z panel total (1.053 + 1.969 = 3.022 m²) disagrees with its own
+  summary-table figure (3.036 m²) by 0.46% — built from the detailed, itemised table (this spec's
+  own established preference for the finer-grained source, `RS14`'s own precedent), the gap
+  recorded rather than silently resolved either way.
+- **SPCR-R-011.** Every numeric value `SPCR-R-008`–`SPCR-R-010` state is a `Cited<double>` or
+  `Cited<Vec3>` (`SPEC-macromodel`'s own `MCRM-R-004`), the same rule `SPCR-R-006` states for GPS —
+  this spec adds no exemption for Galileo either.
 
 ---
 
@@ -271,9 +375,16 @@ record, rather than only in a report, per the ruling's own instruction.
   `SPCR-R-004`.
 - `gps_block_iiia() -> Result<Macromodel, SpacecraftError>` — refuses unconditionally, §4
   `SPCR-R-007`.
+- `galileo_frame_from_mechanical(mechanical: Vec3) -> Vec3` — §4 `SPCR-R-008`.
+- `galileo_iov(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>` — §4
+  `SPCR-R-009`.
+- `galileo_foc(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>` — §4
+  `SPCR-R-010`.
+- `YearMonth { year: int, month: int }`, ordered — §3's own stated precision match to `GALSC`'s
+  own dated entries.
 
-Each function is a pure, parameterless (or SVN-parameterised) constructor: no file is read, no
-network reached; the cited literature is data this module states directly, the same shape
+Each function is a pure, parameterless (or SVN-/GSAT-/epoch-parameterised) constructor: no file is
+read, no network reached; the cited literature is data this module states directly, the same shape
 `ecom::d4b1_order()` names a configuration rather than reading one.
 
 ---
@@ -299,6 +410,15 @@ network reached; the cited literature is data this module states directly, the s
 - Every surface's own α + specular + diffuse sums to 1.000 exactly as `RS14`'s own table prints it
   (`SPCR-A-001` checks this at every surface of every built block) — a property of the source's own
   arithmetic, not an independent measurement this tree makes.
+- **SPCR-P-2.** `GALSC`'s own values are stated to the precision it prints (three decimal places
+  for area, mass and CoM; two for most optical coefficients). Mass and CoM are per-satellite,
+  dated to the MONTH `GALSC` states ("as of April 2024" IOV, "as of May 2026" FOC) — this spec does
+  not claim day- or second-level validity the source itself does not state (§3's own `YearMonth`).
+  Every material's own α + ρ + δ sums to 1.000 exactly as `GALSC`'s own table prints it
+  (`SPCR-A-010`), the same property `SPCR-A-001` checks for GPS. `GALSC`'s own +Z-panel
+  inconsistency (FOC, ~0.46%, `SPCR-R-010`) is the only area discrepancy found between its own
+  summary and detailed tables — every other face and both blocks' own wing totals match exactly
+  (`SPCR-A-011`).
 
 ---
 
@@ -309,6 +429,8 @@ network reached; the cited literature is data this module states directly, the s
 | `SPCR-F-001` | `gps_block_i` called with an SVN not among `RS14` Table 5.2's own eight (03, 04, 06, 08, 09, 10, 11) | the offending SVN, and the two mass groups this spec does hold |
 | `SPCR-F-002` | **retired, does not fire in this version** — was `gps_block_iif` called at all; withdrawn 2026-09-24 when `SPCR-R-004` was ruled and built from `RS14` Table 5.5. Kept documented, not deleted, for traceability (an earlier commit's own tests referenced it) | — |
 | `SPCR-F-003` | `gps_block_iiia` called at all, in this version | the one-search outcome, and where its full record is kept; states explicitly that no baseline consumes this function |
+| `SPCR-F-004` | `galileo_iov`/`galileo_foc` called with a `gsat` not among `GALSC`'s own currently-listed satellites for that block | the offending GSAT and the block name |
+| `SPCR-F-005` | `galileo_iov`/`galileo_foc` called with an `epoch` before the named satellite's own mass/CoM entry's stated month | the offending epoch, the satellite's own coverage start, and the `odl::atmosphere`-style reasoning |
 | (inherited) `MCRM-F-001` | any citation this module supplies is blank | the schema's own refusal, unchanged — this module supplies none blank, `SPCR-A-002` proves the guard still fires if one were |
 
 ---
@@ -325,6 +447,11 @@ network reached; the cited literature is data this module states directly, the s
 | `SPCR-A-006` | `gps_block_iir_m()`'s own surfaces equal `gps_block_iir()`'s own, field by field, value AND citation — the citation naming the inheritance, not silently identical by coincidence | identical values; citation states the inheritance | `SPCR-R-005` | exact | R-005 |
 | `SPCR-A-007` | `gps_block_iiia` refuses, unconditionally, with `SPCR-F-003` | the refusal | `SPCR-R-007` | — | F-003, R-007 |
 | `SPCR-A-008` | `gps_block_iir`'s and `gps_block_iir_m`'s own mass is `IGSMETA`'s own 1080 kg (SVN50), not `RS14`'s own 1100 kg — both citations checked to name `IGSMETA`/`SVN50` and to record `RS14`'s 1100 kg as the cross-check, plus a guard that 1080 ≠ 1100 (proving a regression to the old value would fail) | mass = 1080 kg on both; citations name the source and the cross-check | `IGSMETA` `SATELLITE/MASS`, read directly in the test | exact | R-003, R-005 |
+| `SPCR-A-009` | `galileo_frame_from_mechanical`, VERIFIED against three real `GALSC` coordinate pairs (its own Mechanical RF / ANTEX RF columns for the identical physical point, two IOV and one FOC) — not trusted from the yaw law's own stated sign convention alone; a guard that an X-only flip (matching the yaw law's own prose read in isolation) would NOT reproduce the real data; an involution check | agreement with `GALSC`'s own printed ANTEX-RF values | `GALSC` §5 ARP/LRR tables, read directly in the test | 1e-9 | R-008 |
+| `SPCR-A-010` | every material row `galileo_iov`/`galileo_foc` build has α + specular + diffuse = 1, `GALSC`'s own arithmetic; each built macromodel's own surface count matches the table's own row count (12 for IOV, 13 for FOC) | exactly 1; the stated counts | `GALSC` §6, cross-checked | 1e-12 | R-009, R-010 |
+| `SPCR-A-011` | both of `GALSC`'s own wings (IOV: +Y/-Y; FOC: +SA/-SA) are identical in area and optics, checked cell by cell before being summed; the built macromodel's own sun-pointing surfaces carry the summed areas (7.76/3.06 m² IOV, 7.760/3.060 m² FOC) | identical inputs; summed outputs present | `GALSC` §6, read directly in the test | exact | R-009, R-010 |
+| `SPCR-A-012` | mass/CoM lookup: the right value at a known GSAT; refused for an unknown GSAT (`SPCR-F-004`); refused for an epoch one month before coverage, shown firing exactly at that boundary; succeeds exactly at the coverage start and well after (open-ended coverage) | the diagnostics; the stated values | `SPCR-R-009`/`-010`'s own domain | 1e-9 | F-004, F-005, R-009, R-010 |
+| `SPCR-A-013` | every built IOV/FOC macromodel is fully cited (mass, CoM, every surface's own area and absorptivity); the citation-refusal guard (`MCRM-F-001`) reaches this module's own call path; the centre of mass is a real, nonzero offset (unlike GPS's own (0,0,0) default) | no empty citation; the refusal fires; `\|com\| > 0.1` m | `SPCR-R-011` | — | R-011 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -354,6 +481,13 @@ network reached; the cited literature is data this module states directly, the s
   recorded as genuinely open, not re-explained; a panel-span check sought and not completed; the
   Block IIIA one-search absence; the IIR-M geometry-sharing inference and its own textual basis in
   `MSGA15`.
+- **L5 step 2 (Galileo)**: the `GALSC` rule-4/licence search and result (clean, unlike `RS14`);
+  the frame mapping VERIFIED against real coordinate pairs (and the "(+z, anti-nadir)" labelling
+  error this caught and corrected in §3 above, a mislabel, not a convention this tree ever actually
+  used backwards); the per-satellite dated mass/CoM design ruling and its own stated shape;
+  the α/ρ/δ quote and its own sum-to-1 confirmation; the FOC +Z-panel area inconsistency
+  (`SPCR-R-010`); the HTML table re-parse that replaced an earlier, alignment-losing flattened-text
+  pass.
 
 ---
 
@@ -364,3 +498,6 @@ network reached; the cited literature is data this module states directly, the s
 | `SPCR-Q-001` | **Block IIF — RESOLVED** (manager, 2026-09-24). Ruled: build from `RS14` Table 5.5 directly (it publishes per-surface values itself) rather than the imagery-derivation fallback `../plan/PLAN.md` §3.6 names — dimensions cited to `RS14`'s own stated chain-end ("an unpublished document"), optics marked ASSUMED (`RS14`'s own generic Ziebart (2001) assumption, not a new analogue chosen from outside the source). Built, `SPCR-R-004`; the imagery-derivation route was not needed and remains unused. |
 | `SPCR-Q-002` | **Per-satellite mass from `IGSMETA`, PARTIALLY RESOLVED this round.** `gps_block_iir`/`_iir_m`/`_iif` now use `IGSMETA`'s own per-satellite figure for their own single reference SVN (50, 50, 63 respectively) as the primary mass, §3. Still open: a genuine per-SVN table for satellites OTHER than these three references (e.g. a specific non-reference IIR-M SVN L7 might one day need) remains unbuilt — worth doing before L7 needs more than the reference satellites, or acceptable to keep at reference-satellite granularity? |
 | `SPCR-Q-003` | **What does `IGSMETA`'s own `SATELLITE/MASS` field mean — RESOLVED** (manager asked this round, quote required before trusting the field for SRP). `IGSMETA`'s own header: `"SATELLITE/MASS  In-orbit satellite mass"`. `SMSD24` §1.1, in full: *"Knowledge of the mass of a GNSS satellite is required to compute the acceleration caused by non-gravitational forces (such as solar radiation pressure, radiation thrust, or Earth radiation pressure). In line with the quality of other model parameters, a 1% accuracy is typically deemed adequate for this purpose. Updates following the start of initial operations are only required after maneuvers and incremental mass changes of more than 1 kg."* Not launch mass, not unstated — documented, specifically, for this library's own purpose. `SMSD24` §4.3's own Table 5 gives block-level in-orbit figures independently (GPS IIR/IIR-M 1080 kg, Hegarty 2017; IIF 1633 kg, a Boeing technical-specifications page), matching this session's own per-SVN reads (SVN50, SVN63) exactly — and states explicitly that Block I/II/IIA's own individually-varying `FLGA92` masses are NOT incorporated into this SINEX block, which is why those three blocks keep `RS14` as primary (§3) rather than switching too. |
+| `SPCR-Q-004` | **`GALSC`'s own End-Of-Life optical coefficients for IOV (§6.1's own Material 2 rows).** This version builds Beginning-Of-Life only (`SPCR-R-009`); EOL is printed for the same materials, unused. Worth a `bol`/`eol` selector before L7 reads this library for a long-lived IOV satellite (all three IOV satellites are well past early life as of 2026), or acceptable to keep at BOL for this version, matching FOC's own single (unlabelled) set? |
+| `SPCR-Q-005` | **FOC's own "modified yaw steering law" is not built (`GALY-Q-001`, `SPEC-galileo-attitude.md`) — `galileo_yaw_attitude` refuses instead, near colinearity.** Does any consumer need FOC attitude that close to colinearity (β < 4.1°, ε < 10°) before this is worth building? The condition is rare (a narrow geometric window) and GSC's own text frames it as a smoothing measure, not a large-swing regime the way GPS's own noon/midnight turns are. |
+| `SPCR-Q-006` | **A genuine per-SVN mass table for Galileo satellites GSC does not currently list (205, 228–231) or for GSAT numbers retired since this pin.** Not searched this round — `GALSC`'s own table is used as printed, absences not filled in or guessed at. Worth a follow-up search if L7 needs one of these specifically. |
