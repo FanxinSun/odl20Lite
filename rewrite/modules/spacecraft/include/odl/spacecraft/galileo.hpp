@@ -54,16 +54,28 @@ struct YearMonth {
 /// alone, per the manager's own instruction. SPCR-R-008.
 [[nodiscard]] Vec3 galileo_frame_from_mechanical(Vec3 mechanical) noexcept;
 
+/// GSC's own IOV optics are life-stage-dependent (Sec.6.1 prints SEPARATE
+/// Beginning-Of-Life and End-Of-Life coefficients for Material 2, "BOL"/
+/// "EOL" its own column headers) -- REQUIRED, no default: every IOV
+/// satellite is long past early life as of 2026 (launched 2011-2012), so a
+/// silently-defaulted BOL would be the wrong answer for present use, and
+/// which one a caller gets belongs in the TYPE, not an unstated convention
+/// (plan §5 constraint 10 -- one type must not silently mean two different
+/// things depending on context, `SPEC-macromodel.md` `MCRM-Q-001`'s own
+/// reasoning for `centre_of_mass_m` applied here to a different value).
+/// Material 1 (every face) is printed "BOL & EOL" as ONE set -- unchanging
+/// over life, so this selector does not affect it either way.
+enum class OpticalLife { BeginningOfLife, EndOfLife };
+
 /// SPCR-R-009. `gsat` naming one of GSC's own three IOV satellites (101,
 /// 102, 103); refuses `SPCR-F-004` otherwise. `epoch` at or after the
 /// satellite's own mass/CoM entry's stated "as of" date; refuses
 /// `SPCR-F-005` otherwise -- the same shape as `odl::atmosphere`'s own
 /// space-weather coverage refusal, `SPEC-spacecraft.md` §3. Surfaces and
-/// optics are GSC's own IOV Beginning-Of-Life table (§6.1); its own
-/// End-Of-Life coefficients, printed for the same materials, are NOT built
-/// this version (`SPCR-Q-004`).
+/// optics are GSC's own IOV table (§6.1), `life` selecting BOL or EOL for
+/// Material 2 (`OpticalLife`'s own header comment).
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError>
-galileo_iov(int gsat, YearMonth epoch);
+galileo_iov(int gsat, YearMonth epoch, OpticalLife life);
 
 /// SPCR-R-010. `gsat` naming one of GSC's own 26 FOC satellites currently
 /// listed (201-227 except 205, 228-231, 232-234); refuses

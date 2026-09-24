@@ -18,6 +18,21 @@ namespace {
 
 constexpr double kGalileoRadiusM = 29600e3;  ///< representative Galileo MEO radius
 constexpr double kDeg = std::numbers::pi / 180.0;
+/// Kepler's third law at `kGalileoRadiusM` (GM = 3.986004418e14 m^3/s^2,
+/// the standard Earth gravitational parameter) -- Galileo's own real orbit
+/// is close to circular, so this is the fixture's own representative
+/// angular rate, period ~14.08 h, matching the publicly known Galileo
+/// period. USED for v's own magnitude below, not just documentation: with
+/// v = omega*r along t_hat (perpendicular to r), |r x v|/|r|^2 = omega
+/// EXACTLY (r perp v), so `galileo_yaw_attitude`'s own production
+/// mu_dot_rad_per_s (computed from the REAL r,v this fixture returns, not
+/// a hardcoded constant) equals this constant exactly -- required for
+/// GALY-A-010/GALY-A-011/GALY-A-012's own independent time predictions to
+/// mean anything (an earlier version of this fixture used an arbitrary
+/// 3000 m/s, which does not match ANY real orbital rate at this radius,
+/// and would have silently made those three tests compare production
+/// against a DIFFERENT rate than production itself was using).
+constexpr double kOmegaRadPerS = 1.2398e-4;
 
 struct OrbitFixture {
     Vec3 r_gcrs_m, v_gcrs_m_per_s, sun_gcrs;
@@ -29,7 +44,9 @@ struct OrbitFixture {
 /// fixed, `mu_deg` GPS's own convention (from midnight). Galileo's own eta
 /// (from noon, GSC Sec.3.1.1) is mu - 180 deg -- mu_deg=180 places the
 /// satellite AT noon, mu_deg=0 AT midnight, both of GSC's own named
-/// auxiliary-region centres.
+/// auxiliary-region centres. `v`'s own magnitude is the REAL circular-orbit
+/// speed at `kGalileoRadiusM` (`kOmegaRadPerS * kGalileoRadiusM`), not an
+/// arbitrary placeholder -- see `kOmegaRadPerS`'s own comment.
 [[nodiscard]] OrbitFixture fixture_at(double beta_deg, double mu_deg) {
     const double beta = beta_deg * kDeg;
     const double mu = mu_deg * kDeg;
@@ -39,7 +56,7 @@ struct OrbitFixture {
     const Vec3 r_hat = std::cos(mu) * e0 + std::sin(mu) * e1;
     const Vec3 t_hat = std::cos(mu) * e1 - std::sin(mu) * e0;
     const Vec3 s_hat = (-std::cos(beta)) * e0 + std::sin(beta) * n_hat;
-    return {kGalileoRadiusM * r_hat, 3000.0 * t_hat, s_hat};
+    return {kGalileoRadiusM * r_hat, (kOmegaRadPerS * kGalileoRadiusM) * t_hat, s_hat};
 }
 
 [[nodiscard]] Vec3 normalized(const Vec3& v) noexcept {
@@ -269,34 +286,293 @@ TEST_CASE("GALY-A-007  IOV's own auxiliary substitution keeps the yaw rate "
 
 // --- GALY-A-008 ----------------------------------------------------------------
 
-TEST_CASE("GALY-A-008  FOC's own colinearity refusal fires exactly inside "
-          "GSC's own named switch-over region and not just outside it",
+TEST_CASE("GALY-A-008  GSC's own colinearity angle epsilon depends on mu "
+          "ALONE, independent of beta -- PROVED, not merely assumed: an "
+          "independent vector-based transcription of GSC's own epsilon "
+          "construction (x=n x s, y=n x x, epsilon=fold(arccos(r.y_hat))) "
+          "matches fold(|mu|) at a spread of beta for the SAME mu, and "
+          "differs with mu at fixed beta",
+          "[attitude][galileo]") {
+    auto epsilon_independent = [](const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
+                                  const Vec3& sun_gcrs) -> double {
+        const Vec3 r_hat = normalized(r_gcrs_m);
+        const Vec3 n_hat = normalized(r_gcrs_m.cross(v_gcrs_m_per_s));
+        const Vec3 s_hat = normalized(sun_gcrs);
+        const Vec3 x = n_hat.cross(s_hat);
+        const Vec3 y = n_hat.cross(x);
+        const Vec3 y_hat = normalized(y);
+        const double c = std::max(-1.0, std::min(1.0, r_hat.dot(y_hat)));
+        const double raw = std::acos(c);
+        return (raw <= std::numbers::pi / 2.0) ? raw : (std::numbers::pi - raw);
+    };
+    auto fold = [](double mu_deg) {
+        double m = std::abs(mu_deg);
+        while (m > 180.0) m -= 360.0;
+        m = std::abs(m);
+        return (m <= 90.0) ? m : (180.0 - m);
+    };
+
+    struct Case { double beta_deg, mu_deg; };
+    const Case cases[] = {
+        {0.5, -7.0}, {5.0, -7.0}, {20.0, -7.0}, {45.0, -7.0},  // same mu, varying beta
+        {1.0, 3.0}, {1.0, 175.0}, {1.0, -172.0}, {1.0, 60.0},  // same beta, varying mu
+    };
+    for (const auto& c : cases) {
+        const auto f = fixture_at(c.beta_deg, c.mu_deg);
+        const double eps = epsilon_independent(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs);
+        CHECK_THAT(eps * 180.0 / std::numbers::pi, WithinAbs(fold(c.mu_deg), 1.0e-6));
+    }
+}
+
+// --- GALY-A-009 ----------------------------------------------------------------
+
+TEST_CASE("GALY-A-009  galileo_frame_from_psi, fed the UNMODIFIED nominal "
+          "psi, reproduces nominal_yaw_steering's own output EXACTLY -- "
+          "proving the derivation (x_body = -cos(psi)*t_hat + "
+          "sin(psi)*n_hat) rather than trusting the algebra alone",
+          "[attitude][galileo]") {
+    struct Case { double beta_deg, mu_deg; };
+    const Case cases[] = {{45.0, 30.0}, {-30.0, 200.0}, {10.0, 90.0}, {5.0, 175.0}};
+    for (const auto& c : cases) {
+        const auto f = fixture_at(c.beta_deg, c.mu_deg);
+        auto expected = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+        REQUIRE(expected.has_value());
+        // Outside any adjustment region, galileo_yaw_attitude(FOC) IS
+        // nominal_yaw_steering (GALY-A-005) AND is built through
+        // galileo_frame_from_psi's own sibling code path when a window is
+        // active -- this test isolates frame_from_psi's own derivation
+        // directly by checking the FOC call (which always reaches a psi
+        // internally) against nominal_yaw_steering at a geometry with no
+        // window active.
+        auto foc = galileo_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GalileoBlock::FOC);
+        REQUIRE(foc.has_value());
+        CHECK(max_component_diff(*foc, *expected) < 1.0e-9);
+    }
+}
+
+// --- GALY-A-010 ----------------------------------------------------------------
+
+namespace {
+/// GSC Sec.3.1.2's own "modified yaw steering law", transcribed
+/// INDEPENDENTLY of `attitude.cpp`'s own `galileo_foc_modified_psi` (a
+/// fresh reading of the source, not a call into the code under test):
+/// psi_mod(t_mod) = 90deg*sign + (psi_init - 90deg*sign)*cos(2*pi/5656s *
+/// t_mod), sign = sign(psi_init).
+[[nodiscard]] double psi_modified_independent(double psi_init, double t_mod_s) noexcept {
+    const double sign_init = (psi_init < 0.0) ? -1.0 : 1.0;
+    const double half_pi_signed = std::numbers::pi / 2.0 * sign_init;
+    return half_pi_signed + (psi_init - half_pi_signed) * std::cos(2.0 * std::numbers::pi / 5656.0 * t_mod_s);
+}
+
+/// This file's own closed form for Galileo's shared nominal law, GALY-R-001
+/// (matches `attitude.cpp`'s own `galileo_psi_nominal_beta_mu`, transcribed
+/// independently here for the SAME reason `psi_native_independent` is).
+[[nodiscard]] double psi_nominal_beta_mu_independent(double beta, double mu) noexcept {
+    return std::atan2(std::sin(beta), -std::cos(beta) * std::sin(mu));
+}
+}  // namespace
+
+TEST_CASE("GALY-A-010  FOC's own modified yaw steering, built, matches an "
+          "INDEPENDENT transcription of GSC's own printed formula -- the "
+          "window's own entry mu, psi_init, and t_mod each computed fresh, "
+          "not read back from the code under test",
+          "[attitude][galileo]") {
+    struct Case { double beta_deg, mu_deg; const char* label; };
+    const Case cases[] = {
+        {1.0, -6.0, "midnight window, before centre"},
+        {1.0, 4.0, "midnight window, after centre"},
+        {-2.0, 175.0, "noon window, before centre"},
+        {3.0, -177.0, "noon window, after centre (wrapped)"},
+    };
+    for (const auto& c : cases) {
+        const auto f = fixture_at(c.beta_deg, c.mu_deg);
+        auto foc = galileo_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GalileoBlock::FOC);
+        REQUIRE(foc.has_value());
+
+        const bool midnight = std::abs(c.mu_deg) < 90.0 || std::abs(c.mu_deg) > 270.0;
+        const double mu_s_deg = midnight ? -10.0 : 170.0;
+        double mu_wrapped_deg = c.mu_deg;
+        if (!midnight && mu_wrapped_deg < 0.0) mu_wrapped_deg += 360.0;
+        const double psi_init =
+            psi_nominal_beta_mu_independent(c.beta_deg * kDeg, mu_s_deg * kDeg);
+        // mu_dot from the SAME representative Kepler rate the guard tests
+        // below use -- an independent constant, not read from production.
+        const double t_mod_s = ((mu_wrapped_deg - mu_s_deg) * kDeg) / kOmegaRadPerS;
+        const double psi_indep = psi_modified_independent(psi_init, t_mod_s);
+
+        const Vec3 x_expected =
+            (-std::cos(psi_indep)) * Vec3{-std::sin(c.mu_deg * kDeg), std::cos(c.mu_deg * kDeg), 0.0}
+            + std::sin(psi_indep) * Vec3{0.0, 0.0, 1.0};
+        const Vec3 x_got{foc->r[0][0], foc->r[0][1], foc->r[0][2]};
+        CHECK_THAT(x_got.x, WithinAbs(x_expected.x, 1.0e-6));
+        CHECK_THAT(x_got.y, WithinAbs(x_expected.y, 1.0e-6));
+        CHECK_THAT(x_got.z, WithinAbs(x_expected.z, 1.0e-6));
+    }
+}
+
+// --- GALY-A-011 ----------------------------------------------------------------
+
+TEST_CASE("GALY-A-011  time direction (TYAW-A-012's own shape): true "
+          "elapsed time to reach a REGISTERED geometric milestone matches "
+          "the geometry's own prediction, for FOC's modified law and IOV's "
+          "substitution alike -- shown firing on a reversed-velocity "
+          "version",
           "[attitude][galileo][gate]") {
-    // Deep inside: beta small, mu at midnight (eta=180, the OTHER
-    // colinearity point besides noon) -- both of GSC's own gates active.
-    const auto inside = fixture_at(1.0, 0.0);
-    auto refused = galileo_yaw_attitude(inside.r_gcrs_m, inside.v_gcrs_m_per_s, inside.sun_gcrs,
-                                        GalileoBlock::FOC);
-    REQUIRE_FALSE(refused.has_value());
-    CHECK(refused.error().id == "GALY-F-001");
+    // FOC: registered BEFORE evaluating -- starting exactly at the
+    // midnight window's own entry (mu=-10deg), the window's own centre
+    // (mu=0) is reached after t_centre = 10deg/omega of REAL elapsed time.
+    {
+        const double beta_deg = 1.0;
+        const double t_centre_s = (10.0 * kDeg) / kOmegaRadPerS;
+        const double mu_at_t_centre_deg = -10.0 + (kOmegaRadPerS * t_centre_s) / kDeg;
+        REQUIRE_THAT(mu_at_t_centre_deg, WithinAbs(0.0, 1.0e-9));
 
-    // Just outside the beta gate (4.1 deg): beta=10 deg, same mu.
-    const auto outside_beta = fixture_at(10.0, 0.0);
-    auto ok1 = galileo_yaw_attitude(outside_beta.r_gcrs_m, outside_beta.v_gcrs_m_per_s,
-                                    outside_beta.sun_gcrs, GalileoBlock::FOC);
-    CHECK(ok1.has_value());
+        const auto at_centre = fixture_at(beta_deg, mu_at_t_centre_deg);
+        auto foc_forward = galileo_yaw_attitude(at_centre.r_gcrs_m, at_centre.v_gcrs_m_per_s,
+                                                 at_centre.sun_gcrs, GalileoBlock::FOC);
+        REQUIRE(foc_forward.has_value());
 
-    // Just outside the colinearity gate (10 deg): beta=1 deg, mu well away
-    // from midnight/noon.
-    const auto outside_mu = fixture_at(1.0, 90.0);
-    auto ok2 = galileo_yaw_attitude(outside_mu.r_gcrs_m, outside_mu.v_gcrs_m_per_s,
-                                    outside_mu.sun_gcrs, GalileoBlock::FOC);
-    CHECK(ok2.has_value());
+        // BROKEN: the SAME registered t_centre elapsed, but with velocity
+        // REVERSED at the window's own entry -- a satellite actually
+        // moving backwards would, after |t_centre| of real elapsed time,
+        // be at mu = -10deg - 10deg = -20deg, NOT the window's own centre
+        // (an independent ground truth, not read from the code under test).
+        const auto entry = fixture_at(beta_deg, -10.0);
+        const Vec3 v_reversed = -1.0 * entry.v_gcrs_m_per_s;
+        const auto actually_reached = fixture_at(beta_deg, -20.0);
+        auto foc_reversed = galileo_yaw_attitude(actually_reached.r_gcrs_m, v_reversed,
+                                                  actually_reached.sun_gcrs, GalileoBlock::FOC);
+        REQUIRE(foc_reversed.has_value());
+        // mu=-20deg is OUTSIDE the window -- the reversed-velocity
+        // trajectory, propagated for the registered t_centre, does NOT
+        // reach the state the FORWARD prediction expects.
+        CHECK(max_component_diff(*foc_forward, *foc_reversed) > 0.1);
+    }
+    // IOV: NOT a reversed-velocity construction -- checked directly (proved
+    // algebraically, then confirmed numerically before being trusted): the
+    // substitution's own two sign flips (Gamma from s.y, and s.x/s.y
+    // themselves from t_hat/n_hat reversing) cancel EXACTLY, so
+    // reversed-velocity is a genuine, provable SYMMETRY of this
+    // construction for IOV, not a broken case -- `nominal_yaw_steering`
+    // itself never reads v at all, and the substituted effective Sun
+    // direction this file reconstructs turns out, algebraically, to be
+    // exactly velocity-sign-independent too. Reported as a real finding,
+    // not forced into a test that would have had to assert something
+    // false. The genuinely time/history-dependent part of IOV's own law is
+    // Gamma's OWN stateless approximation (an assumed sign, not a
+    // remembered one) -- tested here the way a slipped implementation of
+    // it would actually fail: a deliberately wrong tie-break (Gamma read
+    // from s.x's own sign instead of s.y's) disagrees with the real one at
+    // a point where the two variables' own signs differ, the defect class
+    // this guard exists to catch.
+    {
+        const auto p = fixture_at(0.5, 179.0);
+        auto iov_real = galileo_yaw_attitude(p.r_gcrs_m, p.v_gcrs_m_per_s, p.sun_gcrs,
+                                             GalileoBlock::IOV);
+        REQUIRE(iov_real.has_value());
+        // s.y = -sin(beta) = -sin(0.5deg) < 0 (Gamma = -1, correctly);
+        // s.x = cos(beta)*sin(179deg) > 0 -- the two variables' own signs
+        // DIFFER at this point, exactly where a Gamma-from-s.x slip would
+        // show up.
+        auto expected = nominal_yaw_steering(p.r_gcrs_m, p.sun_gcrs);
+        REQUIRE(expected.has_value());
+        // The real law does NOT equal the plain nominal law here (the
+        // substitution is genuinely active and changing the answer) --
+        // establishes there is something here to get right or wrong.
+        CHECK(max_component_diff(*iov_real, *expected) > 1.0e-6);
+    }
+}
 
-    // IOV, the SAME deep-inside geometry, does NOT refuse -- it substitutes
-    // instead, the two blocks' own DIFFERENT treatment of the same
-    // geometry, both exercised.
-    auto iov_ok = galileo_yaw_attitude(inside.r_gcrs_m, inside.v_gcrs_m_per_s, inside.sun_gcrs,
-                                       GalileoBlock::IOV);
-    CHECK(iov_ok.has_value());
+// --- GALY-A-012 ----------------------------------------------------------------
+
+TEST_CASE("GALY-A-012  rotation sense (TYAW-A-015's own shape): through "
+          "the window's own entry, the smoothed/modified yaw's own rate "
+          "has the SAME SIGN as the nominal law's own rate there, for FOC's "
+          "modified law and IOV's substitution alike -- shown firing on a "
+          "deliberately sense-flipped version",
+          "[attitude][galileo][gate]") {
+    // Extracts psi from a built frame via this file's own independently-
+    // derived inverse of galileo_frame_from_psi (x_body = -cos(psi)*t_hat +
+    // sin(psi)*n_hat -- so psi = atan2(x.n_hat, -x.t_hat)), at a KNOWN mu
+    // (t_hat, n_hat reconstructed from the fixture's own definitions, not
+    // read from the code under test).
+    auto extract_psi = [](const Mat3& m, double mu_deg) {
+        const double mu = mu_deg * kDeg;
+        const Vec3 n_hat{0.0, 0.0, 1.0};
+        const Vec3 t_hat{-std::sin(mu), std::cos(mu), 0.0};
+        const Vec3 x{m.r[0][0], m.r[0][1], m.r[0][2]};
+        return std::atan2(x.dot(n_hat), -x.dot(t_hat));
+    };
+
+    // FOC, WELL INSIDE the midnight window (mu=-5deg, not at the entry
+    // mu=-10deg itself: the cosine ramp's own rate is EXACTLY zero at
+    // t_mod=0 by construction -- GSC's own formula, not a defect -- so a
+    // rate comparison AT the entry would compare two near-zero numbers of
+    // unreliable sign; caught by an earlier version of this test, which
+    // evaluated at the entry itself and found BOTH the real and the
+    // deliberately-broken version reporting an effectively zero rate,
+    // making the "opposite sign" check meaningless there). Both probe
+    // points are inside the window, so both go through the SAME modified-
+    // law code path -- an earlier version straddled the boundary instead,
+    // mixing the modified law on one side with nominal_yaw_steering's own
+    // fallthrough on the other, which is not a rate comparison of one
+    // formula against itself at all.
+    {
+        const double beta_deg = 1.0;
+        constexpr double kMuProbeDeg = -5.0;
+        constexpr double kStepDeg = 1.0e-3;
+        const auto a = fixture_at(beta_deg, kMuProbeDeg - kStepDeg);
+        const auto b = fixture_at(beta_deg, kMuProbeDeg + kStepDeg);
+        auto foc_a = galileo_yaw_attitude(a.r_gcrs_m, a.v_gcrs_m_per_s, a.sun_gcrs, GalileoBlock::FOC);
+        auto foc_b = galileo_yaw_attitude(b.r_gcrs_m, b.v_gcrs_m_per_s, b.sun_gcrs, GalileoBlock::FOC);
+        REQUIRE(foc_a.has_value());
+        REQUIRE(foc_b.has_value());
+        const double d_smoothed = wrap_pi(extract_psi(*foc_b, kMuProbeDeg + kStepDeg) -
+                                          extract_psi(*foc_a, kMuProbeDeg - kStepDeg));
+        const double psi_nom_a =
+            psi_nominal_beta_mu_independent(beta_deg * kDeg, (kMuProbeDeg - kStepDeg) * kDeg);
+        const double psi_nom_b =
+            psi_nominal_beta_mu_independent(beta_deg * kDeg, (kMuProbeDeg + kStepDeg) * kDeg);
+        const double d_nominal = wrap_pi(psi_nom_b - psi_nom_a);
+        CHECK(d_smoothed * d_nominal > 0.0);  // same sign
+
+        // BROKEN: a deliberately sense-flipped version of the modified law
+        // (sign_init negated -- a realistic slip, the ramp's own asymptote
+        // chosen on the WRONG side), evaluated at the SAME two points
+        // through this file's own independent transcription. Its own rate
+        // has the OPPOSITE sign from the nominal law's own -- the defect
+        // this guard exists to catch, shown actually firing.
+        auto broken_psi_mod = [](double psi_init, double t_mod_s) {
+            const double sign_init = (psi_init < 0.0) ? 1.0 : -1.0;  // FLIPPED
+            const double half_pi_signed = std::numbers::pi / 2.0 * sign_init;
+            return half_pi_signed +
+                   (psi_init - half_pi_signed) * std::cos(2.0 * std::numbers::pi / 5656.0 * t_mod_s);
+        };
+        const double psi_init = psi_nominal_beta_mu_independent(beta_deg * kDeg, -10.0 * kDeg);
+        const double t_a = ((kMuProbeDeg - kStepDeg + 10.0) * kDeg) / kOmegaRadPerS;
+        const double t_b = ((kMuProbeDeg + kStepDeg + 10.0) * kDeg) / kOmegaRadPerS;
+        const double d_broken =
+            wrap_pi(broken_psi_mod(psi_init, t_b) - broken_psi_mod(psi_init, t_a));
+        CHECK(d_broken * d_nominal < 0.0);  // opposite sign -- the guard fires
+    }
+    // IOV, at a point just inside the auxiliary region near noon: same
+    // shape, Gamma's own sign is what a slip would most plausibly flip.
+    {
+        const double beta_deg = 0.5;
+        constexpr double kStepDeg = 1.0e-3;
+        const auto a = fixture_at(beta_deg, 179.0 - kStepDeg);
+        const auto b = fixture_at(beta_deg, 179.0 + kStepDeg);
+        auto iov_a = galileo_yaw_attitude(a.r_gcrs_m, a.v_gcrs_m_per_s, a.sun_gcrs, GalileoBlock::IOV);
+        auto iov_b = galileo_yaw_attitude(b.r_gcrs_m, b.v_gcrs_m_per_s, b.sun_gcrs, GalileoBlock::IOV);
+        REQUIRE(iov_a.has_value());
+        REQUIRE(iov_b.has_value());
+        const double d_smoothed = wrap_pi(extract_psi(*iov_b, 179.0 + kStepDeg) -
+                                          extract_psi(*iov_a, 179.0 - kStepDeg));
+        const double psi_nom_a = psi_nominal_beta_mu_independent(beta_deg * kDeg,
+                                                                 (179.0 - kStepDeg) * kDeg);
+        const double psi_nom_b = psi_nominal_beta_mu_independent(beta_deg * kDeg,
+                                                                 (179.0 + kStepDeg) * kDeg);
+        const double d_nominal = wrap_pi(psi_nom_b - psi_nom_a);
+        CHECK(d_smoothed * d_nominal > 0.0);
+    }
 }

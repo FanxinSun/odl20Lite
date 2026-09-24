@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 2.0 — step 2 (Galileo) added: `galileo_iov`/`galileo_foc`, GSC's own per-satellite dated mass/CoM, its own frame mapped and tested, its own optical letters quoted and sum-checked |
+| **Version** | 2.1 — `galileo_iov`'s own required `OpticalLife` (BOL/EOL) selector, `SPCR-Q-004` resolved; `SPCR-R-010`'s own text states, in `GALSC`'s own words, that FOC's single optics set carries no life-stage label |
 | **Date** | 2026-09-24 |
 | **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS) and 2 (Galileo) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
@@ -340,23 +340,36 @@ building anyway, per instruction, not because the result turned out ambiguous.
   offset vector from `GALSC`'s own "Mechanical RF" to this tree's own body-frame convention: 180°
   about Z, `(x,y,z) -> (-x,-y,z)`. Its own inverse (an involution). VERIFIED against three real
   coordinate pairs `GALSC` prints itself (§3), `SPCR-A-009`.
-- **SPCR-R-009.** `galileo_iov(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>`
+- **SPCR-R-009.** `galileo_iov(gsat: int, epoch: YearMonth, life: OpticalLife) -> Result<Macromodel, SpacecraftError>`
   — `gsat` one of `GALSC`'s own three currently-listed IOV satellites (101, 102, 103), else refuses
   `SPCR-F-004`; `epoch` at or after that satellite's own mass/CoM entry's stated month, else
   refuses `SPCR-F-005` (§3). Six body-fixed `FlatSurface`s (one per face per material — some faces
   carry two, `GALSC` §6.1) plus one `flat_surface_sun_pointing` (both wings' own area summed per
   material, §3), mapped through `SPCR-R-008`, cited to `GALSC` §6.1 per material. Mass and centre
-  of mass cited to `GALSC` §4.1's own dated entry for `gsat`. Builds `GALSC`'s own
-  Beginning-Of-Life coefficients; its own End-Of-Life coefficients (printed for the same materials)
-  are NOT built this version (`SPCR-Q-004`).
+  of mass cited to `GALSC` §4.1's own dated entry for `gsat`. **`life` is REQUIRED, no default**
+  (**ruled 2026-09-24**, resolving `SPCR-Q-004`): `GALSC`'s own Material 2 rows (present on
+  +X/+Y/-Y/+Z only) print SEPARATE Beginning-Of-Life and End-Of-Life coefficients, and every IOV
+  satellite is long past early life as of 2026 (all three launched 2011–2012), so a silently
+  defaulted BOL would be the wrong answer for present use — plan §5 constraint 10 (`SPEC-macromodel`
+  `MCRM-Q-001`'s own reasoning: a value's own meaning belongs in its type, not an unstated
+  convention). Material 1 (every face) is printed "BOL & EOL" as one unchanging set, unaffected by
+  `life` either way — `SPCR-A-014` checks both: BOL and EOL genuinely differ where `GALSC` prints
+  different coefficients, and agree exactly where it prints the same ones.
 - **SPCR-R-010.** `galileo_foc(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>`
   — `gsat` one of `GALSC`'s own 26 currently-listed FOC satellites, else refuses `SPCR-F-004`;
   `epoch` on the same terms as `SPCR-R-009`, else refuses `SPCR-F-005`. Surfaces mapped and cited
-  the same way, from `GALSC` §6.2's own table (one set of coefficients per material, not a
-  BOL/EOL pair). `GALSC`'s own +Z panel total (1.053 + 1.969 = 3.022 m²) disagrees with its own
-  summary-table figure (3.036 m²) by 0.46% — built from the detailed, itemised table (this spec's
-  own established preference for the finer-grained source, `RS14`'s own precedent), the gap
-  recorded rather than silently resolved either way.
+  the same way, from `GALSC` §6.2's own table. **No `life` parameter, deliberately**: `GALSC`'s own
+  FOC table prints exactly ONE set of coefficients per material, with NO "BOL"/"EOL" column header
+  or caption of any kind — checked directly (the manager's own instruction, "say... in the
+  source's own words"), not assumed. `GALSC`'s own §6 intro defines both terms ("Note EOL means
+  'End Of Life' and BOL means 'Beginning Of Life'") in the context of IOV's own separate columns,
+  but its own FOC table (§6.2) carries neither label — the source itself does not state which life
+  stage its own single FOC set represents, so this spec does not guess: FOC's own optics are
+  reported as `GALSC` prints them, unqualified, not asserted to be BOL, EOL, or an average of the
+  two. `GALSC`'s own +Z panel total (1.053 + 1.969 = 3.022 m²) disagrees with its own summary-table
+  figure (3.036 m²) by 0.46% — built from the detailed, itemised table (this spec's own established
+  preference for the finer-grained source, `RS14`'s own precedent), the gap recorded rather than
+  silently resolved either way.
 - **SPCR-R-011.** Every numeric value `SPCR-R-008`–`SPCR-R-010` state is a `Cited<double>` or
   `Cited<Vec3>` (`SPEC-macromodel`'s own `MCRM-R-004`), the same rule `SPCR-R-006` states for GPS —
   this spec adds no exemption for Galileo either.
@@ -376,10 +389,11 @@ building anyway, per instruction, not because the result turned out ambiguous.
 - `gps_block_iiia() -> Result<Macromodel, SpacecraftError>` — refuses unconditionally, §4
   `SPCR-R-007`.
 - `galileo_frame_from_mechanical(mechanical: Vec3) -> Vec3` — §4 `SPCR-R-008`.
-- `galileo_iov(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>` — §4
-  `SPCR-R-009`.
+- `OpticalLife { BeginningOfLife, EndOfLife }` — §4 `SPCR-R-009`'s own required selector.
+- `galileo_iov(gsat: int, epoch: YearMonth, life: OpticalLife) -> Result<Macromodel, SpacecraftError>`
+  — §4 `SPCR-R-009`.
 - `galileo_foc(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>` — §4
-  `SPCR-R-010`.
+  `SPCR-R-010`. No `life` parameter — `GALSC`'s own FOC table carries no BOL/EOL label at all.
 - `YearMonth { year: int, month: int }`, ordered — §3's own stated precision match to `GALSC`'s
   own dated entries.
 
@@ -452,6 +466,7 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-A-011` | both of `GALSC`'s own wings (IOV: +Y/-Y; FOC: +SA/-SA) are identical in area and optics, checked cell by cell before being summed; the built macromodel's own sun-pointing surfaces carry the summed areas (7.76/3.06 m² IOV, 7.760/3.060 m² FOC) | identical inputs; summed outputs present | `GALSC` §6, read directly in the test | exact | R-009, R-010 |
 | `SPCR-A-012` | mass/CoM lookup: the right value at a known GSAT; refused for an unknown GSAT (`SPCR-F-004`); refused for an epoch one month before coverage, shown firing exactly at that boundary; succeeds exactly at the coverage start and well after (open-ended coverage) | the diagnostics; the stated values | `SPCR-R-009`/`-010`'s own domain | 1e-9 | F-004, F-005, R-009, R-010 |
 | `SPCR-A-013` | every built IOV/FOC macromodel is fully cited (mass, CoM, every surface's own area and absorptivity); the citation-refusal guard (`MCRM-F-001`) reaches this module's own call path; the centre of mass is a real, nonzero offset (unlike GPS's own (0,0,0) default) | no empty citation; the refusal fires; `\|com\| > 0.1` m | `SPCR-R-011` | — | R-011 |
+| `SPCR-A-014` | `galileo_iov`'s own BOL and EOL optics genuinely differ where `GALSC` prints different coefficients (the Optical surface radiator, +X/+Y/-Y) and agree exactly where it prints the same ones (the Germanium-coated Kapton foil, +Z; Material 1; both wings) — every surface's own area and normal unchanged either way, only optics vary | BOL/EOL differ on 3 faces, agree on the rest; areas identical | `GALSC` §6.1, read directly in the test | exact | R-009 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -498,6 +513,6 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-Q-001` | **Block IIF — RESOLVED** (manager, 2026-09-24). Ruled: build from `RS14` Table 5.5 directly (it publishes per-surface values itself) rather than the imagery-derivation fallback `../plan/PLAN.md` §3.6 names — dimensions cited to `RS14`'s own stated chain-end ("an unpublished document"), optics marked ASSUMED (`RS14`'s own generic Ziebart (2001) assumption, not a new analogue chosen from outside the source). Built, `SPCR-R-004`; the imagery-derivation route was not needed and remains unused. |
 | `SPCR-Q-002` | **Per-satellite mass from `IGSMETA`, PARTIALLY RESOLVED this round.** `gps_block_iir`/`_iir_m`/`_iif` now use `IGSMETA`'s own per-satellite figure for their own single reference SVN (50, 50, 63 respectively) as the primary mass, §3. Still open: a genuine per-SVN table for satellites OTHER than these three references (e.g. a specific non-reference IIR-M SVN L7 might one day need) remains unbuilt — worth doing before L7 needs more than the reference satellites, or acceptable to keep at reference-satellite granularity? |
 | `SPCR-Q-003` | **What does `IGSMETA`'s own `SATELLITE/MASS` field mean — RESOLVED** (manager asked this round, quote required before trusting the field for SRP). `IGSMETA`'s own header: `"SATELLITE/MASS  In-orbit satellite mass"`. `SMSD24` §1.1, in full: *"Knowledge of the mass of a GNSS satellite is required to compute the acceleration caused by non-gravitational forces (such as solar radiation pressure, radiation thrust, or Earth radiation pressure). In line with the quality of other model parameters, a 1% accuracy is typically deemed adequate for this purpose. Updates following the start of initial operations are only required after maneuvers and incremental mass changes of more than 1 kg."* Not launch mass, not unstated — documented, specifically, for this library's own purpose. `SMSD24` §4.3's own Table 5 gives block-level in-orbit figures independently (GPS IIR/IIR-M 1080 kg, Hegarty 2017; IIF 1633 kg, a Boeing technical-specifications page), matching this session's own per-SVN reads (SVN50, SVN63) exactly — and states explicitly that Block I/II/IIA's own individually-varying `FLGA92` masses are NOT incorporated into this SINEX block, which is why those three blocks keep `RS14` as primary (§3) rather than switching too. |
-| `SPCR-Q-004` | **`GALSC`'s own End-Of-Life optical coefficients for IOV (§6.1's own Material 2 rows).** This version builds Beginning-Of-Life only (`SPCR-R-009`); EOL is printed for the same materials, unused. Worth a `bol`/`eol` selector before L7 reads this library for a long-lived IOV satellite (all three IOV satellites are well past early life as of 2026), or acceptable to keep at BOL for this version, matching FOC's own single (unlabelled) set? |
+| `SPCR-Q-004` | **`GALSC`'s own End-Of-Life optical coefficients for IOV — RESOLVED** (manager, 2026-09-24). Ruled: an explicit `OpticalLife` selector, REQUIRED, no default (`SPCR-R-009`) — both BOL and EOL now built, chosen by the caller, since every IOV satellite is long past early life and a silent default would be the wrong answer for present use. `SPCR-A-014` checks the selector actually reaches the built surfaces. |
 | `SPCR-Q-005` | **FOC's own "modified yaw steering law" is not built (`GALY-Q-001`, `SPEC-galileo-attitude.md`) — `galileo_yaw_attitude` refuses instead, near colinearity.** Does any consumer need FOC attitude that close to colinearity (β < 4.1°, ε < 10°) before this is worth building? The condition is rare (a narrow geometric window) and GSC's own text frames it as a smoothing measure, not a large-swing regime the way GPS's own noon/midnight turns are. |
 | `SPCR-Q-006` | **A genuine per-SVN mass table for Galileo satellites GSC does not currently list (205, 228–231) or for GSAT numbers retired since this pin.** Not searched this round — `GALSC`'s own table is used as printed, absences not filled in or guessed at. Worth a follow-up search if L7 needs one of these specifically. |

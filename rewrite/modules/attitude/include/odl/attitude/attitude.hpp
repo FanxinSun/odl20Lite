@@ -118,11 +118,10 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
 /// Which of GSC's own two printed laws applies -- one mathematical family
 /// (GALY-R-001's own shared orbital-frame Sun projection), differing in the
 /// near-singularity handling each of GSC's own sections gives: IOV (§3.1.1)
-/// substitutes a smooth auxiliary Sun vector; FOC (§3.1.2) is not built
-/// through its own near-colinearity "modified yaw steering law" this
-/// version (`GALY-Q-001`) -- `galileo_yaw_attitude` REFUSES there instead of
-/// silently returning FOC's own unmodified formula, which GSC's own text
-/// states is not what the real spacecraft flies that close to colinearity.
+/// substitutes a smooth auxiliary Sun vector; FOC (§3.1.2) uses its own
+/// "modified yaw steering law" inside its own named near-colinearity region
+/// (built 2026-09-24, the manager's own ruling -- an earlier version
+/// refused there instead, `GALY-F-001`, now retired).
 enum class GalileoBlock { IOV, FOC };
 
 /// GALY-R-001..R-004. GSC's own yaw-steering law ("Galileo Satellite
@@ -140,11 +139,12 @@ enum class GalileoBlock { IOV, FOC };
 ///    "auxiliary Sun reference vector" (§3.1.1) for the real Sun direction
 ///    before calling `nominal_yaw_steering` -- continuous by construction at
 ///    the region's own boundary (`GALY-A-006`).
-///  - `FOC`: GSC's own primary formula (§3.1.2) outside its own named
-///    near-colinearity switch-over region (β < 4.1°, colinearity angle
-///    ε < 10°); REFUSES (`GALY-F-001`) inside it, rather than building
-///    GSC's own "modified yaw steering law" this version does not implement
-///    (`GALY-Q-001`).
+///  - `FOC`: GSC's own "modified yaw steering law" (§3.1.2) inside its own
+///    named near-colinearity switch-over region (|β| < 4.1°, colinearity
+///    angle ε < 10°) -- built via a CLOSED-FORM window entry (`GALY-A-009`
+///    proves GSC's own colinearity angle ε depends on μ alone, not β, so
+///    the window's own entry μ is a fixed constant, never a remembered
+///    crossing), GSC's own primary formula outside it.
 ///
 /// Returns M_gcrs_to_body in THIS TREE's own convention (matching
 /// `nominal_yaw_steering`/`gps_yaw_attitude`), not GSC's own native frame --

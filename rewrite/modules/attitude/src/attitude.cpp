@@ -496,24 +496,115 @@ constexpr double kGalileoBetaYRad = 2.0 * kDegToRad;
     return GalileoOrbitalSun{s.x, hy, hz};
 }
 
-/// GSC Sec.3.1.2's own colinearity angle epsilon, between the Sun/orbit-
-/// normal plane and the satellite's own position vector -- the FOC
-/// switch-over region's own second gate (the first is |beta| < 4.1 deg).
-/// Degenerate only where n_hat is exactly parallel to s_hat (the Sun in the
-/// orbital plane's own normal direction, |beta| = 90 deg, never reached
-/// where this is called); guarded the same way `nominal_yaw_steering`
-/// guards its own near-parallel cross product, returning 0 (inside every
-/// gate) rather than dividing by a near-zero norm -- harmless here, since
-/// |beta| = 90 deg already fails this function's own caller's beta gate.
-[[nodiscard]] double galileo_foc_colinearity_rad(const OrbitTriad& tri, const Vec3& s_hat) noexcept {
-    const Vec3 x = tri.n_hat.cross(s_hat);
-    const double x_norm = x.norm();
-    if (x_norm < kMinAxisNorm) return 0.0;
-    const Vec3 y_hat = (1.0 / (tri.n_hat.cross(x)).norm()) * tri.n_hat.cross(x);
-    const double c_raw = tri.r_hat.dot(y_hat);
-    const double c = c_raw < -1.0 ? -1.0 : (c_raw > 1.0 ? 1.0 : c_raw);
-    const double raw = std::acos(c);
-    return (raw <= M_PI / 2.0) ? raw : (M_PI - raw);
+/// GSC Sec.3.1.1's own IOV formula and Sec.3.1.2's own FOC formula, as a
+/// 2-argument closed form in (beta, mu) alone -- GPS's own `psi_nominal`
+/// shape, for Galileo's own convention: S_X = cos(beta)*sin(mu), S_Y =
+/// -sin(beta), S_Z = cos(beta)*cos(mu) (derived from this file's own
+/// `galileo_orbital_sun` and the standard (r_hat, n_hat, t_hat) triad,
+/// checked against a real fixture, `GALY-A-004`), giving psi = atan2(-S_Y,
+/// -S_X) = atan2(sin(beta), -cos(beta)*sin(mu)).
+[[nodiscard]] double galileo_psi_nominal_beta_mu(double beta, double mu) noexcept {
+    return std::atan2(std::sin(beta), -std::cos(beta) * std::sin(mu));
+}
+
+/// Builds M_gcrs_to_body from a Galileo yaw angle psi (this file's own
+/// atan2(-S_Y,-S_X) convention) and the orbit triad -- Galileo's own
+/// `frame_from_yaw`. DERIVED, not guessed: substituting S_X =
+/// -sqrt(1-S_Z^2)*cos(psi), S_Y = -sqrt(1-S_Z^2)*sin(psi) (psi's own
+/// definition) into `nominal_yaw_steering`'s own x_body construction
+/// (z_body=-r_hat, y_body=normalize(z_body x s_hat), x_body=y_body x
+/// z_body), expanded in terms of t_hat/n_hat/r_hat, gives x_body =
+/// -cos(psi)*t_hat + sin(psi)*n_hat EXACTLY -- the sqrt(1-S_Z^2) factor
+/// cancels. NOTE the sign on the sin(psi)*n_hat term is OPPOSITE GPS's own
+/// `frame_from_yaw` (-sin, not +sin): a DIFFERENT psi convention (this
+/// file's own atan2(-S_Y,-S_X), not KOUBA09's Eq. 4/5), not a transcription
+/// of GPS's own formula with a sign slipped -- `GALY-A-010` checks this
+/// reproduces `nominal_yaw_steering`'s own output exactly when fed the
+/// UNMODIFIED nominal psi, proving the derivation rather than trusting the
+/// algebra alone.
+[[nodiscard]] Mat3 galileo_frame_from_psi(const OrbitTriad& tri, double psi) noexcept {
+    const Vec3 z_body = -1.0 * tri.r_hat;
+    const Vec3 x_body = (-std::cos(psi)) * tri.t_hat + std::sin(psi) * tri.n_hat;
+    const Vec3 y_body = z_body.cross(x_body);
+    Mat3 m;
+    m.r[0] = {x_body.x, x_body.y, x_body.z};
+    m.r[1] = {y_body.x, y_body.y, y_body.z};
+    m.r[2] = {z_body.x, z_body.y, z_body.z};
+    return m;
+}
+
+/// GSC Sec.3.1.2's own colinearity angle epsilon, PROVED (not merely
+/// observed, `GALY-A-009`) to depend on mu ALONE, independent of beta:
+/// epsilon's own defining construction (x = n x s, y = n x x, epsilon =
+/// fold(arccos(r.y_hat))) reduces, substituting S_X = cos(beta)*sin(mu),
+/// S_Z = cos(beta)*cos(mu), to cos(raw_epsilon) = S_Z/cos(beta) = cos(mu)
+/// EXACTLY -- the cos(beta) factor cancels. So `raw_epsilon = |mu|`, and
+/// `epsilon = fold(|mu|)`, `fold(x) = x` for `x <= 90 deg` else `180 deg -
+/// x`. THIS IS WHAT MAKES THE MODIFIED LAW'S OWN "MOMENT ITS WINDOW OPENED"
+/// COMPUTABLE FROM GEOMETRY ALONE (the manager's own instruction): the
+/// window's own entry mu is a FIXED closed-form constant (+/-10 deg near
+/// midnight, 170/190 deg near noon), never requiring a remembered crossing
+/// -- the same closed-form-entry-point shape `evaluate_shadow_crossing`
+/// already uses for GPS's own IIF shadow (mu_s = -half_width, a constant
+/// given beta, not searched for or remembered).
+[[nodiscard]] double galileo_fold_epsilon_rad(double mu) noexcept {
+    const double m = std::abs(wrap_near(mu, 0.0));
+    return (m <= M_PI / 2.0) ? m : (M_PI - m);
+}
+
+constexpr double kFocBetaGateRad = 4.1 * kDegToRad;
+constexpr double kFocEpsilonGateRad = 10.0 * kDegToRad;
+/// GSC Sec.3.1.2's own printed period, the modified law's own cosine ramp.
+constexpr double kFocSwingPeriodS = 5656.0;
+
+struct FocWindow {
+    bool active;
+    double mu_s;  ///< the window's own entry mu (a fixed constant, this beta-independent)
+};
+
+/// GSC Sec.3.1.2's own switch-over condition (|beta| < 4.1 deg AND epsilon <
+/// 10 deg), reformulated through `galileo_fold_epsilon_rad`'s own proof: the
+/// window is `mu` within 10 deg of 0 (midnight) or within 10 deg of +/-180
+/// deg (noon), `mu_s` the LOWER edge of whichever window `mu` currently
+/// sits in (the edge a normal, mu-increasing prograde pass enters through
+/// first) -- stateless, no remembered "previous epoch" needed (GSC's own
+/// third condition, "the colinearity angle for the previous epoch was
+/// bigger than 10 deg", is exactly "mu was, an instant ago, outside this
+/// same geometric window", automatic for a monotonically increasing mu and
+/// so not separately tracked).
+[[nodiscard]] FocWindow galileo_foc_window(double beta, double mu) noexcept {
+    if (std::abs(beta) >= kFocBetaGateRad) return {false, 0.0};
+    if (galileo_fold_epsilon_rad(mu) >= kFocEpsilonGateRad) return {false, 0.0};
+    // Inside the window: which side (midnight or noon) decides mu_s, the
+    // entry a normal, mu-increasing pass crosses first.
+    const double mu_midnight = wrap_near(mu, 0.0);
+    if (std::abs(mu_midnight) < M_PI / 2.0) return {true, -kFocEpsilonGateRad};
+    return {true, M_PI - kFocEpsilonGateRad};
+}
+
+/// GSC Sec.3.1.2's own "modified yaw steering law", transcribed: psi_mod
+/// (t_mod) = 90deg*sign + (psi_init - 90deg*sign)*cos(2*pi/5656s * t_mod),
+/// sign = sign(psi_init), psi_init = psi(t) AT the switch-over,
+/// t_mod = elapsed time since it. `mu_s` (`galileo_foc_window`'s own
+/// closed-form window entry) makes psi_init computable directly:
+/// `galileo_psi_nominal_beta_mu(beta, mu_s)`, the SAME current beta
+/// (assumed constant across the brief transit, the SAME approximation
+/// IOV's own Gamma already relies on, Sec.3, `SPEC-galileo-attitude.md`).
+/// `t_mod` needs an angular RATE to convert an elapsed mu into elapsed
+/// time: `mu_dot_rad_per_s` is the CURRENT (r,v)'s own instantaneous
+/// osculating rate, |r x v|/|r|^2 -- computed fresh from the caller's own
+/// state each call, not a fixed constant the way GPS's own
+/// `kMuDotRadPerS` is (a different orbit, a different period) -- so this
+/// function, and its own caller, stay stateless.
+[[nodiscard]] double galileo_foc_modified_psi(double beta, double mu_dot_rad_per_s, double mu_s,
+                                              double mu_current) noexcept {
+    const double psi_init = galileo_psi_nominal_beta_mu(beta, mu_s);
+    const double sign_init = (psi_init < 0.0) ? -1.0 : 1.0;
+    const double mu_q = wrap_near(mu_current, mu_s);
+    const double t_mod = (mu_q - mu_s) / mu_dot_rad_per_s;
+    const double half_pi_signed = M_PI / 2.0 * sign_init;
+    return half_pi_signed +
+           (psi_init - half_pi_signed) * std::cos(2.0 * M_PI / kFocSwingPeriodS * t_mod);
 }
 
 }  // namespace
@@ -630,20 +721,19 @@ galileo_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
         return nominal_yaw_steering(r_gcrs_m, s_eff);
     }
 
-    // FOC: GSC's own primary formula outside its own named near-colinearity
-    // switch-over region; refuses inside it rather than building GSC's own
-    // "modified yaw steering law" (GALY-Q-001, not built this version).
+    // FOC: GSC's own "modified yaw steering law" inside its own named
+    // near-colinearity switch-over region (GALY-R-003, built per the
+    // manager's own ruling, 2026-09-24 -- withdraws the earlier version's
+    // own refusal there, GALY-F-001 retired); GSC's own primary formula
+    // outside it.
     const double beta = signed_beta_rad(s_hat, tri.n_hat);
-    const double epsilon = galileo_foc_colinearity_rad(tri, s_hat);
-    constexpr double kFocBetaGateRad = 4.1 * kDegToRad;
-    constexpr double kFocEpsilonGateRad = 10.0 * kDegToRad;
-    if (std::abs(beta) < kFocBetaGateRad && epsilon < kFocEpsilonGateRad) {
-        return odl::err(AttitudeError{"GALY-F-001",
-            "FOC's own near-colinearity switch-over region (|beta| < 4.1 deg AND "
-            "colinearity epsilon < 10 deg, GSC Sec.3.1.2): this version does not build "
-            "GSC's own 'modified yaw steering law' (GALY-Q-001), so it refuses rather than "
-            "returning the primary formula's own value there, which GSC's own text states "
-            "is not what the real spacecraft flies this close to colinearity"});
+    const double mu = mu_rad(tri, s_hat);
+    const FocWindow window = galileo_foc_window(beta, mu);
+    if (window.active) {
+        const double mu_dot_rad_per_s =
+            r_gcrs_m.cross(v_gcrs_m_per_s).norm() / (r_gcrs_m.norm() * r_gcrs_m.norm());
+        const double psi = galileo_foc_modified_psi(beta, mu_dot_rad_per_s, window.mu_s, mu);
+        return galileo_frame_from_psi(tri, psi);
     }
     // GALY-F-002: forwarded unchanged from ATTD-F-001, outside the colinearity
     // region (which is itself outside the nadir singularity nominal_yaw_steering

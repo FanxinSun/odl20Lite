@@ -5450,12 +5450,116 @@ their face, the same category of catch `plan` rule 5 asks every test to survive 
 a deliberately broken version" — here, the TEST itself was the thing shown broken, by its own
 output, before the code under test was blamed).
 
+### 32.7 The review round: FOC's own modified law built, the real two guards, a real-data control, an explicit BOL/EOL selector
+
+`SPEC-galileo-attitude.md` v1.1, `SPEC-spacecraft.md` v2.1. Reviewed: most of §32.1–32.6 accepted
+outright (the frame, the anti-nadir catch, the optics, mass-by-epoch, the reduction to L4's own
+nominal law, the FOC panel gap, the unit-crossing gate's own catch). Three things did not survive
+review.
+
+**FOC's own "modified yaw steering law" was ruled and built, reversing §32.5's own earlier
+refusal.** The manager's own reasoning: the window (`|β| < 4.1°` within 10° of noon or midnight)
+IS Galileo's own noon/midnight turn — the same regime step 6 was about for GPS — not a rare corner
+worth refusing past. Building it statelessly needed the window's own entry computed from geometry,
+the way `evaluate_shadow_crossing` computes GPS's own IIF shadow entry/exit, not remembered. This
+fell out of a genuinely surprising closed form, derived and then checked, not assumed: `GALSC`'s
+own colinearity angle ε, defined by a three-step vector construction (`x = n̂×s`, `y = n̂×x`, `ε =
+fold(arccos(r̂·ŷ))`), reduces ALGEBRAICALLY to depend on μ ALONE — `cos(raw_ε) = S_Z/cos(β) =
+cos(μ)` exactly, the `cos(β)` factor cancelling — so `ε = fold(|μ|)`, independent of β entirely.
+Checked, not trusted on the algebra alone: an independent vector-based transcription of ε's own
+construction matches `fold(|μ|)` at four β (same μ) and four μ (same β), `GALY-A-008`. This makes
+the window's own entry a FIXED constant (`±10°` near midnight, `170°`/`190°` near noon), so
+`galileo_foc_window(β, μ)` is a pure, stateless function of the current geometry — no memory of a
+"previous epoch," the third of `GALSC`'s own three switch-over conditions ("the colinearity angle
+for the previous epoch was bigger than 10°") being automatically true for a monotonically
+increasing μ and so not separately tracked.
+
+Building the modified law itself needed a "frame from ψ" construction this tree did not have for
+Galileo's own ψ convention (IOV's own substitution had avoided needing one, by reconstructing an
+effective Sun vector and delegating to the already-trusted `nominal_yaw_steering` — a trick that
+does not apply to a formula that is not itself expressible as a substituted Sun direction).
+DERIVED, not guessed, the same way the frame-mapping rotation was: substituting ψ's own definition
+into `nominal_yaw_steering`'s own construction, expanded in `(t̂, n̂, r̂)`, gives `x_body =
+-cos(ψ)·t̂ + sin(ψ)·n̂` exactly (`galileo_frame_from_psi`) — proved by checking it reproduces
+`nominal_yaw_steering`'s own output exactly when fed the unmodified nominal ψ (`GALY-A-009`), not
+trusted on the algebra alone either. `t_mod` (elapsed time since the window's own entry) uses the
+CURRENT `(r, v)`'s own instantaneous rate `|r×v|/|r|²`, not a fixed constant the way GPS's own
+`kMuDotRadPerS` is (a different orbit, a different period) — exact for a circular orbit, keeping
+the interface stateless without a Galileo-specific constant. The built law matches an independent
+transcription of `GALSC`'s own printed formula, window entry and `t_mod` each computed fresh, at
+four geometries spanning both windows and both sides of centre (`GALY-A-010`).
+
+**Step 6's own two guards, built as step 6 actually built them — not the substitutes an earlier
+round used.** Continuity and a bounded rate are real properties (kept, `GALY-A-006`/`GALY-A-007`),
+but the manager's own point stood: neither can see a reversed-time defect or a wrong-sense ramp,
+the two defect classes `TYAW-A-012` and `TYAW-A-015` actually exist to catch. Built properly this
+round, for IOV and FOC alike:
+
+- **Time direction** (`GALY-A-011`): a REGISTERED geometric milestone (the window's own physical
+  centre) is reached at the true elapsed time a real, Kepler-rate-propagated trajectory predicts —
+  shown firing on a reversed-velocity version for FOC, which reaches a materially different state
+  at the same registered time. IOV's own version of this guard took a real, unplanned detour: the
+  first attempt (reverse `v`, expect a different output) FAILED to fail — `max_component_diff` came
+  back EXACTLY 0. Checked algebraically before assuming a test bug: reversing `v` flips `n̂` and
+  `t̂` (hence `Γ` and `(S_X, S_Y)`), but the sign flips cancel EXACTLY through
+  `from_galileo_orbital`'s own reconstruction, landing on the SAME effective Sun direction —
+  `nominal_yaw_steering` itself never reads `v` at all. **Reversed velocity is a PROVED exact
+  symmetry of IOV's own substitution, not a defect** — confirmed numerically (the algebra was
+  checked first, then trusted), and reported as a real, genuinely interesting structural finding
+  rather than forced into a test asserting something false. IOV's own guard was rebuilt to exercise
+  what IS genuinely time/history-dependent about its own law — `Γ`'s own stateless approximation —
+  instead.
+- **Rotation sense** (`GALY-A-012`): through the window's own entry, the smoothed/modified law's
+  own rate has the same sign as the nominal law's own rate there — shown firing on a deliberately
+  sense-flipped version. A second real test bug, caught the same way as §32.6's: the first version
+  evaluated exactly AT the window's own entry (`t_mod = 0`), where the cosine ramp's own rate is
+  EXACTLY zero by construction (`GALSC`'s own formula, not a defect) — both the real and the
+  deliberately-broken version reported a near-zero, numerically unreliable rate there, and the
+  "opposite sign" check came back `0.0 < 0.0`, false by construction, not a passing or a failing
+  comparison at all. Fixed by evaluating well inside the window instead (μ a few degrees past
+  entry, both probe points on the SAME side of the formula, avoiding the earlier version's second
+  bug too — straddling the window's own boundary had mixed the modified law on one side with
+  `nominal_yaw_steering`'s own fallthrough on the other, not one formula's own rate against itself).
+
+**A real-data control**, run for the first time against either law (`tools/orbex_galileo_check.cpp`,
+reproducible on demand, not gated — the same treatment GPS's own ORBEX tools get). CODE's own MGEX
+Galileo attitude, one IOV satellite (E11) and one FOC satellite (E33), each at a real noon AND a
+real midnight crossing. The day was found by a `--scan` pass over SP3 positions ALONE (no attitude
+read): June 2023 gave β ≈ 25–50° for every candidate tried (too large), September gave β ≈ 7°
+(closer), and 2023-10-07 (DOY 280) gave β ≈ 0.4–1.1° for E11/E12 (IOV) and, in the SAME orbital
+plane's own family, E33/E34/E36 (FOC) — a genuinely low-β day for both blocks at once. Predictions
+and a 2° relative criterion REGISTERED (computed and printed) BEFORE any attitude quaternion was
+read, per instruction. Result: all four matched — E11's own two crossings to a few THOUSANDTHS of
+a degree, E33's own two (the newly-derived modified law) to about a TENTH of a degree — the
+tightest agreement either law has been checked against, and the first time FOC's own modified law
+met real data at all. One implementation bug surfaced and fixed before this ran cleanly: an
+elapsed-seconds-since-midnight value was passed directly as `Calendar::second` (which expects a
+within-the-minute value), crashing the Epoch constructor past the first minute of any day — caught
+by the assertion failure itself, not silently wrong output.
+
+**`SPCR-Q-004` (IOV's own End-Of-Life optics) resolved**: an explicit `OpticalLife` selector,
+REQUIRED, no default (plan §5 constraint 10 — a value's own meaning belongs in its type). Every
+IOV satellite is long past early life as of 2026 (launched 2011–2012), so a silently-defaulted BOL
+would have been the wrong answer for present use. `GALSC`'s own EOL coefficients (printed for the
+same Material 2 rows BOL is) were transcribed and built; `SPCR-A-014` checks the selector actually
+reaches the built surfaces (BOL and EOL genuinely differ where `GALSC` prints different numbers,
+agree exactly where it prints the same ones). Per the manager's own instruction, FOC's own single,
+unlabelled optics set was checked directly against `GALSC`'s own words rather than assumed: its
+own §6 intro defines "BOL"/"EOL" in the context of IOV's own separate columns, but FOC's own table
+(§6.2) carries neither label — `SPEC-spacecraft.md` `SPCR-R-010` now states this explicitly rather
+than silently building FOC's own set without comment.
+
+349 tests tree-wide (was 344); all 13 `ci.sh` gates green, 696 artefacts byte-identical. One gate
+catch along the way (§32.3-adjacent, this round): none new — gate 12's own earlier catch
+(§32.3) stood unchanged.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-24 | **L5 step 2 review round: FOC's own modified yaw steering built via a closed-form window entry (epsilon depends on mu alone, PROVED), step 6's own real two guards built (not the substitutes an earlier round used), a real-data control run for the first time (all four checks matched, IOV to thousandths of a degree, FOC to a tenth), an explicit BOL/EOL selector for IOV.** SPEC-galileo-attitude v1.1, SPEC-spacecraft v2.1, PROVENANCE.md Sec.32.7 added. Most of the prior round accepted outright; three things did not survive review. FOC's own "modified yaw steering law": the manager ruled it in scope (the window IS Galileo's own noon/midnight turn, not a corner) and required a geometry-derived window entry, the same shape GPS's own IIF shadow crossing uses. Derived: GSC's own colinearity epsilon reduces algebraically to depend on mu alone (cos(beta) cancels), so the window's own entry is a fixed constant, not a remembered crossing -- checked against an independent vector-based transcription before being trusted. A new "frame from psi" construction was derived (x_body = -cos(psi)*t_hat + sin(psi)*n_hat, the sign on sin OPPOSITE GPS's own convention, a different psi definition not a slip) and proved by reproducing nominal_yaw_steering's own output when fed the unmodified angle. t_mod's own rate comes from the CURRENT state's own |r x v|/|r|^2, not a fixed constant -- Galileo's own orbit is a different period from GPS's. The built law matches an independent transcription at four geometries. Step 6's own two guards (time direction, rotation sense) were rebuilt properly: IOV's own time-direction guard hit a real, interesting finding along the way -- reversing velocity is a PROVED EXACT SYMMETRY of IOV's own substitution (the sign flips in Gamma and in the reconstructed Sun vector cancel exactly, nominal_yaw_steering never reading v at all), not a defect, checked algebraically before trusting the numeric result, and reported honestly rather than forced into a test asserting something false. The rotation-sense guard hit a second real test bug, caught the same way as an earlier one: evaluating exactly at the window's own entry measures a rate that is EXACTLY ZERO by construction (the cosine ramp's own printed shape), giving a meaningless "0.0 < 0.0" comparison -- fixed by probing well inside the window instead. The real-data control (tools/orbex_galileo_check.cpp, reproducible, not gated): a --scan pass over bare SP3 positions found 2023-10-07 as a genuinely low-beta day (beta 0.4-1.1 deg) for one IOV satellite (E11) and one FOC satellite (E33) after June and September dates gave beta too large; predictions and a 2-degree criterion REGISTERED before any attitude quaternion was read; all four crossings matched, the tightest agreement either law has had, and the first real-data check FOC's own newly-derived law has ever had. One implementation bug (elapsed seconds passed where a within-the-minute Calendar field was expected) crashed the Epoch constructor past the first minute of any day, caught by the assertion itself. SPCR-Q-004 resolved: an explicit, required OpticalLife selector for IOV's own BOL/EOL optics (plan Sec.5 constraint 10), and SPEC-spacecraft.md now states, in GALSC's own words, that FOC's single optics set carries no life-stage label at all. 349 tests tree-wide, all 13 ci.sh gates green, 696 artefacts byte-identical. |
 | 2026-09-24 | **L5 step 2 opens and its own first build lands: Galileo (IOV, FOC), from the operator's own metadata -- frame mapped and VERIFIED against real coordinate pairs (catching a "(+z, anti-nadir)" labelling error in SPEC-spacecraft.md's own prose along the way), mass/CoM a new per-satellite-at-an-epoch lookup, the yaw law reduced to existing, already-trusted code and checked against two independently-transcribed printed forms.** §32 added, `SPEC-spacecraft` to v2.0, `SPEC-galileo-attitude` v1.0 (new). Rule-4/licence search clean (GSC's own Terms of Use authorise redistribution with "© EU 2011-2026" acknowledged) -- unlike RS14's own genuinely unclear case, no ruling needed. The frame: GSC's own +Z is nadir (matching this tree's own +Z exactly) but +X is toward deep space, not the Sun; the 180-degree-about-Z mapping is VERIFIED against three real coordinate pairs GSC prints itself (its own Mechanical-RF/ANTEX-RF columns for the SAME physical point: two IOV, one FOC), not trusted from prose -- and checking this caught that SPEC-spacecraft.md's own existing "(+z, anti-nadir)" parenthetical was backwards (RS14's own "opposite the radial direction" is -r_hat, NADIR, matching `nominal_yaw_steering`'s own code exactly), corrected in place. Geometry/optics: re-parsed from GSC's own real HTML table structure (rowspan/colspan expanded) after an earlier flattened-text pass lost row alignment; GSC's own alpha/rho/delta quoted directly and matching this schema's order with no swap needed (unlike RS14); every material row's own three coefficients checked to sum to 1; multi-material faces built as separate co-normal surfaces, not averaged; a small (0.46%) FOC +Z-panel inconsistency between GSC's own summary and detailed tables found and recorded, built from the detailed table. Mass/CoM: GSC's own tables are genuinely per-satellite and dated: RULED (manager) to return a macromodel for a satellite AT AN EPOCH, refusing one outside the source's own coverage -- the same shape atmosphere's own space-weather lookup already uses, modelled with a new lightweight YearMonth rather than the tree's own full Epoch type (matching the source's own actual monthly precision), tested at the coverage boundary and outside it, each shown firing; the same shape is named, not built, for GPS's own future per-satellite masses. Attitude law: GSC's own IOV and FOC equations, read closely, reduce ALGEBRAICALLY to the SAME formula (proved, not assumed) -- and that shared law turns out to be exactly what `nominal_yaw_steering` (built at L4 step 5) already computes, so this step's own new code is only the two blocks' own deviations from it (IOV's own smooth near-singularity Sun-vector substitution, built; FOC's own near-colinearity "modified yaw steering law", NOT built, refused instead) -- checked against GSC's own SECOND printed form (the ANTEX-converted equations, offset by pi) as an independent verification GPS's own single-form laws never had. Step 6's own two guards (continuity at a boundary, bounded rate along a real trajectory) carried over and adapted; the rate-bounded test's own FIRST version used a wrong angle-extraction proxy and reported the fix as WORSE than the break it was fixing -- caught by the test's own self-contradictory numbers before being trusted, fixed by comparing output frames directly instead of a hand-picked angle. A genuine mm-to-m unit crossing (Galileo's own CoM, printed in mm) annotated per the factor-of-a-thousand gate's own requirement. 344 tests tree-wide (354/13 spacecraft, 93541/19 attitude), all 13 ci.sh gates green. |
 | 2026-09-24 | **L5 step 1: the IIF mass cross-check's own "launch vs. on-orbit" explanation was an unchecked hypothesis -- checked this round and found false. `IGSMETA` is now the primary mass source for IIR/IIR-M/IIF, `RS14` the cross-check.** §31.6 added, `SPEC-spacecraft` to v1.2. The entry below recorded `RS14`'s own IIF mass (1555 kg) as primary with `IGSMETA`'s own 1633 kg as an aggregate cross-check, the ~5% gap "explained" by launch mass exceeding on-orbit dry mass -- an explanation never actually checked against what `IGSMETA`'s own `SATELLITE/MASS` field is documented to be. The manager asked for that check, since the gap goes straight into A/m and every SRP acceleration. `IGSMETA`'s own SINEX header: `"SATELLITE/MASS  In-orbit satellite mass."` Its own format description, fetched directly this round (`SMSD24`, Steigenberger & Montenbruck 2024, DOI 10.57677/metadata-sinex): *"Knowledge of the mass of a GNSS satellite is required to compute the acceleration caused by non-gravitational forces (such as solar radiation pressure...). In line with the quality of other model parameters, a 1% accuracy is typically deemed adequate for this purpose."* Not launch mass -- documented, specifically, for this library's own purpose. The launch-vs-on-orbit explanation is WITHDRAWN, checked and found false, not merely dropped; the gap is now recorded as genuinely unexplained. `SMSD24`'s own Table 5 independently corroborates the raw SINEX rows already read (IIR/IIR-M 1080 kg Hegarty 2017, IIF 1633 kg a Boeing spec page), matching SVN50's and SVN63's own individual rows exactly -- the SAME two satellites (G05, G01) this tree's own `modules/attitude` real-data controls already use as canonical references, so no new satellite enters the tree, only a new field of ones already load-bearing. `SMSD24` §4.3 also states Block I/II/IIA's own individually-varying `FLGA92` masses are NOT incorporated into `SATELLITE/MASS` -- so those three blocks correctly keep `RS14` as primary, an asymmetry recorded rather than papered over by switching everything. Fixed: `gps_block_iir()`/`gps_block_iir_m()` 1100 -> 1080 kg (`IGSMETA`/SVN50 primary, `RS14` the cross-check, independently sourced rather than one inheriting the other's citation string); `gps_block_iif()` 1555 -> 1633 kg (`IGSMETA`/SVN63 primary, `RS14` the cross-check, inverted from the prior round). `SPCR-A-004` extended, `SPCR-A-008` added (both check the citation names its own source AND its own cross-check, plus a regression guard). No design change was needed for L7 to get SVN63's/SVN50's own specific mass: both are already this tree's sole reference satellite for their own block. 199 assertions, 8 test cases, all passing. |
 | 2026-09-24 | **L5 step 1 gate: the δ/ρ mapping was backwards, caught by formula not prose; IIF ruled and built; IIIA searched and refused.** §31 added, `SPEC-spacecraft` to v1.1. `modules/spacecraft` first built five blocks (I, II, IIA, IIR, IIR-M) from `RS14`'s own Tables 5.2-5.4, `52022d3`, using `RS14` §5.1.2's own prose ("delta: reflection... rho: diffusion") to map its own delta/rho notation onto this schema's specular/diffuse. The manager caught that this was verified against WORDS, never the force equation, and required a three-part re-check: the formula, an independent physical check, and an L4-spec check. `RHS12`'s own Eq. 6, reprinted verbatim inside `RS14` as its own "P-II" chapter, carries rho in the "2 rho cos(theta)" mirror-like term and delta in the "2 delta/3" Lambertian term -- specular=rho, diffuse=delta, the OPPOSITE of Sec.5.1.2's own prose, and agreeing instead with RHS12's own separately-stated prose and with RS14 Sec.4.2's own GLONASS formula -- an inconsistency internal to RS14 itself between its own Appendix and its own reprinted primary source, not a real convention. Cross-confirmed by RS14's own partial-derivative section (matching this tree's own already-derived "1+rho+2delta/3" flat-plate coefficient only under rho=specular) and by a physical check (glass-covered GPS panels are predominantly specular; every block's own rho column is an order of magnitude above its delta column). `SPEC-macromodel.md`'s own convention was checked and found already correct -- the error was this spec's own transcription, not an inherited L4 defect. Fixed in `bus_face()`/`solar_panels()`, `SPCR-A-003`'s expected values corrected, a standing `specular > diffuse` panel guard added. Block IIF -- found to have no source at all on the first pass, `RS14` Sec.5.5 naming only "an unpublished document" -- was then ruled built anyway from that same table's own in-table values, area and optics cited SEPARATELY (dimensions ending at the unpublished-document chain-end, optics marked ASSUMED, RS14's own generic Ziebart-2001 fallback), requiring `bus_face`/`solar_panels`/`assemble` to take independent area/optics citation strings. Cross-checked in aggregate two ways: a Space Force fact sheet's 3439 lb = 1559.7 kg (0.3% of RS14's 1555 kg, found earlier) and IGSMETA's own SATELLITE/MASS for SVN63 = 1633 kg (~5%, fetched this round, read as launch vs. on-orbit mass, not a contradiction); a third check, panel span, was sought and NOT completed -- no independently-verified source found, an unconfirmed search-summary figure and a wrong-satellite lead (USA-66, a different satellite from NAVSTAR-66 despite the shared number) both discarded rather than used. Block IIIA: one search performed, its one lead (a ScienceDirect GPS-III box-wing paper) blocked at HTTP 403 like every other publisher this tree has hit, so `gps_block_iiia()` refuses (`SPCR-F-003`) rather than building from an unverified summary -- no baseline consumes it. `SPCR-F-002` retired (does not fire; IIF no longer refuses), kept documented for traceability. 189 assertions, 7 test cases, all passing. |

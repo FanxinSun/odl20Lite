@@ -97,25 +97,77 @@ void for_each_flat_surface(const Macromodel& m, F&& f) {
 }  // namespace
 
 TEST_CASE("SPCR-A-010  every material's own alpha+specular+diffuse sums to "
-          "1, GSC's own arithmetic, for every surface of IOV and FOC alike",
+          "1, GSC's own arithmetic, for every surface of IOV (BOL and EOL "
+          "alike) and FOC",
           "[spacecraft][galileo]") {
-    auto iov = galileo_iov(101, YearMonth{2024, 4});
+    auto iov_bol = galileo_iov(101, YearMonth{2024, 4}, OpticalLife::BeginningOfLife);
+    auto iov_eol = galileo_iov(101, YearMonth{2024, 4}, OpticalLife::EndOfLife);
     auto foc = galileo_foc(201, YearMonth{2026, 5});
-    REQUIRE(iov.has_value());
+    REQUIRE(iov_bol.has_value());
+    REQUIRE(iov_eol.has_value());
     REQUIRE(foc.has_value());
 
-    for (const Macromodel* m : {&*iov, &*foc}) {
+    for (const Macromodel* m : {&*iov_bol, &*iov_eol, &*foc}) {
         for_each_flat_surface(*m, [](double a, double s, double d) {
             CHECK_THAT(a + s + d, WithinAbs(1.0, 1.0e-12));
         });
     }
 
     // IOV has 6 box faces (Material 1 on every face) + 4 Material-2 rows
-    // (+X, +Y, -Y, +Z only) + 2 wings = 12 surfaces.
-    CHECK(iov->surfaces().size() == 12);
+    // (+X, +Y, -Y, +Z only) + 2 wings = 12 surfaces, at either life stage.
+    CHECK(iov_bol->surfaces().size() == 12);
+    CHECK(iov_eol->surfaces().size() == 12);
     // FOC: -X and -- no, every box face has 1 or 2 materials: +X(2) -X(1)
     // +Y(2) -Y(2) +Z(2) -Z(2) = 11, plus 2 wings = 13.
     CHECK(foc->surfaces().size() == 13);
+}
+
+// --- SPCR-A-014 ----------------------------------------------------------------
+
+TEST_CASE("SPCR-A-014  IOV's own BOL and EOL optics genuinely differ where "
+          "GSC prints different coefficients (the Optical surface "
+          "radiator, +X/+Y/-Y) and agree exactly where it prints the SAME "
+          "ones (the Germanium-coated Kapton foil, +Z; Material 1, every "
+          "face; both wings) -- proving the selector actually reaches the "
+          "built surfaces, not merely that it compiles",
+          "[spacecraft][galileo][gate]") {
+    auto bol = galileo_iov(101, YearMonth{2024, 4}, OpticalLife::BeginningOfLife);
+    auto eol = galileo_iov(101, YearMonth{2024, 4}, OpticalLife::EndOfLife);
+    REQUIRE(bol.has_value());
+    REQUIRE(eol.has_value());
+    REQUIRE(bol->surfaces().size() == eol->surfaces().size());
+
+    bool found_differing = false, found_identical_z = false;
+    for (std::size_t k = 0; k < bol->surfaces().size(); ++k) {
+        const auto& a = std::get<FlatSurface>(bol->surfaces()[k]);
+        const auto& b = std::get<FlatSurface>(eol->surfaces()[k]);
+        // Every surface shares the same area and normal at either life
+        // stage (only optics are life-stage-dependent) -- checked, not
+        // assumed, before looking at whether optics themselves differ.
+        CHECK_THAT(a.area_m2().value(), WithinAbs(b.area_m2().value(), 1.0e-12));
+
+        if (std::abs(a.absorptivity().value() - 0.10) < 1.0e-9 &&
+            std::abs(a.area_m2().value() - 0.78) < 1.0e-9) {
+            // The +X Optical surface radiator's own BOL row -- its own EOL
+            // counterpart must differ (0.10 -> 0.25).
+            found_differing = true;
+            CHECK_THAT(b.absorptivity().value(), WithinAbs(0.25, 1.0e-9));
+            CHECK_THAT(b.specular().value(), WithinAbs(0.60, 1.0e-9));
+            CHECK_THAT(b.diffuse().value(), WithinAbs(0.15, 1.0e-9));
+            CHECK(a.absorptivity().citation().find("BOL") != std::string::npos);
+            CHECK(b.absorptivity().citation().find("EOL") != std::string::npos);
+        }
+        if (std::abs(a.absorptivity().value() - 0.57) < 1.0e-9) {
+            // The +Z Germanium-coated Kapton foil -- GSC prints the SAME
+            // triple at both BOL and EOL.
+            found_identical_z = true;
+            CHECK_THAT(b.absorptivity().value(), WithinAbs(0.57, 1.0e-9));
+            CHECK_THAT(b.specular().value(), WithinAbs(0.22, 1.0e-9));
+            CHECK_THAT(b.diffuse().value(), WithinAbs(0.21, 1.0e-9));
+        }
+    }
+    CHECK(found_differing);
+    CHECK(found_identical_z);
 }
 
 // --- SPCR-A-011 ----------------------------------------------------------------
@@ -145,7 +197,7 @@ TEST_CASE("SPCR-A-011  both wings' own area and optics are identical in "
     // The BUILT macromodel's own wing surfaces carry the SUMMED area --
     // proving the summing actually happened, not merely that the inputs
     // permit it.
-    auto iov = galileo_iov(101, YearMonth{2024, 4});
+    auto iov = galileo_iov(101, YearMonth{2024, 4}, OpticalLife::EndOfLife);
     REQUIRE(iov.has_value());
     int sun_pointing_count = 0;
     bool found_7_76 = false, found_3_06 = false;
@@ -170,24 +222,24 @@ TEST_CASE("SPCR-A-012  mass/CoM lookup: the right value at the right GSAT, "
           "exactly at the boundary",
           "[spacecraft][galileo][gate]") {
     // Correct value, IOV GSAT0102, at its own stated "as of" epoch.
-    auto ok = galileo_iov(102, YearMonth{2024, 4});
+    auto ok = galileo_iov(102, YearMonth{2024, 4}, OpticalLife::EndOfLife);
     REQUIRE(ok.has_value());
     CHECK_THAT(ok->mass_kg().value(), WithinAbs(695.318, 1.0e-9));
 
     // Unknown GSAT (IOV has only 101/102/103; 999 is not one of them).
-    auto bad_gsat = galileo_iov(999, YearMonth{2024, 4});
+    auto bad_gsat = galileo_iov(999, YearMonth{2024, 4}, OpticalLife::EndOfLife);
     REQUIRE_FALSE(bad_gsat.has_value());
     CHECK(bad_gsat.error().id == "SPCR-F-004");
 
     // At the boundary: succeeds exactly at valid_from.
-    auto at_boundary = galileo_iov(101, YearMonth{2024, 4});
+    auto at_boundary = galileo_iov(101, YearMonth{2024, 4}, OpticalLife::EndOfLife);
     CHECK(at_boundary.has_value());
     // One month before: refuses.
-    auto before = galileo_iov(101, YearMonth{2024, 3});
+    auto before = galileo_iov(101, YearMonth{2024, 3}, OpticalLife::EndOfLife);
     REQUIRE_FALSE(before.has_value());
     CHECK(before.error().id == "SPCR-F-005");
     // Well after: succeeds (open-ended coverage).
-    auto after = galileo_iov(101, YearMonth{2030, 1});
+    auto after = galileo_iov(101, YearMonth{2030, 1}, OpticalLife::EndOfLife);
     CHECK(after.has_value());
 
     // FOC's own boundary, independently: valid from 2026-05.
@@ -207,7 +259,7 @@ TEST_CASE("SPCR-A-013  every built IOV and FOC macromodel is fully cited, "
           "and the citation-refusal guard reaches this module's own call "
           "path",
           "[spacecraft][galileo][gate]") {
-    auto iov = galileo_iov(103, YearMonth{2024, 4});
+    auto iov = galileo_iov(103, YearMonth{2024, 4}, OpticalLife::EndOfLife);
     auto foc = galileo_foc(234, YearMonth{2026, 5});
     REQUIRE(iov.has_value());
     REQUIRE(foc.has_value());

@@ -131,34 +131,46 @@ add_box_faces(MacromodelBuilder& b, const std::vector<FaceRow>& rows, const std:
 constexpr std::string_view kIovMat1Citation =
     "GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Material 1)";
 /// IOV's own Material 2 (present on +X/+Y/-Y/+Z only): GSC prints SEPARATE
-/// BOL and EOL coefficients here. This version builds BOL (beginning of
-/// life) only -- SPCR-Q-004 names EOL as a named, deliberate gap, not built.
-constexpr std::string_view kIovMat2Citation =
-    "GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Material 2, BOL)";
+/// BOL and EOL coefficients here -- both built, selected by `OpticalLife`
+/// (`galileo.hpp`'s own header comment, plan §5 constraint 10), no default.
+[[nodiscard]] std::string kIovMat2Citation(OpticalLife life) {
+    return std::string("GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Material 2, ") +
+           (life == OpticalLife::BeginningOfLife ? "BOL" : "EOL") + ")";
+}
 constexpr std::string_view kIovWingCitation =
     "GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Wing), +Y and -Y summed";
 
 [[nodiscard]] odl::Result<Macromodel, SpacecraftError> galileo_iov_macromodel(
-    double mass_kg, const Vec3& com_mechanical_mm, const std::string& mass_citation) {
+    double mass_kg, const Vec3& com_mechanical_mm, const std::string& mass_citation,
+    OpticalLife life) {
     MacromodelBuilder b;
 
+    // Material 2's own EOL coefficients differ from BOL for the Optical
+    // surface radiator (+X/+Y/-Y) only -- the Germanium-coated black Kapton
+    // foil (+Z) is printed identically at both (0.57/0.22/0.21 either way,
+    // GSC's own table repeats the same triple in both column groups).
+    const bool eol = (life == OpticalLife::EndOfLife);
     const std::vector<FaceRow> rows = {
         {Face::MinusX, {{1.32, 0.94, 0.00, 0.06}}},
-        {Face::PlusX,  {{0.54, 0.94, 0.00, 0.06}, {0.78, 0.10, 0.72, 0.18}}},
-        {Face::PlusY,  {{1.00, 0.94, 0.00, 0.06}, {2.00, 0.10, 0.72, 0.18}}},
-        {Face::MinusY, {{1.03, 0.94, 0.00, 0.06}, {1.97, 0.10, 0.72, 0.18}}},
+        {Face::PlusX,  {{0.54, 0.94, 0.00, 0.06}, eol ? GalileoMaterial{0.78, 0.25, 0.60, 0.15}
+                                                       : GalileoMaterial{0.78, 0.10, 0.72, 0.18}}},
+        {Face::PlusY,  {{1.00, 0.94, 0.00, 0.06}, eol ? GalileoMaterial{2.00, 0.25, 0.60, 0.15}
+                                                       : GalileoMaterial{2.00, 0.10, 0.72, 0.18}}},
+        {Face::MinusY, {{1.03, 0.94, 0.00, 0.06}, eol ? GalileoMaterial{1.97, 0.25, 0.60, 0.15}
+                                                       : GalileoMaterial{1.97, 0.10, 0.72, 0.18}}},
         {Face::PlusZ,  {{1.72, 0.94, 0.00, 0.06}, {1.28, 0.57, 0.22, 0.21}}},
         {Face::MinusZ, {{3.00, 0.94, 0.00, 0.06}}},
     };
     // Material 1 and Material 2 carry different citations (different BOL/EOL
     // provenance), so each material's own row is built with its own -- not
     // a per-face loop over one shared string.
+    const std::string mat2_citation = kIovMat2Citation(life);
     for (const auto& row : rows) {
         auto s1 = galileo_box_face(row.face, row.materials[0], std::string(kIovMat1Citation));
         if (!s1.has_value()) return odl::err(SpacecraftError{s1.error().id, s1.error().message});
         b.add_surface(*s1);
         if (row.materials.size() > 1) {
-            auto s2 = galileo_box_face(row.face, row.materials[1], std::string(kIovMat2Citation));
+            auto s2 = galileo_box_face(row.face, row.materials[1], mat2_citation);
             if (!s2.has_value()) return odl::err(SpacecraftError{s2.error().id, s2.error().message});
             b.add_surface(*s2);
         }
@@ -313,13 +325,13 @@ Vec3 galileo_frame_from_mechanical(Vec3 mechanical) noexcept {
     return Vec3{-mechanical.x, -mechanical.y, mechanical.z};
 }
 
-odl::Result<Macromodel, SpacecraftError> galileo_iov(int gsat, YearMonth epoch) {
+odl::Result<Macromodel, SpacecraftError> galileo_iov(int gsat, YearMonth epoch, OpticalLife life) {
     auto row = find_mass_com(kIovMassCom, kIovValidFrom, gsat, epoch, "IOV");
     if (!row.has_value()) return odl::err(row.error());
     const std::string mass_citation =
         "GSC Galileo Satellite Metadata Sec.4.1, IOV Table, GSAT" + std::to_string(gsat) +
         ", as of April 2024";
-    return galileo_iov_macromodel(row->mass_kg, row->com_mechanical_mm, mass_citation);
+    return galileo_iov_macromodel(row->mass_kg, row->com_mechanical_mm, mass_citation, life);
 }
 
 odl::Result<Macromodel, SpacecraftError> galileo_foc(int gsat, YearMonth epoch) {
