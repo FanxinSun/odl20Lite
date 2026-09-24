@@ -134,14 +134,16 @@ std::vector<AttRow> read_att(const std::string& path) {
 // Bisects the production gps_yaw_attitude call itself (not a
 // reimplementation) for TYAW-R-002/R-003's own onset/catch-up boundary near mu=180,
 // at a stated real beta -- the same synthetic-fixture construction
-// attitude_tests.cpp's own fixture_at uses.
+// attitude_tests.cpp's own fixture_at uses (PROVENANCE.md Sec.30.14's own
+// sign, matching mu_rad's fix -- an earlier version of this copy predated
+// that fix and used the opposite sin(mu) sign).
 struct Fix { Vec3 r, v, s; };
 Fix fixture_at(double beta_deg, double mu_deg) {
     double beta = beta_deg * kDeg, mu = mu_deg * kDeg;
     Vec3 n_hat{0, 0, 1}, e0{1, 0, 0};
     Vec3 e1 = n_hat.cross(e0);
-    Vec3 r_hat = std::cos(mu) * e0 - std::sin(mu) * e1;
-    Vec3 t_hat = std::cos(mu) * e1 + std::sin(mu) * e0;
+    Vec3 r_hat = std::cos(mu) * e0 + std::sin(mu) * e1;
+    Vec3 t_hat = std::cos(mu) * e1 - std::sin(mu) * e0;
     Vec3 s_hat = (-std::cos(beta)) * e0 + std::sin(beta) * n_hat;
     return {26561e3 * r_hat, 3000.0 * t_hat, s_hat};
 }
@@ -230,7 +232,8 @@ int main(int argc, char** argv) {
         Vec3 r_hat = normalized(r_gcrs), n_hat = normalized(r_gcrs.cross(v_gcrs)), t_hat = n_hat.cross(r_hat);
         double beta_deg = std::asin(std::clamp(s_hat.dot(n_hat), -1.0, 1.0)) / kDeg;
         Vec3 u_mid = -1.0 * normalized(s_hat - s_hat.dot(n_hat) * n_hat);
-        double mu_deg = std::atan2(t_hat.dot(u_mid), r_hat.dot(u_mid)) / kDeg;
+        // negated: matches attitude.cpp's own mu_rad fix, PROVENANCE.md Sec.30.14
+        double mu_deg = -std::atan2(t_hat.dot(u_mid), r_hat.dot(u_mid)) / kDeg;
         double mu_wrapped = mu_deg < 0 ? mu_deg + 360.0 : mu_deg;
         if (mu_wrapped < 150.0 || mu_wrapped > 210.0) continue;
 

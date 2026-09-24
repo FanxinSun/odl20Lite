@@ -251,7 +251,8 @@ int main(int argc, char** argv) {
         double beta_deg = std::asin(std::clamp(s_hat.dot(n_hat), -1.0, 1.0)) / kDeg;
         Vec3 s_orb_raw = s_hat - s_hat.dot(n_hat) * n_hat;
         Vec3 u_mid = -1.0 * normalized(s_orb_raw);
-        double mu_deg = std::atan2(t_hat.dot(u_mid), r_hat.dot(u_mid)) / kDeg;
+        // negated: matches attitude.cpp's own mu_rad fix, PROVENANCE.md Sec.30.14
+        double mu_deg = -std::atan2(t_hat.dot(u_mid), r_hat.dot(u_mid)) / kDeg;
 
         if (beta_deg * beta_deg >= kShadowHalfAngleDeg * kShadowHalfAngleDeg) continue;  // outside Shape E's own domain
         double half_width_deg = std::sqrt(kShadowHalfAngleDeg * kShadowHalfAngleDeg - beta_deg * beta_deg);

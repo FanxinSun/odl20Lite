@@ -57,10 +57,27 @@ struct OrbitTriad {
 /// caller below only reaches this after confirming |beta| is well inside a
 /// turn or shadow threshold, all far below 90 deg, so that degeneracy never
 /// actually occurs where the result is used.
+///
+/// NEGATED relative to the raw ATAN2 (the manager's own finding, corrected
+/// the same day the IIF-noon-turn "lead" was first reported, PROVENANCE.md
+/// Sec.30.12/Sec.30.14): ATAN2(t_hat.u_midnight, r_hat.u_midnight) is the
+/// angle from the SATELLITE forward to midnight, not from midnight forward
+/// to the satellite -- it runs opposite to the direction of motion, the
+/// reverse of this function's own stated contract and of KOUBA09's mu.
+/// Checked directly, not merely argued: d(r_hat)/d(true anomaly) is +t_hat
+/// (confirmed against a real propagated trajectory, t_hat.v_hat = 0.999989),
+/// and expanding u_midnight's own components in the (r_hat,t_hat) frame as
+/// that frame itself rotates forward by a small true angle dphi gives
+/// mu(t+dt) = mu(t) - dphi for the un-negated formula -- mu DECREASING as
+/// the satellite moves forward, for any satellite, a property of the
+/// formula, not of one trajectory. `psi_nominal`, `psidot_nominal` and
+/// `turn_ramp_sign` below are the compensating fix this negation requires,
+/// proved against real ORBEX data (PROVENANCE.md Sec.30.14), not assumed
+/// from the algebra alone.
 [[nodiscard]] double mu_rad(const OrbitTriad& tri, const Vec3& s_hat) noexcept {
     const Vec3 s_orb_raw = s_hat - s_hat.dot(tri.n_hat) * tri.n_hat;
     const Vec3 u_midnight = -1.0 * normalized(s_orb_raw);
-    return std::atan2(tri.t_hat.dot(u_midnight), tri.r_hat.dot(u_midnight));
+    return -std::atan2(tri.t_hat.dot(u_midnight), tri.r_hat.dot(u_midnight));
 }
 
 /// Shifts `angle` by a multiple of 2*pi to the representative nearest
@@ -91,17 +108,29 @@ struct OrbitTriad {
 }
 
 /// KOUBA09 Eq. 4 (`x_sign` = +1) / Eq. 5 (`x_sign` = -1, IIR's own 180 deg
-/// X-axis reversal): psi_n = ATAN2(-x_sign*tan(beta), x_sign*sin(mu)).
+/// X-axis reversal): psi_n = ATAN2(-x_sign*tan(beta), x_sign*sin(mu)) -- WITH
+/// the sin(mu) term's own sign flipped relative to Eq. 4/5 as printed, to
+/// compensate for `mu_rad`'s own negation above (the manager's own finding,
+/// PROVENANCE.md Sec.30.14). PROVED against real ORBEX data, not assumed:
+/// this exact form, fed mu_rad's NEW (KOUBA09-true) output, reproduces the
+/// same psi -- to the same 0.000-0.001 deg -- that the pre-fix formula
+/// (unflipped sin term) reproduced when fed mu_rad's OLD (negated) output;
+/// checked at 21 points spread across a full real day, far from any turn.
 [[nodiscard]] double psi_nominal(double beta, double mu, double x_sign) noexcept {
-    return std::atan2(-x_sign * std::tan(beta), x_sign * std::sin(mu));
+    return std::atan2(-x_sign * std::tan(beta), -x_sign * std::sin(mu));
 }
 
 /// KOUBA09 Eq. 6, evaluated at a specific mu (not necessarily the current
 /// query mu -- shadow crossing needs it at the entry angle specifically).
+/// NEGATED relative to Eq. 6 as printed, the compensating derivative of
+/// `psi_nominal`'s own fix above: d(psi_nominal)/d(mu), taken of the FIXED
+/// formula, is the NEGATIVE of this expression -- checked by finite
+/// difference against the fixed `psi_nominal` directly (PROVENANCE.md
+/// Sec.30.14), not assumed from the chain rule alone.
 [[nodiscard]] double psidot_nominal(double beta, double mu) noexcept {
     const double t = std::tan(beta);
     const double s = std::sin(mu);
-    return kMuDotRadPerS * t * std::cos(mu) / (s * s + t * t);
+    return -(kMuDotRadPerS * t * std::cos(mu) / (s * s + t * t));
 }
 
 /// The ramp's own constant-rate direction for a noon/midnight-shaped turn
@@ -113,9 +142,16 @@ struct OrbitTriad {
 /// psi_dot_n itself. sign(beta) uses TYAW-R-007's own RULED convention:
 /// sign(0) := +1, the stateless tie-break for the beta-near-zero edge case
 /// (TYAW-Q-002).
+///
+/// NEGATED relative to the sign this same algebraic argument gave before
+/// `psidot_nominal`'s own fix above -- this function's own SIGN[psi_dot_n]
+/// must track `psidot_nominal`'s own sign, which flipped, so this does too
+/// (PROVENANCE.md Sec.30.14; verified end to end against real IIF noon data,
+/// not derived symbolically alone -- without this flip the noon turn's own
+/// centre lands 180 deg from where it belongs, not merely off).
 [[nodiscard]] double turn_ramp_sign(double beta, double x_sign, bool is_noon) noexcept {
     const double sign_beta = (beta < 0.0) ? -1.0 : 1.0;
-    return x_sign * sign_beta * (is_noon ? -1.0 : 1.0);
+    return -(x_sign * sign_beta * (is_noon ? -1.0 : 1.0));
 }
 
 struct TurnResult {
@@ -170,52 +206,6 @@ struct TurnResult {
     return {false, 0.0};
 }
 
-/// TYAW-R-003 (IIF's own noon turn -- changed from `evaluate_turn`'s own LAG
-/// shape after CODE's own real ORBEX data showed IIF's noon turn is the SAME
-/// rate-limited ramp run backwards in time: it leaves the ideal law EARLY and
-/// merges with it where the ideal law's own rate falls back to the hardware
-/// limit, rather than leaving the ideal law AT the limit and catching up
-/// late (PROVENANCE.md Sec.30.12 -- the manager's own ruling, `TYAW-Q-006`'s
-/// own ANALYTIC/searched roles exchanged relative to `evaluate_turn`, not a
-/// new formula). A planned manoeuvre, not a hardware-limited one -- the same
-/// character as IIF's own night side already flying Shape E, which likewise
-/// needs its own end state known in advance.
-///
-/// `mu_e` (the merge point) is `evaluate_turn`'s own analytic onset, `mu_s`,
-/// reflected to the FAR side of `mu_center` -- the SAME onset_rad relation
-/// (`TYAW-P-1`), since |psi_dot_n| is exactly symmetric about mu_center
-/// (psi_dot_n(2*mu_center - mu) = psi_dot_n(mu), checked directly from Eq. 6:
-/// cos is even and sin^2 is even under this reflection, both at mu_center =
-/// pi). The turn is active for mu_q <= mu_e; the OTHER boundary (leaving the
-/// ideal law early) has no closed form and is not searched for at
-/// evaluation time either -- like `evaluate_turn`'s own catch-up condition,
-/// it falls out of a SINGLE gap check at the query mu_q itself, verified
-/// (PROVENANCE.md Sec.30.12) to reproduce a small-step ground-truth walk
-/// exactly across every beta and mu_q tested: the directional branch and the
-/// active-region sign are each `evaluate_turn`'s own, with both senses
-/// reversed (measuring the swing SINCE mu_e as mu_q moves away from it in
-/// the DEcreasing direction, the mirror image of `evaluate_turn`'s own
-/// increasing walk from mu_s).
-[[nodiscard]] TurnResult evaluate_turn_lead(double beta, double mu_current, double x_sign,
-                                             double mu_center, double onset_rad, double rate_rad_per_s,
-                                             double ramp_sign) noexcept {
-    const double width_sq = onset_rad * std::abs(beta) - beta * beta;
-    if (width_sq <= 0.0) return {false, 0.0};
-    const double half_width = std::sqrt(width_sq);
-    const double mu_e = mu_center + half_width;
-    const double mu_q = wrap_near(mu_current, mu_center);
-    if (mu_q > mu_e) return {false, 0.0};
-
-    const double psi_e = psi_nominal(beta, mu_e, x_sign);
-    const double psi_ramp = psi_e + ramp_sign * rate_rad_per_s * (mu_q - mu_e) / kMuDotRadPerS;
-    const double delta_raw = psi_nominal(beta, mu_q, x_sign) - psi_e;
-    const double delta_directional = wrap_directional(delta_raw, ramp_sign < 0.0);
-    const double psi_nom_directional = psi_e + delta_directional;
-    const double gap = (psi_nom_directional - psi_ramp) * ramp_sign;
-    if (gap < 0.0) return {true, psi_ramp};
-    return {false, 0.0};
-}
-
 /// KOUBA09 Eq. 17-22 (II/IIA only): entry/exit from the FIXED shadow
 /// half-angle `kShadowHalfAngleRad` (not a rate-derived onset threshold --
 /// eclipse is a geometric fact, not a hardware limit), so unlike
@@ -224,7 +214,11 @@ struct TurnResult {
 /// (Eq. 20/21), then constant rate (Eq. 22), both signed by the yaw bias --
 /// the solar sensor has lost the Sun during eclipse, so the turn direction
 /// comes from the KNOWN bias sign, not from the (otherwise ambiguous, since
-/// beta may be either sign here) nominal rate's own sign at entry.
+/// beta may be either sign here) nominal rate's own sign at entry. `mu_s`
+/// IS the true-time entry (PROVENANCE.md Sec.30.14): mu now increases with
+/// true time (`mu_rad`'s own fix above), so the smaller of the two boundary
+/// values is the one reached first -- this was already the code's own
+/// structure, not something this fix needed to change, only to confirm.
 [[nodiscard]] TurnResult evaluate_shadow_crossing(double beta, double mu_current, double x_sign,
                                                    double rate_rad_per_s, double rr_rad_per_s2,
                                                    double bias_rad) noexcept {
@@ -269,21 +263,23 @@ struct TurnResult {
 /// all, since during actual eclipse there is no Sun sensor to chase one
 /// against.
 ///
-/// The swing has a closed form, not a numerical walk: d(psi_n)/d(mu) =
-/// tan(beta)*cos(mu) / (sin(mu)^2 + tan(beta)^2) (dividing `psidot_nominal`
-/// by mu_dot) integrates, by the standard 1/(u^2+a^2) form under u =
-/// sin(mu), to ATAN(sin(mu)/tan(beta)) -- unlike `psi_nominal` itself
-/// (an ATAN2, with a branch cut), this antiderivative is smooth and
+/// The swing has a closed form, not a numerical walk: d(psi_n)/d(mu) (of
+/// the FIXED `psi_nominal` above) is -tan(beta)*cos(mu) / (sin(mu)^2 +
+/// tan(beta)^2) (`psidot_nominal`, already carrying this same negation,
+/// divided by mu_dot) and integrates, by the standard 1/(u^2+a^2) form
+/// under u = sin(mu), to -ATAN(sin(mu)/tan(beta)) -- unlike `psi_nominal`
+/// itself (an ATAN2, with a branch cut), this antiderivative is smooth and
 /// single-valued for every mu in the window at any beta != 0, so no
 /// unwrapping or step count is needed: the swing is just its value at
-/// mu_exit minus its value at mu_entry, verified (PROVENANCE.md Sec.30.10)
-/// against an independent small-step nearest-branch accumulation to better
-/// than 1e-9 deg from beta = 0.001 deg to 13.499 deg. Evaluated AT the
-/// query mu_q, this constant rate is exactly linear interpolation in mu
-/// between (mu_entry, psi_entry) and (mu_exit, psi_entry + swing) --
-/// mu_dot itself cancels (a constant rate over a mu-interval, sampled at a
-/// fraction of that interval, does not need to know how fast mu itself
-/// moves), so it does not appear in the return expression at all.
+/// mu_exit minus its value at mu_entry (PROVENANCE.md Sec.30.14 records
+/// the sign flip this carries relative to the pre-fix version, verified
+/// against real ORBEX data, not assumed from the antiderivative alone).
+/// Evaluated AT the query mu_q, this constant rate is exactly linear
+/// interpolation in mu between (mu_entry, psi_entry) and (mu_exit,
+/// psi_entry + swing) -- mu_dot itself cancels (a constant rate over a
+/// mu-interval, sampled at a fraction of that interval, does not need to
+/// know how fast mu itself moves), so it does not appear in the return
+/// expression at all.
 [[nodiscard]] TurnResult evaluate_shadow_constant_rate(double beta, double mu_current,
                                                         double x_sign) noexcept {
     const double width_sq = kShadowHalfAngleRad * kShadowHalfAngleRad - beta * beta;
@@ -296,7 +292,7 @@ struct TurnResult {
 
     const double psi_entry = psi_nominal(beta, mu_entry, x_sign);
     const double tan_beta = std::tan(beta);
-    const double swing = std::atan(std::sin(mu_exit) / tan_beta) - std::atan(std::sin(mu_entry) / tan_beta);
+    const double swing = std::atan(std::sin(mu_entry) / tan_beta) - std::atan(std::sin(mu_exit) / tan_beta);
     return {true, psi_entry + swing * (mu_q - mu_entry) / (mu_exit - mu_entry)};
 }
 
@@ -361,16 +357,20 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
     const double noon_rate = rates.noon_deg_per_s * kDegToRad;
     const double night_rate = rates.night_deg_per_s * kDegToRad;
     const double noon_onset = std::atan(kMuDotRadPerS / noon_rate);  // KOUBA09 Eq. 7
-    const double noon_ramp_sign = turn_ramp_sign(beta, x_sign, /*is_noon=*/true);
 
-    // TYAW-R-002 (II/IIA, IIR): the noon turn LAGS -- KOUBA09's own words,
-    // "the actual yaw angle to temporarily lag behind the nominal yaw
-    // attitude" (PROVENANCE.md Sec.30.12), confirmed, not merely un-checked.
-    // TYAW-R-003 (IIF): the noon turn LEADS -- CODE's own real data,
-    // PROVENANCE.md Sec.30.12.
-    TurnResult result = (effective_block == GpsBlock::IIF)
-        ? evaluate_turn_lead(beta, mu, x_sign, M_PI, noon_onset, noon_rate, noon_ramp_sign)
-        : evaluate_turn(beta, mu, x_sign, M_PI, noon_onset, noon_rate, noon_ramp_sign);
+    // TYAW-R-001/R-002/R-003: the noon turn LAGS, for every block --
+    // KOUBA09's own words, "the actual yaw angle to temporarily lag behind
+    // the nominal yaw attitude" (stated for II/IIA and IIR explicitly), and
+    // CODE's own real IIF data, read in KOUBA09's own mu once `mu_rad`'s
+    // own sign was corrected: centred within 0.1 deg of the lag law's own
+    // prediction at both real crossings checked, not the mirror-imaged
+    // "lead" an earlier pass reported before the mu fix (PROVENANCE.md
+    // Sec.30.12/Sec.30.14 -- `evaluate_turn_lead` was a real, working
+    // implementation of a shape IIF does not actually fly, reverted once
+    // the mu bug was found, not because the implementation was wrong for
+    // what it modelled).
+    TurnResult result = evaluate_turn(beta, mu, x_sign, M_PI, noon_onset, noon_rate,
+                                       turn_ramp_sign(beta, x_sign, /*is_noon=*/true));
 
     if (!result.active) {
         switch (effective_block) {
