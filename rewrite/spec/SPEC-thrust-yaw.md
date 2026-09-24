@@ -195,13 +195,16 @@ repeated:**
   (then-mislabelled) lead-side tolerance, the other matching neither cleanly. RE-RUN after the fix:
   one crossing (β = 0.077°) matches LAG cleanly (0.61° miss against an 0.89° tolerance); the other
   (β = 0.462°) leans clearly toward LAG (1.24° miss, against 5.63° for lead) but sits just outside
-  its own tolerance — `KOUBA09`'s own text (§6) names the reason without this simple model carrying
-  a term for it: at these near-degenerate β, "the actual [yaw] can actually start to lag behind
-  [nominal] even sooner than the turn start time ... possibly resulting in a short WIND-UP period,"
-  a real, printed effect this basic two-boundary law does not model. Recorded as what it is — a
-  control that, once correctly read, is consistent with LAG and inconsistent with lead, not a
-  clean confirmation to the same precision the IIF crossings reached (PROVENANCE.md §30.14 has the
-  full, honest numeric record both before and after the fix). `TYAW-R-002` is UNCHANGED throughout,
+  its own tolerance — `KOUBA09`'s own text names the reason, quantified, not a general gesture: a
+  real IIR noon turn he himself measured (PRN23, β ≈ 0.05°, closer to the singularity than either
+  crossing here) needed "about 2 min" of spin-up his own Eq. 15/16 does not model, which "can cause
+  yaw errors up to 8°" (§6, p. 7) — his own printed turn lasted 14 min against what the un-spun-up
+  formula alone would give, the SAME direction and order of magnitude as this control's own
+  crossing 1 (13.1 min real against 17.5 min predicted). Recorded as what it is — a control that,
+  once correctly read, is consistent with LAG and inconsistent with lead, with a specific, on-point,
+  already-printed mechanism for its own remaining gap, not a clean confirmation to the same
+  precision the IIF crossings reached (PROVENANCE.md §30.14 has the full, honest numeric record both
+  before and after the fix). `TYAW-R-002` is UNCHANGED throughout,
   per `KOUBA09`'s own explicit words, which is what decides it independent of this control either
   way.
 

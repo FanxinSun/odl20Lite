@@ -4635,10 +4635,31 @@ match, did.
   **matches LAG cleanly** (miss 0.606° against a 0.892° tolerance, was "matches neither" reading
   −3.567° against the mislabelled lead side). Crossing 1 (β = 0.462°) now leans clearly toward LAG
   (miss 1.238° against LAG, 5.628° against LEAD) but still sits outside its own 0.858° tolerance —
-  at this near-zero β, `KOUBA09`'s own text (§6) names a real, unmodelled reason: a short WIND-UP
-  period can begin before the nominal onset condition is even reached. Recorded as consistent with
-  LAG and inconsistent with LEAD, not stretched into a clean confirmation the data does not quite
-  reach.
+  the REAL width itself (6.573° = 13.1 min) is also notably short of the LAG law's own predicted
+  8.756° (17.5 min), unlike every IIF crossing checked, where width matched closely.
+
+  **`KOUBA09`'s own text names this a real, quantified, printed effect — not a general citation but
+  a SPECIFIC worked example, found on a later page than the one first cited (§6, p.7-8, found on
+  re-reading after this session's own report to the manager, PROVENANCE §30.12/§30.14's own first
+  pass had only the general sentence).** A real Block IIR (PRN23) noon turn at β ≈ 0.05° — closer to
+  the singularity than either G05 crossing here — is presented with its own printed timing: *"The
+  turn maneuver starts about 1 min before the noon and lasts about 14 min"* (Fig. 7 caption) — 14
+  min ≈ 7.0° of μ, itself short of what Eq. 15/16 alone would predict at so small a β, the SAME
+  direction of discrepancy found here. The text names the cause directly: *"this particular noon
+  turn required a SPIN-UP period (i.e., accelerating from nearly zero up to the maximum hardware
+  yaw rate of 0.200°/s) of about 2 min. As discussed before, the spin-up period has been neglected
+  here and CAN CAUSE YAW ERRORS UP TO 8°"* (p. 7) — a hardware effect `TYAW-P-3`'s own spin-rate
+  bound already accounts for on the II/IIA SHADOW-crossing law (`evaluate_shadow_crossing`'s own
+  Eq. 20/21 spin-up phase) but that the noon/midnight rate-limited-ramp law (`evaluate_turn`, Eq.
+  15/16, as printed by `KOUBA09` himself) does not carry a term for at all. The REAL duration here
+  (13.1 min, crossing 1) and `KOUBA09`'s own printed real example (14 min, an even smaller β) are
+  the SAME order of magnitude, both short of their own law's theoretical prediction, both at
+  near-degenerate β where a HARDWARE spin-up (not a sign, not a timing law) is the named cause —
+  this is corroboration of the SAME, ALREADY-PRINTED mechanism, not a new hypothesis reached for to
+  explain an inconvenient miss.** Recorded as consistent with LAG and inconsistent with LEAD, and
+  now with a specific, quantified, on-point printed mechanism for its own remaining gap — not
+  stretched into a clean confirmation the data does not quite reach, and not left as a vaguer
+  "wind-up" gesture either.
 
 **The permanent guard, `TYAW-A-012`, checked to fail before it was trusted to pass** (`plan` rule 5,
 applied to a defect rather than a proof this time): `mu_rad`, `psi_nominal`, `psidot_nominal` and
