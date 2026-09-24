@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L4 closed; **L5 open** — step 1 done, steps 2–4 to come; L6–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L4 closed; **L5 open** — steps 1–2 done, steps 3–4 to come; L6–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -415,7 +415,7 @@ L2's models as plugins, now L7 step 1.
 
 ---
 
-### 3.6 L5 `spacecraft` — 1 of 4 done; **the open layer**
+### 3.6 L5 `spacecraft` — 2 of 4 done; **the open layer**
 
 The macromodel library as **data with per-value citations**, not as code.
 
@@ -425,7 +425,7 @@ carried is sound and survives in the other direction: one consumer must exist to
 schema, not all of them, so the schema goes to L4 and the population stays here.
 
 1. **DONE** — GPS → [`subplan_L5/L5-1.md`](subplan_L5/L5-1.md)
-2. **TODO** — Galileo → [`subplan_L5/L5-2.md`](subplan_L5/L5-2.md)
+2. **DONE** — Galileo → [`subplan_L5/L5-2.md`](subplan_L5/L5-2.md)
 3. **TODO** — GLONASS → [`subplan_L5/L5-3.md`](subplan_L5/L5-3.md)
 4. **TODO** — Altimetry → [`subplan_L5/L5-4.md`](subplan_L5/L5-4.md)
 
