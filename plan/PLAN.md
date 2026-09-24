@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L4 closed; **L5 open** — all 4 steps done, exit gate under review; L6–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L5 closed; **L6 open** — steps 1–4 to come; L7–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -415,7 +415,7 @@ L2's models as plugins, now L7 step 1.
 
 ---
 
-### 3.6 L5 `spacecraft` — 4 of 4 done, exit gate under review; **the open layer**
+### 3.6 L5 `spacecraft` — **4 of 4 done; exit gate passed 2026-09-25**
 
 The macromodel library as **data with per-value citations**, not as code.
 
@@ -440,9 +440,22 @@ not a transcription, which is not.
 not. **Amended 2026-09-24:** the arc fit that reads the library, which this gate carried, needs
 L7's estimator and moves to L7's exit gate (§3.5's correction).
 
+**Exit gate — PASSED 2026-09-25.** `tools/ci.sh` exits 0 on `8a7624f`: 13 gates, 395 tests, 720
+artefacts byte-identical, verified by the manager. `tests/l5_exit_gate.cpp` builds every entry the
+library can build — every GPS block, every listed Galileo satellite found by scanning its number
+range, GLONASS, GLONASS-M and GLONASS-K, QZS-1, Sentinel-6, Jason-2 and -3 — and checks that
+every value's citation **resolves**, naming a source registered in the specification's own table,
+read at test time so the list cannot drift; every refusing entry refuses by its own identifier,
+and an unregistered citation is shown refused through the same path. On its first run the
+resolve check found two real defects — citations naming a document but never its registered
+source — which were fixed. Carried out of the layer: BeiDou, Jason-1 and IIIA, refusing; curved
+surfaces in the schema; the real-data confirmations still open for QZSS's orbit-normal mode,
+Jason's fixed yaw and Sentinel-6's frame; epoch-current masses for the satellites the library
+serves at baseline; and a sail's own macromodel (§3.9).
+
 ---
 
-### 3.7 L6 `io-measurements` — 0 of 4 done
+### 3.7 L6 `io-measurements` — 0 of 4 done; **the open layer**
 
 Formats in, measurements out. Public specifications throughout — nothing here is anyone's
 intellectual property but the format authors'.
