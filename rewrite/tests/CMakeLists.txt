@@ -73,3 +73,23 @@ target_link_libraries(odl_l2_floor_tests
   PRIVATE odl::core odl::relativity odl::time odl::frames odl::atmosphere
           Catch2::Catch2WithMain odl_warnings)
 catch_discover_tests(odl_l2_floor_tests EXTRA_ARGS --warn NoAssertions)
+
+# L4's exit gate (PLAN.md §3.5, amended 2026-09-24): every L4 force measured in
+# one place, through DYN-R-023's registry, at reference points each row
+# states. This file's own header explains why it needs a real ephemeris and
+# leap table (srp/CMakeLists.txt's own pattern, below) where l2_floors.cpp did
+# not.
+add_executable(odl_l4_ranking_tests l4_ranking.cpp)
+target_link_libraries(odl_l4_ranking_tests
+  PRIVATE odl::core odl::time odl::frames odl::eop odl::atmosphere
+          odl::ephemerides odl::dynamics odl::macromodel odl::srp_analytic
+          odl::drag odl::srp odl::erp odl::antenna_thrust odl::ecom
+          Catch2::Catch2WithMain odl_warnings)
+if(BUILD_TESTING)
+  odl_manifest_get(de440s-spk _de440s)
+  odl_manifest_get(iers-leap-seconds _leap)
+  target_compile_definitions(odl_l4_ranking_tests PRIVATE
+    ODL_DE440S_BSP="${_de440s_CACHE_PATH}"
+    ODL_LEAP_SECOND_FILE="${_leap_CACHE_PATH}")
+endif()
+catch_discover_tests(odl_l4_ranking_tests EXTRA_ARGS --warn NoAssertions)
