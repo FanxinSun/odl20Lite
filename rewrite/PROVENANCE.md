@@ -6416,6 +6416,53 @@ Sentinel-6's own frame identification, still a marked assumption; Jason's own ma
 rather than epoch-current (`JasonMassSource::Baseline`, no consumer yet); and, from this round, the yaw
 residual's own structure (§35.2 above).
 
+### 35.4 RESOLVES, not merely EXISTS -- the manager's own fourth-review correction, and what it found
+
+`audit_entry`'s own first version (§35.1) checked only that a citation was non-blank. The manager's own
+catch: `MCRM-F-001`/`is_blank` guarantees a citation is not EMPTY, but says nothing about whether it
+actually NAMES a source -- `"see above"`, or a typo'd source name, would pass a bare non-blank check
+while resolving to nothing a reader could trace. `PLAN.md` §3.6's own words are precise about this:
+*"every value resolves to a citation"* -- resolves, a stronger claim than exists.
+
+**Fixed by reading the registered key list from the spec itself, not copying it into the test.**
+`registered_source_keys` (new, `tests/l5_exit_gate.cpp`) opens `SPEC-spacecraft.md`, isolates its own
+section 2 (the SAME "split by heading region" technique `speccheck.py`'s own `split_coverage()` already
+uses for its own Coverage section, translated to C++), and extracts every backtick-quoted key that
+section's own Normative-sources table registers -- `FLGA92`, `FLGA96`, `RS14`, `MSGA15`, `IGSMETA`,
+`SMSD24`, `GALSC`, `SPI_QZS1_B`, `SATMOD` -- nine today, read fresh on every run, structurally incapable
+of drifting from the spec the way a hardcoded copy in the test could. `SPI_QZS1_B`'s own underscore
+caught the FIRST version of the extraction regex short (`[A-Z][A-Z0-9]`, no underscore) -- found
+immediately, by the sanity floor (`REQUIRE(keys.size() >= 9)`) failing at 8, before a single real
+citation was even checked; fixed by widening the character class. Every citation `SPCR-A-033` walks is
+now checked to CONTAIN at least one registered key (`resolves`, a substring match -- every real citation
+in this module states more than the bare key around it: a table number, a section, a reason).
+
+**Two real, previously-unnoticed defects, found on the FIRST run of the corrected check against the
+real library, not injected ones:**
+1. `sentinel6()`/`jason2()`/`jason3()`'s own citations (`sentinel6.cpp`, `jason.cpp`) all read "CNES
+   SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 ..." -- naming the SOURCE DOCUMENT correctly but never the
+   registered KEY, `SATMOD`, anywhere in the string. Five citation-string literals across the two files,
+   all sharing the identical leading substring, fixed in one pass each: `"SATMOD, CNES SALP-NT-..."`.
+2. `galileo_iov()`/`galileo_foc()`'s own citations (`galileo.cpp`) all read "GSC Galileo Satellite
+   Metadata Sec..." -- naming the ISSUER'S OWN SHORT NAME ("GSC", the European GNSS Service Centre's
+   own initials) but never this tree's own registered key, `GALSC`, a DIFFERENT string chosen when the
+   source was registered (`SPEC-spacecraft.md` §2). Seven citation-string literals, all sharing the
+   identical leading substring, fixed in one pass: `"GALSC, GSC Galileo Satellite Metadata..."`.
+
+No other block's own citations were affected -- GPS's and GLONASS's own already lead with `RS14`
+literally, QZS-1's own already names `SPI_QZS1_B` literally (`qzss.cpp`'s own citation strings, checked
+directly), BeiDou refuses and carries no citation to check. Confirmed by the corrected `SPCR-A-033`
+itself: after both fixes, all 8783 assertions (every constructed entry, every citation) pass clean, one
+run, no further defects found.
+
+**The check itself proven, not merely written** (`SPCR-A-035`, rule 5): a synthetic entry whose every
+citation is non-blank but names no registered source (a fabricated `"Wikipedia, accessed 2026-09-25"`
+citation, energy-conserving so `MCRM-F-007` has no separate reason to refuse it, isolating the one thing
+this entry is wrong about) is run through the SAME `audit_entry` function every real entry is checked
+through, and the resolve check is shown to fire on it -- proving `SPCR-A-033`'s own green result, going
+forward, means something, the same "prove the checker itself catches the shape before trusting a clean
+sweep" discipline this tree's other checkers already apply to themselves.
+
 ---
 
 ## Changelog

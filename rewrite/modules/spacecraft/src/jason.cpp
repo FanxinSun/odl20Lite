@@ -112,7 +112,7 @@ build_jason23(std::string_view section_citation, double mass_kg, const Vec3& com
 odl::Result<Macromodel, SpacecraftError> jason2(JasonMassSource source) {
     (void)source;  // exactly one legal value today, jason.hpp's own header comment
     return build_jason23(
-        "CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
+        "SATMOD, CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
         "c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619, Sec.7.3/7.1",
         505.9, Vec3{0.9768, 0.0001, 0.0011});
 }
@@ -120,7 +120,7 @@ odl::Result<Macromodel, SpacecraftError> jason2(JasonMassSource source) {
 odl::Result<Macromodel, SpacecraftError> jason3(JasonMassSource source) {
     (void)source;
     return build_jason23(
-        "CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
+        "SATMOD, CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
         "c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619, Sec.12.3/12.1",
         509.6, Vec3{1.0023, 0.0000, -0.0021});
 }

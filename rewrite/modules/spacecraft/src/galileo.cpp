@@ -129,16 +129,16 @@ add_box_faces(MacromodelBuilder& b, const std::vector<FaceRow>& rows, const std:
 /// MLI) -- "BOL & EOL" printed as ONE set: GSC's own table states these
 /// values are unchanging over life, not merely unmeasured at EOL.
 constexpr std::string_view kIovMat1Citation =
-    "GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Material 1)";
+    "GALSC, GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Material 1)";
 /// IOV's own Material 2 (present on +X/+Y/-Y/+Z only): GSC prints SEPARATE
 /// BOL and EOL coefficients here -- both built, selected by `OpticalLife`
 /// (`galileo.hpp`'s own header comment, plan §5 constraint 10), no default.
 [[nodiscard]] std::string kIovMat2Citation(OpticalLife life) {
-    return std::string("GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Material 2, ") +
+    return std::string("GALSC, GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Material 2, ") +
            (life == OpticalLife::BeginningOfLife ? "BOL" : "EOL") + ")";
 }
 constexpr std::string_view kIovWingCitation =
-    "GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Wing), +Y and -Y summed";
+    "GALSC, GSC Galileo Satellite Metadata Sec.6.1, IOV Table (Wing), +Y and -Y summed";
 
 [[nodiscard]] odl::Result<Macromodel, SpacecraftError> galileo_iov_macromodel(
     double mass_kg, const Vec3& com_mechanical_mm, const std::string& mass_citation,
@@ -206,9 +206,9 @@ constexpr std::string_view kIovWingCitation =
 
 // --- FOC geometry (GSC §6.2) ------------------------------------------------
 
-constexpr std::string_view kFocCitation = "GSC Galileo Satellite Metadata Sec.6.2, FOC Table";
+constexpr std::string_view kFocCitation = "GALSC, GSC Galileo Satellite Metadata Sec.6.2, FOC Table";
 constexpr std::string_view kFocWingCitation =
-    "GSC Galileo Satellite Metadata Sec.6.2, FOC Table (Wing), +SA and -SA summed";
+    "GALSC, GSC Galileo Satellite Metadata Sec.6.2, FOC Table (Wing), +SA and -SA summed";
 
 [[nodiscard]] odl::Result<Macromodel, SpacecraftError> galileo_foc_macromodel(
     double mass_kg, const Vec3& com_mechanical_mm, const std::string& mass_citation) {
@@ -329,7 +329,7 @@ odl::Result<Macromodel, SpacecraftError> galileo_iov(int gsat, YearMonth epoch, 
     auto row = find_mass_com(kIovMassCom, kIovValidFrom, gsat, epoch, "IOV");
     if (!row.has_value()) return odl::err(row.error());
     const std::string mass_citation =
-        "GSC Galileo Satellite Metadata Sec.4.1, IOV Table, GSAT" + std::to_string(gsat) +
+        "GALSC, GSC Galileo Satellite Metadata Sec.4.1, IOV Table, GSAT" + std::to_string(gsat) +
         ", as of April 2024";
     return galileo_iov_macromodel(row->mass_kg, row->com_mechanical_mm, mass_citation, life);
 }
@@ -338,7 +338,7 @@ odl::Result<Macromodel, SpacecraftError> galileo_foc(int gsat, YearMonth epoch) 
     auto row = find_mass_com(kFocMassCom, kFocValidFrom, gsat, epoch, "FOC");
     if (!row.has_value()) return odl::err(row.error());
     const std::string mass_citation =
-        "GSC Galileo Satellite Metadata Sec.4.2, FOC Table, GSAT" + std::to_string(gsat) +
+        "GALSC, GSC Galileo Satellite Metadata Sec.4.2, FOC Table, GSAT" + std::to_string(gsat) +
         ", as of May 2026";
     return galileo_foc_macromodel(row->mass_kg, row->com_mechanical_mm, mass_citation);
 }

@@ -4,8 +4,8 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 2.6 — L5's own exit gate (`SPCR-R-026`): every library entry this module can construct is built once, tree-wide, and every value it carries is checked non-blank in one place (`tests/l5_exit_gate.cpp`, `SPCR-A-033`), the guard shown firing once more through that same audit path on an injected entry (`SPCR-A-034`) — not only within each block's own per-block suite, and not only the one hand-picked value `SPCR-A-002` already shows |
-| **Date** | 2026-09-24, exit gate 2026-09-25 |
+| **Version** | 2.7 — L5's own exit gate (`SPCR-R-026`): every library entry this module can construct is built once, tree-wide, and every value it carries is checked non-blank AND checked to RESOLVE to a registered source, not merely exist (`tests/l5_exit_gate.cpp`, `SPCR-A-033`), the guard shown firing on both an injected blank citation (`SPCR-A-034`) and an injected unresolved one (`SPCR-A-035`) — the resolve check itself catching two real, previously-uncaught defects (`sentinel6()`/`jason2()`/`jason3()` never named `SATMOD`; `galileo_iov()`/`galileo_foc()` never named `GALSC`) |
+| **Date** | 2026-09-24, exit gate 2026-09-25, resolves-not-exists 2026-09-25 |
 | **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo), 3 (GLONASS, QZSS, BeiDou) and 4 (Sentinel-6, Jason-2, Jason-3, Jason-1) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
 | **Depended on by** | L7's own box-wing fit, which reads this library |
@@ -649,7 +649,12 @@ numbers).
   block's own per-block suite, which is what `SPCR-R-006`/`-011`/`-015`/`-018`/`-025` (and their own
   `SPCR-A` rows) already state one block at a time. Every function that refuses in this version
   (`gps_block_iiia`, `beidou`, `jason1`) is checked to actually refuse, with its own named reason, at
-  the same point.
+  the same point. **RESOLVES, not merely EXISTS** (the manager's own fourth-review correction,
+  `SPCR-A-035`): a non-blank citation that names no source this tree has actually registered — a
+  copy-pasted "see above", a typo'd source name — would pass a bare non-blank check, so every
+  citation is additionally checked to CONTAIN at least one key `SPEC-spacecraft.md` §2's own
+  Normative-sources table registers, read from the spec file directly at test time, not copied into
+  the test by hand.
 
 ---
 
@@ -806,8 +811,9 @@ same shape `ecom::d4b1_order()` names a configuration rather than reading one.
 | `SPCR-A-030` | `jason2()`: the solar array rows carry a FIXED `(+1,0,0)`/`(-1,0,0)` body-frame normal exactly as §7.3 prints them, not a sun-pointing surface | 0 sun-pointing surfaces; 1 each of +X/-X at area 9.8 | `SATMOD` §7.3, read directly in the test | — | R-021 |
 | `SPCR-A-031` | `jason2()`/`jason3()`: mass and CoM are each section's own baseline, genuinely different between the two satellites | 505.9/509.6 kg respectively | `SATMOD` §7.1/§12.1 | 1e-9 | R-021, R-022 |
 | `SPCR-A-032` | `jason1()` refuses unconditionally with `SPCR-F-007`; the refusal's own message names both reasons (the 0.97 factor, the non-energy-conserving optics quantified) and states no consumer needs it, checked by substring | the refusal; both reasons present | `SPCR-R-023` | — | F-007, R-023 |
-| `SPCR-A-033` | **L5's own exit gate.** Every library entry this module can construct is built — GPS (all 7 named SVNs of Block I, II, IIA, IIR, IIR-M, IIF), Galileo (every currently-listed GSAT, IOV and FOC alike, both `OpticalLife` stages for IOV, an in-coverage epoch), GLONASS/GLONASS-M/GLONASS-K, QZS-1 (both `QzssLife` stages), Sentinel-6, Jason-2/-3 — and every value it carries (mass, centre of mass, every surface's own area and every optical triple, front and back, visible and infrared where present) is walked and checked non-blank. Every entry that refuses in this version (GPS-IIIA, BeiDou, Jason-1) is checked to actually refuse, with its own stated reason; an unknown Galileo GSAT and an out-of-coverage Galileo epoch are each checked as their own, separately-named refusal too | no blank citation anywhere across every constructible entry; every stated refusal fires with its own id | `tests/l5_exit_gate.cpp`, constructing the real library directly | — | R-026 |
+| `SPCR-A-033` | **L5's own exit gate.** Every library entry this module can construct is built — GPS (all 7 named SVNs of Block I, II, IIA, IIR, IIR-M, IIF), Galileo (every currently-listed GSAT, IOV and FOC alike, both `OpticalLife` stages for IOV, an in-coverage epoch), GLONASS/GLONASS-M/GLONASS-K, QZS-1 (both `QzssLife` stages), Sentinel-6, Jason-2/-3 — and every value it carries (mass, centre of mass, every surface's own area and every optical triple, front and back, visible and infrared where present) is walked, checked non-blank, AND checked to RESOLVE to a registered source (`SPCR-R-026`'s own key list, read from `SPEC-spacecraft.md` §2 directly). Every entry that refuses in this version (GPS-IIIA, BeiDou, Jason-1) is checked to actually refuse, with its own stated reason; an unknown Galileo GSAT and an out-of-coverage Galileo epoch are each checked as their own, separately-named refusal too | no blank citation anywhere across every constructible entry, and every one resolves; every stated refusal fires with its own id | `tests/l5_exit_gate.cpp`, constructing the real library directly | — | R-026 |
 | `SPCR-A-034` | **The guard shown firing once more, through `SPCR-A-033`'s own audit path** (rule 5): a deliberately blank citation, wrapped as a `Result<Macromodel, SpacecraftError>` and run through the SAME `audit_entry` function every real entry above is checked through — proving the refusal is caught by THIS file's own audit logic, not only by `cited()` in isolation (`SPCR-A-002`'s own, narrower claim) | the refusal, `MCRM-F-001`, recognised by the SAME checking function | `tests/l5_exit_gate.cpp` | — | R-026 |
+| `SPCR-A-035` | **RESOLVES, not merely EXISTS, shown firing** (rule 5): an injected entry whose every citation is non-blank but names no registered source (a synthetic "Wikipedia, accessed..." citation, `cited()` has nothing to refuse) is run through the SAME `audit_entry` function — proving the resolve check itself fires and is not a tautology. This is what FOUND two real, previously-unnoticed defects: `sentinel6()`/`jason2()`/`jason3()`'s own citations named the document number (`SALP-NT-BORD-OP-16137-CN`) but never the registered key `SATMOD`; `galileo_iov()`/`galileo_foc()`'s own citations named the issuer's short name ("GSC") but never the registered key `GALSC`. Both fixed | the unresolved citation recognised; both real defects, once found, no longer recognised as unresolved | `tests/l5_exit_gate.cpp` | — | R-026 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -891,6 +897,19 @@ same shape `ecom::d4b1_order()` names a configuration rather than reading one.
   3, FOC 29 — the FOC header comment's own "26" undercounts by 3, `kFocMassCom`'s own current table
   read directly rather than trusted); the rule-5 injection proving the new audit path itself catches
   a blank citation, not only `cited()` in isolation.
+- **L5's own exit gate, RESOLVES not EXISTS**: the manager's own fourth-review correction — a
+  non-blank citation is not necessarily a RESOLVED one, and `audit_entry`'s first version checked
+  only blankness. Fixed by reading `SPEC-spacecraft.md` §2's own registered source keys directly from
+  the spec file at test time (never copied into the test by hand, so the key list cannot drift from
+  the spec the way a hardcoded copy could) and checking every citation contains at least one. This
+  found two real, previously-unnoticed defects on the FIRST run against the real library:
+  `sentinel6()`/`jason2()`/`jason3()`'s own citations named the source DOCUMENT
+  (`SALP-NT-BORD-OP-16137-CN`) but never the registered KEY, `SATMOD`; `galileo_iov()`/`galileo_foc()`'s
+  own citations named the issuer's short name, "GSC", but never the registered key, `GALSC`. Both
+  fixed by prepending the registered key to each affected citation string, keeping the document
+  detail beside it rather than replacing it. A second rule-5 injection (`SPCR-A-035`) proves the
+  resolve check itself fires on a synthetic non-blank, unregistered citation, the same discipline
+  `SPCR-A-034` already applies to a blank one.
 
 ---
 

@@ -135,8 +135,16 @@ catch_discover_tests(odl_spot5_appendix_tests EXTRA_ARGS --warn NoAssertions)
 # suite. odl::macromodel linked directly (this file's own #include of
 # cited.hpp/macromodel.hpp), the same "link what you directly use" choice
 # odl_spot5_appendix_tests already makes for this exact pair of modules.
+# ODL_SPEC_DIR: RESOLVES, not just EXISTS (the manager's own fourth-review
+# correction) needs the registered source-key list read from
+# SPEC-spacecraft.md itself at test time, not copied into the test by hand --
+# the same "path supplied by CMake, not guessed at runtime" shape
+# ODL_LEAP_SECOND_FILE/ODL_DE440S_BSP already use for odl_l4_ranking_tests,
+# above.
 add_executable(odl_l5_exit_gate_tests l5_exit_gate.cpp)
 target_link_libraries(odl_l5_exit_gate_tests
   PRIVATE odl::core odl::macromodel odl::spacecraft
           Catch2::Catch2WithMain odl_warnings)
+target_compile_definitions(odl_l5_exit_gate_tests PRIVATE
+  ODL_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../spec")
 catch_discover_tests(odl_l5_exit_gate_tests EXTRA_ARGS --warn NoAssertions)

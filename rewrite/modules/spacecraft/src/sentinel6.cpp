@@ -34,13 +34,13 @@ using macromodel::OpticalTriple;
 using macromodel::body_direction;
 
 constexpr std::string_view kCitation =
-    "CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
+    "SATMOD, CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
     "c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619, Sec.16.3 "
     "(\"External diffusion: web site of the International DORIS Service\"; that "
     "site's own Legal Notice page is an unfilled placeholder, checked directly)";
 
 constexpr std::string_view kCitationRenormalised =
-    "CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
+    "SATMOD, CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
     "c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619, Sec.16.3 -- "
     "normal RENORMALISED from the source's own printed components, checked against "
     "the rendered PDF page (not the extraction alone): the printed 3-decimal value "
@@ -114,7 +114,7 @@ odl::Result<Macromodel, SpacecraftError> sentinel6() {
     }
 
     const std::string mass_citation =
-        "CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
+        "SATMOD, CNES SALP-NT-BORD-OP-16137-CN Ed.1/Rev.20 (2026-09-09), SHA256 "
         "c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619, Sec.16.1's own "
         "baseline -- the note's own per-epoch offset file (s6amass.txt, confirmed openly "
         "retrievable, ~30 rows) is NOT wired into an epoch lookup this round (SPCR-Q, "
