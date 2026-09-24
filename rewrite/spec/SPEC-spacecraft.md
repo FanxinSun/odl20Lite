@@ -4,9 +4,9 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 2.4 — L5 step 3 closes: `qzss_1()` built from the Cabinet Office's own SPI_QZS1_B (the L-ANT Cover's own missing area and unsupported cone shape reported, omitted not approximated); `beidou()` refuses unconditionally, five independent reasons named |
+| **Version** | 2.5 — L5 step 4 opens and closes: `sentinel6()` built from CNES's own DORIS satellite-models note, the first macromodel in this tree to populate `BandedOptics`'s own infrared field; `jason2()`/`jason3()` built from the SAME note (a stale, cached earlier draft of this table CAUGHT and corrected before commit, see §3); `jason1()` refuses, non-energy-conserving optics and a scale factor the schema cannot hold |
 | **Date** | 2026-09-24 |
-| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo) and 3 (GLONASS, QZSS, BeiDou) |
+| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo), 3 (GLONASS, QZSS, BeiDou) and 4 (Sentinel-6, Jason-2, Jason-3, Jason-1) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
 | **Depended on by** | L7's own box-wing fit, which reads this library |
 
@@ -45,6 +45,16 @@ refuses to build if any does not." This spec covers:
   `OpticalLife`). A second genuine schema-fidelity limitation, found the SAME day as GLONASS's own
   (§3 below): the +Z face's own "L-ANT Cover" material has no printed area at all and is stated to
   be a cone shape this schema cannot hold regardless — OMITTED, not approximated.
+- **L5 step 4, altimetry: Sentinel-6, Jason-2 and Jason-3** (`SPCR-R-020`–`-022`) — a CNES technical
+  note (`SATMOD`, the actual usable route to the paywalled Cerri et al. 2010, the same rule-4 finding
+  QZSS's own `SPI_QZS1_B` search pattern already established for a different constellation), used
+  under the `RS14` secondary-source ruling extended to this note (§2.4 below). The FIRST constellation
+  in this tree to populate `BandedOptics`'s own infrared field (`MCRM-R-004`'s own optional band,
+  built at L4 step 2 but unused by every constellation before this round, §3 below). Jason-2's and
+  Jason-3's own macromodel is the SAME table (checked cell by cell, not merely quoted) — including
+  their own solar array, which the source states as BODY-FIXED, not Sun-tracking, unlike every panel
+  this tree has built before this round. **Jason-1 is carried, refused** (`SPCR-R-023`) — tuned,
+  non-energy-conserving optics and an overall force-scale factor, neither of which this schema holds.
 
 **Not in scope.** The schema itself (`SPEC-macromodel.md`, L4 step 2) — this spec populates it,
 never extends it; a value the schema cannot hold is a finding reported to the manager, not a
@@ -56,8 +66,11 @@ cited data, built in `modules/attitude` and specified in `SPEC-galileo-attitude.
 spec's own §3 states only the FRAME the macromodel's own face normals are stated in, which that
 law's own output must agree with (checked, `SPCR-A-009`/`SPCR-A-020`, not merely assumed by the
 specs matching prose). BeiDou (carried, refused — `SPEC-spacecraft` §2's own rule-4 search names
-the reasons, `SPCR-F-006`) and altimetry satellites. The force law itself (`srp_analytic`,
-`photon_force`) — this spec's own output is consumed by that module, unchanged.
+the reasons, `SPCR-F-006`). The force law itself (`srp_analytic`,
+`photon_force`) — this spec's own output is consumed by that module, unchanged. Sentinel-6's and
+Jason's own ATTITUDE laws — code, not cited data, `SPEC-sentinel6-attitude.md`/
+`SPEC-jason-attitude.md`, the same split GPS's/Galileo's/GLONASS-M's/QZSS's own laws already have
+from this spec.
 
 ---
 
@@ -73,6 +86,7 @@ the reasons, `SPCR-F-006`) and altimetry satellites. The force law itself (`srp_
 | `SMSD24` | Steigenberger, P., Montenbruck, O. | *IGS Satellite Metadata File Description*, v1.10 | 30 September 2024, DOI `10.57677/metadata-sinex` | `https://files.igs.org/pub/resource/working_groups/multi_gnss/Metadata_SINEX_1.10.pdf`, fetched directly 2026-09-24 (same `files.igs.org` domain as `IGSMETA`; redistribution not separately re-verified beyond that) | **primary**, obtained | states what `IGSMETA`'s own `SATELLITE/MASS` field IS — "in-orbit satellite mass," required "to compute the acceleration caused by non-gravitational forces... at ~1% accuracy" (§1.1) — settling `SPCR-Q-003` and its own Table 5 (§4.3), the block-level figures §3 below cites |
 | `GALSC` | European GNSS Service Centre (GSC); EUSPA/EU | *Galileo Satellite Metadata* | continuously updated; this pin 2026-09-24 | `https://www.gsc-europa.eu/support-to-developers/galileo-satellite-metadata`, fetched directly (`curl`, HTTP 200, no login) | **primary**, first-party, open with attribution — see §2.3 | the actual source of EVERY Galileo value this spec states for IOV/FOC: reference frame (§2), yaw-steering law (§3, consumed by `SPEC-galileo-attitude.md`, not this spec), mass and centre-of-mass history per satellite (§4), geometry and optical coefficients per surface (§6) |
 | `SPI_QZS1_B` | Cabinet Office, Government of Japan, National Space Policy Secretariat | *QZS-1 Satellite Information* | rev. B, 2022-03-24 | `https://qzss.go.jp/en/technical/qzssinfo/khp0mf0000000wuf-att/spi-qzs1_b.pdf`, fetched directly 2026-09-24 | **primary**, first-party, "freely available to any user... shall indicate proper credit" (`qzss.go.jp/en/technical/qzssinfo/index.html`, quoted in full) | the actual source of EVERY QZS-1 value this spec states: reference frame (§2), attitude law (§3, consumed by `SPEC-qzss-attitude.md`, not this spec), mass and CoM at beginning/end of life (§4), geometry and optical coefficients per face (§6) |
+| `SATMOD` | CNES | *DORIS satellites models implemented in POE processing* | Ed.1/Rev.20, 2026-09-09 | `SALP-NT-BORD-OP-16137-CN`, `https://ids-doris.org/documents/BC/satellites/DORISSatelliteModels.pdf`, fetched directly 2026-09-24, SHA256 `c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619` | **secondary** — the `RS14` ruling extended, §2.4 below | Sentinel-6's own mass/CoM (§16.1) and 12-surface macromodel (§16.3); Jason-1's/-2's/-3's own mass/CoM (§6.1/§7.1/§12.1) and macromodel (§6.3/§7.3/§12.3); Appendix 1's own numerical SRP worked example, consumed by `SPEC-srp-analytic.md`'s own `SRPA-A-011`–`A-013`, not this spec |
 
 ### 2.1 `FLGA92`/`FLGA96`: the search, and the one route this session added
 
@@ -137,6 +151,32 @@ attribution of its own (checked directly) — EUSPA/EU's own first-party operati
 licensed-in third-party content. **Result: general redistribution with attribution is authorised —
 clean, unlike `RS14`'s own genuinely unclear case, no ruling needed to use it.** Reported before
 building anyway, per instruction, not because the result turned out ambiguous.
+
+### 2.4 `SATMOD`: the rule-4/licence search, and the `RS14` ruling extended a second time
+
+Performed 2026-09-24, before any Sentinel-6/Jason code existed this round. Cerri et al. 2010 (Marine
+Geodesy 33(sup1):379-418), the paper `SATMOD` itself cites as its own ref.[6], is paywalled everywhere
+this session reached: Tandfonline HTTP 403, ScienceDirect (a related 2025 paper) HTTP 403, ResearchGate
+HTTP 403, Academia.edu HTTP 403 — no open preprint or institutional-repository deposit found. `SATMOD`
+itself is the actual working route to the same values: a CNES technical note written by Cerri himself
+(DCT/SB/OR) with A. Couhert and P. Ferrage, freely retrievable (`ids-doris.org`, HTTP 200, no login),
+printing every box-wing value directly. States its own "External diffusion: web site of the
+International DORIS Service" — that site's own site-wide Legal Notice page
+(`ids-doris.org/legal-notice.html`) is an unfilled placeholder, verbatim "Legal notice To be added...
+Last Updated: 29 June 2022," checked directly, not treated as a clean licence merely because the note
+names external diffusion.
+
+**Ruled under the SAME `RS14` reasoning (§2.2), extended a second time** (first to GLONASS/GLONASS-M/
+GLONASS-K, `../plan/subplan_L5/L5-3.md`; now to `SATMOD`): a published-values note, cited per value,
+edition PINNED BY HASH since the note is explicitly revised over time (its own revision-history table,
+most recently touched 2026 per its own header) — the SAME "used anyway, on the record" treatment `RS14`
+itself received, not a fresh, separately-argued ruling. A SESSION-INTERNAL finding, recorded here for
+completeness rather than hidden: an EARLIER pass this round cached a summary of `SATMOD`'s own Jason-2/
+Jason-3 table from what turned out to be a STALE source (this session's own earlier notes, likely built
+from the older archived `SatelliteModels_Ed1Rev10.pdf`, 2016, also fetched this round for comparison) —
+caught before any code was written, by re-reading the CURRENT, hash-pinned fetch directly rather than
+trusting the cached summary (`PROVENANCE.md`'s own L5 step 4 section carries the full before/after
+numbers).
 
 ---
 
@@ -355,6 +395,64 @@ building anyway, per instruction, not because the result turned out ambiguous.
   yaw, Sec.5.4.4) extracted with its own equations OCR-garbled, and no redistribution terms found
   anywhere -- `beidou()` refuses unconditionally, `SPCR-R-019`, every reason named in its own
   refusal message.
+- **Sentinel-6 is the first constellation in this tree to populate `BandedOptics`'s own infrared
+  field.** `MCRM-R-004`'s own optional per-surface infrared `OpticalTriple` was built at L4 step 2 but
+  left unused by GPS, Galileo, GLONASS and QZSS alike (every one of those sources prints visible-band
+  optics only) — `SATMOD` §16.3 prints BOTH visible and infrared columns for every one of Sentinel-6's
+  own twelve rows, and Jason-2's/Jason-3's own §7.3/§12.3 tables do the same for their own eight rows
+  — the natural first real consumer of a capability this tree already had.
+- **Two of Sentinel-6's own twelve printed face normals do not renormalise to unit length — checked
+  directly against the rendered PDF page, not an extraction artefact, and RENORMALISED before
+  construction (`body_direction`'s own `MCRM-F-002` requires exact unit length).** `SATMOD` §16.3's
+  own row 5/6/7/8 normal, `(0, 0.616, -0.788)`/`(0, 0.616, 0.788)`, has printed norm 1.0002 — a small,
+  plausibly rounding-level deviation. Row 11's own normal, `(0.469, 0, -0.833)`, has printed norm
+  0.9560 — a MATERIAL, 4.4% deviation, confirmed against a directly rendered image of the source's own
+  page 39 (not merely the flattened-text extraction), the same "render the page, do not trust OCR/
+  extraction alone" discipline `RS14`'s own Eq. 4.5 finding already established for a different
+  source. Every non-axis-aligned normal is built from its own printed components, renormalised, cited
+  as the source's own value with this adjustment stated (`sentinel6.cpp`'s own citation string names
+  which rows were renormalised).
+- **Jason-2's and Jason-3's own macromodel is the SAME table — checked cell by cell, not merely
+  quoted** (`SATMOD` §7.3: "the macro-model is the same as for Jason-3"; §12.1: "the a priori SRP
+  geometry and properties are identical for the two satellites") — built from each satellite's own
+  section independently (`jason2()`/`jason3()` each carry their own citation naming their own section
+  number), so the two functions' own values agreeing is a CHECKED fact (`SPCR-A-025`), not a silent
+  call-through the way `gps_block_iir_m()` explicitly inherits `gps_block_iir()`'s own geometry.
+- **Jason's own solar array is BODY-FIXED, not Sun-tracking — a genuine difference from every panel
+  this tree has built before this round.** `SATMOD` §7.3/§12.3 print a FIXED normal, `(+1,0,0)`/
+  `(-1,0,0)`, "in sat ref frame" — the SAME frame every bus face is stated in — for the solar-array
+  rows, unlike GPS's, Galileo's and QZSS's own panels, which this tree already builds
+  `flat_surface_sun_pointing` because their own sources describe active Sun tracking. Built here as
+  TWO ADDITIONAL body-fixed `FlatSurface`s, exactly as the source states, not assumed to track the Sun
+  merely because it is called "solar array" (`SPCR-Q`, this spec's own open question names the gap
+  this leaves: the array's own real rotation, if any beyond this static reference orientation, is not
+  part of this macromodel table).
+- **Jason-1 is carried, refused — its own optics are non-energy-conserving and carry an overall force-
+  scale factor, neither of which this schema holds.** `SATMOD` §6.3 states directly: its own model
+  "was slightly modified by tuning the optical coefficients of the +/-Y faces and of the +X faces and
+  by setting a scale factor equal to 0.97... meant to be a factor that multiplies the solar radiation
+  pressure force." Checked directly, not assumed from the word "tuning" alone: every one of the six
+  body-face rows sums to something other than 1 (e.g. +X: 0.0938+0.2811+0.2078=0.5827; +Y:
+  1.1880-0.0113-0.0113=1.1654, with NEGATIVE diffuse/absorptivity cells the schema's own physical
+  triple cannot hold either way). A satellite-wide force-scale factor, outside any single surface's
+  own optics, has no field in this schema at all (`SPEC-macromodel.md`'s own stated scope). No
+  consumer needs Jason-1 currently.
+- **Mass and centre of mass, for Sentinel-6 and Jason-2/-3 alike, are each source section's own
+  BASELINE value, not an epoch lookup — a deliberate choice, differently justified for each.** Every
+  one of the three satellites' own operational offset files (`s6amass.txt`, `ja2mass.txt`,
+  `ja3mass.txt`) is confirmed openly retrievable (fetched directly this round). Sentinel-6's own file
+  is small (~30 data rows, `SATMOD` §16.1) — comparable in scale to Galileo's own ~30-row dated table
+  — but the ruling for THIS round names no epoch requirement for Sentinel-6's mass/CoM specifically
+  (unlike Jason's own explicit "epoch lookup... or otherwise the baseline" instruction), so it follows
+  the existing single-baseline pattern GPS/GLONASS/QZSS already use, the gap named as an open question
+  rather than built speculatively. Jason-2's/Jason-3's own files are NOT "Galileo's shape": thousands
+  of rows each (4134/3917 lines), an ever-growing PER-MANEUVER OPERATIONAL LOG spanning each
+  satellite's entire multi-year history, not a small, stable, dated snapshot table — embedding this
+  literally would be both impractical at this layer's own established scale (no existing table in this
+  tree exceeds ~30 rows) and a poor engineering proxy for what is more honestly a NOT-YET-BUILT
+  ancillary-file-ingestion capability. Both satellites use the manager's own explicitly offered
+  fallback (`JasonMassSource::Baseline`, REQUIRED, no default, an explicitly named selector per the
+  manager's own instruction) instead.
 
 ---
 
@@ -515,6 +613,34 @@ building anyway, per instruction, not because the result turned out ambiguous.
   a data product, a refinement of an earlier, narrower "no centre-of-mass field" reading); the
   maneuver-yaw mode's own equations extracted OCR-garbled; no stated redistribution terms; no
   current consumer. Every reason is named in the refusal's own message, not only in this spec.
+- **SPCR-R-020.** `sentinel6() -> Result<Macromodel, SpacecraftError>` — `SATMOD` §16.3's own twelve
+  body-fixed `FlatSurface`s, EVERY row carrying both a visible and an infrared `OpticalTriple` (§3's
+  own first-use finding), two rows renormalised from their own printed (non-unit) components (§3).
+  Mass and centre of mass are §16.1's own baseline (1191.831 kg; `(1.5274, -0.0073, 0.0373)` m, §3's
+  own baseline-not-epoch reasoning). Always succeeds — one satellite, one table.
+- **SPCR-R-021.** `jason2(source: JasonMassSource) -> Result<Macromodel, SpacecraftError>` — `SATMOD`
+  §7.3's own eight body-fixed `FlatSurface`s (6 bus + 2 solar array, the array's own FIXED normal, §3),
+  every row carrying both a visible and an infrared `OpticalTriple`. Mass and centre of mass are
+  §7.1's own baseline (505.9 kg; `(0.9768, 0.0001, 0.0011)` m), selected by `JasonMassSource`
+  (`SPCR-R-024`'s own header comment states why this selector exists instead of an epoch lookup).
+  Always succeeds for the one legal `source` value.
+- **SPCR-R-022.** `jason3(source: JasonMassSource) -> Result<Macromodel, SpacecraftError>` — `SATMOD`
+  §12.3's own table, IDENTICAL to `jason2()`'s own §7.3 table cell by cell (§3, `SPCR-A-025`), built
+  from its OWN citation (§12.3, not a call into `jason2()`). Mass and centre of mass are §12.1's own
+  baseline (509.6 kg; `(1.0023, 0.0000, -0.0021)` m), same `JasonMassSource` selector.
+- **SPCR-R-023.** `jason1() -> Result<Macromodel, SpacecraftError>` **refuses** (`SPCR-F-007`)
+  unconditionally in this version: `SATMOD` §6.3 states its own optics were tuned and carry an
+  overall 0.97 scale factor (§3's own full account) — checked directly, every body-face row found to
+  sum to something other than 1, some with negative cells the schema's own physical triple cannot
+  hold either way. No current consumer.
+- **SPCR-R-024.** `JasonMassSource { Baseline }` — REQUIRED, no default, an EXPLICITLY NAMED selector
+  per the manager's own instruction, with exactly one legal value today (§3's own reasoning: the
+  offset files' own dense, thousands-of-row operational-log shape is not "Galileo's shape") — a
+  future round that adds real epoch-based lookup extends this enum, forcing every call site to
+  choose, rather than silently keeping today's baseline-only behaviour.
+- **SPCR-R-025.** Every numeric value `SPCR-R-020`–`SPCR-R-022` state is a `Cited<double>` or
+  `Cited<Vec3>` (`SPEC-macromodel`'s own `MCRM-R-004`), the same rule every other block in this spec
+  states — no exemption for Sentinel-6 or Jason either.
 
 ---
 
@@ -547,10 +673,17 @@ building anyway, per instruction, not because the result turned out ambiguous.
 - `qzss_1(life: QzssLife) -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-016`, built from
   `SPI_QZS1_B` Table 4/Table 1.
 - `beidou() -> Result<Macromodel, SpacecraftError>` — refuses unconditionally, §4 `SPCR-R-019`.
+- `sentinel6() -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-020`, built from `SATMOD` §16.
+- `JasonMassSource { Baseline }` — §4 `SPCR-R-024`'s own required selector.
+- `jason2(source: JasonMassSource) -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-021`, built
+  from `SATMOD` §7.
+- `jason3(source: JasonMassSource) -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-022`, built
+  from `SATMOD` §12.
+- `jason1() -> Result<Macromodel, SpacecraftError>` — refuses unconditionally, §4 `SPCR-R-023`.
 
-Each function is a pure, parameterless (or SVN-/GSAT-/epoch-/life-parameterised) constructor: no file is
-read, no network reached; the cited literature is data this module states directly, the same shape
-`ecom::d4b1_order()` names a configuration rather than reading one.
+Each function is a pure, parameterless (or SVN-/GSAT-/epoch-/life-/source-parameterised) constructor:
+no file is read, no network reached; the cited literature is data this module states directly, the
+same shape `ecom::d4b1_order()` names a configuration rather than reading one.
 
 ---
 
@@ -597,6 +730,19 @@ read, no network reached; the cited literature is data this module states direct
   source states none. Table 1 is captioned "Prediction as a design," not a measured in-orbit value —
   stated in each mass/CoM citation, the same distinction `SPCR-P-1` already draws for `RS14`'s own
   cross-check figures elsewhere.
+- **SPCR-P-5.** `SATMOD`'s own values are stated to the precision it prints (three decimal places for
+  area, mass and CoM; four decimal places for optical coefficients). Sentinel-6's own infrared triples
+  sum to exactly 1.000 on every row (uniform 0.100/0.800/0.100); Jason-2's/Jason-3's own VISIBLE
+  triples sum to exactly 1.000 on every row, but their own INFRARED triples do NOT always — a small
+  (<=0.2%), genuine, source-side rounding property (e.g. the -Y row's own 0.104+0.569+0.328=1.001),
+  checked directly and recorded here rather than silently absorbed by a loose test tolerance nobody
+  explains (`SPCR-A-025`).
+- **SPCR-P-6.** Mass and centre of mass for `sentinel6()`/`jason2()`/`jason3()` are each source
+  section's own BASELINE value, not the current in-orbit value an epoch lookup would give — the gap
+  between baseline and current is small (the offset files' own printed deltas: Sentinel-6 up to ~12 kg
+  against a 1192 kg baseline, roughly 1%; Jason-2/-3 similarly small fractions of their own smaller
+  baselines) but not zero, `SPCR-Q` (this spec's own open question) names it explicitly rather than
+  implying the baseline is current.
 
 ---
 
@@ -610,6 +756,7 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-F-004` | `galileo_iov`/`galileo_foc` called with a `gsat` not among `GALSC`'s own currently-listed satellites for that block | the offending GSAT and the block name |
 | `SPCR-F-005` | `galileo_iov`/`galileo_foc` called with an `epoch` before the named satellite's own mass/CoM entry's stated month | the offending epoch, the satellite's own coverage start, and the `odl::atmosphere`-style reasoning |
 | `SPCR-F-006` | `beidou` called at all, in this version | all five independent reasons (§3, §4 `SPCR-R-019`), and where the full search record is kept; states explicitly that no baseline consumes this function |
+| `SPCR-F-007` | `jason1` called at all, in this version | both reasons (non-energy-conserving optics, checked cell by cell; the 0.97 scale factor this schema has no field for), and that no baseline consumes this function |
 | (inherited) `MCRM-F-001` | any citation this module supplies is blank | the schema's own refusal, unchanged — this module supplies none blank, `SPCR-A-002` proves the guard still fires if one were |
 
 ---
@@ -642,12 +789,21 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-A-022` | the SAP is built sun-pointing, not body-fixed, with the summed +Y/-Y area (45.0 m²); every other material is body-fixed | 1 sun-pointing surface, area 45.0 m²; 8 body-fixed | `SPI_QZS1_B` Table 4's own footnote *2 | 1e-9 | R-016 |
 | `SPCR-A-023` | **the guard shown firing**: a deliberately blank citation, through this module's own `Cited`/`body_direction` call path, is refused by `MCRM-F-001` | the refusal, `MCRM-F-001` | `SPCR-R-018` | — | R-018 |
 | `SPCR-A-024` | `beidou` refuses unconditionally with `SPCR-F-006`; the refusal's own message names all five reasons (curved surfaces, no populated per-satellite value, the unread maneuver-yaw equations, no redistribution terms, no consumer), checked by substring, not merely asserted | the refusal; all five reasons present | `SPCR-R-019` | — | F-006, R-019 |
+| `SPCR-A-025` | `jason2()`/`jason3()`: the source's own stated equality checked cell by cell (area, every optics coefficient, both bands); 8 surfaces each, every body-fixed (solar array included); citations differ between the two (independent citation, not a silent call-through) | agreement to `SATMOD`'s own printed precision; citations differ | `SATMOD` §7.3/§12.3, read directly in the test | 1e-12/2e-3 (infrared) | R-021, R-022 |
+| `SPCR-A-026` | `sentinel6()`: every surface's own visible AND infrared triple sums to 1; 12 surfaces, all body-fixed; every normal unit length | exactly 1 (1e-9); 12 surfaces; unit normals | `SATMOD` §16.3, read directly in the test | 1e-9 | R-020 |
+| `SPCR-A-027` | `sentinel6()`: infrared optics are uniform (0.100/0.800/0.100) on every row, and genuinely populated (not silently falling back to the visible triple, `BandedOptics::in()`'s own documented fallback) | infrared matches; differs from visible where visible does | `SATMOD` §16.3 | 1e-9 | R-020, R-025 |
+| `SPCR-A-028` | `sentinel6()`: the two non-axis-aligned face normals, AS PRINTED, do not renormalise to unit length (checked against the source's own printed components directly); the built surface carries the RENORMALISED direction | printed norm != 1 (1.0002, 0.9560); built normal = printed/norm exactly | `SATMOD` §16.3, cross-checked against the rendered PDF page | 1e-6 | R-020 |
+| `SPCR-A-029` | `sentinel6()`: mass and CoM are §16.1's own baseline; every value cited; the citation-refusal guard reaches this module's own call path | the stated values; the refusal, `MCRM-F-001` | `SATMOD` §16.1 | 1e-9 | R-020, R-025 |
+| `SPCR-A-030` | `jason2()`: the solar array rows carry a FIXED `(+1,0,0)`/`(-1,0,0)` body-frame normal exactly as §7.3 prints them, not a sun-pointing surface | 0 sun-pointing surfaces; 1 each of +X/-X at area 9.8 | `SATMOD` §7.3, read directly in the test | — | R-021 |
+| `SPCR-A-031` | `jason2()`/`jason3()`: mass and CoM are each section's own baseline, genuinely different between the two satellites | 505.9/509.6 kg respectively | `SATMOD` §7.1/§12.1 | 1e-9 | R-021, R-022 |
+| `SPCR-A-032` | `jason1()` refuses unconditionally with `SPCR-F-007`; the refusal's own message names both reasons (the 0.97 factor, the non-energy-conserving optics quantified) and states no consumer needs it, checked by substring | the refusal; both reasons present | `SPCR-R-023` | — | F-007, R-023 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
 | id | why no test |
 |---|---|
 | `SPCR-F-002` | Retired, §7: withdrawn 2026-09-24 when `SPCR-R-004` was ruled and built, and `SPCR-A-004` rewritten to test the real construction instead of this refusal. No code path returns it any more, so no test can discharge it; kept documented, not deleted, for traceability against the earlier commit that did fire it. |
+| `SPCR-R-024` | `JasonMassSource`'s own single legal value is a pure type declaration, not an independently testable behaviour — it is exercised indirectly by every `SPCR-A-025`/`-030`/`-031` call, all of which pass `JasonMassSource::Baseline` to `jason2()`/`jason3()` and check the resulting mass/CoM. `OpticalLife`/`QzssLife` avoid this gap by being folded into their OWN constructor's requirement id (`SPCR-R-009`/`-016`) rather than given a separate one — `JasonMassSource` was split out separately in this spec's own numbering, which is why it needs its own excuse here rather than simply inheriting `SPCR-R-021`'s/`-022`'s own discharge the way the others do. |
 
 ---
 
@@ -704,6 +860,18 @@ read, no network reached; the cited literature is data this module states direct
   already was); the curved-surface types, the maneuver-yaw mode's own OCR-garbled equations, and the
   redistribution-terms search, each independently sufficient; the refusal's own message naming every
   reason, checked by test.
+- **L5 step 4 (Sentinel-6, Jason-2, Jason-3, Jason-1)**: the `SATMOD` rule-4/licence search (the
+  paywalled Cerri et al. 2010, the usable CNES note instead, its own placeholder Legal Notice); the
+  `RS14` ruling extended a second time, this note's own edition hash-pinned; the STALE-CACHE finding —
+  an earlier pass this round cached a Jason-2/-3 table from what turned out to be an outdated read,
+  caught by re-reading the current, hash-pinned fetch directly before any code was written, the exact
+  before/after numbers recorded; `BandedOptics`'s own infrared field populated for the first time;
+  Sentinel-6's own two non-unit printed normals, found and confirmed against the rendered PDF page
+  directly, renormalised; Jason's own solar array found to be body-fixed, not Sun-tracking, a
+  departure from every earlier constellation's own panel treatment; Jason-1's own refusal reasoning,
+  matching the BeiDou/GPS-IIIA "checked directly, not assumed from the word alone" pattern; the
+  mass/CoM baseline-vs-epoch-lookup judgment call, differently reasoned for Sentinel-6 (small file,
+  no ruling requirement) and Jason (large operational log, the manager's own offered fallback taken).
 
 ---
 

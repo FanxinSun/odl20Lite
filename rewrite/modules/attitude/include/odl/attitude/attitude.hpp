@@ -237,4 +237,83 @@ glonass_m_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
 [[nodiscard]] odl::Result<Mat3, AttitudeError>
 qzss_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& sun_direction_gcrs);
 
+// --- SPEC-sentinel6-attitude: S6AT-R-001..R-003 ----------------------------
+
+/// S6AT-R-002. Sentinel-6's own argument of latitude: the angle from the
+/// ascending node to the current position, positive in the direction of
+/// motion -- `SwotAndSentinel6AttitudeLaws.pdf` §3's own theta, "the
+/// position on the orbit, relative to the ascending node" -- a DIFFERENT
+/// angular origin from `mu_rad`'s own midnight-relative mu (this law has NO
+/// Sun-dependence at all, unlike every earlier law in this module). Exposed
+/// publicly for its own acceptance test's verification only -- the same
+/// treatment `galileo_native_yaw_angle_pre_substitution` already gets;
+/// `sentinel6_attitude` itself never reads this scalar except through the
+/// frame it implies.
+[[nodiscard]] double sentinel6_argument_of_latitude_rad(const Vec3& r_gcrs_m,
+                                                         const Vec3& v_gcrs_m_per_s) noexcept;
+
+/// S6AT-R-001/R-003. Sentinel-6's own closed-form nadir-pointing law with
+/// small roll/pitch/yaw oscillations in the argument of latitude
+/// (`SwotAndSentinel6AttitudeLaws.pdf` §2/§3, quoted in full in this file's
+/// own .cpp header comment): NO Sun direction consumed at all -- a genuine
+/// property of this law, the same "takes no Sun direction" shape
+/// `orbit_normal_attitude` already has, for an unrelated reason (that one is
+/// QZSS's own eclipse-season mode; this one is Sentinel-6's own PERMANENT
+/// law, never switching to a Sun-tracking mode). Never fails: a fixed
+/// rotation of the always-defined orbital triad, the same no-singularity
+/// property `orbit_normal_attitude` already has.
+[[nodiscard]] Mat3 sentinel6_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s) noexcept;
+
+// --- SPEC-jason-attitude: JSAT-R-001..R-004 --------------------------------
+
+/// Which regime `jason_attitude` is in -- exposed so a caller (and this
+/// spec's own acceptance tests) can see which branch fired, the same shape
+/// `GpsBlock`/`GalileoBlock` already are, but returned as part of the
+/// RESULT here (JSAT-R-004) rather than selected by the caller: unlike GPS's
+/// or Galileo's own block choice, which regime applies is a property of the
+/// CURRENT geometry (beta-prime) alone, not something the caller states.
+enum class JasonRegime { YawSteering, FixedYaw };
+
+/// JSAT-R-001..R-004. The TOPEX/Jason attitude law (Jason's own macromodel
+/// note states it is "identical to TOPEX," `SPEC-jason-attitude.md` §2):
+/// beta-prime is the source's own name for the Sun's elevation above the
+/// orbital plane -- the SAME quantity `signed_beta_rad(s_hat, n_hat)`
+/// already computes for GPS/QZSS, reused internally, no separate public
+/// construction (`JSAT-A-001` checks this reduction, not merely assumes
+/// it). Nadir-pointing +Z always; below `kJasonFixedYawSwitchRad` (~15 deg,
+/// APPROXIMATE, the source's own stated figure, the SAME
+/// "commanded, not a pure function of beta" caveat `qzss_yaw_attitude`'s own
+/// ~20 deg switch already carries) a FIXED-YAW law (+X along the velocity
+/// direction when flying forward, i.e. beta-prime > 0; anti-along-track
+/// when flying backward) built directly from this tree's own orbital triad
+/// (JSAT-R-002, no native-frame mapping needed: "along-track" is a physical
+/// direction, not a Sun-relative one, so it carries no frame-convention
+/// ambiguity to resolve the way the Sun-relative yaw-steering branch does);
+/// otherwise ordinary yaw-steering, called through `nominal_yaw_steering`
+/// with the Sun direction NEGATED first (JSAT-R-003) -- the source's own
+/// words, "positive X axis points away from the sun," the OPPOSITE of this
+/// tree's own `nominal_yaw_steering` convention; DERIVED, not independently
+/// confirmed by a second reading or a printed coordinate pair the way
+/// Galileo's/QZSS's own frame mappings are (`JSAT-Q-001` names the gap):
+/// given Jason's own native z (nadir) already matches this tree's own z
+/// with no rotation, right-handedness alone FORCES y to flip together with
+/// x (the SAME "pure rotation, not a reflection" argument
+/// `qzss_frame_from_native`'s own header proves, §3 of that spec) -- so
+/// negating the Sun direction fed to `nominal_yaw_steering` (equivalently:
+/// this tree's own +x, which points toward the negated Sun, points AWAY
+/// from the real Sun, matching the source's own stated convention) is
+/// algebraically the SAME construction as an explicit 180-about-Z frame map
+/// would give, without building one. RAMPS AND FLIPS BETWEEN THE TWO
+/// REGIMES ARE NOT MODELLED (`JSAT-Q-002`): the source states their own
+/// timing is operational, recorded in a per-satellite ancillary file, not
+/// closed-form -- this function is therefore DISCONTINUOUS exactly at the
+/// regime boundary, a genuine, reported property, not a smoothed
+/// approximation (`SPEC-thrust-yaw.md` §4.1's own GPS II/IIA post-shadow
+/// recovery period, "largely uncertain," is this tree's own precedent for
+/// carrying a real, unmodelled discontinuity rather than inventing a smooth
+/// one). `regime`, if non-null, receives which branch fired.
+[[nodiscard]] odl::Result<Mat3, AttitudeError>
+jason_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& sun_direction_gcrs,
+              JasonRegime* regime = nullptr);
+
 }  // namespace odl::attitude

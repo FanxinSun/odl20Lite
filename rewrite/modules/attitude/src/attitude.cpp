@@ -1020,4 +1020,185 @@ qzss_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& 
     return nominal_yaw_steering(r_gcrs_m, sun_direction_gcrs);
 }
 
+// --- SPEC-sentinel6-attitude ------------------------------------------------
+//
+// SwotAndSentinel6AttitudeLaws.pdf (Flavien Mercier, John Moyard, CNES),
+// Sec.2, quoted directly:
+//
+//   "Orbital frame: this is the radial, tangential, normal frame, defined by
+//   the three vectors: R for the radial, N defined by R ^ V normalized, with
+//   V the inertial velocity, and T = N ^ R."  -- EXACTLY this file's own
+//   (r_hat, n_hat, t_hat) (`orbit_triad`'s own N=r×v, T=n×r), no relabelling.
+//
+//   "Geodetic pointing frame: this frame is defined by a roll around T, then
+//   a pitch around the transformed N, and then a yaw around the transformed
+//   R. The final axes are named Rsat, Tsat, Nsat."
+//
+//   "R = R2 R3 R1" (Eq.1), with (c_i=cos(alpha_i), s_i=sin(alpha_i)):
+//     R2 (roll, around T)  = [[c2,0,s2],[0,1,0],[-s2,0,c2]]
+//     R3 (pitch)           = [[c3,-s3,0],[s3,c3,0],[0,0,1]]
+//     R1 (yaw)             = [[1,0,0],[0,c1,-s1],[0,s1,c1]]
+//   "R is the transformation matrix for coordinates from the satellite frame
+//   to the orbital frame" -- i.e. v_RTN = R2*R3*R1*v_satellite. Composing
+//   coordinates in (R,T,N) order (R2's own middle row/column is invariant,
+//   matching "roll around T" only if T is the SECOND component; R3's own
+//   third row/column is invariant, matching "pitch around N" only if N is
+//   third; R1's own first row/column is invariant, matching "yaw around R"
+//   only if R is first -- so every use of these matrices is in (R,T,N)
+//   component order, not any other) gives, applying R2*R3*R1 to each
+//   satellite-frame basis vector in turn (worked out in full, not merely
+//   asserted, PROVENANCE.md's own L5 step 4 section):
+//
+//     Rsat = (c2*c3)*R + s3*T + (-s2*c3)*N
+//     Tsat = (s2*s1 - c2*s3*c1)*R + (c3*c1)*T + (s2*s3*c1 + c2*s1)*N
+//     Nsat = (c2*s3*s1 + s2*c1)*R + (-c3*s1)*T + (c2*c1 - s2*s3*s1)*N
+//
+//   "With theta the position on the orbit, relative to the ascending node...
+//   alpha2 = a2*sin(theta) [roll], alpha3 = a3*sin(2*theta) [pitch],
+//   alpha1 = a1*cos(theta) [yaw]." Sentinel-6's own coefficients: a2 =
+//   -0.111 deg, a3 = +0.138 deg, a1 = +4.225 deg.
+//
+//   Sec.3: "For Sentinel 6 the axes Rsat, Tsat, Nsat correspond to the
+//   platform axes, respectively -z, x, -y" -- so z_body = -Rsat, x_body =
+//   Tsat, y_body = -Nsat. Right-handed by construction (x_body x y_body =
+//   Tsat x (-Nsat); at alpha1=alpha2=alpha3=0, Rsat=R, Tsat=T, Nsat=N
+//   exactly, giving x_body x y_body = T x (-N) = -(T x N) = -R = z_body,
+//   the SAME cyclic identity this file's own OrbitTriad already carries;
+//   S6AT-A-001 checks this holds at every theta, not only theta=0).
+//
+// FRAME: the macromodel note's own §16.3 states its face normals are "in
+// sat ref frame" -- the SAME name this document's own platform axes use,
+// and both are CNES's own companion documents for the SAME satellite, the
+// macromodel note's own §16.2 pointing directly at this one. Treated here
+// as the SAME physical frame, no additional rotation applied -- a stated
+// assumption (`SPEC-sentinel6-attitude.md` `S6AT-Q-001`), not independently
+// verified by a printed coordinate pair (unlike Galileo's own GALSC
+// ARP/LRR tables) or real attitude data (no open quaternion source found
+// this round for Sentinel-6, `SPEC-sentinel6-attitude.md` §4).
+
+double sentinel6_argument_of_latitude_rad(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s) noexcept {
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    // The ascending-node direction, the standard orbital-mechanics node
+    // vector N_node = Z_hat x n_hat (Z_hat the GCRS pole) -- in-plane by
+    // construction (perpendicular to n_hat, the SAME "in-plane" test
+    // mu_rad's own s_orb_raw projection uses for a different vector).
+    // Degenerates only for an exactly equatorial orbit (n_hat parallel to
+    // Z_hat) -- never reached for Sentinel-6's own ~66 deg inclination, the
+    // same "never actually occurs where the result is used" reasoning
+    // mu_rad's own header states for its own, different degeneracy.
+    constexpr Vec3 kPoleHat{0.0, 0.0, 1.0};
+    const Vec3 node_hat = normalized(kPoleHat.cross(tri.n_hat));
+    // The angle FROM node_hat TO r_hat, positive in the n_hat right-hand
+    // sense -- which IS the direction of motion, since d(r_hat)/d(theta) =
+    // n_hat x r_hat = t_hat by construction (`OrbitTriad`'s own t_hat = n_hat
+    // x r_hat, the same identity `mu_rad`'s own header proof leans on for a
+    // different pair of vectors). PROVED, not merely asserted: for two
+    // in-plane unit vectors A, B with plane normal n_hat, the signed angle
+    // from A to B in the n_hat right-hand sense is atan2((A x B).n_hat,
+    // A.B); substituting A=node_hat, B=r_hat and simplifying (A x r_hat).
+    // n_hat = A.(r_hat x n_hat) = A.(-t_hat) via the cyclic identity r_hat x
+    // n_hat = -t_hat (from n_hat x r_hat = t_hat) gives EXACTLY this form.
+    // Checked numerically against a closed-form circular orbit at several
+    // theta, forward-in-time, and against a deliberately reversed (wrong-
+    // sign) version, S6AT-A-001.
+    return std::atan2(-node_hat.dot(tri.t_hat), node_hat.dot(tri.r_hat));
+}
+
+Mat3 sentinel6_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s) noexcept {
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    const double theta = sentinel6_argument_of_latitude_rad(r_gcrs_m, v_gcrs_m_per_s);
+    // Sentinel-6's own coefficients (SwotAndSentinel6AttitudeLaws.pdf §2's
+    // own table, degrees): a2 (roll) = -0.111, a3 (pitch) = +0.138, a1
+    // (yaw) = +4.225.
+    const double alpha1 = (4.225 * kDegToRad) * std::cos(theta);
+    const double alpha2 = (-0.111 * kDegToRad) * std::sin(theta);
+    const double alpha3 = (0.138 * kDegToRad) * std::sin(2.0 * theta);
+    const double c1 = std::cos(alpha1), s1 = std::sin(alpha1);
+    const double c2 = std::cos(alpha2), s2 = std::sin(alpha2);
+    const double c3 = std::cos(alpha3), s3 = std::sin(alpha3);
+
+    // R = R2*R3*R1, worked out above: Rsat/Tsat/Nsat as (R,T,N) blends.
+    const Vec3 r_sat = (c2 * c3) * tri.r_hat + s3 * tri.t_hat + (-s2 * c3) * tri.n_hat;
+    const Vec3 t_sat = (s2 * s1 - c2 * s3 * c1) * tri.r_hat + (c3 * c1) * tri.t_hat +
+                       (s2 * s3 * c1 + c2 * s1) * tri.n_hat;
+    const Vec3 n_sat = (c2 * s3 * s1 + s2 * c1) * tri.r_hat + (-c3 * s1) * tri.t_hat +
+                       (c2 * c1 - s2 * s3 * s1) * tri.n_hat;
+
+    // Sec.3: Rsat,Tsat,Nsat <-> -z,x,-y (Sentinel-6's own platform axes).
+    const Vec3 z_body = -1.0 * r_sat;
+    const Vec3 x_body = t_sat;
+    const Vec3 y_body = -1.0 * n_sat;
+    Mat3 m;
+    m.r[0] = {x_body.x, x_body.y, x_body.z};
+    m.r[1] = {y_body.x, y_body.y, y_body.z};
+    m.r[2] = {z_body.x, z_body.y, z_body.z};
+    return m;
+}
+
+// --- SPEC-jason-attitude -----------------------------------------------------
+//
+// The TOPEX/Jason family's own attitude law (Jason's own macromodel note,
+// Sec.6.2 (TOPEX/Jason family entries), "identical to TOPEX" -- quoted in
+// full in SPEC-jason-attitude.md §2): Z always nadir. Two yaw regimes by
+// beta-prime (this tree's own signed_beta_rad): FIXED YAW for |beta-prime|
+// below ~15 deg (X along-track when flying forward, i.e. beta-prime > 0;
+// opposite when flying backward, beta-prime < 0 -- the flight-direction/
+// beta-sign association is the SAME family's own companion SWOT section,
+// Sec.4: "the velocity is along -X for beta<0 (flying backward) and +X for
+// beta>0 (flying forward)", carried here by analogy within the SAME
+// document and the SAME satellite family, not independently stated for
+// Jason specifically -- SPEC-jason-attitude.md's own open question); YAW
+// STEERING otherwise ("positive X axis points away from the sun"). Ramps
+// and flips between the two are operational, "recorded in a file"
+// (ja3att.txt-style ancillary log), not closed-form -- NOT modelled,
+// SPEC-jason-attitude.md JSAT-Q-002.
+
+/// ~15 deg, APPROXIMATE (the source's own stated figure, no closed-form
+/// derivation the way GPS's/GLONASS-M's own rate-derived onsets are) -- the
+/// SAME "commanded, not a pure function of beta" caveat kQzssBetaSwitchRad
+/// already carries for a different constellation.
+constexpr double kJasonFixedYawSwitchRad = 15.0 * kDegToRad;
+
+odl::Result<Mat3, AttitudeError>
+jason_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& sun_direction_gcrs,
+              JasonRegime* regime) {
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    const Vec3 s_hat = normalized(sun_direction_gcrs);
+    // "Beta-prime" (the source's own name) IS signed_beta_rad -- both name
+    // the Sun's elevation above the orbital plane, JSAT-A-001.
+    const double beta_prime = signed_beta_rad(s_hat, tri.n_hat);
+
+    if (std::abs(beta_prime) < kJasonFixedYawSwitchRad) {
+        if (regime != nullptr) *regime = JasonRegime::FixedYaw;
+        // Fixed yaw: Z nadir always; X along-track (forward) or
+        // anti-along-track (backward), Y completing right-handed --
+        // built DIRECTLY in this tree's own frame (JSAT-R-002's own header
+        // comment: "along-track" is a physical direction, not Sun-relative,
+        // so no native-frame mapping is needed or built). y_body = z_body x
+        // x_body in both cases (PROVED via the cyclic identity r_hat x
+        // t_hat = n_hat / t_hat x n_hat = r_hat, SPEC-jason-attitude.md §3,
+        // JSAT-A-002 checks both signs of beta-prime independently).
+        const bool forward = beta_prime > 0.0;
+        const Vec3 z_body = -1.0 * tri.r_hat;
+        const Vec3 x_body = forward ? tri.t_hat : (-1.0 * tri.t_hat);
+        const Vec3 y_body = forward ? (-1.0 * tri.n_hat) : tri.n_hat;
+        Mat3 m;
+        m.r[0] = {x_body.x, x_body.y, x_body.z};
+        m.r[1] = {y_body.x, y_body.y, y_body.z};
+        m.r[2] = {z_body.x, z_body.y, z_body.z};
+        return m;
+    }
+
+    if (regime != nullptr) *regime = JasonRegime::YawSteering;
+    // Yaw steering: "positive X axis points away from the sun" -- the
+    // OPPOSITE of nominal_yaw_steering's own convention. Right-handedness
+    // forces y to flip together with x once z is shared (the SAME "pure
+    // rotation, not a reflection" argument qzss_frame_from_native's own
+    // header proves) -- algebraically the SAME as negating the Sun
+    // direction fed to nominal_yaw_steering, JSAT-Q-001 flags this as
+    // DERIVED, not confirmed by a second reading or real data the way
+    // Galileo's/QZSS's own mappings are.
+    return nominal_yaw_steering(r_gcrs_m, -1.0 * sun_direction_gcrs);
+}
+
 }  // namespace odl::attitude

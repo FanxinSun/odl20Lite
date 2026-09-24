@@ -98,3 +98,17 @@ if(BUILD_TESTING)
     ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}")
 endif()
 catch_discover_tests(odl_l4_ranking_tests EXTRA_ARGS --warn NoAssertions)
+
+# L5 step 4's own rule-2 check (the manager's own ruling, plan/subplan_L5/
+# L5-4.md): reproducing a published, source-provided numerical SRP example
+# through this tree's own real photon-pressure kernel, and running
+# Sentinel-6's own REAL macromodel through that same real kernel. Links
+# both odl::spacecraft (the data) and odl::srp_analytic (the kernel) on
+# purpose, the same "linked here because the numbers being compared live in
+# separate modules" reasoning l2_floors.cpp's own header states -- neither
+# module's own DEPENDS gains the other for one cross-cutting test file.
+add_executable(odl_spot5_appendix_tests spot5_appendix_tests.cpp)
+target_link_libraries(odl_spot5_appendix_tests
+  PRIVATE odl::core odl::macromodel odl::spacecraft odl::srp_analytic
+          Catch2::Catch2WithMain odl_warnings)
+catch_discover_tests(odl_spot5_appendix_tests EXTRA_ARGS --warn NoAssertions)

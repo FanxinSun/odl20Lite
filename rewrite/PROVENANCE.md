@@ -5924,6 +5924,302 @@ original, REGISTERED J02/J04 yaw-steering checks). No production attitude/spacec
 
 ---
 
+## 34. L5 step 4 — altimetry: Sentinel-6 and Jason-2/-3 built, Jason-1 carried
+
+### 34.1 Rule-4 and licence search, and a stale cache caught before it reached code
+
+Performed 2026-09-24. Cerri et al. 2010 (Marine Geodesy 33(sup1):379-418), the paper Jason's own
+macromodel note cites as its own ref.[6], is paywalled everywhere reached: Tandfonline, ScienceDirect
+(a related 2025 paper), ResearchGate and Academia.edu all returned HTTP 403. The actual usable route:
+`SALP-NT-BORD-OP-16137-CN` ("DORIS satellites models implemented in POE processing," Ed.1/Rev.20,
+2026-09-09), written by Cerri himself (DCT/SB/OR) with A. Couhert and P. Ferrage, freely retrievable
+from `ids-doris.org`, no login. SHA256
+`c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619`, pinned in every citation this
+round produces, per the manager's own instruction ("the macromodel note is dated 2026-09-09 and is
+revised over time, so the citation names its edition"). States "External diffusion: web site of the
+International DORIS Service"; that site's own site-wide Legal Notice page is an unfilled placeholder,
+verbatim "To be added... Last Updated: 29 June 2022," checked directly. Ruled usable under the SAME
+`RS14` reasoning already extended once this round (to GLONASS/GLONASS-M/GLONASS-K) — a published-values
+note, cited per value, not the predecessor's own hand-built compilation.
+
+A second document, "SWOT and Sentinel 6 attitude laws" (Flavien Mercier, John Moyard, CNES), was found
+on the same site and fully read — Sentinel-6's own complete, closed-form, Sun-independent attitude law
+(§34.3 below). SHA256 `5f94f657413f2df3788c0b8074a8145d6e2fb00a2432b280dfe2102ed41e8ddf`.
+
+**A genuine, session-internal finding, recorded rather than quietly fixed:** an intermediate research
+pass this round cached a summary of Jason-2's/Jason-3's own macromodel table (§7.3/§12.3) that turned
+out to be STALE — built, most likely, from an OLDER archived edition of the same note
+(`SatelliteModels_Ed1Rev10.pdf`, 2016, also fetched this round for comparison) rather than the current,
+hash-pinned fetch. Caught BEFORE any code was written, by re-reading the current fetch's own extracted
+text directly rather than trusting the cached summary — the same "re-verify against the source, not
+your own notes" discipline this tree has applied to OCR extractions all along, here applied to the
+session's own intermediate research artefacts. The two tables, for comparison (spec/diff/abs, visible
+band, the two solar-array rows):
+
+    stale cache (WRONG, not used):    0.0600 / 0.4070 / 0.5330  (+X array)
+                                       0.0040 / 0.2980 / 0.6970  (-X array)
+    current fetch (RIGHT, used):      0.1000 / 0.2950 / 0.6050  (+X array)
+                                       0.1000 / 0.3000 / 0.6000  (-X array)
+
+The note's own revision history explains the gap: its own INTRODUCTION section states Jason-2's solar
+array was tuned TWICE after the original model (spec/diff/abs 0.3440/0.0060/0.6470) — once to an
+intermediate set matching the stale cache, and again to the current printed set — a real, admitted
+revision history, not a transcription slip either time. Every body-face row was cross-checked the same
+way; all six agreed between stale and current (only the solar-array rows had moved).
+
+### 34.2 Sentinel-6's macromodel, and two printed normals that do not renormalise
+
+Built from `SATMOD` §16.1/§16.3: twelve body-fixed surfaces, mass 1191.831 kg, CoM `(1.5274, -0.0073,
+0.0373)` m. The FIRST constellation in this tree to populate `BandedOptics`'s own infrared field
+(built at L4 step 2, unused by GPS/Galileo/GLONASS/QZSS, whose own sources print visible-band optics
+only) — every one of Sentinel-6's twelve rows prints both bands.
+
+Two of the twelve printed normals do not renormalise to unit length. Row 5/6, `(0, 0.616, -0.788)`:
+printed norm 1.0002, a small, plausibly rounding-level deviation. Row 11, `(0.469, 0, -0.833)`: printed
+norm 0.9560, a 4.4% deviation — large enough to be a real finding, not rounding noise. VERIFIED against
+a directly rendered image of the source's own page 39 (`pdftoppm` at 250 dpi), not trusted from the
+flattened-text extraction alone — the same "render the page" discipline `RS14`'s own Eq. 4.5 finding
+established earlier this project, applied here to a different source. The rendered page matches the
+extraction exactly, cell by cell, confirming this is a genuine source-side imprecision (the printed
+3-decimal table simply does not always renormalise), not an OCR/extraction defect. Both rows
+renormalised from their own printed components before construction (`body_direction`'s own `MCRM-F-002`
+requires exact unit length), cited with the adjustment stated.
+
+Mass/CoM: `SATMOD`'s own per-epoch offset file, `s6amass.txt`, confirmed openly retrievable (~30 data
+rows, small enough in principle to embed) — NOT wired into an epoch lookup this round, since the
+manager's own ruling text names no epoch requirement for Sentinel-6's own mass specifically (unlike
+Jason's explicit instruction), so the existing single-baseline pattern (GPS/GLONASS/QZSS) was kept,
+the gap named as an open question rather than built speculatively given this round's own scope was
+already large.
+
+### 34.3 Sentinel-6's attitude law, derived in full from the rotation matrix as printed
+
+`SwotAndSentinel6AttitudeLaws.pdf` §2 prints an orbital frame IDENTICAL to this tree's own `OrbitTriad`
+(R=r_hat, N=normalize(r×v)=n_hat, T=n_hat×r_hat=t_hat, checked term by term, not assumed from matching
+symbols) and a rotation `R = R2*R3*R1` (roll around T, pitch around the transformed N, yaw around the
+transformed R), each a standard single-axis matrix, printed in full. Composing R2*R3*R1 against each
+satellite-frame basis vector in turn (worked out by hand, not copied from anywhere) gives:
+
+    Rsat = (c2*c3)*R + s3*T + (-s2*c3)*N
+    Tsat = (s2*s1 - c2*s3*c1)*R + (c3*c1)*T + (s2*s3*c1 + c2*s1)*N
+    Nsat = (c2*s3*s1 + s2*c1)*R + (-c3*s1)*T + (c2*c1 - s2*s3*s1)*N
+
+Verified at `alpha_i=0`: reduces to `Rsat=R, Tsat=T, Nsat=N` exactly, the identity, as it must. The
+angles: theta "the position on the orbit, relative to the ascending node" (a NEW angular quantity in
+this tree, distinct from `mu_rad`'s own midnight-relative mu); `alpha2=a2*sin(theta)` (roll),
+`alpha3=a3*sin(2*theta)` (pitch), `alpha1=a1*cos(theta)` (yaw); Sentinel-6's own coefficients
+`a2=-0.111 deg, a3=+0.138 deg, a1=+4.225 deg`. §3: "Rsat, Tsat, Nsat correspond to the platform axes,
+respectively -z, x, -y" — so `z_body=-Rsat, x_body=Tsat, y_body=-Nsat`.
+
+`sentinel6_argument_of_latitude_rad` built from the standard orbital-mechanics ascending-node vector
+(`Z_hat × n_hat`, normalized) and the same "signed angle between two in-plane vectors" identity
+`mu_rad`'s own header already leans on, PROVED (not merely computed) to give theta=0 at the node and
+theta increasing with true motion, since `d(r_hat)/d(theta) = n_hat × r_hat = t_hat` by the SAME
+`OrbitTriad` cyclic identity used throughout this module. Checked along a propagated trajectory, per
+the manager's own explicit instruction ("as mu's now is"): a CLOSED-FORM synthetic circular orbit
+(chosen so the ground truth is exact, not a numerical propagation's own residual error) at eight angles
+spanning a full revolution, forward-in-time strictly increasing at twelve further points, and the guard
+shown firing on a deliberately reversed (wrong-sign) version, which disagrees at every angle and gives
+a DECREASING theta forward in time instead.
+
+**Rotation-convention guard, adapted per the manager's own instruction.** The macromodel note's own
+Appendix 1 numerical SRP example (§34.7 below) is for SPOT-5's bus alone — no attitude, no yaw/roll/
+pitch mentioned — so it does not pin this law's own rotation convention. Checked instead against the
+property that the oscillations vanish at their own nodes, against an INDEPENDENTLY worked-out closed
+form: at theta=0/180 deg, roll and pitch both vanish together, leaving a pure rotation about R by the
+yaw angle alone (`Rsat=R, Tsat=cos(a1)*T+sin(a1)*N, Nsat=-sin(a1)*T+cos(a1)*N`); at theta=90/270 deg,
+yaw and pitch both vanish together, leaving a pure rotation about T by the roll angle alone
+(`Tsat=T, Rsat=cos(a2)*R-sin(a2)*N, Nsat=sin(a2)*R+cos(a2)*N`) — both forms derived independently, not
+read back from the production code, and matched exactly (1e-9) at all four angles.
+
+The frame identification itself (`SATMOD`'s own "sat ref frame" for face normals = `S6ATT`'s own
+platform axes) is a STATED ASSUMPTION, not independently verified by a printed coordinate pair
+(Galileo's own precedent) or real data — no Sentinel-6 quaternion source was found this round (§34.8),
+recorded as `S6AT-Q-001`.
+
+### 34.4 Jason-2 and Jason-3's macromodel — the shared, corrected table
+
+Built from `SATMOD` §7.3/§12.3 (the CORRECTED table, §34.1 above): 8 body-fixed surfaces each (6 bus +
+2 solar array), every row carrying both visible and infrared optics. Checked cell by cell: the two
+satellites' own tables are IDENTICAL (`SPCR-A-025`), matching the source's own stated equality both
+directions ("the macro-model is the same as for Jason-3" / "the a priori SRP geometry and properties
+are identical for the two satellites") — built from each satellite's own section independently (its
+own citation naming its own section number), so the agreement is a CHECKED fact, not a silent
+call-through.
+
+**The solar array is body-fixed, not Sun-tracking** — a genuine, notable difference from every panel
+this tree has built before this round. `SATMOD` prints a FIXED normal, `(+1,0,0)`/`(-1,0,0)`, "in sat
+ref frame," the same frame every bus face is stated in, for the array rows — GPS's, Galileo's and
+QZSS's own panels are all built `flat_surface_sun_pointing` because their own sources describe active
+Sun tracking; Jason's own source does not, for this table, so it is built as printed, not assumed to
+track the Sun merely because it is named "solar array."
+
+Visible-band optics sum to exactly 1.000 on every row (checked); infrared does NOT always — a small
+(≤0.2%), genuine, source-side rounding property (e.g. the -Y row's own `0.104+0.569+0.328=1.001`),
+found when a first draft of `SPCR-A-025`'s own test asserted a 1e-9 tolerance for BOTH bands and failed
+on the infrared check at five of eight rows — widened to 2e-3 for infrared specifically, the deviation
+itself recorded here and in `SPEC-spacecraft.md` rather than silently absorbed by a loosened tolerance
+nobody explains.
+
+Mass/CoM: baseline only (505.9/509.6 kg respectively), under `JasonMassSource::Baseline`, an EXPLICITLY
+NAMED selector (REQUIRED, no default, the manager's own instruction) with exactly one legal value
+today. `ja2mass.txt`/`ja3mass.txt` ARE openly retrievable (fetched directly, 4134/3917 lines — one
+required three retries under a TLS handshake flake before succeeding, the same connection-flakiness
+class already seen fetching PDFs from the same host earlier this round) but their own SHAPE — a dense,
+ever-growing per-maneuver operational log spanning each satellite's entire multi-year history — is not
+"Galileo's shape" (a small, stable, ~30-row dated table): no table this tree has embedded before this
+round exceeds that scale, and mechanically transcribing thousands of rows would be a poor proxy for
+what is more honestly a not-yet-built ancillary-file-ingestion capability. The manager's own explicitly
+offered fallback was taken instead, the gap named, not silently defaulted to.
+
+### 34.5 Jason's attitude law — fixed yaw built directly, yaw steering by a derived sign flip
+
+`SATMOD` §6.2 states the law is "identical to TOPEX" but gives no further axis description in that
+document itself; the fuller TOPEX/Jason description (two regimes by beta-prime, fixed yaw below ~15 deg
+with X along/anti-along-track, yaw steering above it with "+X away from the Sun") comes from this
+session's own earlier research record (this round's own handover report). Built as `jason_attitude`:
+
+**Fixed yaw** built DIRECTLY in this tree's own frame, not through a native-to-tree mapping, since
+"along-track" is a physical direction carrying none of the Sun-relative ambiguity the yaw-steering
+branch has: `z_body=-r_hat` always; `x_body=t_hat` (beta-prime>0, forward) or `-t_hat` (backward);
+`y_body=z_body×x_body` in both cases, worked out explicitly via the `OrbitTriad` cyclic identity
+(forward gives `y_body=-n_hat`, backward `+n_hat`) rather than asserted. The flight-direction/beta-sign
+association itself is carried BY ANALOGY from the SAME document family's own SWOT section ("the
+velocity is along -X for beta<0 (flying backward) and +X for beta>0 (flying forward)") — not
+independently stated for Jason, flagged as `JSAT-Q-001`, not hidden.
+
+**Yaw steering** reduces to `nominal_yaw_steering` with the Sun direction NEGATED — DERIVED, not
+independently confirmed by a second reading or a printed coordinate pair the way Galileo's/QZSS's own
+mappings are (`JSAT-Q-003`). The source states only that +X points away from the Sun; z is shared with
+every other regime, so right-handedness alone FORCES y to flip together with x (the identical argument
+`qzss_frame_from_native`'s own header proves for a different constellation) — negating the Sun fed to
+`nominal_yaw_steering` is algebraically the same construction a 180-about-Z map would give, without
+building one.
+
+**`ATTD-F-001` proved structurally unreachable** through the yaw-steering branch, not merely untested:
+`nominal_yaw_steering`'s own singularity needs the Sun within a small angle of `+/-r_hat`; since
+`r_hat` is always perpendicular to `n_hat`, any Sun direction that close to `r_hat` has `|beta-prime|`
+of the same small order — near zero, far inside the fixed-yaw regime (`|beta-prime| < ~15 deg`) the
+yaw-steering branch never reaches. Recorded as a proof, not a test that happens never to trigger.
+
+**Ramps and flips between the two regimes are NOT modelled** — the source states their own timing is
+operational, recorded in a per-satellite file, full derivation in the paywalled Cerri 2010 — so
+`jason_attitude` is genuinely DISCONTINUOUS at the regime boundary, recorded as an integrator event for
+L6/L7, the SAME precedent GPS Block II/IIA's own "largely uncertain" post-shadow recovery period
+already set (`SPEC-thrust-yaw.md` §4.1).
+
+`SATMOD` §7.2/§12.2 also state the fixed-yaw threshold was WIDENED from 15 to 30 deg for Jason-2/-3
+specifically, from July 2017 — found, and deliberately NOT built (`JSAT-Q-004`): this round builds the
+ORIGINAL ~15 deg figure throughout, the one every other part of the source family still states and the
+one available real data (§34.8) would need to be checked against for a specific epoch anyway.
+
+### 34.6 Jason-1 carried, refused
+
+`SATMOD` §6.3 states directly: its own model "was slightly modified by tuning the optical coefficients
+of the +/-Y faces and of the +X faces and by setting a scale factor equal to 0.97... meant to be a
+factor that multiplies the solar radiation pressure force." Checked directly, not assumed from the word
+"tuning" alone: every one of the six body-face rows sums to something other than 1 (+X:
+`0.0938+0.2811+0.2078=0.5827`; +Y: `1.1880-0.0113-0.0113=1.1654`, with negative diffuse/absorptivity
+cells the schema's own physical triple cannot hold either way regardless of the sum). Neither a
+non-conserving triple nor a satellite-wide force-scale factor is a field this schema holds. `jason1()`
+refuses unconditionally, `SPCR-F-007`, both reasons named in the refusal's own message. No current
+consumer.
+
+### 34.7 The appendix's own SRP example, reproduced — and a genuine kernel-scope finding it surfaced
+
+The manager's own ruling named this "the first published case in this tree that runs a real macromodel
+through the photon-pressure kernel... the strongest evidence L5 will have." `SATMOD`'s own Appendix 1
+prints a worked example for SPOT-5's bus (NOT Sentinel-6 — SPOT-5 is not part of this tree's own
+constellation family, its table built test-locally only, `tests/spot5_appendix_tests.cpp`), 20
+registered (azimuth, elevation) → (ax, ay, az) triples, with the formula itself given only in
+OCR-flattened form.
+
+**The formula was RE-DERIVED from first principles** (radiation-momentum bookkeeping: absorbed photons
+transfer their full incident momentum; specularly reflected photons transfer twice the normal
+component; diffusely (Lambertian) reflected photons transfer their own incident momentum along the Sun
+direction minus a mean 2/3 factor along the normal), not copied from the flattened text, giving:
+
+    a = -A*(e_D.n) * [ (alpha+delta)*e_D + (2*delta/3 + 2*rho*(e_D.n))*n ]
+
+**Confirmed to match all 20 of the appendix's own printed vectors to 0.0005 (the exact rounding ceiling
+of the source's own 3-decimal print)** — verified first in a standalone Python script before any C++
+was written, then reproduced as `SRPA-A-011` against the real `Vec3`/production-adjacent types.
+
+**A genuine, quantified finding, not concealed by testing only convenient data:** this general formula
+is `srp_analytic::flat_force`'s own EXACT formula (`(1-rho)*e_D + 2*(delta/3+rho*cos_theta)*n`) if and
+only if `alpha+rho+delta=1` (energy conservation) — algebraically obvious once both are written out, but
+not previously stated anywhere in this tree because every macromodel built before this round DID
+conserve energy on every row (checked, e.g. `SPCR-A-001`/`SPCR-A-010`). SPOT-5's own Appendix-1 table
+does NOT conserve energy (its own six rows sum to 0.499–0.912, checked directly, `SRPA-A-012`) — so the
+REAL kernel, fed SPOT-5's own literal `(rho, delta)` through an honest `Macromodel`/`OpticalTriple` (no
+fudged values; `absorptivity` is stored, per `MCRM-R-004`, but confirmed never read by `flat_force`
+itself), does NOT reproduce the appendix's own printed numbers. At the cleanest single-face test point
+(az=0, el=0, only the +X row lit): the appendix's own answer is `-7.347`; the general formula matches
+it exactly; the REAL kernel gives `-10.9592` (worked out by hand from `flat_force`'s own published
+formula BEFORE running it, then checked against the kernel's own actual output, so this is an
+independent prediction, not a tautological read-back) — a genuine, ~49% mismatch, exactly the row's own
+"energy gap" (`1-0.499=0.501`) predicts.
+
+**The genuine, positive deliverable:** Sentinel-6's OWN real macromodel (energy-conserving on every
+row, confirmed) run through the REAL `photon_force` kernel matches the SAME independently-derived (and
+now twice-validated) general formula EXACTLY, at 40 geometries spanning the same (azimuth, elevation)
+sweep the appendix itself demonstrates (`SRPA-A-013`) — the genuine "real macromodel through the real
+kernel" check, using Sentinel-6's own real data (the appendix's OWN satellite, SPOT-5, is not part of
+this tree; Sentinel-6 is the one that is).
+
+A UNIT-MATCHING subtlety, caught by the first test run rather than reasoned out in advance: the
+appendix's own printed numbers exclude BOTH the irradiance and the `1/c` factor entirely (its own
+closing note: "the above numbers have to be multiplied by `(1/(M*c))*W`... to obtain the modelled
+solar radiation pressure acceleration") — passing the kernel's own irradiance as `c` (299792458 W/m²,
+an artificial value chosen SPECIFICALLY so `photon_force`'s own `prefactor = area*irradiance/c`
+collapses to `area` alone) is the unique choice that strips the kernel's own physical scaling back to
+the appendix's own convention. The first test run, passing `irradiance=1.0` instead, gave near-zero
+forces (~1e-8) against the appendix's own O(1-30) numbers — caught immediately by the test's own
+failure output, not a silent wrong-but-passing result, fixed before being trusted.
+
+Test placement: `tests/spot5_appendix_tests.cpp` (top-level, cross-module — links `odl::spacecraft` and
+`odl::srp_analytic` together on purpose, the same "linked here because the numbers being compared live
+in separate modules" reasoning `tests/l2_floors.cpp`'s own header already states, rather than adding
+either module to the other's own `DEPENDS` for one cross-cutting test file).
+
+### 34.8 A real-data search that found real data, and a control not yet completed
+
+`SATMOD` names two quaternion routes for Jason-2/-3: CDDIS (EarthData OAuth login, refused, the SAME
+dead end QZSS's own step-3 search hit for CODE's true archive) and `doris.ign.fr` — confirmed, by a
+direct FTP session transcript, to be GENUINELY OPEN anonymous FTP, no login challenge, years of
+per-satellite archives back to 2008, current through TODAY (2026-09-24; a file timestamped this same
+day was listed). Two file kinds per satellite per ~28-hour window were found and read: `ja{2,3}qsolp*`
+(solar-panel angles, POSTARGL/POSTARGR — checked by reading the header, not assumed from the filename)
+and `ja{2,3}qbody*` (the real body-attitude quaternion: four columns, header "QISLEST1..4," each in
+`[-1,1]`, ~32-second cadence, NO stated component order or rotation convention). The SAME archive's own
+`products/orbits/gsc/{ja3,s6a}/` directories carry real, compressed SP3-format orbit solutions from a
+DORIS analysis centre — the missing piece a quaternion-only file does not supply.
+
+**A full registered control (matching `tools/orbex_*_check.cpp`'s own house style — a prediction stated
+before the data is read, a tolerance fixed in advance) was NOT completed this round.** It would need:
+decompressing and parsing the SP3-format orbit file for Jason-3's own real position/velocity at epochs
+overlapping the quaternion window; determining the quaternion's own component order and rotation sense
+(not stated by the file itself, and no second source read this round states it either); aligning the
+two files' own epoch grids. This is genuine additional engineering beyond fetching and reading the
+files, and this round's own remaining scope did not allow it — recorded here as a SPECIFIC,
+characterised gap (the exact paths, the exact column layout), not a vague "ran out of time" note, so a
+follow-up round can pick it up directly.
+
+**Sentinel-6's own quaternion directory (`ancillary/quaternions/s6a/`) was confirmed to EXIST** (the
+FTP `CWD` command succeeds) but its own listing TIMED OUT on every attempt (several, up to 280 seconds)
+— a genuine environmental access limitation, the same class of finding as `ftp.aiub.unibe.ch`'s own
+timeout in the QZSS search, not evidence the directory is empty.
+
+### 34.9 Test counts
+
+New test files: `modules/spacecraft/tests/{sentinel6,jason}_tests.cpp` (SPCR-A-025..032),
+`modules/attitude/tests/{sentinel6,jason}_tests.cpp` (S6AT-A-001..003, JSAT-A-001..004),
+`tests/spot5_appendix_tests.cpp` (SRPA-A-011..013, top-level, cross-module). `ci.sh` re-run after every
+addition this round; the full, final gate/test/artefact counts are recorded in this round's own
+closing report (`~/.claude/handover/2026-09-24-odl-rewrite-L5.REPORT.md`).
+
+---
+
 ## Changelog
 
 | date | change |
