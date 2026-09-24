@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L4 closed; **L5 open** — steps 1–3 done, step 4 to come; L6–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L4 closed; **L5 open** — all 4 steps done, exit gate under review; L6–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -415,7 +415,7 @@ L2's models as plugins, now L7 step 1.
 
 ---
 
-### 3.6 L5 `spacecraft` — 3 of 4 done; **the open layer**
+### 3.6 L5 `spacecraft` — 4 of 4 done, exit gate under review; **the open layer**
 
 The macromodel library as **data with per-value citations**, not as code.
 
@@ -427,7 +427,7 @@ schema, not all of them, so the schema goes to L4 and the population stays here.
 1. **DONE** — GPS → [`subplan_L5/L5-1.md`](subplan_L5/L5-1.md)
 2. **DONE** — Galileo → [`subplan_L5/L5-2.md`](subplan_L5/L5-2.md)
 3. **DONE** — GLONASS → [`subplan_L5/L5-3.md`](subplan_L5/L5-3.md)
-4. **TODO** — Altimetry → [`subplan_L5/L5-4.md`](subplan_L5/L5-4.md)
+4. **DONE** — Altimetry → [`subplan_L5/L5-4.md`](subplan_L5/L5-4.md)
 
 **The sharpest edge in the plan.** The predecessor's own surface models under `res/` and
 `analysis/` — a hand-built hundred-plus-surface GPS-IIR model with material properties — are
@@ -498,6 +498,14 @@ revival's `validate_*.sh` scripts carries over — already this tree's own work 
 these binaries.
 
 **Entry:** L7 exit gate, and L5.
+
+> **Carried from L5's close: no step builds a solar sail's macromodel**, though the object this
+> tree exists for is a sail. Steps 2 and 3 here reproduce frozen fits made with effective
+> parameters — LightSail-2's recovered A·C_R/m (`S-*`) and ACS3's angular residual (`O-*`) — so
+> their gates need none, and a model with stated effective parameters reaches them. A sail's own
+> macromodel, with its attitude, is a named follow-on the first time a campaign fits a sail's
+> attitude-resolved force, and it goes through L5's discipline — cited per value, or derived from
+> published dimensions — and its attitude through L4 step 6's guards.
 
 1. **TODO** — GNSS against IGS precise orbits → [`subplan_L8/L8-1.md`](subplan_L8/L8-1.md)
 2. **TODO** — Laser ranging → [`subplan_L8/L8-2.md`](subplan_L8/L8-2.md)
