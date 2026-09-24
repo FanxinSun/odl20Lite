@@ -128,3 +128,15 @@ target_link_libraries(odl_spot5_appendix_tests
   PRIVATE odl::core odl::macromodel odl::spacecraft odl::srp_analytic
           Catch2::Catch2WithMain odl_warnings)
 catch_discover_tests(odl_spot5_appendix_tests EXTRA_ARGS --warn NoAssertions)
+
+# L5's own exit gate (PLAN.md §3.6): every value modules/spacecraft can
+# construct resolves to a citation, checked once, tree-wide, across every
+# block and constellation -- not only within each block's own per-block
+# suite. odl::macromodel linked directly (this file's own #include of
+# cited.hpp/macromodel.hpp), the same "link what you directly use" choice
+# odl_spot5_appendix_tests already makes for this exact pair of modules.
+add_executable(odl_l5_exit_gate_tests l5_exit_gate.cpp)
+target_link_libraries(odl_l5_exit_gate_tests
+  PRIVATE odl::core odl::macromodel odl::spacecraft
+          Catch2::Catch2WithMain odl_warnings)
+catch_discover_tests(odl_l5_exit_gate_tests EXTRA_ARGS --warn NoAssertions)

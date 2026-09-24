@@ -99,6 +99,15 @@
 // (`SPEC-jason-attitude.md` §3), previously DERIVED but unconfirmed. The
 // fixed-yaw regime and its own construction remain UNCONFIRMED by real
 // data -- no epoch this round's own reachable window exercised it.
+//
+// --compare's own printed table gained two columns this round (L5's exit-
+// gate review, carried forward, not resolved): mu (argument of latitude)
+// and the nominal yaw law's own local rate (deg/s, a central finite
+// difference), alongside the existing residual -- so a follow-on can plot
+// residual against rate directly, to tell whether it tracks TIMING
+// sensitivity (a fast-turning law amplifies a small timing error) or
+// something in the law's own functional form. Not investigated further
+// this round; the per-epoch numbers are in the handover report.
 
 #include <odl/attitude/attitude.hpp>
 #include <odl/core/vec3.hpp>
@@ -485,6 +494,34 @@ void run_nadir(const std::string& sp3path, const std::string& qpath, const std::
 /// CONSTRUCTION is correct, which is what this mode alone tests.
 constexpr double kMatchCriterionDeg = 2.0;
 
+/// The manager's own third-review ask, carried forward as a diagnostic for a
+/// follow-on: alongside beta and the residual, print mu (argument of
+/// latitude, the SAME satellite-agnostic ascending-node angle
+/// `sentinel6_argument_of_latitude_rad` already computes -- reused directly
+/// here as a generic geometric quantity, not because Jason's own law reads
+/// it) and the nominal yaw law's own LOCAL rate, so a later session can tell
+/// whether the residual tracks how fast the LAW is turning (timing
+/// sensitivity) rather than something in the law's own functional form.
+///
+/// A CENTRAL FINITE DIFFERENCE of jason_attitude's own body-x frame, over a
+/// small +/-dt_s straight-line perturbation of r along the real v (v and the
+/// Sun direction held fixed across the interval -- dt_s is small enough,
+/// against both the orbital period (~112 min) and the Sun's own apparent
+/// motion, that this is a diagnostic magnitude, not a production rate) --
+/// the SAME "perturb, re-run the real public interface, difference the
+/// OUTPUT FRAME" technique this tree's own TYAW-A-015/GALY-A-011 guards
+/// already use, not a read of jason_attitude's own private internals.
+double nominal_yaw_rate_deg_per_s(const Vec3& r, const Vec3& v, const Vec3& sun_dir) {
+    constexpr double kDtS = 5.0;
+    attitude::JasonRegime regime{};
+    auto plus = attitude::jason_attitude(r + kDtS * v, v, sun_dir, &regime);
+    auto minus = attitude::jason_attitude(r - kDtS * v, v, sun_dir, &regime);
+    if (!plus.has_value() || !minus.has_value()) return 0.0;  // a regime boundary crossed within the step -- not expected at any epoch used here, all deep in yaw-steering
+    Vec3 x_plus{plus->r[0][0], plus->r[0][1], plus->r[0][2]};
+    Vec3 x_minus{minus->r[0][0], minus->r[0][1], minus->r[0][2]};
+    return angle_deg(x_plus, x_minus) / (2.0 * kDtS);
+}
+
 void run_compare(const std::string& sp3path, const std::string& qpath, const std::string& leappath,
                  bool use_transpose) {
     auto env = load_env(leappath);
@@ -495,7 +532,8 @@ void run_compare(const std::string& sp3path, const std::string& qpath, const std
     std::cout << std::fixed << std::setprecision(5);
     std::cout << "REGISTERED COMPARISON against jason_attitude, criterion " << kMatchCriterionDeg
               << " deg, " << (use_transpose ? "transpose" : "direct") << " sense (settled by --nadir)\n";
-    std::cout << "epoch (UTC)       | beta-prime | regime      | angle to prediction (deg)\n";
+    std::cout << "epoch (UTC)       | beta-prime | mu (deg) | regime      | nominal yaw rate "
+                 "(deg/s) | angle to prediction (deg)\n";
 
     bool all_matched = true;
     int checked = 0;
@@ -532,12 +570,14 @@ void run_compare(const std::string& sp3path, const std::string& qpath, const std
 
         double n_hat_dot_s = normalized(r.cross(v)).dot(normalized(sun_dir_km));
         double beta_deg = std::asin(std::clamp(n_hat_dot_s, -1.0, 1.0)) / kDeg;
+        double mu_deg = attitude::sentinel6_argument_of_latitude_rad(r, v) / kDeg;
+        double rate_deg_s = nominal_yaw_rate_deg_per_s(r, v, sun_dir_km);
         double err = angle_deg(x_pred, x_real_gcrs);
         if (err > kMatchCriterionDeg) all_matched = false;
         std::cout << row.y << "/" << row.mo << "/" << row.d << " " << row.h << ":" << row.mi
-                  << ":" << row.sec << " | " << beta_deg << " | "
+                  << ":" << row.sec << " | " << beta_deg << " | " << mu_deg << " | "
                   << (regime == attitude::JasonRegime::FixedYaw ? "FixedYaw " : "YawSteering")
-                  << " | " << err << "\n";
+                  << " | " << rate_deg_s << " | " << err << "\n";
     }
     std::cout << (all_matched ? "ALL MATCHED within the registered criterion\n"
                               : "AT LEAST ONE EXCEEDED the registered criterion\n");

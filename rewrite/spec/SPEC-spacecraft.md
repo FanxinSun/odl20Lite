@@ -4,8 +4,8 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 2.5 — L5 step 4 opens and closes: `sentinel6()` built from CNES's own DORIS satellite-models note, the first macromodel in this tree to populate `BandedOptics`'s own infrared field; `jason2()`/`jason3()` built from the SAME note (a stale, cached earlier draft of this table CAUGHT and corrected before commit, see §3); `jason1()` refuses, non-energy-conserving optics and a scale factor the schema cannot hold |
-| **Date** | 2026-09-24 |
+| **Version** | 2.6 — L5's own exit gate (`SPCR-R-026`): every library entry this module can construct is built once, tree-wide, and every value it carries is checked non-blank in one place (`tests/l5_exit_gate.cpp`, `SPCR-A-033`), the guard shown firing once more through that same audit path on an injected entry (`SPCR-A-034`) — not only within each block's own per-block suite, and not only the one hand-picked value `SPCR-A-002` already shows |
+| **Date** | 2026-09-24, exit gate 2026-09-25 |
 | **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo), 3 (GLONASS, QZSS, BeiDou) and 4 (Sentinel-6, Jason-2, Jason-3, Jason-1) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
 | **Depended on by** | L7's own box-wing fit, which reads this library |
@@ -554,7 +554,8 @@ numbers).
   `life` either way — `SPCR-A-014` checks both: BOL and EOL genuinely differ where `GALSC` prints
   different coefficients, and agree exactly where it prints the same ones.
 - **SPCR-R-010.** `galileo_foc(gsat: int, epoch: YearMonth) -> Result<Macromodel, SpacecraftError>`
-  — `gsat` one of `GALSC`'s own 26 currently-listed FOC satellites, else refuses `SPCR-F-004`;
+  — `gsat` one of `GALSC`'s own 29 currently-listed FOC satellites (counted directly from the built
+  table by `SPCR-A-033`, correcting this spec's own earlier undercount of 26), else refuses `SPCR-F-004`;
   `epoch` on the same terms as `SPCR-R-009`, else refuses `SPCR-F-005`. Surfaces mapped and cited
   the same way, from `GALSC` §6.2's own table. **No `life` parameter, deliberately**: `GALSC`'s own
   FOC table prints exactly ONE set of coefficients per material, with NO "BOL"/"EOL" column header
@@ -642,6 +643,13 @@ numbers).
 - **SPCR-R-025.** Every numeric value `SPCR-R-020`–`SPCR-R-022` state is a `Cited<double>` or
   `Cited<Vec3>` (`SPEC-macromodel`'s own `MCRM-R-004`), the same rule every other block in this spec
   states — no exemption for Sentinel-6 or Jason either.
+- **SPCR-R-026.** L5's own exit gate (`../plan/PLAN.md` §3.6, the manager's own words: *"every value
+  resolves to a citation, and the library refuses to build if any does not"*): checked once,
+  tree-wide, across every block and constellation this module can construct — not only within each
+  block's own per-block suite, which is what `SPCR-R-006`/`-011`/`-015`/`-018`/`-025` (and their own
+  `SPCR-A` rows) already state one block at a time. Every function that refuses in this version
+  (`gps_block_iiia`, `beidou`, `jason1`) is checked to actually refuse, with its own named reason, at
+  the same point.
 
 ---
 
@@ -798,6 +806,8 @@ same shape `ecom::d4b1_order()` names a configuration rather than reading one.
 | `SPCR-A-030` | `jason2()`: the solar array rows carry a FIXED `(+1,0,0)`/`(-1,0,0)` body-frame normal exactly as §7.3 prints them, not a sun-pointing surface | 0 sun-pointing surfaces; 1 each of +X/-X at area 9.8 | `SATMOD` §7.3, read directly in the test | — | R-021 |
 | `SPCR-A-031` | `jason2()`/`jason3()`: mass and CoM are each section's own baseline, genuinely different between the two satellites | 505.9/509.6 kg respectively | `SATMOD` §7.1/§12.1 | 1e-9 | R-021, R-022 |
 | `SPCR-A-032` | `jason1()` refuses unconditionally with `SPCR-F-007`; the refusal's own message names both reasons (the 0.97 factor, the non-energy-conserving optics quantified) and states no consumer needs it, checked by substring | the refusal; both reasons present | `SPCR-R-023` | — | F-007, R-023 |
+| `SPCR-A-033` | **L5's own exit gate.** Every library entry this module can construct is built — GPS (all 7 named SVNs of Block I, II, IIA, IIR, IIR-M, IIF), Galileo (every currently-listed GSAT, IOV and FOC alike, both `OpticalLife` stages for IOV, an in-coverage epoch), GLONASS/GLONASS-M/GLONASS-K, QZS-1 (both `QzssLife` stages), Sentinel-6, Jason-2/-3 — and every value it carries (mass, centre of mass, every surface's own area and every optical triple, front and back, visible and infrared where present) is walked and checked non-blank. Every entry that refuses in this version (GPS-IIIA, BeiDou, Jason-1) is checked to actually refuse, with its own stated reason; an unknown Galileo GSAT and an out-of-coverage Galileo epoch are each checked as their own, separately-named refusal too | no blank citation anywhere across every constructible entry; every stated refusal fires with its own id | `tests/l5_exit_gate.cpp`, constructing the real library directly | — | R-026 |
+| `SPCR-A-034` | **The guard shown firing once more, through `SPCR-A-033`'s own audit path** (rule 5): a deliberately blank citation, wrapped as a `Result<Macromodel, SpacecraftError>` and run through the SAME `audit_entry` function every real entry above is checked through — proving the refusal is caught by THIS file's own audit logic, not only by `cited()` in isolation (`SPCR-A-002`'s own, narrower claim) | the refusal, `MCRM-F-001`, recognised by the SAME checking function | `tests/l5_exit_gate.cpp` | — | R-026 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -873,6 +883,14 @@ same shape `ecom::d4b1_order()` names a configuration rather than reading one.
   matching the BeiDou/GPS-IIIA "checked directly, not assumed from the word alone" pattern; the
   mass/CoM baseline-vs-epoch-lookup judgment call, differently reasoned for Sentinel-6 (small file,
   no ruling requirement) and Jason (large operational log, the manager's own offered fallback taken).
+- **L5's own exit gate**: `PLAN.md` §3.6's own gate text, quoted directly; the finding that
+  `SPCR-A-002` alone was a single hand-picked value's own guard-firing proof, not a tree-wide sweep,
+  and what closing that gap required (walking every `Cited<T>` a built `Macromodel` can hold, not
+  only the ones each block's own per-block suite already checks); the exact per-satellite counts
+  this round found by construction rather than by citing the header comments' own prose (Galileo IOV
+  3, FOC 29 — the FOC header comment's own "26" undercounts by 3, `kFocMassCom`'s own current table
+  read directly rather than trusted); the rule-5 injection proving the new audit path itself catches
+  a blank citation, not only `cited()` in isolation.
 
 ---
 

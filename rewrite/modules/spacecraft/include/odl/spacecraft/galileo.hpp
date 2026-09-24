@@ -77,9 +77,12 @@ enum class OpticalLife { BeginningOfLife, EndOfLife };
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError>
 galileo_iov(int gsat, YearMonth epoch, OpticalLife life);
 
-/// SPCR-R-010. `gsat` naming one of GSC's own 26 FOC satellites currently
-/// listed (201-227 except 205, 228-231, 232-234); refuses
-/// `SPCR-F-004`/`SPCR-F-005` on the same terms as `galileo_iov`. Surfaces and
+/// SPCR-R-010. `gsat` naming one of GSC's own 29 FOC satellites currently
+/// listed (201-227 except 205, plus 232-234; 228-231 absent -- counted
+/// directly from `kFocMassCom`, `galileo.cpp`, by `tests/l5_exit_gate.cpp`'s
+/// own SPCR-A-033, not carried from this comment's own earlier "26", which
+/// undercounted); refuses `SPCR-F-004`/`SPCR-F-005` on the same terms as
+/// `galileo_iov`. Surfaces and
 /// optics are GSC's own FOC table (§6.2), which prints one set of
 /// coefficients per material, not a separate BOL/EOL pair.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError>

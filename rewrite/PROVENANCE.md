@@ -6344,6 +6344,80 @@ now structurally cannot regress silently.
 
 ---
 
+## 35. L5's own exit gate
+
+All four L5 steps closed (§31-34); the manager's own instruction, opening the gate itself: `PLAN.md`
+§3.6, *"every value resolves to a citation, and the library refuses to build if any does not."*
+
+### 35.1 The gate closed by construction, not by inspection -- and the one thing it caught in passing
+
+`SPCR-A-002` (`modules/macromodel`'s own inherited `MCRM-F-001` guard, shown firing on one hand-picked,
+test-local value) was never a tree-wide sweep, and nothing before this round constructed EVERY entry
+this module can produce in one place. New: `tests/l5_exit_gate.cpp` (`SPCR-R-026`, `SPCR-A-033`/`034`),
+linked the same "one file, one cross-cutting purpose" way `l2_floors.cpp`/`l4_ranking.cpp`/
+`spot5_appendix_tests.cpp` already are. `SPCR-A-033` builds every GPS block (all 7 named Block-I SVNs,
+II, IIA, IIR, IIR-M, IIF), every currently-listed Galileo GSAT (a RANGE SCAN, not a hardcoded list, so
+it cannot silently go stale the way a copied id list could -- IOV 95-110, FOC 195-240, bracketing both
+tables with margin), GLONASS/GLONASS-M/GLONASS-K, QZS-1 (both life stages), Sentinel-6, and Jason-2/-3;
+GPS-IIIA, BeiDou and Jason-1 are checked to refuse, each with its own stated reason, at the same point,
+alongside two Galileo-specific refusals named directly (an unknown GSAT, an out-of-coverage epoch on a
+known one). Every constructed entry has EVERY `Cited<T>` it holds -- mass, centre of mass, every
+surface's own area, every optical triple front and back, visible and infrared where present -- walked
+by a generic visitor (`for_each_citation`, a `std::variant` visit over `FlatSurface`/`SphericalSurface`)
+and checked non-blank via `macromodel::is_blank`, the SAME predicate `MCRM-F-001` itself checks.
+
+`SPCR-A-034` proves the audit path ITSELF catches a blank citation, not only `cited()` in isolation:
+the same deliberately-blank citation `SPCR-A-002` already shows `cited()` refusing is wrapped as a
+`Result<Macromodel, SpacecraftError>` and run through `audit_entry`, the SAME function every real entry
+in `SPCR-A-033` is checked through -- the rule-5 "prove the checker itself catches the shape" discipline
+this tree's other checkers already use (`speccheck.py`'s own duplicate-id injections, `MCRM-A-016`'s
+energy-conservation boundary), applied here to a C++ test helper instead of a script.
+
+**Genuinely by construction, not by luck**: `Cited<T>`'s own constructor is private, `cited()` its one
+friend, and `cited()` itself already refuses a blank citation (`MCRM-F-001`) -- so no already-built
+`Macromodel` can hold a blank citation at all, and `SPCR-A-033`'s own sweep was never at risk of finding
+one in the real library. Its value is making that guarantee TREE-WIDE and EXPLICIT (every block, one
+place, one test) rather than leaving it implied by seven separate per-block claims, and `SPCR-A-034`
+is what proves the sweep itself is not a tautology that would silently pass even if the guarantee ever
+broke.
+
+**Caught along the way, not the gate's own point but a real finding**: the range-scan itself (not a
+hardcoded id list) found `galileo_foc`'s own header comment (`galileo.hpp`) and `SPEC-spacecraft.md`
+`SPCR-R-010` both stated GSC's own FOC table lists "26" satellites -- counted directly from
+`kFocMassCom` (`galileo.cpp`) rather than trusted from either comment, the real count is **29** (201-227
+except 205, plus 232-234; 228-231 absent). Both stale references fixed in place. IOV's own count (3)
+was already correct.
+
+### 35.2 The Jason yaw residual's own structure, per epoch -- carried forward, not resolved
+
+The manager's own third-review item, carried again this round: is the yaw-steering residual's own
+0.033-1.43 deg spread (`SPEC-jason-attitude.md` §4, `JSAT-R-006`) explained by TIMING sensitivity (a
+fast-turning law amplifies a small timing error more than a slow one) or by something in the law's own
+functional form? Not resolved this round -- a diagnostic added for whoever resolves it next.
+`tools/doris_jason_check.cpp`'s own `--compare` mode gained two columns: mu (argument of latitude,
+`attitude::sentinel6_argument_of_latitude_rad(r, v)` reused directly as a generic, satellite-agnostic
+geometric quantity -- Jason's own law does not read it, Sentinel-6's own ascending-node formula
+computes it regardless of which satellite is asked) and the nominal yaw law's own LOCAL rate
+(`nominal_yaw_rate_deg_per_s`, a central finite difference of `jason_attitude`'s own body-x frame over a
++/-5s straight-line perturbation along the real velocity -- the SAME "perturb, re-run the real public
+interface, difference the OUTPUT FRAME" technique `TYAW-A-015`/`GALY-A-011` already use, not a read of
+private internals). The full 12-epoch table is in the handover report's own new section; by eye, the
+rate varies narrowly across this particular window (0.0109-0.0136 deg/s, since beta-prime itself barely
+moves, -75.3 to -78.5 deg, across these 12 epochs) and does not show an obvious one-to-one correlation
+with the residual at a glance -- reported as an observation, not a conclusion; the actual analysis is
+the follow-on's own job, which is why the raw numbers are what this round adds, not an interpretation of
+them.
+
+### 35.3 What remains open, unchanged from the third review round
+
+Carried, not touched this round (the manager's own list, closing the third review): Jason's own
+fixed-yaw regime and its flight-direction/beta-sign association, still unconfirmed by real data;
+Sentinel-6's own frame identification, still a marked assumption; Jason's own mass/CoM, still baseline
+rather than epoch-current (`JasonMassSource::Baseline`, no consumer yet); and, from this round, the yaw
+residual's own structure (§35.2 above).
+
+---
+
 ## Changelog
 
 | date | change |
