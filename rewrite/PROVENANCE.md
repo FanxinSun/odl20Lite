@@ -5689,6 +5689,87 @@ the existing GPS/Galileo suite. Spacecraft: `modules/spacecraft/tests/glonass_te
 test cases, `SPCR-A-015`–`SPCR-A-019`) — 19 test cases tree-wide in `modules/spacecraft`, 538
 assertions, all passing.
 
+### 33.6 QZSS's own frame, hypothesised from the source's own stated property and confirmed by the tightest real-data agreement this tree has
+
+`SPEC-qzss-attitude.md` v1.0 (new), `SPEC-spacecraft.md` v2.3. `SPI_QZS1_B` (Cabinet Office QZS-1
+Satellite Information, rev. B) prints no paired native/tree coordinate examples the way `GALSC`
+does, so the frame mapping could not be verified the same way Galileo's was. Instead it was
+HYPOTHESISED from two independent readings of the source, agreeing: §3(1)'s own stated Sun
+hemisphere ("the Sun is located in the negative hemisphere" of QZSS's own x, the opposite of this
+tree's own `nominal_yaw_steering` convention) and §3(1)'s own y-axis definition ("perpendicular to
+the plane made up by the Sun, Earth and satellite," the SAME construction `nominal_yaw_steering`'s
+own `y_body = normalize(z_body × s_hat)` already is) — both point to the SAME 180-about-Z relation
+Galileo's own mapping has, independently derived here, not assumed shared. Per the manager's own
+explicit instruction ("let the real-data control CONFIRM it, not just assert it"), this was then
+checked against CODE's own real QZSS attitude, not merely trusted from the algebra: four checks (two
+satellites, two epochs each) matched to 0.00003–0.00019 deg, an order of magnitude tighter than any
+other constellation's own real-data control in this tree.
+
+**A scope note, recorded rather than glossed over**: QZS-1 itself (PRN J01) is absent from CODE's
+own MGEX files on every day checked this session, apparently decommissioned/replaced by QZS-1R by
+2023. Since `SPI_QZS1_B` states its own frame and attitude law as the QZSS bus family's general
+control scheme, not a QZS-1-specific idiosyncrasy, the real-data control uses QZS-2 (J02) and QZS-4
+(J04) instead — the two OTHER IGSO-type QZSS satellites present in the checked data — to confirm the
+LAW, while `qzss_1()`'s own macromodel remains built specifically from QZS-1's own SPI values. QZS-3
+(J03, a GEO satellite, a different orbit type) was deliberately excluded from the comparison.
+
+**Orbit-normal mode, a genuinely new mechanism, built generally per the manager's own instruction.**
+§3(2)'s own words ("-y perpendicular to the orbital plane in the direction of the orbital angular
+momentum vector... +x completes the right hand system") reduce, once mapped through the same
+180-about-Z rotation, to a closed-form construction taking NO Sun direction at all: `z_body=-r_hat,
+y_body=n_hat, x_body=-t_hat`. Verified right-handed via this tree's own `OrbitTriad` cyclic identity
+(`t_hat × n_hat = r_hat`, itself proved from `n_hat = r×v` and `t_hat = n_hat×r_hat` by the BAC-CAB
+rule). Built as `orbit_normal_attitude`, a GENERICALLY-named, public function — not `qzss_*` — so a
+future BeiDou "zero-bias" mode (`SPEC-spacecraft.md`'s own BeiDou entry names the same mechanism)
+can reuse it with its own sign convention, per the manager's own explicit instruction to build this
+reusably even though BeiDou itself is being carried, not built, this round.
+
+**A test bug caught by its own numbers, not a production defect**: an early version of the guard for
+this mode asserted this tree's own tree-convention `x_body` should be PROGRADE, reading `SPI_QZS1_B`'s
+own "(roughly the flight direction)" too literally — that description is QZSS's own NATIVE x
+(`=t_hat`, checked directly and confirmed prograde), a fact about a DIFFERENT axis than this tree's
+own `x_body`, which the 180-about-Z map flips to `-t_hat`, genuinely RETROGRADE. Caught because the
+test's own "broken" comparison (a deliberate sign-flip) reported the PROGRADE result, the opposite of
+what a broken guard should show — fixed by re-deriving which direction the verified construction
+actually gives, not by adjusting the threshold until the test passed.
+
+**Orbit-normal mode's own real-data confirmation was sought across four days and not found** — QZSS's
+own beta moves far more slowly than GLONASS's or Galileo's (a geosynchronous orbit), and no crossing
+below beta=20deg turned up for J02/J04 on 2023-10-07, 09-23, 09-09 or 12-16 (closest: 21.7deg). This
+mode's own correctness rests on its own tight algebraic verification instead, reported as an open
+item (`QZSY-Q-001`) rather than silently asserted confirmed.
+
+### 33.7 QZS-1's own macromodel, and a second schema-fidelity gap with no fallback at all
+
+`modules/spacecraft/src/qzss.cpp` (new). `SPI_QZS1_B`'s own Table 4 states its own optics in plain
+English column headers ("Absorption"/"Specular"/"Diffuse") — no notation to resolve or cross-check
+by formula the way RS14's alpha/delta/rho needed. The SAP (solar array panel) material is built
+sun-pointing, not body-fixed to its own printed "+Y"/"-Y" Location — Table 4's own footnote *2
+states a row's own "Location" does not necessarily indicate the direction normal to it, and §2's own
+frame statement names +Y as the panels' own ROTATION axis, confirming the SAME sun-tracking
+treatment GPS's and Galileo's own panels already get, read directly rather than inferred.
+
+**The +Z face's own "L-ANT Cover" material is OMITTED, a gap with LESS of a fallback than GLONASS's
+own cylinder-wing finding the same day (§33.4 above) had**: RS14 at least gives a flat-law special
+case (shape=0) for its own cylinder-blend faces; `SPI_QZS1_B` gives the L-ANT Cover NO area number
+at all (footnoted "(*1)" in place of one) on top of stating its own shape is a cone this schema
+cannot hold regardless — nothing to build even an approximation from, so the material is left out of
+the macromodel entirely, reported in the spec and in `qzss_1()`'s own header comment, not silently
+dropped. `SPI_QZS1_B` itself names a more detailed "box-wing-hat model" (Ikari et al. 2014) built
+specifically for this shape — not pursued, since the schema could not hold its own output either.
+
+Mass/CoM: `QzssLife { BeginningOfLife, EndOfLife }`, REQUIRED, no default, mirroring Galileo's own
+`OpticalLife` exactly per the manager's own instruction — `SPI_QZS1_B` Table 1 gives genuinely
+different mass (2281 vs 2121 kg) and CoM at the two life stages, unlike Galileo's own single-entry
+IOV mass (dated, not life-staged), so this selector affects mass/CoM only, not any surface.
+
+### 33.8 QZSS attitude and data test counts
+
+Attitude: `modules/attitude/tests/qzss_tests.cpp` (new, 3 test cases, `QZSY-A-001`–`QZSY-A-003`) —
+32 test cases tree-wide in `modules/attitude`, 93756 assertions, all passing, no regression.
+Spacecraft: `modules/spacecraft/tests/qzss_tests.cpp` (new, 4 test cases, `SPCR-A-020`–`SPCR-A-023`)
+— 23 test cases tree-wide in `modules/spacecraft`, 607 assertions, all passing.
+
 ---
 
 ## Changelog

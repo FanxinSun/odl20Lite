@@ -784,6 +784,15 @@ constexpr double kGlonassShadowHalfAngleRad = 14.20 * kDegToRad;
     return {true, psi_s + ramp_sign * (mu_q - mu_s) / kGlonassMuDotRadPerS};
 }
 
+// --- SPEC-qzss-attitude: QZSY-R-001..R-004 ---------------------------------
+
+/// SPI_QZS1_B Sec.3's own printed switch condition, "approx. 20deg" -- the
+/// manager's own ruling: marked APPROXIMATE, since the real switch is
+/// COMMANDED (a ground-operator decision), not a pure function of beta the
+/// way GPS's/GLONASS-M's own rate-threshold onsets are -- this constant is
+/// the nominal figure the source states, not a value this file derives.
+constexpr double kQzssBetaSwitchRad = 20.0 * kDegToRad;
+
 }  // namespace
 
 odl::Result<Mat3, AttitudeError>
@@ -946,6 +955,68 @@ glonass_m_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
         return frame_from_yaw(tri, result.psi_rad);
     }
     // GLNY-F-001: forwarded unchanged from ATTD-F-001, outside both turns.
+    return nominal_yaw_steering(r_gcrs_m, sun_direction_gcrs);
+}
+
+Mat3 orbit_normal_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s) noexcept {
+    // QZSY-R-002. SPI_QZS1_B Sec.3(2)'s own words (QZSS's own operator
+    // frame): z=-r_hat (nadir); "-y perpendicular to the orbital plane in
+    // the direction of the orbital angular momentum vector" -- y_qzss =
+    // -n_hat; "x completes the right hand system... roughly in the flight
+    // direction" -- x_qzss = y_qzss x z_qzss = (-n_hat)x(-r_hat) =
+    // n_hat x r_hat = t_hat (this file's own OrbitTriad cyclic identity,
+    // t_hat = n_hat x r_hat by construction). Mapped to this tree's own
+    // convention by the SAME 180-about-Z rotation the frame mapping proves
+    // (QZSY-A-001/§3 below): x_tree=-x_qzss=-t_hat, y_tree=-y_qzss=n_hat,
+    // z_tree=z_qzss=-r_hat -- a DIRECT closed-form construction, no
+    // intermediate QZSS-native frame built and then rotated. Right-handed:
+    // x_body x y_body = (-t_hat)x(n_hat) = -(t_hat x n_hat) = -r_hat =
+    // z_body (the SAME cyclic identity, t_hat x n_hat = r_hat, proved from
+    // n_hat x r_hat = t_hat by the standard right-handed-triad relations).
+    // Takes NO sun direction -- this mode does not track the Sun at all
+    // (SPI_QZS1_B's own point), a genuine, notable property of this law,
+    // not an omitted parameter. Named GENERICALLY, not qzss_*, and never
+    // fails (no singularity: r and v are never parallel for a real orbit)
+    // -- the manager's own instruction, built reusably for BeiDou's own
+    // future zero-bias mode (`SPEC-spacecraft.md` SPCR-Q's own BeiDou
+    // entry), which states the SAME "y fixed to orbit normal, not Sun"
+    // mechanism; BeiDou's own sign convention, if built later, may differ
+    // and would be its own caller's own choice of sign on n_hat/t_hat, not
+    // a change to this function's own construction.
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    const Vec3 z_body = -1.0 * tri.r_hat;
+    const Vec3 y_body = tri.n_hat;
+    const Vec3 x_body = -1.0 * tri.t_hat;
+    Mat3 m;
+    m.r[0] = {x_body.x, x_body.y, x_body.z};
+    m.r[1] = {y_body.x, y_body.y, y_body.z};
+    m.r[2] = {z_body.x, z_body.y, z_body.z};
+    return m;
+}
+
+odl::Result<Mat3, AttitudeError>
+qzss_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& sun_direction_gcrs) {
+    // QZSY-R-001/R-003/R-004. SPI_QZS1_B Sec.3(1)'s own yaw-steering mode,
+    // read in QZSS's own operator frame (z=nadir, y perpendicular to the
+    // Sun/Earth/satellite plane, x completing the right-handed system with
+    // the Sun in ITS OWN negative hemisphere) -- ALGEBRAICALLY the SAME
+    // construction `nominal_yaw_steering` already builds (z=-r_hat,
+    // y=normalize(z x s), x=y x z), once mapped through the SAME
+    // 180-about-Z rotation `orbit_normal_attitude`'s own header derives:
+    // a Sun on QZSS's own negative x hemisphere becomes a Sun on this
+    // tree's own POSITIVE x hemisphere, exactly `nominal_yaw_steering`'s
+    // own stated convention. So this branch is `nominal_yaw_steering`
+    // called DIRECTLY, no separate qzss_frame_from_* construction needed --
+    // the SAME "reduces to existing code" pattern Galileo's off-turn law
+    // and GLONASS-M's own nominal law already are.
+    const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
+    const Vec3 s_hat = normalized(sun_direction_gcrs);
+    const double beta = signed_beta_rad(s_hat, tri.n_hat);
+
+    if (std::abs(beta) <= kQzssBetaSwitchRad) {
+        return orbit_normal_attitude(r_gcrs_m, v_gcrs_m_per_s);
+    }
+    // QZSY-F-001: forwarded unchanged from ATTD-F-001.
     return nominal_yaw_steering(r_gcrs_m, sun_direction_gcrs);
 }
 

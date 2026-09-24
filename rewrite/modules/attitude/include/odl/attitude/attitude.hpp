@@ -207,4 +207,34 @@ galileo_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
 glonass_m_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s,
                        const Vec3& sun_direction_gcrs);
 
+// --- SPEC-qzss-attitude: QZSY-R-001..R-004 ---------------------------------
+
+/// QZSY-R-002. The "orbit-normal" attitude law (SPI_QZS1_B Sec.3(2), QZSS's
+/// own low-|beta| eclipse-season mode): z_body=-r_hat (nadir), y_body=n_hat
+/// (the orbit normal -- FIXED, never tracking the Sun), x_body=-t_hat
+/// (completing the right-handed system, "roughly the flight direction").
+/// Named GENERICALLY, built REUSABLY (the manager's own instruction) for a
+/// future BeiDou "zero-bias" mode (`SPEC-spacecraft.md`'s own BeiDou entry
+/// names the SAME mechanism) -- takes no Sun direction at all, a genuine
+/// property of this law, not an omitted parameter. Never fails: no
+/// nadir-style singularity (r and v are never parallel for a real orbit),
+/// so a bare `Mat3`, not a `Result`.
+[[nodiscard]] Mat3 orbit_normal_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s) noexcept;
+
+/// QZSY-R-001/R-003/R-004. QZSS's own two-mode law (`SPI_QZS1_B` §3,
+/// Cabinet Office): `orbit_normal_attitude` for `|beta| <=
+/// kQzssBetaSwitchRad` (APPROXIMATE, ~20deg, the source's own stated
+/// figure -- the manager's own ruling: the real switch is COMMANDED, not a
+/// pure function of beta, unlike GPS's/GLONASS-M's own rate-derived
+/// onsets); `nominal_yaw_steering` otherwise -- QZSS's own yaw-steering
+/// mode reduces to it EXACTLY (proved, `SPEC-qzss-attitude.md` §3, the SAME
+/// "deviation from an already-trusted law" pattern Galileo's and
+/// GLONASS-M's own nominal laws already are), so no separate frame
+/// construction is built for it. Refuses (`QZSY-F-001`, forwarded
+/// unchanged from `ATTD-F-001`) exactly where `nominal_yaw_steering` itself
+/// would, in the yaw-steering branch only -- `orbit_normal_attitude` never
+/// refuses.
+[[nodiscard]] odl::Result<Mat3, AttitudeError>
+qzss_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& sun_direction_gcrs);
+
 }  // namespace odl::attitude

@@ -4,9 +4,9 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 2.2 — L5 step 3: `glonass()`/`glonass_m()`/`glonass_k()` built from RS14's own tables 5.6–5.8; a genuine schema-fidelity limitation found and reported, not silently built around (§3, `SPCR-Q-007`) |
+| **Version** | 2.3 — L5 step 3 continues: `qzss_1()` built from the Cabinet Office's own SPI_QZS1_B; the L-ANT Cover's own missing area and unsupported cone shape reported, omitted not approximated |
 | **Date** | 2026-09-24 |
-| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo) and 3 (GLONASS) |
+| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo) and 3 (GLONASS, QZSS) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
 | **Depended on by** | L7's own box-wing fit, which reads this library |
 
@@ -39,20 +39,25 @@ refuses to build if any does not." This spec covers:
   three tables 2026-09-24 (the manager's own ruling, `../plan/subplan_L5/L5-3.md`). A genuine
   schema-fidelity limitation, found while building GLONASS's and GLONASS-M's own bus faces and
   REPORTED rather than silently built around, is recorded in full at §3 below and `SPCR-Q-007`.
+- **L5 step 3, QZSS**, QZS-1 (`SPCR-R-016`) — the Cabinet Office's own first-party, per-satellite
+  SPI document, geometry and optics stated in plain English (no notation to resolve), mass/CoM
+  explicit at beginning or end of life (`QzssLife`, REQUIRED, no default, mirroring Galileo's own
+  `OpticalLife`). A second genuine schema-fidelity limitation, found the SAME day as GLONASS's own
+  (§3 below): the +Z face's own "L-ANT Cover" material has no printed area at all and is stated to
+  be a cone shape this schema cannot hold regardless — OMITTED, not approximated.
 
 **Not in scope.** The schema itself (`SPEC-macromodel.md`, L4 step 2) — this spec populates it,
 never extends it; a value the schema cannot hold is a finding reported to the manager, not a
 silent schema change (`../plan/PLAN.md` §3.6's own instruction). Estimating any parameter from
 observations (`SPEC-dynamics`, L7) — this library states values, it does not fit them. The
-ATTITUDE LAW's own equations (Galileo's own and GLONASS-M's own yaw-steering laws included) —
-code, not cited data, built in `modules/attitude` and specified in `SPEC-galileo-attitude.md`/
-`SPEC-glonass-attitude.md`, beside GPS's own `SPEC-thrust-yaw.md`; this spec's own §3 states only
-the FRAME the macromodel's own face normals are stated in, which that law's own output must agree
-with (checked, `SPCR-A-009`, not merely assumed by the two specs matching prose). BeiDou (carried,
-refused — `SPEC-spacecraft` §2's own rule-4 search names the reasons, `SPCR-F-006`), QZSS
-(`SPEC-spacecraft` grows to cover L5 step 3's remaining constellation) and altimetry satellites.
-The force law itself (`srp_analytic`, `photon_force`) — this spec's own output is consumed by that
-module, unchanged.
+ATTITUDE LAW's own equations (Galileo's, GLONASS-M's and QZSS's own laws included) — code, not
+cited data, built in `modules/attitude` and specified in `SPEC-galileo-attitude.md`/
+`SPEC-glonass-attitude.md`/`SPEC-qzss-attitude.md`, beside GPS's own `SPEC-thrust-yaw.md`; this
+spec's own §3 states only the FRAME the macromodel's own face normals are stated in, which that
+law's own output must agree with (checked, `SPCR-A-009`/`SPCR-A-020`, not merely assumed by the
+specs matching prose). BeiDou (carried, refused — `SPEC-spacecraft` §2's own rule-4 search names
+the reasons, `SPCR-F-006`) and altimetry satellites. The force law itself (`srp_analytic`,
+`photon_force`) — this spec's own output is consumed by that module, unchanged.
 
 ---
 
@@ -67,6 +72,7 @@ module, unchanged.
 | `IGSMETA` | Steigenberger, P., Montenbruck, O. (maintainers); IGS | *IGS Satellite Metadata (SINEX)* | continuously updated; this pin 2026-09-24 | `https://files.igs.org/pub/station/general/igs_satellite_metadata.snx` | **primary**, open with attribution (IGS's own open data policy, re-checked this session for the redistribution bar, not only retrievability) | which physical block each frozen baseline SVN is (already used, `PROVENANCE.md` §30.1); **as of this version, the primary mass source for `gps_block_iir`/`_iir_m`/`_iif`** (§3, §4 `SPCR-R-003`/`-004`/`-005`) — its own `SATELLITE/MASS` field, per-satellite, SVN50/SVN63 |
 | `SMSD24` | Steigenberger, P., Montenbruck, O. | *IGS Satellite Metadata File Description*, v1.10 | 30 September 2024, DOI `10.57677/metadata-sinex` | `https://files.igs.org/pub/resource/working_groups/multi_gnss/Metadata_SINEX_1.10.pdf`, fetched directly 2026-09-24 (same `files.igs.org` domain as `IGSMETA`; redistribution not separately re-verified beyond that) | **primary**, obtained | states what `IGSMETA`'s own `SATELLITE/MASS` field IS — "in-orbit satellite mass," required "to compute the acceleration caused by non-gravitational forces... at ~1% accuracy" (§1.1) — settling `SPCR-Q-003` and its own Table 5 (§4.3), the block-level figures §3 below cites |
 | `GALSC` | European GNSS Service Centre (GSC); EUSPA/EU | *Galileo Satellite Metadata* | continuously updated; this pin 2026-09-24 | `https://www.gsc-europa.eu/support-to-developers/galileo-satellite-metadata`, fetched directly (`curl`, HTTP 200, no login) | **primary**, first-party, open with attribution — see §2.3 | the actual source of EVERY Galileo value this spec states for IOV/FOC: reference frame (§2), yaw-steering law (§3, consumed by `SPEC-galileo-attitude.md`, not this spec), mass and centre-of-mass history per satellite (§4), geometry and optical coefficients per surface (§6) |
+| `SPI_QZS1_B` | Cabinet Office, Government of Japan, National Space Policy Secretariat | *QZS-1 Satellite Information* | rev. B, 2022-03-24 | `https://qzss.go.jp/en/technical/qzssinfo/khp0mf0000000wuf-att/spi-qzs1_b.pdf`, fetched directly 2026-09-24 | **primary**, first-party, "freely available to any user... shall indicate proper credit" (`qzss.go.jp/en/technical/qzssinfo/index.html`, quoted in full) | the actual source of EVERY QZS-1 value this spec states: reference frame (§2), attitude law (§3, consumed by `SPEC-qzss-attitude.md`, not this spec), mass and CoM at beginning/end of life (§4), geometry and optical coefficients per face (§6) |
 
 ### 2.1 `FLGA92`/`FLGA96`: the search, and the one route this session added
 
@@ -288,6 +294,26 @@ building anyway, per instruction, not because the result turned out ambiguous.
   not silently normalized away. GLONASS-K needs no such caveat: its own dimensions come from a
   DIFFERENT source (`RS14`'s own "Mitrikas, personal communication, 2011," §4 below) with no
   "shape" column printed at all.
+- **QZSS's own body frame is NOT this tree's own convention — the mapping is HYPOTHESISED from the
+  source's own stated property, then CONFIRMED against real attitude data (the manager's own
+  instruction), not merely trusted from prose.** `SPI_QZS1_B` §2 prints no paired native/tree
+  coordinate examples the way `GALSC` does, so the frame mapping cannot be checked the same way
+  Galileo's was. Instead, `SPEC-qzss-attitude.md` §3 derives the SAME 180-about-Z relation from two
+  independent readings of the source (the yaw-steering mode's own stated Sun hemisphere, and its own
+  y-axis definition) and confirms it with `tools/orbex_qzss_check.cpp`: four real-data checks, two
+  satellites, matched to 0.00003-0.00019 deg -- the tightest real-data agreement any frame mapping in
+  this tree has had. `qzss_frame_from_native()` (`modules/spacecraft`) is this mapping; every QZS-1
+  face normal and centre of mass in §4/§6 below is built through it.
+- **A second genuine schema-fidelity limitation, found the same day as GLONASS's own, REPORTED not
+  built around.** `SPI_QZS1_B` §6 Table 4 gives the +Z face's own "L-ANT Cover" material NO area at
+  all -- footnoted "(*1)" in place of a number -- and states its own shape directly: "L-ANT shape is
+  approximately depicted as a truncated circular cone comprised of 1.5m and 1.8m diameter circles
+  0.8m apart." Even if an area were printed, this schema cannot hold a cone (no such surface type,
+  `SPEC-macromodel.md`'s own stated scope, the same gap GLONASS's own cylinder-wing faces and
+  BeiDou's own curved surfaces hit) -- but here there is not even a number to build an approximation
+  from, so the material is OMITTED entirely, not approximated under any special case. The document
+  itself names a more detailed alternative (a "box-wing-hat model," Ikari et al. 2014, Ref. [3]) for
+  exactly this shape -- not pursued, since the schema could not hold its own output either.
 
 ---
 
@@ -422,6 +448,24 @@ building anyway, per instruction, not because the result turned out ambiguous.
   `Cited<Vec3>`, the same rule `SPCR-R-006`/`SPCR-R-011` state for GPS and Galileo — this spec adds
   no exemption for GLONASS either; the shape-blend caveat (§3) is carried INSIDE the optics
   citation string, not a separate uncited annotation.
+- **SPCR-R-016.** `qzss_1(life: QzssLife) -> Result<Macromodel, SpacecraftError>` — `SPI_QZS1_B` §6
+  Table 4's own body-fixed faces (multi-material faces built as separate co-normal surfaces, mapped
+  through `qzss_frame_from_native`, §3) plus one `flat_surface_sun_pointing` (the SAP material, +Y
+  and -Y areas summed, §3's own footnote-based reasoning). The +Z face's own "L-ANT Cover" material
+  is OMITTED (§3). `life` selects `SPI_QZS1_B` Table 1's own BOL or EOL mass/CoM entry, REQUIRED,
+  no default (mirroring `SPCR-R-009`'s own `OpticalLife` selector exactly, the manager's own
+  instruction) — every optical coefficient is a single, undated set (Table 4 carries no BOL/EOL
+  split, unlike IOV's own Material 2), so `life` affects ONLY mass and CoM, not surfaces. Always
+  succeeds for either `life` value — `SPI_QZS1_B` gives one table, no per-epoch coverage boundary to
+  refuse against (unlike `GALSC`'s own per-satellite dated entries).
+- **SPCR-R-017.** `qzss_frame_from_native(native: Vec3) -> Vec3` rotates a unit or offset vector
+  from `SPI_QZS1_B`'s own native body frame to this tree's own convention: 180° about Z, `(x,y,z) ->
+  (-x,-y,z)`. Its own inverse (an involution). HYPOTHESISED from the source's own stated Sun-
+  hemisphere property (§3), CONFIRMED against real attitude data (`tools/orbex_qzss_check.cpp`,
+  `SPEC-qzss-attitude.md` `QZSY-R-004`) — not verified against printed coordinate pairs the way
+  `SPCR-R-008` is, `SPI_QZS1_B` printing none.
+- **SPCR-R-018.** Every numeric value `SPCR-R-016`/`SPCR-R-017` state is a `Cited<double>` or
+  `Cited<Vec3>`, the same rule every other block in this spec states — no exemption for QZSS either.
 
 ---
 
@@ -449,8 +493,12 @@ building anyway, per instruction, not because the result turned out ambiguous.
 - `glonass_m() -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-013`, built from `RS14` Table 5.7.
 - `glonass_k() -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-014`, built from `RS14` Table 5.8.
   All three parameterless: `RS14` gives one table per block, no per-satellite or per-epoch axis.
+- `QzssLife { BeginningOfLife, EndOfLife }` — §4 `SPCR-R-016`'s own required selector.
+- `qzss_frame_from_native(native: Vec3) -> Vec3` — §4 `SPCR-R-017`.
+- `qzss_1(life: QzssLife) -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-016`, built from
+  `SPI_QZS1_B` Table 4/Table 1.
 
-Each function is a pure, parameterless (or SVN-/GSAT-/epoch-parameterised) constructor: no file is
+Each function is a pure, parameterless (or SVN-/GSAT-/epoch-/life-parameterised) constructor: no file is
 read, no network reached; the cited literature is data this module states directly, the same shape
 `ecom::d4b1_order()` names a configuration rather than reading one.
 
@@ -491,6 +539,14 @@ read, no network reached; the cited literature is data this module states direct
   under RS14's own flat-law (shape=0) special case, UNDERSTATING the true cylindrical contribution
   RS14's own Eq. 4.5 would give (§3's own full account, `SPCR-Q-007`) — a stated approximation, not
   a rounding-level one: the shape fractions RS14 prints (0.494–0.728) are not small.
+- **SPCR-P-4.** `SPI_QZS1_B`'s own values are stated to the precision it prints (one decimal place
+  for area and mass, one for CoM in mm, four decimal places for most optical coefficients — Table
+  4's own printed precision varies row to row, not rounded further here). Mass and CoM are dated to
+  a LIFE STAGE (`QzssLife`), not a calendar epoch — `SPI_QZS1_B`'s own Table 1 states BOL/EOL
+  directly, with no intermediate schedule, so no interpolation or "as of" pin is offered where the
+  source states none. Table 1 is captioned "Prediction as a design," not a measured in-orbit value —
+  stated in each mass/CoM citation, the same distinction `SPCR-P-1` already draws for `RS14`'s own
+  cross-check figures elsewhere.
 
 ---
 
@@ -530,6 +586,10 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-A-017` | `glonass_k()`'s own dimension citation names RS14's own stated chain end, "Mitrikas (personal communication, 2011)" | citation contains that string | `RS14` Table 5.8's own "Information sources" | — | R-014 |
 | `SPCR-A-018` | **the guard shown firing**: a deliberately blank citation on a test-local value, through this module's own `Cited`/`body_direction` call path, is refused by `MCRM-F-001` | the refusal, `MCRM-F-001` | `SPCR-R-015` | — | R-015 |
 | `SPCR-A-019` | `glonass()`/`glonass_m()`'s own ±X/±Y optics and `glonass_k()`'s own optics (every face) are marked ASSUMED, `RS14`'s own generic Ziebart (2001) fallback | citation contains "ASSUMED" | `RS14` Tables 5.6–5.8's own "Information sources" | — | R-012, R-013, R-014 |
+| `SPCR-A-020` | `qzss_frame_from_native` is an involution and has the stated 180°-about-Z form, checked as pure algebra | exact algebraic match; involution holds | this file's own §3 derivation | 1e-12 | R-017 |
+| `SPCR-A-021` | `qzss_1` (BOL and EOL alike): every surface's own absorption+specular+diffuse sums to 1; 9 surfaces (8 body-fixed + 1 combined SAP); the +Y Radiator row matches Table 4 cell by cell; BOL and EOL genuinely differ in mass and CoM, surfaces unchanged either way | exactly 1; 9 surfaces; agreement to Table 4's own printed precision; BOL != EOL mass/CoM | `SPI_QZS1_B` Table 4/Table 1, read directly in the test | 1e-9/1e-12 | R-016 |
+| `SPCR-A-022` | the SAP is built sun-pointing, not body-fixed, with the summed +Y/-Y area (45.0 m²); every other material is body-fixed | 1 sun-pointing surface, area 45.0 m²; 8 body-fixed | `SPI_QZS1_B` Table 4's own footnote *2 | 1e-9 | R-016 |
+| `SPCR-A-023` | **the guard shown firing**: a deliberately blank citation, through this module's own `Cited`/`body_direction` call path, is refused by `MCRM-F-001` | the refusal, `MCRM-F-001` | `SPCR-R-018` | — | R-018 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -574,6 +634,15 @@ read, no network reached; the cited literature is data this module states direct
   affected citation, reported for the manager's own ruling rather than decided silently either way
   (`SPCR-Q-007`); GLONASS-K's own dimension chain ending at "Mitrikas, personal communication,
   2011," recorded the same way GPS-IIF's "an unpublished document" is.
+- **L5 step 3 (QZSS)**: the rule-4/licence search and result (clean, "freely available to any user");
+  the frame mapping HYPOTHESISED from the source's own stated Sun-hemisphere property and a second,
+  independent reading (the yaw-steering mode's own y-axis definition), then CONFIRMED against real
+  attitude data (four checks, two satellites, 0.00003°–0.00019°, the tightest real-data agreement
+  any frame mapping in this tree has had) rather than trusted from prose alone; the L-ANT Cover's
+  own missing area and unsupported cone shape, found reading Table 4 closely, omitted rather than
+  approximated; the SAP's own sun-pointing treatment, resolved by Table 4's own footnote *2 rather
+  than assumed from its "Location" column; the BOL/EOL mass selector mirroring Galileo's own
+  `OpticalLife` exactly, per the manager's own instruction.
 
 ---
 
@@ -588,3 +657,5 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-Q-005` | **FOC's own "modified yaw steering law" is not built (`GALY-Q-001`, `SPEC-galileo-attitude.md`) — `galileo_yaw_attitude` refuses instead, near colinearity.** Does any consumer need FOC attitude that close to colinearity (β < 4.1°, ε < 10°) before this is worth building? The condition is rare (a narrow geometric window) and GSC's own text frames it as a smoothing measure, not a large-swing regime the way GPS's own noon/midnight turns are. |
 | `SPCR-Q-006` | **A genuine per-SVN mass table for Galileo satellites GSC does not currently list (205, 228–231) or for GSAT numbers retired since this pin.** Not searched this round — `GALSC`'s own table is used as printed, absences not filled in or guessed at. Worth a follow-up search if L7 needs one of these specifically. |
 | `SPCR-Q-007` | **The GLONASS/GLONASS-M cylinder-wing shape-blend approximation — a judgment call made this round, NOT yet reviewed.** `RS14` states its own ±X/±Y bus faces for these two blocks are a "shape"-weighted blend of a flat surface and a cylindrical one (0.494–0.728, "0 indicates flat and 1 indicates cylindrical"), with a distinct force formula (Eq. 4.5) this schema's `FlatSurface` cannot represent (no cylinder type, §3's own full account). Built here under RS14's own flat-law (shape=0) special case for those four faces, UNDERSTATING the true cylindrical contribution, stated explicitly in each affected citation — chosen over omitting the four faces (which would understate total cross-section instead, arguably worse) or refusing the whole block (BeiDou's own treatment, which this session judged too strong here: unlike BeiDou's cylinders/rings, `RS14` itself gives the flat-law case as one well-defined formula endpoint, and only 2 of 6 bus faces are affected, not the whole geometry). **Options for the manager's own ruling**: (a) accept this round's own flat-law approximation as built; (b) omit the four caveated faces instead, accepting the smaller cross-section; (c) treat GLONASS/GLONASS-M the same as BeiDou, carried and refused, until the schema grows a cylinder surface type. No consumer currently reads `glonass()`/`glonass_m()`'s own macromodel yet (the same "no consumer" state GPS-IIIA's own refusal names, `SPCR-R-007`), so any of the three is reversible without breaking a caller. |
+| `SPCR-Q-008` | **Only QZS-1's own macromodel is built.** QZS-2, QZS-3, QZS-4 and QZS-1R's own SPI documents (QZS-1R's own PDF was fetched this session but not read) were not built this round — each would need its own per-satellite SPI read the same way QZS-1's was, `SPI_QZS1_B` itself stating no other satellite's specific mass/CoM/geometry. The attitude LAW is treated as constellation-wide and confirmed against two of these other satellites' real data (`SPEC-qzss-attitude.md` `QZSY-R-004`), but their own macromodels remain unbuilt. Worth doing if L7 needs more than QZS-1. |
+| `SPCR-Q-009` | **The L-ANT Cover's own omission (§3) leaves QZS-1's own +Z-face geometry incomplete** — a real physical surface (a truncated cone, both faces of which see sunlight at different times) is simply absent from the built macromodel, not merely approximated. `SPI_QZS1_B` itself names a "box-wing-hat model" (Ikari et al. 2014) built specifically to handle this shape more accurately — not pursued, since this schema could not hold its own output regardless. Worth a schema extension (a conical or general axisymmetric surface type) if a consumer needs QZS-1's own L-ANT-cover contribution specifically — the SAME class of extension BeiDou's own curved surfaces and GLONASS's own cylinder-wing faces would also benefit from, a recurring gap across three of this round's four constellations. |
