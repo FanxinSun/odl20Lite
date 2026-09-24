@@ -314,6 +314,24 @@ building anyway, per instruction, not because the result turned out ambiguous.
   from, so the material is OMITTED entirely, not approximated under any special case. The document
   itself names a more detailed alternative (a "box-wing-hat model," Ikari et al. 2014, Ref. [3]) for
   exactly this shape -- not pursued, since the schema could not hold its own output either.
+- **BeiDou is carried, not built -- `BD 420025-2019` (CSNO 2019) reads as a FILE-FORMAT
+  specification, not a populated per-satellite data product, a finding that REFINES an earlier,
+  narrower reading rather than merely repeating it.** Sec.5.2's own NORMATIVE text enumerates the
+  "basic parameters" as mass, satellite type and laser-reflector position only -- no centroid named.
+  Appendix A (explicitly labelled "(Informative)") does print a "Centroid coordinates" column in its
+  own Table A.1, alongside mass, for two illustrative satellites (C01, C02) -- an apparent
+  inconsistency between the standard's own normative body and its own informative appendix, the same
+  CLASS of internal disagreement RS14's own alpha/delta/rho notation had (SPEC-spacecraft.md's own
+  earlier finding), reported rather than silently resolved either way. It does not matter which
+  reading is "correct," though: every cell in EVERY Appendix A table (mass, centroid, laser-
+  reflector, surface area, optics alike, Tables A.1 through A.4) holds only a checkmark meaning "this
+  field belongs in the format," never an actual number -- so no real per-satellite value, of ANY
+  field the format nominatively supports, is printed anywhere in this 16-page document for a real
+  BeiDou satellite. Combined with Sec.5.3's own stated curved surface types (planes, cylinders,
+  rings, parabolic) this schema cannot hold, one of the source's own three attitude modes (maneuver
+  yaw, Sec.5.4.4) extracted with its own equations OCR-garbled, and no redistribution terms found
+  anywhere -- `beidou()` refuses unconditionally, `SPCR-R-019`, every reason named in its own
+  refusal message.
 
 ---
 
@@ -466,6 +484,14 @@ building anyway, per instruction, not because the result turned out ambiguous.
   `SPCR-R-008` is, `SPI_QZS1_B` printing none.
 - **SPCR-R-018.** Every numeric value `SPCR-R-016`/`SPCR-R-017` state is a `Cited<double>` or
   `Cited<Vec3>`, the same rule every other block in this spec states — no exemption for QZSS either.
+- **SPCR-R-019.** `beidou() -> Result<Macromodel, SpacecraftError>` **refuses** (`SPCR-F-006`)
+  unconditionally in this version: the rule-4/licence search (§2) found five independent reasons,
+  any one alone sufficient — curved surfaces (`BD 420025-2019` §5.3's own "planes, cylinders, rings,
+  parabolic, etc.") this schema cannot hold; no POPULATED per-satellite value of any kind anywhere
+  in the one source found (§3's own full account — the document is a file-format specification, not
+  a data product, a refinement of an earlier, narrower "no centre-of-mass field" reading); the
+  maneuver-yaw mode's own equations extracted OCR-garbled; no stated redistribution terms; no
+  current consumer. Every reason is named in the refusal's own message, not only in this spec.
 
 ---
 
@@ -497,6 +523,7 @@ building anyway, per instruction, not because the result turned out ambiguous.
 - `qzss_frame_from_native(native: Vec3) -> Vec3` — §4 `SPCR-R-017`.
 - `qzss_1(life: QzssLife) -> Result<Macromodel, SpacecraftError>` — §4 `SPCR-R-016`, built from
   `SPI_QZS1_B` Table 4/Table 1.
+- `beidou() -> Result<Macromodel, SpacecraftError>` — refuses unconditionally, §4 `SPCR-R-019`.
 
 Each function is a pure, parameterless (or SVN-/GSAT-/epoch-/life-parameterised) constructor: no file is
 read, no network reached; the cited literature is data this module states directly, the same shape
@@ -559,6 +586,7 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-F-003` | `gps_block_iiia` called at all, in this version | the one-search outcome, and where its full record is kept; states explicitly that no baseline consumes this function |
 | `SPCR-F-004` | `galileo_iov`/`galileo_foc` called with a `gsat` not among `GALSC`'s own currently-listed satellites for that block | the offending GSAT and the block name |
 | `SPCR-F-005` | `galileo_iov`/`galileo_foc` called with an `epoch` before the named satellite's own mass/CoM entry's stated month | the offending epoch, the satellite's own coverage start, and the `odl::atmosphere`-style reasoning |
+| `SPCR-F-006` | `beidou` called at all, in this version | all five independent reasons (§3, §4 `SPCR-R-019`), and where the full search record is kept; states explicitly that no baseline consumes this function |
 | (inherited) `MCRM-F-001` | any citation this module supplies is blank | the schema's own refusal, unchanged — this module supplies none blank, `SPCR-A-002` proves the guard still fires if one were |
 
 ---
@@ -590,6 +618,7 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-A-021` | `qzss_1` (BOL and EOL alike): every surface's own absorption+specular+diffuse sums to 1; 9 surfaces (8 body-fixed + 1 combined SAP); the +Y Radiator row matches Table 4 cell by cell; BOL and EOL genuinely differ in mass and CoM, surfaces unchanged either way | exactly 1; 9 surfaces; agreement to Table 4's own printed precision; BOL != EOL mass/CoM | `SPI_QZS1_B` Table 4/Table 1, read directly in the test | 1e-9/1e-12 | R-016 |
 | `SPCR-A-022` | the SAP is built sun-pointing, not body-fixed, with the summed +Y/-Y area (45.0 m²); every other material is body-fixed | 1 sun-pointing surface, area 45.0 m²; 8 body-fixed | `SPI_QZS1_B` Table 4's own footnote *2 | 1e-9 | R-016 |
 | `SPCR-A-023` | **the guard shown firing**: a deliberately blank citation, through this module's own `Cited`/`body_direction` call path, is refused by `MCRM-F-001` | the refusal, `MCRM-F-001` | `SPCR-R-018` | — | R-018 |
+| `SPCR-A-024` | `beidou` refuses unconditionally with `SPCR-F-006`; the refusal's own message names all five reasons (curved surfaces, no populated per-satellite value, the unread maneuver-yaw equations, no redistribution terms, no consumer), checked by substring, not merely asserted | the refusal; all five reasons present | `SPCR-R-019` | — | F-006, R-019 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -643,6 +672,15 @@ read, no network reached; the cited literature is data this module states direct
   approximated; the SAP's own sun-pointing treatment, resolved by Table 4's own footnote *2 rather
   than assumed from its "Location" column; the BOL/EOL mass selector mirroring Galileo's own
   `OpticalLife` exactly, per the manager's own instruction.
+- **L5 step 3 (BeiDou, carried)**: the rule-4/licence search against `BD 420025-2019`; the REFINED
+  finding that the standard is a file-format specification with no populated per-satellite value
+  anywhere, superseding an earlier, narrower "no centre-of-mass field" reading after Appendix A's
+  own informative Table A.1 was found to print a centroid-coordinate column alongside mass (an
+  apparent normative/informative inconsistency internal to the standard, reported rather than
+  silently resolved either way, the SAME class of finding RS14's own alpha/delta/rho notation
+  already was); the curved-surface types, the maneuver-yaw mode's own OCR-garbled equations, and the
+  redistribution-terms search, each independently sufficient; the refusal's own message naming every
+  reason, checked by test.
 
 ---
 
@@ -659,3 +697,4 @@ read, no network reached; the cited literature is data this module states direct
 | `SPCR-Q-007` | **The GLONASS/GLONASS-M cylinder-wing shape-blend approximation — a judgment call made this round, NOT yet reviewed.** `RS14` states its own ±X/±Y bus faces for these two blocks are a "shape"-weighted blend of a flat surface and a cylindrical one (0.494–0.728, "0 indicates flat and 1 indicates cylindrical"), with a distinct force formula (Eq. 4.5) this schema's `FlatSurface` cannot represent (no cylinder type, §3's own full account). Built here under RS14's own flat-law (shape=0) special case for those four faces, UNDERSTATING the true cylindrical contribution, stated explicitly in each affected citation — chosen over omitting the four faces (which would understate total cross-section instead, arguably worse) or refusing the whole block (BeiDou's own treatment, which this session judged too strong here: unlike BeiDou's cylinders/rings, `RS14` itself gives the flat-law case as one well-defined formula endpoint, and only 2 of 6 bus faces are affected, not the whole geometry). **Options for the manager's own ruling**: (a) accept this round's own flat-law approximation as built; (b) omit the four caveated faces instead, accepting the smaller cross-section; (c) treat GLONASS/GLONASS-M the same as BeiDou, carried and refused, until the schema grows a cylinder surface type. No consumer currently reads `glonass()`/`glonass_m()`'s own macromodel yet (the same "no consumer" state GPS-IIIA's own refusal names, `SPCR-R-007`), so any of the three is reversible without breaking a caller. |
 | `SPCR-Q-008` | **Only QZS-1's own macromodel is built.** QZS-2, QZS-3, QZS-4 and QZS-1R's own SPI documents (QZS-1R's own PDF was fetched this session but not read) were not built this round — each would need its own per-satellite SPI read the same way QZS-1's was, `SPI_QZS1_B` itself stating no other satellite's specific mass/CoM/geometry. The attitude LAW is treated as constellation-wide and confirmed against two of these other satellites' real data (`SPEC-qzss-attitude.md` `QZSY-R-004`), but their own macromodels remain unbuilt. Worth doing if L7 needs more than QZS-1. |
 | `SPCR-Q-009` | **The L-ANT Cover's own omission (§3) leaves QZS-1's own +Z-face geometry incomplete** — a real physical surface (a truncated cone, both faces of which see sunlight at different times) is simply absent from the built macromodel, not merely approximated. `SPI_QZS1_B` itself names a "box-wing-hat model" (Ikari et al. 2014) built specifically to handle this shape more accurately — not pursued, since this schema could not hold its own output regardless. Worth a schema extension (a conical or general axisymmetric surface type) if a consumer needs QZS-1's own L-ANT-cover contribution specifically — the SAME class of extension BeiDou's own curved surfaces and GLONASS's own cylinder-wing faces would also benefit from, a recurring gap across three of this round's four constellations. |
+| `SPCR-Q-010` | **BeiDou's own refusal reasoning was REFINED this round, past what the manager's own ruling stated — flagged for the manager's own awareness, not a request to reverse the refusal.** The ruling's own shorthand named "no centre of mass field found" as one of BeiDou's four reasons; reading `BD 420025-2019` closely for this build found the fuller picture is that the standard is a FILE-FORMAT specification with no populated per-satellite VALUE of any field anywhere (mass, centroid or optics alike), and that its own informative Appendix A actually DOES print a centroid-coordinate FIELD (just never a real number) alongside its own normative text's silence on centroid — a genuine nuance the first pass's own rule-4 search did not surface. The refusal itself is unaffected (if anything, more strongly justified: even a schema-compatible BeiDou build would have no real numbers to read from this source), so no code change follows from this — recorded so the manager's own record of the reasoning is accurate, not merely so the conclusion is. |

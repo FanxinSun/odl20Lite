@@ -5770,6 +5770,46 @@ Attitude: `modules/attitude/tests/qzss_tests.cpp` (new, 3 test cases, `QZSY-A-00
 Spacecraft: `modules/spacecraft/tests/qzss_tests.cpp` (new, 4 test cases, `SPCR-A-020`–`SPCR-A-023`)
 — 23 test cases tree-wide in `modules/spacecraft`, 607 assertions, all passing.
 
+### 33.9 BeiDou carried, refused — a refinement found reading the source closely, not a reopening of the ruling
+
+`modules/spacecraft/src/beidou.cpp` (new). `beidou()` refuses unconditionally (`SPCR-F-006`),
+implementing the manager's own ruling — but reading `BD 420025-2019` closely enough to write the
+refusal's own message surfaced a MORE PRECISE version of one of the ruling's own four stated
+reasons, worth recording exactly rather than repeating the shorthand.
+
+The ruling's own words named "no centre of mass field found in the CSNO standard." Rendering the
+actual PDF pages (Appendix A, the same "read the source's own rendered page, not a prior
+transcription" discipline this session applies throughout) found this is not quite the full
+picture: §5.2's own NORMATIVE text enumerates "the basic parameters" as satellite mass, satellite
+type and laser-reflector position ONLY — no centroid named, matching the ruling's own reading — but
+Appendix A (explicitly labelled "(Informative)") DOES print a "Centroid coordinates in the machine
+coordinate system" column in its own Table A.1, right alongside mass, with checkmarks shown present
+for two illustrative example satellites (C01, C02). A genuine inconsistency between the standard's
+own normative body and its own informative appendix — recorded as found, not smoothed over, the
+SAME class of internal disagreement this project already met once this session (RS14's own
+alpha/delta/rho notation, §31 above).
+
+It turned out not to matter which reading is "correct," on closer inspection: EVERY cell in EVERY
+Appendix A table — A.1 (mass/centroid), A.2 (laser reflector), A.3 (surface area), A.4 (optics) —
+holds only a checkmark meaning "this field belongs in the file format," never an actual populated
+number, for either of the two illustrative satellites shown. The document is a FILE-FORMAT
+specification (its own title: "Definitions and descriptions of BDS/GNSS satellite parameters"), not
+a data product with real per-satellite values — so even a schema able to hold BeiDou's own curved
+surfaces would have nothing here to build a real macromodel FROM, independent of the centroid
+question. This REFINES, and if anything STRENGTHENS, the refusal's own justification; the refusal
+itself is unchanged, recorded for the manager's own accurate record (`SPCR-Q-010`), not as a request
+to revisit the ruling.
+
+The refusal's own message names all five reasons (curved surfaces; no populated per-satellite value
+of any kind; the maneuver-yaw mode's own OCR-garbled equations; no redistribution terms found; no
+current consumer), checked by a test that searches the message for each one (`SPCR-A-024`) rather
+than trusting the message was written correctly by inspection alone.
+
+### 33.10 BeiDou test count
+
+`modules/spacecraft/tests/beidou_tests.cpp` (new, 1 test case, `SPCR-A-024`) — 24 test cases
+tree-wide in `modules/spacecraft`, 616 assertions, all passing, no regression.
+
 ---
 
 ## Changelog
