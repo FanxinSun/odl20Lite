@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `QZSY` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 1.1 — review round: the source basis for sharing the frame/law across QZSS satellites checked directly (§2 identical across all four documents; §3 is NOT uniformly shared, found reading all four rather than assumed); a day-by-day scan for QZS-1 found it absent throughout the reachable archive; an exploratory real-data check against QZS-3 (which shares QZS-1's own orbit-normal law word for word) found a genuine, unexplained discrepancy, reported not hidden |
+| **Version** | 1.2 — two review rounds: the source basis for sharing the frame/law across QZSS satellites checked directly (§2 identical across all four documents; §3 is NOT uniformly shared, found reading all four rather than assumed); a day-by-day scan for QZS-1 found it absent throughout the reachable archive; an exploratory real-data check against QZS-3 (which shares QZS-1's own orbit-normal law word for word) found a mismatch, then DIAGNOSED it exactly — CODE's own analysis product does not implement that mode, modelling QZS-3 with generic yaw-steering instead (`QZSY-Q-004` closed) |
 | **Date** | 2026-09-24 |
 | **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), step 3 (QZSS) — attitude LAW code, `modules/attitude`, beside GPS's own `SPEC-thrust-yaw.md`, Galileo's own `SPEC-galileo-attitude.md` and GLONASS-M's own `SPEC-glonass-attitude.md` |
 | **Depends on** | `modules/attitude`'s own already-built, already-gated `nominal_yaw_steering`, `signed_beta_rad`, `OrbitTriad`/`orbit_triad` (GPS's own shared machinery) |
@@ -138,21 +138,32 @@ confirmation as well.
   discipline does not cross — recorded as a genuine access limitation, not silently worked around.
   **RECORDED as the absence, per rule 4**: no window exists in the data this session can reach.
 - **Orbit-normal mode checked against QZS-3 directly (EXPLORATORY, not the registered criterion) —
-  found, NOT a clean match, reported honestly.** QZS-3 needs no low-beta window (it is ALWAYS in
-  this mode), so `orbit_normal_attitude` was called directly (bypassing the beta-based dispatch)
-  against QZS-3's own real attitude, 2023-10-07. Result: 170.9° off at 00:00, 13.5° off at 12:00; a
-  30-minute sweep across the full day shows the error tracing a SMOOTH curve between the built
+  found NOT a clean match, then DIAGNOSED (the manager's own second review): CODE's own analysis
+  product does not implement it at all.** QZS-3 needs no low-beta window (it is ALWAYS in this
+  mode), so `orbit_normal_attitude` was called directly (bypassing the beta-based dispatch) against
+  QZS-3's own real attitude, 2023-10-07. First result: 170.9° off at 00:00, 13.5° off at 12:00; a
+  30-minute sweep across the full day showed the error tracing a SMOOTH curve between the built
   construction and its own 180°-yaw-flipped counterpart, crossing near 90° twice and bottoming out
-  at two closest approaches (6.56° around 08:00–08:30, 6.69° around 20:00–20:30) — never reaching
-  the sub-0.03° agreement every OTHER real-data control in this tree reaches. Checked directly, not
-  assumed to be a sign bug: neither the built sign nor its own 180°-flip matches cleanly at every
-  hour (a genuine constant-sign error would show a clean, constant ~180° or ~0° pattern, not this
-  smooth day-periodic one) — consistent with a genuine, slow real attitude variation (a real GEO/
-  IGSO yaw-flip-style behaviour is one plausible physical cause, NOT confirmed) this tree's own
-  static "ideal geometric" construction does not capture. `orbit_normal_attitude`'s own construction
-  remains independently verified correct algebraically (`QZSY-A-001`) and its own SHAPE is confirmed
-  shared with QZS-3 by the source's own identical wording (above) — but it stays UNCONFIRMED by
-  real-data agreement to the standard this tree's other controls meet (`QZSY-Q-001`).
+  at two closest approaches (6.56°, 6.69°) — never reaching the sub-0.03° floor every OTHER
+  real-data control in this tree reaches, and NOT the clean, constant ~180°/~0° pattern a simple
+  sign bug would produce (checked directly, not assumed). **The manager's own diagnosis, REGISTERED
+  before being checked**: "CODE's J03 file is CODE's own MODEL of the satellite, not the satellite" —
+  the mismatch's own SHAPE (independently verified: the angle between `nominal_yaw_steering`'s own
+  x_body and `orbit_normal_attitude`'s own x_body, at a GEO's fixed beta, swings EXACTLY between
+  `beta` and `180°-beta` over one orbit, confirmed to the thousandth of a degree at three test
+  betas) is exactly what comparing two DIFFERENT laws at the SAME instants would produce. Compared
+  CODE's own real J03 attitude against `nominal_yaw_steering` DIRECTLY instead (the SAME pipeline,
+  the SAME frame mapping, L4's own already-gated code) — REGISTERED PREDICTION (stated before the
+  comparison was run): if CODE models J03 with yaw-steering, the residual should sit at the
+  pipeline's own usual floor, thousandths of a degree. **Confirmed exactly**: 0.00022° at 00:00
+  (beta=6.45°), 0.00032° at 12:00 (beta=6.59°) — beta well inside QZS-1's own stated orbit-normal
+  threshold (`|beta|<=~20°`), yet CODE still used yaw-steering. `orbit_normal_attitude`'s own
+  construction is NOT contradicted by this data: the earlier mismatch is a comparison against a
+  DIFFERENT law CODE happens to use for this satellite, not a defect. It remains independently
+  verified correct algebraically (`QZSY-A-001`) and its own SHAPE confirmed shared with QZS-1 by
+  QZS-3's own identical wording — but stays UNCONFIRMED by real-data agreement, since no analysis
+  centre this session could reach appears to implement it for any satellite checked (`QZSY-Q-001`,
+  narrowed to this precise basis; `QZSY-Q-004` CLOSED on this result).
 
 ---
 
@@ -262,7 +273,7 @@ quantity is computable from the CURRENT epoch's own state alone.
 
 | id | question |
 |---|---|
-| `QZSY-Q-001` | **Orbit-normal mode's own real-data confirmation — SOUGHT FURTHER (manager's own review, 2026-09-24), STILL NOT CLEANLY CONFIRMED.** QZS-1 (the satellite this mode is built for) is confirmed absent from every file this session could reach (a 45-date, ~monthly scan across the ONLY reachable archive's own full span, 2022-12 through 2026-07 — CODE's own true archive and CDDIS both unreachable, §3). QZS-3 shares this mode word-for-word by its own document and needs no low-beta window (always active) — checked directly, EXPLORATORY: NOT a clean match (170.9°/13.5° off at two epochs, a smooth day-periodic pattern between the built construction and its own 180°-flip, bottoming out at 6.56°/6.69° at its own two closest approaches, `QZSY-Q-004` below). The mode's own construction remains independently verified algebraically (`QZSY-A-001`) and its own shape confirmed shared with QZS-3 by the source's own text, but is NOT confirmed by real-data agreement to the standard this tree's other controls meet. |
+| `QZSY-Q-001` | **Orbit-normal mode's own real-data confirmation — SOUGHT FURTHER TWICE (manager's own two review rounds, 2026-09-24), NOT CONFIRMED, on a NOW-PRECISE basis, not a puzzle.** QZS-1 (the satellite this mode is built for) is confirmed absent from every file this session could reach (a 45-date, ~monthly scan across the ONLY reachable archive's own full span, 2022-12 through 2026-07 — CODE's own true archive and CDDIS both unreachable, §3). QZS-3 shares this mode word-for-word by its own document and needs no low-beta window (always active) — checked directly, EXPLORATORY: NOT a clean match. DIAGNOSED (the manager's own second review): CODE's own real J03 attitude matches `nominal_yaw_steering` DIRECTLY to the SAME thousandths-of-a-degree floor every other yaw-steering check reaches (0.00022°/0.00032° at beta=6.5°, well inside the orbit-normal regime) — CODE's own analysis product simply does not implement QZS-3's own orbit-normal mode; the EXPLORATORY mismatch is explained, not a live discrepancy. The mode's own construction remains independently verified algebraically (`QZSY-A-001`) and its own shape confirmed shared with QZS-3 by the source's own text — genuinely unconfirmed by real DATA (no analysis centre this session could reach implements it for any satellite checked), not contradicted by any. |
 | `QZSY-Q-002` | **The exact commanded date QZS-1's own operators switch modes remains undetermined** — no QZS-1 data was reachable at all (`QZSY-Q-001`), so this stays open. |
 | `QZSY-Q-003` | **Only QZS-1's own macromodel is built (`SPEC-spacecraft.md`); QZS-2/3/4 and QZS-1R's own SPI documents were read this round for their own §2/§3 ONLY** (frame and attitude-law text, to check the source basis for sharing a law, `QZSY-R-004`'s own scope note) — their own §4 (mass/CoM) and §6 (geometry/optics) were NOT read, so no macromodel for any of them is built. Worth doing if L7 needs more than QZS-1. |
-| `QZSY-Q-004` | **QZS-3's own real attitude, in CODE's own ORBEX solution, does not match `orbit_normal_attitude`'s own static construction closely, and the day-periodic pattern of the mismatch (§3) is not explained.** The pattern (a smooth swing between the built construction and its own 180°-yaw-flip, with two daily closest approaches at ~6.6° rather than converging to near-zero) is consistent with either a real, slow attitude dynamic this tree's own IDEAL geometric law does not model (e.g. a genuine yaw-bias or flip-management scheme, the kind BeiDou's own GEO satellites are known to use, unconfirmed for QZS-3 specifically), or a systematic issue in this program's own finite-difference velocity or frame handling for a near-circular, low-inclination GEO orbit specifically — NOT distinguished this round. Worth a focused investigation (checking against a SECOND day, and against QZS-3's own SPI document directly if the Cabinet Office publishes one, which was not searched for this round) if a consumer needs QZS-3's own attitude or firmer confidence in `orbit_normal_attitude` generally. |
+| `QZSY-Q-004` | **CLOSED (manager's own second review, 2026-09-24).** QZS-3's own real attitude, in CODE's own ORBEX solution, did not match `orbit_normal_attitude`'s own static construction, tracing a smooth day-periodic pattern (§3). DIAGNOSED, not left open: the manager's own registered prediction — that the mismatch's own shape is exactly what comparing `nominal_yaw_steering` against `orbit_normal_attitude` at a GEO's fixed beta produces (independently verified: the angle between the two swings EXACTLY between `beta` and `180°-beta`) — was checked directly and confirmed exactly (0.00022°/0.00032° residual against `nominal_yaw_steering`, the pipeline's own usual floor). CODE's own analysis product does not implement QZS-3's own orbit-normal mode at all; it models this satellite with generic yaw-steering regardless of beta. No further investigation needed on this specific question — resolved to "CODE doesn't model it," not "the construction might be wrong." |

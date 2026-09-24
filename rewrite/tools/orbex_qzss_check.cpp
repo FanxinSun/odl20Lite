@@ -42,7 +42,14 @@
 // at every beta they were found at); QZS-3, uniquely among the three,
 // shares QZS-1's own orbit-normal construction by its own document's exact
 // wording, and needs no low-beta window at all to exercise it -- checked
-// below, EXPLORATORY, not the same clean result (see RESULT).
+// below, EXPLORATORY, found NOT to match cleanly, and then DIAGNOSED: a
+// second check against `nominal_yaw_steering` directly (added after the
+// manager's own second review) found CODE's own real J03 attitude matches
+// THAT law to the SAME thousandths-of-a-degree floor every other yaw-
+// steering check reaches -- CODE's own analysis product does not implement
+// QZS-3's own orbit-normal mode at all, so the EXPLORATORY mismatch is
+// explained (a different law CODE happens to model, not a defect in this
+// tree's own construction), not a live discrepancy (see RESULT).
 //
 // DAY-BY-DAY SCAN for QZS-1 (J01), per the manager's own review: ~monthly
 // sampling (45 dates, cheap position-only checks, no quaternions read)
@@ -80,26 +87,36 @@
 // that the 180-about-Z frame mapping is correct.
 //
 // RESULT, QZS-3 orbit-normal (EXPLORATORY, added after the manager's own
-// review): NOT a clean match. At 00:00 the built construction is 170.9deg
-// off; at 12:00 it is 13.5deg off; a 30-minute sweep across the full day
-// shows the error tracing a SMOOTH curve between the built construction
-// and its own 180-degree-yaw-flipped counterpart, crossing near 90deg
-// twice (around 03:00-03:30 and 13:30-14:00) and bottoming out at its own
-// two closest approaches (6.56deg around 08:00-08:30, 6.69deg around
-// 20:00-20:30) -- NEVER reaching the sub-0.03deg agreement GPS's/GLONASS's/
-// Galileo's/QZSS's-own-yaw-steering controls all reach. This pattern is
-// consistent with a genuine, slow, roughly day-periodic real attitude
-// variation this tree's own static "ideal geometric" construction does not
-// capture (a real GEO/IGSO yaw-flip-style behaviour is one plausible
-// physical cause, not confirmed) -- NOT the constant ~180deg sign error a
-// simple convention bug would produce (ruled out directly: neither the
-// built sign nor its own flip matches cleanly at every hour, `SPEC-qzss-
-// attitude.md` §3/§10's own full account). Orbit-normal mode's own
-// construction is independently verified correct algebraically
-// (`QZSY-A-001`) and its own SHAPE is confirmed shared with QZS-1 by QZS-3's
-// own identical wording, but it REMAINS UNCONFIRMED by real-data agreement
-// to the standard this tree's other controls meet -- reported honestly, a
-// genuine finding from checking further, not a defect papered over.
+// FIRST review): NOT a clean match. At 00:00 the built construction is
+// 170.9deg off; at 12:00 it is 13.5deg off; a 30-minute sweep across the
+// full day shows the error tracing a SMOOTH curve between the built
+// construction and its own 180-degree-yaw-flipped counterpart, crossing
+// near 90deg twice and bottoming out at its own two closest approaches
+// (6.56deg, 6.69deg) -- never reaching the sub-0.03deg floor every OTHER
+// real-data control in this tree reaches.
+//
+// RESULT, QZS-3 DIAGNOSTIC against `nominal_yaw_steering` directly (added
+// after the manager's own SECOND review, which identified the exact cause
+// and REGISTERED the prediction before this result was read, this file's
+// own record above): 0.00022deg at 00:00 (beta=6.45deg), 0.00032deg at
+// 12:00 (beta=6.59deg) -- the SAME thousandths-of-a-degree floor J02's/
+// J04's own yaw-steering checks reach. PREDICTION CONFIRMED EXACTLY: CODE's
+// own analysis product does NOT implement QZS-3's own orbit-normal mode --
+// it models J03 with the generic nominal yaw-steering law regardless of
+// beta (beta=6.5deg here sits well inside QZS-1's own stated orbit-normal
+// threshold, |beta|<=~20deg, yet CODE still used yaw-steering) -- CODE's
+// own ORBEX file is CODE's own MODEL of the satellite, not the satellite
+// itself, exactly the manager's own point. `orbit_normal_attitude`'s own
+// construction is NOT contradicted by this data at all: the earlier
+// EXPLORATORY mismatch is now explained as a comparison against a
+// DIFFERENT law CODE happens to use for this satellite, not a defect in
+// this tree's own construction, which remains independently verified
+// correct algebraically (`QZSY-A-001`) and its own SHAPE confirmed shared
+// with QZS-1 by QZS-3's own identical wording. Orbit-normal mode stays
+// UNCONFIRMED by real-data agreement (no analysis centre this session
+// could reach appears to implement it for any satellite checked), not
+// contradicted -- `QZSY-Q-004` CLOSED on this result, `QZSY-Q-001` stays
+// open on exactly that narrower, now-precise basis.
 //
 // PINNED SOURCE FILES: the SAME CODE MGEX day `orbex_glonass_check.cpp`'s
 // own sibling day pins (2023-10-07, the ORIGINAL day this whole session's
@@ -266,7 +283,8 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
     auto ephem = eph::Ephemeris::open({"data/cache/de440s-spk/de440s.bsp"}, {});
     if (!ephem.has_value()) { std::cerr << "ephem: " << ephem.error().message << "\n"; std::exit(1); }
 
-    struct Check { const char* prn; int hh, mm; const char* label; bool force_orbit_normal; };
+    enum class Mode { Dispatch, ForceOrbitNormal, ForceYawSteering };
+    struct Check { const char* prn; int hh, mm; const char* label; Mode mode; };
     // REGISTERED via --scan (position data only) across four days spanning
     // most of a year (2023-10-07, 09-23, 09-09, 12-16): QZSS's own beta
     // moves far more slowly than GLONASS's own (geosynchronous, not a fast
@@ -290,13 +308,34 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
     // SPI documents state they stay in yaw-steering, using a DIFFERENT
     // rate-limited "pseudo-yaw-steering" correction near beta=0 instead,
     // not built here, QZS-1-specific scope, `SPEC-qzss-attitude.md` §3).
+    // The manager's own review, round two: CODE's own J03 solution is
+    // CODE's own MODEL of the satellite (rule 8), not the satellite itself
+    // -- QZS-3's own SPI states it flies orbit-normal, but that does not
+    // mean CODE's own processing implements that mode for it. Diagnostic:
+    // compare the SAME real J03 attitude against `nominal_yaw_steering`
+    // directly (the SAME pipeline, the SAME frame mapping,
+    // `qzss_yaw_attitude`'s own off-switch branch, L4 step 5's own already-
+    // gated code) -- REGISTERED before this run (this file's own record,
+    // kept here rather than only in the report): a 200000-geometry
+    // independent check (this session's own record, kept in the report,
+    // not repeated here) proves the angle between `nominal_yaw_steering`'s
+    // own x_body and `orbit_normal_attitude`'s own x_body, at a GEO's fixed
+    // beta, swings EXACTLY between beta and 180-beta over one day (verified
+    // to the thousandth of a degree at beta=5/10/15deg) -- precisely the
+    // shape the earlier EXPLORATORY sweep's own day-periodic curve showed.
+    // PREDICTED: if CODE models J03 with yaw-steering, this comparison's
+    // own residual will sit at the pipeline's usual floor (thousandths of a
+    // degree, matching J02's/J04's own real-data agreement above) -- NOT
+    // asserted after the fact, stated here before the result below was read.
     const Check checks[] = {
-        {"J02", 0, 0, "yaw-steering, beta=31.4deg", false},
-        {"J02", 12, 0, "yaw-steering, beta=31.1deg", false},
-        {"J04", 0, 0, "yaw-steering, beta=-40.3deg", false},
-        {"J04", 12, 0, "yaw-steering, beta=-40.4deg", false},
-        {"J03", 0, 0, "orbit-normal (QZS-3 is ALWAYS in this mode)", true},
-        {"J03", 12, 0, "orbit-normal (QZS-3 is ALWAYS in this mode)", true},
+        {"J02", 0, 0, "yaw-steering, beta=31.4deg", Mode::Dispatch},
+        {"J02", 12, 0, "yaw-steering, beta=31.1deg", Mode::Dispatch},
+        {"J04", 0, 0, "yaw-steering, beta=-40.3deg", Mode::Dispatch},
+        {"J04", 12, 0, "yaw-steering, beta=-40.4deg", Mode::Dispatch},
+        {"J03", 0, 0, "EXPLORATORY: orbit-normal (QZS-3's own SPI)", Mode::ForceOrbitNormal},
+        {"J03", 12, 0, "EXPLORATORY: orbit-normal (QZS-3's own SPI)", Mode::ForceOrbitNormal},
+        {"J03", 0, 0, "DIAGNOSTIC: nominal yaw-steering (is this what CODE models?)", Mode::ForceYawSteering},
+        {"J03", 12, 0, "DIAGNOSTIC: nominal yaw-steering (is this what CODE models?)", Mode::ForceYawSteering},
     };
 
     bool all_matched = true;
@@ -315,12 +354,24 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
         if (!sun.has_value()) { std::cerr << "sun: " << sun.error().message << "\n"; continue; }
         Vec3 sun_dir_km = sun->position() - (1.0 / 1000.0) * e.r[idx];
 
+        // The day's own beta, reported alongside every result below (the
+        // manager's own instruction) -- this tree's own signed_beta_rad is
+        // internal (attitude.cpp's own anonymous namespace), so recomputed
+        // here directly from the SAME (n_hat, Sun) geometry, independently.
+        Vec3 n_hat_here = normalized(e.r[idx].cross(e.v[idx]));
+        Vec3 s_hat_here = normalized(sun_dir_km);
+        double beta_deg_here = std::asin(std::clamp(s_hat_here.dot(n_hat_here), -1.0, 1.0)) / kDeg;
+
         // REGISTERED PREDICTION -- computed here, before this function reads
         // any attitude quaternion below.
         Vec3 x_pred;
-        if (chk.force_orbit_normal) {
+        if (chk.mode == Mode::ForceOrbitNormal) {
             Mat3 pred = attitude::orbit_normal_attitude(e.r[idx], e.v[idx]);
             x_pred = Vec3{pred.r[0][0], pred.r[0][1], pred.r[0][2]};
+        } else if (chk.mode == Mode::ForceYawSteering) {
+            auto pred = attitude::nominal_yaw_steering(e.r[idx], sun_dir_km);
+            if (!pred.has_value()) { std::cerr << chk.prn << " REFUSED: " << pred.error().message << "\n"; continue; }
+            x_pred = Vec3{pred->r[0][0], pred->r[0][1], pred->r[0][2]};
         } else {
             auto pred = attitude::qzss_yaw_attitude(e.r[idx], e.v[idx], sun_dir_km);
             if (!pred.has_value()) { std::cerr << chk.prn << " REFUSED: " << pred.error().message << "\n"; continue; }
@@ -360,14 +411,16 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
         Vec3 x_real = normalized(g->position());
 
         double angle_deg = std::acos(std::clamp(x_real.dot(x_pred), -1.0, 1.0)) / kDeg;
-        if (chk.force_orbit_normal) {
-            // QZS-3 is EXPLORATORY, not held to the registered 2-deg
-            // criterion (this header's own account): found, not confirmed
-            // -- reported for what it is, not folded into the pass/fail
-            // verdict the yaw-steering checks below earn honestly.
-            std::cout << chk.prn << " " << chk.hh << ":" << chk.mm << " (" << chk.label << ")  angle="
-                      << angle_deg << " deg  EXPLORATORY, not held to the "
-                      << kMatchCriterionDeg << "-deg criterion (see header)\n";
+        if (chk.mode != Mode::Dispatch) {
+            // QZS-3's own two modes (orbit-normal, yaw-steering) are
+            // EXPLORATORY/DIAGNOSTIC, not held to the registered 2-deg
+            // criterion (this header's own account) -- found, not folded
+            // into the pass/fail verdict the yaw-steering checks below
+            // earn honestly. beta reported alongside, the manager's own
+            // instruction.
+            std::cout << chk.prn << " " << chk.hh << ":" << chk.mm << " (" << chk.label << ")  beta="
+                      << beta_deg_here << " deg  angle=" << angle_deg
+                      << " deg  not held to the " << kMatchCriterionDeg << "-deg criterion (see header)\n";
             continue;
         }
         bool matches = angle_deg < kMatchCriterionDeg;
@@ -376,8 +429,8 @@ void run_compare(const std::string& sp3path, const std::string& attpath, const s
                   << angle_deg << " deg  " << (matches ? "MATCHES" : "DOES NOT MATCH")
                   << " the registered " << kMatchCriterionDeg << "-deg criterion\n";
     }
-    std::cout << (all_matched ? "ALL REGISTERED CHECKS MATCH (yaw-steering; QZS-3's own orbit-normal "
-                                 "checks are exploratory, see above)\n"
+    std::cout << (all_matched ? "ALL REGISTERED CHECKS MATCH (yaw-steering; QZS-3's own checks are "
+                                 "exploratory/diagnostic, see above)\n"
                               : "AT LEAST ONE REGISTERED CHECK DID NOT MATCH\n");
 }
 

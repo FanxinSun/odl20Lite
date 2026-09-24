@@ -5880,6 +5880,48 @@ No production code changed this round (the QZSS orbit-normal EXPLORATORY check w
 in an uncommitted standalone script). Test counts unchanged from §33.8/§33.10: `modules/attitude` 32
 cases/93756 assertions, `modules/spacecraft` 24 cases/616 assertions, both all passing.
 
+### 33.13 Second review round: QZS-3's own mismatch diagnosed, not left as a puzzle
+
+`SPEC-qzss-attitude.md` v1.2. The manager's own second review of §33.11–33.12 accepted both items but
+would not close step 3 "over a 171-degree disagreement it can't explain" — QZS-3's own EXPLORATORY
+mismatch (§33.11) needed a cause, not a shrug, and the manager's own review supplied a sharp,
+testable diagnosis rather than asking for more searching: CODE's own J03 ORBEX file is CODE's own
+MODEL of the satellite (its own processing centre's choice), not the satellite's own real behaviour
+— QZS-3's own SPI document says it flies orbit-normal, but that does not mean CODE's own analysis
+implements that mode for it. The manager's own stated physics: a GEO's own beta equals the Sun's own
+declination, and the angle between the yaw-steering law and the orbit-normal law, at a fixed beta,
+should swing between about beta and 180-beta over the day — exactly the shape the earlier sweep's own
+curve showed.
+
+**Independently verified before running anything** (a 12-point numerical check at three beta values,
+this session's own record): the angle between `nominal_yaw_steering`'s own x_body and
+`orbit_normal_attitude`'s own x_body, at fixed beta, swings EXACTLY between beta and 180-beta —
+confirmed to the thousandth of a degree at beta=5/10/15deg (minimum exactly beta, maximum exactly
+180-beta, at the two mu values where the swing bottoms and peaks). This matched the manager's own
+claim precisely, and matched the SHAPE of the earlier exploratory sweep's own curve (bottoming near
+6.6deg, a beta close to what QZS-3 actually had that day) closely enough to trust the diagnosis
+before spending the real-data check on it.
+
+**Registered, then run**: compared CODE's own real J03 attitude against `nominal_yaw_steering`
+directly (the SAME pipeline, the SAME frame mapping, L4's own already-gated code), stating the
+expectation first — if CODE models J03 with yaw-steering, the residual should sit at the pipeline's
+own usual floor (thousandths of a degree). Confirmed exactly: 0.00022deg at 00:00 (beta=6.45deg),
+0.00032deg at 12:00 (beta=6.59deg) — the SAME precision J02's/J04's own checks already reached, at a
+beta (6.5deg) well inside QZS-1's own stated orbit-normal threshold (|beta|<=~20deg), where CODE
+nonetheless used yaw-steering regardless. `orbit_normal_attitude`'s own construction is NOT
+contradicted by any data found this session — the earlier mismatch is fully explained as a
+comparison against a different law CODE happens to model for this particular satellite, not a defect
+in this tree's own code. `QZSY-Q-004` closed on this result; `QZSY-Q-001` stays open, narrowed to
+its own precise, now-understood basis: no analysis centre this session could reach implements
+QZS-1's own orbit-normal mode for any satellite checked, so real-data confirmation for it specifically
+remains unavailable, not contradicted.
+
+`tools/orbex_qzss_check.cpp` extended with two more diagnostic checks (J03 against
+`nominal_yaw_steering` directly) alongside the existing EXPLORATORY orbit-normal ones, all four
+clearly labelled and excluded from the tool's own pass/fail verdict (which still rests on the four
+original, REGISTERED J02/J04 yaw-steering checks). No production attitude/spacecraft code changed;
+`ci.sh` re-run clean, same 13 gates/368 tests/708 artefacts.
+
 ---
 
 ## Changelog
