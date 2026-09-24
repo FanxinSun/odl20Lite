@@ -170,6 +170,52 @@ struct TurnResult {
     return {false, 0.0};
 }
 
+/// TYAW-R-003 (IIF's own noon turn -- changed from `evaluate_turn`'s own LAG
+/// shape after CODE's own real ORBEX data showed IIF's noon turn is the SAME
+/// rate-limited ramp run backwards in time: it leaves the ideal law EARLY and
+/// merges with it where the ideal law's own rate falls back to the hardware
+/// limit, rather than leaving the ideal law AT the limit and catching up
+/// late (PROVENANCE.md Sec.30.12 -- the manager's own ruling, `TYAW-Q-006`'s
+/// own ANALYTIC/searched roles exchanged relative to `evaluate_turn`, not a
+/// new formula). A planned manoeuvre, not a hardware-limited one -- the same
+/// character as IIF's own night side already flying Shape E, which likewise
+/// needs its own end state known in advance.
+///
+/// `mu_e` (the merge point) is `evaluate_turn`'s own analytic onset, `mu_s`,
+/// reflected to the FAR side of `mu_center` -- the SAME onset_rad relation
+/// (`TYAW-P-1`), since |psi_dot_n| is exactly symmetric about mu_center
+/// (psi_dot_n(2*mu_center - mu) = psi_dot_n(mu), checked directly from Eq. 6:
+/// cos is even and sin^2 is even under this reflection, both at mu_center =
+/// pi). The turn is active for mu_q <= mu_e; the OTHER boundary (leaving the
+/// ideal law early) has no closed form and is not searched for at
+/// evaluation time either -- like `evaluate_turn`'s own catch-up condition,
+/// it falls out of a SINGLE gap check at the query mu_q itself, verified
+/// (PROVENANCE.md Sec.30.12) to reproduce a small-step ground-truth walk
+/// exactly across every beta and mu_q tested: the directional branch and the
+/// active-region sign are each `evaluate_turn`'s own, with both senses
+/// reversed (measuring the swing SINCE mu_e as mu_q moves away from it in
+/// the DEcreasing direction, the mirror image of `evaluate_turn`'s own
+/// increasing walk from mu_s).
+[[nodiscard]] TurnResult evaluate_turn_lead(double beta, double mu_current, double x_sign,
+                                             double mu_center, double onset_rad, double rate_rad_per_s,
+                                             double ramp_sign) noexcept {
+    const double width_sq = onset_rad * std::abs(beta) - beta * beta;
+    if (width_sq <= 0.0) return {false, 0.0};
+    const double half_width = std::sqrt(width_sq);
+    const double mu_e = mu_center + half_width;
+    const double mu_q = wrap_near(mu_current, mu_center);
+    if (mu_q > mu_e) return {false, 0.0};
+
+    const double psi_e = psi_nominal(beta, mu_e, x_sign);
+    const double psi_ramp = psi_e + ramp_sign * rate_rad_per_s * (mu_q - mu_e) / kMuDotRadPerS;
+    const double delta_raw = psi_nominal(beta, mu_q, x_sign) - psi_e;
+    const double delta_directional = wrap_directional(delta_raw, ramp_sign < 0.0);
+    const double psi_nom_directional = psi_e + delta_directional;
+    const double gap = (psi_nom_directional - psi_ramp) * ramp_sign;
+    if (gap < 0.0) return {true, psi_ramp};
+    return {false, 0.0};
+}
+
 /// KOUBA09 Eq. 17-22 (II/IIA only): entry/exit from the FIXED shadow
 /// half-angle `kShadowHalfAngleRad` (not a rate-derived onset threshold --
 /// eclipse is a geometric fact, not a hardware limit), so unlike
@@ -315,9 +361,16 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
     const double noon_rate = rates.noon_deg_per_s * kDegToRad;
     const double night_rate = rates.night_deg_per_s * kDegToRad;
     const double noon_onset = std::atan(kMuDotRadPerS / noon_rate);  // KOUBA09 Eq. 7
+    const double noon_ramp_sign = turn_ramp_sign(beta, x_sign, /*is_noon=*/true);
 
-    TurnResult result = evaluate_turn(beta, mu, x_sign, M_PI, noon_onset, noon_rate,
-                                       turn_ramp_sign(beta, x_sign, /*is_noon=*/true));
+    // TYAW-R-002 (II/IIA, IIR): the noon turn LAGS -- KOUBA09's own words,
+    // "the actual yaw angle to temporarily lag behind the nominal yaw
+    // attitude" (PROVENANCE.md Sec.30.12), confirmed, not merely un-checked.
+    // TYAW-R-003 (IIF): the noon turn LEADS -- CODE's own real data,
+    // PROVENANCE.md Sec.30.12.
+    TurnResult result = (effective_block == GpsBlock::IIF)
+        ? evaluate_turn_lead(beta, mu, x_sign, M_PI, noon_onset, noon_rate, noon_ramp_sign)
+        : evaluate_turn(beta, mu, x_sign, M_PI, noon_onset, noon_rate, noon_ramp_sign);
 
     if (!result.active) {
         switch (effective_block) {

@@ -158,6 +158,8 @@ add_subdirectory(modules/srp)
 add_subdirectory(modules/erp)
 add_subdirectory(modules/antenna_thrust)
 
+add_subdirectory(tools)
+
 # --------------------------------------------------------------------------- #
 
 if(BUILD_TESTING)

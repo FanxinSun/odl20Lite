@@ -1,25 +1,28 @@
-// orbex_noon_check.cpp — TYAW-Q-005's own evidence, reproducible on demand.
+// orbex_noon_check.cpp — TYAW-Q-005/Q-006's own evidence, reproducible on demand.
 //
 // NOT part of the automatic gate, for the SAME two reasons `orbex_shape_e_
 // check.cpp` is not (tools/orbex_shape_e_check.cpp's own header comment):
-// scope (one satellite, one day) and closure -- here, the finding is a
-// specific, recorded, UNRESOLVED question for the manager (TYAW-Q-006,
-// SPEC-thrust-yaw.md §10), not a settled result this file exists to freeze.
+// scope (one satellite, one day) and closure.
 //
-// WHAT THIS PROGRAM DOES: finds G01's own real noon-turn onset (where the
-// real attitude first departs from nominal by more than 0.01 deg) and
-// catch-up (where it last returns below that), at every real noon crossing
-// in the given day's ATT file, and prints each one against Shape F's own
-// prediction at that SAME real beta -- found by bisecting the real
-// `odl::attitude::gps_yaw_attitude` call itself, not a reimplementation.
+// WHAT THIS PROGRAM DOES: finds a satellite's own real noon-turn onset
+// (where its own real attitude first departs from nominal by more than
+// 0.01 deg) and catch-up (where it last returns below that), at every real
+// noon crossing in the given day's ATT file, and prints each one against
+// TYAW-R-002/R-003's own IMPLEMENTED prediction at that SAME real beta --
+// found by bisecting the real `odl::attitude::gps_yaw_attitude` call
+// itself, not a reimplementation, so this program always tests whatever the
+// production law currently is, not a frozen assumption about its shape.
 //
-// RESULT WHEN LAST RUN (day 102, 2023-04-12, PROVENANCE.md §30.12): width
-// and duration matched Shape F's own prediction to 2-3% at both real
-// crossings that day; the CENTRE did not -- real data centred BEFORE noon,
-// Shape F predicts AFTER, matching magnitude, opposite sign, at both
-// crossings. Recorded as a discrepancy with TYAW-R-002's own turn_ramp_sign
-// convention as applied to IIF (TYAW-Q-006), not acted on by this program
-// or by any code change -- that verdict belongs to the manager.
+// HISTORY (PROVENANCE.md §30.12): first run (day 102, 2023-04-12, IIF)
+// found CODE's own file matching the then-implemented LAG law's own width
+// to 2-3% but with the centre mirrored -- CODE's own noon turn LEADS
+// (leaves nominal early, merges where the nominal rate falls back to the
+// hardware limit) rather than lagging. TYAW-R-003 changed accordingly
+// (`evaluate_turn_lead`, `attitude.cpp`); re-run after the fix, both
+// crossings now match to <0.1 deg (well inside the quarter-tolerance
+// criterion). TYAW-R-002 (II/IIA, IIR) is UNCHANGED -- `KOUBA09`'s own
+// words state the lag explicitly, settling it independent of any run of
+// this program (PROVENANCE.md §30.12's own G05/IIR-M control).
 //
 // PINNED SOURCE FILES:
 //
@@ -129,7 +132,7 @@ std::vector<AttRow> read_att(const std::string& path) {
 }
 
 // Bisects the production gps_yaw_attitude call itself (not a
-// reimplementation) for Shape F's own onset/catch-up boundary near mu=180,
+// reimplementation) for TYAW-R-002/R-003's own onset/catch-up boundary near mu=180,
 // at a stated real beta -- the same synthetic-fixture construction
 // attitude_tests.cpp's own fixture_at uses.
 struct Fix { Vec3 r, v, s; };
@@ -142,7 +145,7 @@ Fix fixture_at(double beta_deg, double mu_deg) {
     Vec3 s_hat = (-std::cos(beta)) * e0 + std::sin(beta) * n_hat;
     return {26561e3 * r_hat, 3000.0 * t_hat, s_hat};
 }
-bool shape_f_active(double beta_deg, double mu_deg, const attitude::HardwareYawRates& rates) {
+bool predicted_active(double beta_deg, double mu_deg, const attitude::HardwareYawRates& rates) {
     auto f = fixture_at(beta_deg, mu_deg);
     auto turn = attitude::gps_yaw_attitude(f.r, f.v, f.s, attitude::GpsBlock::IIF, rates);
     auto nom = attitude::nominal_yaw_steering(f.r, f.s);
@@ -151,11 +154,11 @@ bool shape_f_active(double beta_deg, double mu_deg, const attitude::HardwareYawR
     for (int i = 0; i < 3; ++i) d = std::max(d, std::abs(turn->r[0][i] - nom->r[0][i]));
     return d > 1e-6;
 }
-double shape_f_boundary(double beta_deg, double lo, double hi, const attitude::HardwareYawRates& rates) {
-    bool lo_active = shape_f_active(beta_deg, lo, rates);
+double predicted_boundary(double beta_deg, double lo, double hi, const attitude::HardwareYawRates& rates) {
+    bool lo_active = predicted_active(beta_deg, lo, rates);
     for (int i = 0; i < 60; ++i) {
         double mid = (lo + hi) / 2;
-        if (shape_f_active(beta_deg, mid, rates) == lo_active) lo = mid; else hi = mid;
+        if (predicted_active(beta_deg, mid, rates) == lo_active) lo = mid; else hi = mid;
     }
     return (lo + hi) / 2;
 }
@@ -246,7 +249,7 @@ int main(int argc, char** argv) {
 
     // Split into contiguous crossings (a gap in t_s of more than 1 hour
     // starts a new one), find each one's own onset/catch-up by threshold
-    // crossing, report against Shape F's own bisected prediction at the
+    // crossing, report against the currently-implemented law's own bisected prediction at the
     // SAME real beta.
     std::size_t i = 0;
     int crossing_num = 0;
@@ -277,8 +280,8 @@ int main(int argc, char** argv) {
             double beta_deg = beta_sum / beta_n;
             double real_centre = (*onset_mu + *catchup_mu) / 2.0 - 180.0;
             double real_width = std::abs(*catchup_mu - *onset_mu);
-            double pred_onset = shape_f_boundary(beta_deg, 170.0, 180.0, rates);
-            double pred_catchup = shape_f_boundary(beta_deg, 190.0, 180.0, rates);
+            double pred_onset = predicted_boundary(beta_deg, 170.0, 180.0, rates);
+            double pred_catchup = predicted_boundary(beta_deg, 190.0, 180.0, rates);
             double pred_centre = (pred_onset + pred_catchup) / 2.0 - 180.0;
             double pred_width = pred_catchup - pred_onset;
             double tol = std::abs(pred_centre) / 4.0;
@@ -288,7 +291,7 @@ int main(int argc, char** argv) {
                       << "  predicted centre/width=" << pred_centre << "/" << pred_width
                       << "  real centre/width=" << real_centre << "/" << real_width
                       << "  quarter-tolerance=" << tol << "  miss=" << miss
-                      << (miss <= tol ? "  MATCHES Shape F" : "  DOES NOT MATCH (discrepancy, not a model change)")
+                      << (miss <= tol ? "  MATCHES the implemented law" : "  DOES NOT MATCH (discrepancy, not a model change)")
                       << "\n";
         }
         i = j + 1;

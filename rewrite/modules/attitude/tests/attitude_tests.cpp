@@ -285,36 +285,43 @@ TEST_CASE("TYAW-A-003  II/IIA shadow-crossing yaw rate never exceeds the hardwar
     REQUIRE(checked > 1000);  // sanity: the sweep really covered the window densely
 }
 
-TEST_CASE("TYAW-A-004  IIF's own noon (Shape F) and shadow (Shape E) turn durations each "
+TEST_CASE("TYAW-A-004  IIF's own noon (lead) and shadow (Shape E) turn durations each "
           "checked against DIL10's own stated ceiling, not against each other",
           "[attitude][gate]") {
     // rates.night_deg_per_s is not read for IIF under Shape E (attitude.hpp).
     const HardwareYawRates rates{0.11, 0.0, 0.0, 0.0};
 
-    // Noon (Shape F): DIL10's own "lasts about 27 minutes AT MOST" is the
-    // beta -> 0 LIMIT of Shape F's own TOTAL duration (onset to catch-up) --
-    // verified in PROVENANCE.md Sec.30.10 to increase monotonically as beta
-    // shrinks, approaching ~27.2 min, not a value at some unstated moderate
-    // beta. beta = 0 EXACTLY refuses here (TYAW-A-006's own noon-side
-    // singularity: the ramp's own half-width vanishes at beta = 0 exactly),
-    // so a very small beta stands in for the limit DIL10 describes. The
-    // onset is TYAW-P-1's own closed form; only the catch-up end needs a
-    // search (mirroring TYAW-A-002's own construction).
+    // Noon (evaluate_turn_lead, TYAW-R-003): DIL10's own "lasts about 27
+    // minutes AT MOST" is the beta -> 0 LIMIT of the noon turn's own TOTAL
+    // duration (merge minus leaves-early onset) -- checked in PROVENANCE.md
+    // Sec.30.12 to be numerically IDENTICAL, as a function of beta, to what
+    // the withdrawn lag law would have given (27.14 min at beta = 0.001,
+    // 6.522 min at beta = 4.070, matching to three decimals both places) --
+    // a real property of psi_n's own shape, not asserted. beta = 0 EXACTLY
+    // refuses here (TYAW-A-006's own noon-side singularity: the merge
+    // point's own half-width vanishes at beta = 0 exactly), so a very small
+    // beta stands in for the limit DIL10 describes. The merge point is
+    // TYAW-P-1's own closed form, REFLECTED to the far side of noon
+    // (`evaluate_turn_lead`'s own construction); only the "leaves early"
+    // end needs a search, walking BACKWARD from the merge point (the
+    // mirror image of TYAW-A-002's own construction, which walks forward
+    // from an analytic onset).
     {
         const double beta_deg = 0.001;
         const double onset_deg = std::atan(0.00836 / 0.11) / kDeg;
         const double half_width_deg = std::sqrt(onset_deg * beta_deg - beta_deg * beta_deg);
-        double d_found = -1.0;
-        for (double d = 0.05; d < 30.0; d += 0.01) {
-            auto f = fixture_at(beta_deg, 180.0 + d);
+        const double mu_e_deg = 180.0 + half_width_deg;  // analytic merge point
+        double mu_lead_s_deg = -1.0;
+        for (double mu = mu_e_deg - 0.01; mu > 150.0; mu -= 0.01) {
+            auto f = fixture_at(beta_deg, mu);
             auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GpsBlock::IIF, rates);
             auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
             REQUIRE(turn.has_value());
             REQUIRE(nom.has_value());
-            if (max_component_diff(*turn, *nom) < 1.0e-6) { d_found = d; break; }
+            if (max_component_diff(*turn, *nom) < 1.0e-6) { mu_lead_s_deg = mu; break; }
         }
-        REQUIRE(d_found > 0.0);  // sanity: catch-up really found within the search range
-        const double noon_duration_min = (half_width_deg + d_found) / 0.00836 / 60.0;
+        REQUIRE(mu_lead_s_deg > 0.0);  // sanity: the "leaves early" onset really found in range
+        const double noon_duration_min = (mu_e_deg - mu_lead_s_deg) / 0.00836 / 60.0;
         INFO("noon total duration(min)=" << noon_duration_min);
         CHECK_THAT(noon_duration_min, WithinAbs(27.14, 1.5));  // DIL10's own "about 27...at most"
     }
@@ -419,6 +426,122 @@ TEST_CASE("TYAW-A-004b  Shape E's own closed-form swing (attitude.cpp's "
         const double closed_form = psi_exit_deg - psi_entry_deg;
 
         CHECK_THAT(closed_form, WithinAbs(numerical, 1.0e-3));
+    }
+}
+
+TEST_CASE("TYAW-A-004c  evaluate_turn_lead's own boundary behaviour: continuity at the "
+          "analytic merge point, genuine divergence inside the window, exact fall-through "
+          "on both sides, and the closed-form directional branch checked against an "
+          "INDEPENDENT small-step walk, not trusted on the algebra alone",
+          "[attitude][gate]") {
+    const HardwareYawRates rates{0.11, 0.0, 0.0, 0.0};
+
+    // Boundary behaviour at one representative beta.
+    {
+        const double beta_deg = 2.0;
+        const double onset_deg = std::atan(0.00836 / 0.11) / kDeg;
+        const double half_width_deg = std::sqrt(onset_deg * beta_deg - beta_deg * beta_deg);
+        const double mu_e_deg = 180.0 + half_width_deg;
+
+        // Well before any turn (far below the eventual "leaves early" onset,
+        // comfortably inside nominal territory): matches nominal exactly.
+        {
+            auto f = fixture_at(beta_deg, 150.0);
+            auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GpsBlock::IIF, rates);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(turn.has_value());
+            REQUIRE(nom.has_value());
+            CHECK(max_component_diff(*turn, *nom) < 1.0e-9);
+        }
+        // Genuinely inside the window (a few degrees before the merge point):
+        // diverged from nominal.
+        {
+            auto f = fixture_at(beta_deg, mu_e_deg - 3.0);
+            auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GpsBlock::IIF, rates);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(turn.has_value());
+            REQUIRE(nom.has_value());
+            CHECK(max_component_diff(*turn, *nom) > 1.0e-2);
+        }
+        // AT the merge point: exact, by construction (psi_ramp(mu_e) = psi_e
+        // = psi_nominal(mu_e) identically) -- the same TYAW-P-2 property
+        // evaluate_turn's own onset has, mirrored to this law's own anchor.
+        {
+            auto f = fixture_at(beta_deg, mu_e_deg);
+            auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GpsBlock::IIF, rates);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(turn.has_value());
+            REQUIRE(nom.has_value());
+            CHECK(max_component_diff(*turn, *nom) < 1.0e-9);
+        }
+        // Just PAST the merge point: inactive, falls through to nominal
+        // exactly (not a growing gap the way an extrapolated ramp would).
+        {
+            auto f = fixture_at(beta_deg, mu_e_deg + 3.0);
+            auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GpsBlock::IIF, rates);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(turn.has_value());
+            REQUIRE(nom.has_value());
+            CHECK(max_component_diff(*turn, *nom) < 1.0e-9);
+        }
+    }
+
+    // The "leaves early" boundary itself, at several beta including a
+    // negative one (a different sign of ramp_sign): found TWO ways and
+    // compared. (1) GROUND TRUTH, a small-step walk of nominal's own
+    // unwrapped value from mu_e, compared each step against the ramp's own
+    // closed-form value, stopping at the first step where nominal is no
+    // longer ahead of the ramp (mirroring the operational rule KOUBA09's own
+    // text states, the same discipline evaluate_turn's own catch-up
+    // condition was originally verified with, PROVENANCE.md Sec.30.5). (2)
+    // `gps_yaw_attitude` itself, scanned coarsely for its own active/inactive
+    // transition. `evaluate_turn_lead`'s own closed-form directional branch
+    // is what stands between these two if they disagree -- it is not
+    // exercised by name, only by this observable consequence, since it is
+    // not part of the public interface.
+    for (double beta_deg : {4.0, 2.0, 0.5, -3.0}) {
+        INFO("beta(deg)=" << beta_deg);
+        const double onset_deg = std::atan(0.00836 / 0.11) / kDeg;
+        const double half_width_deg = std::sqrt(onset_deg * std::abs(beta_deg) - beta_deg * beta_deg);
+        const double mu_e_deg = 180.0 + half_width_deg;
+        const double rate_deg_s = 0.11;
+        const double ramp_sign = (beta_deg >= 0.0) ? -1.0 : 1.0;  // turn_ramp_sign(beta,+1,noon)
+
+        auto psi_nom_at = [&](double mu_d) {
+            auto f = fixture_at(beta_deg, mu_d);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(nom.has_value());
+            return recover_psi(Vec3{nom->r[0][0], nom->r[0][1], nom->r[0][2]}, mu_d) / kDeg;
+        };
+        const double psi_e_deg = psi_nom_at(mu_e_deg);
+
+        constexpr double kStepDeg = -0.001;
+        double mu_walk_deg = mu_e_deg;
+        double psi_walk_deg = psi_e_deg;
+        double ground_truth_mu_s = mu_e_deg;
+        for (int i = 0; i < 20000; ++i) {
+            mu_walk_deg += kStepDeg;
+            double psi_next = psi_nom_at(mu_walk_deg);
+            while (psi_next - psi_walk_deg > 180.0) psi_next -= 360.0;
+            while (psi_next - psi_walk_deg < -180.0) psi_next += 360.0;
+            psi_walk_deg = psi_next;
+            const double psi_ramp_deg = psi_e_deg + ramp_sign * rate_deg_s * (mu_walk_deg - mu_e_deg) / 0.00836;
+            if ((psi_walk_deg - psi_ramp_deg) * ramp_sign >= 0.0) { ground_truth_mu_s = mu_walk_deg; break; }
+        }
+
+        const HardwareYawRates local_rates{0.11, 0.0, 0.0, 0.0};
+        auto is_active = [&](double mu_d) {
+            auto f = fixture_at(beta_deg, mu_d);
+            auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, GpsBlock::IIF, local_rates);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(turn.has_value());
+            REQUIRE(nom.has_value());
+            return max_component_diff(*turn, *nom) > 1.0e-6;
+        };
+        // Just inside the ground-truth boundary: must be active. Just
+        // outside it: must not be -- a tight bracket, not a coarse scan.
+        CHECK(is_active(ground_truth_mu_s + 0.01));
+        CHECK_FALSE(is_active(ground_truth_mu_s - 0.01));
     }
 }
 
