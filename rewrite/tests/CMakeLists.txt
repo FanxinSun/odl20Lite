@@ -45,6 +45,14 @@ add_test(NAME speccheck.catches_duplicate_test_case_ids
 add_test(NAME speccheck.catches_cross_file_duplicate_ids
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_cross_file_duplicate.py")
 
+# L6 step 1's own review: a lettered-suffix ACCEPTANCE row (SPEC-io-formats.md
+# IOFM-A-004b, the same amendment-lettering convention EPH-A-001b already
+# uses) was invisible to the discharge parser's own row-finding regex, so its
+# own real discharge column went unread and a properly-covered requirement
+# showed UNCOVERED. Fixed in speccheck.py itself; proven here the same way.
+add_test(NAME speccheck.discharges_lettered_acceptance_rows
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_lettered_acceptance.py")
+
 # --------------------------------------------------------------------------- #
 # The module boundary is a link boundary — proved both ways.
 

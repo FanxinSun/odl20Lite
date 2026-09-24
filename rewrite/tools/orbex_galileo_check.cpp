@@ -84,6 +84,7 @@
 #include <odl/ephemerides/ephemeris.hpp>
 #include <odl/frames/transform.hpp>
 #include <odl/frames/vector.hpp>
+#include <odl/io/sp3.hpp>
 #include <odl/time/epoch.hpp>
 #include <odl/time/leap_table.hpp>
 
@@ -111,23 +112,26 @@ std::string slurp(const std::string& p) {
 }
 Vec3 normalized(const Vec3& v) { double n = v.norm(); return Vec3{v.x / n, v.y / n, v.z / n}; }
 
+// L6 step 1: through odl::io's own one SP3 reader now (SPEC-io-formats.md),
+// not an ad hoc parser -- the predecessor's own two SP3 defects (an interval
+// read from the wrong field, a fixed header length skipped) have no second
+// place to live here. Sp3Row's own shape is unchanged, so nothing below this
+// function needed to change.
 struct Sp3Row { int y, mo, d, h, mi; double sec; Vec3 r_ecef_km; };
 std::vector<Sp3Row> read_sp3(const std::string& path, const std::string& prn) {
+    auto parsed = odl::io::read_sp3(slurp(path));
+    if (!parsed.has_value()) {
+        std::cerr << "SP3 (" << path << "): " << parsed.error().id << " " << parsed.error().message << "\n";
+        std::exit(1);
+    }
     std::vector<Sp3Row> rows;
-    std::ifstream f(path);
-    std::string line;
-    int y = 0, mo = 0, d = 0, h = 0, mi = 0;
-    double sec = 0.0;
-    const std::string tag = "P" + prn;
-    while (std::getline(f, line)) {
-        if (line.size() > 1 && line[0] == '*') {
-            std::istringstream ss(line.substr(1));
-            ss >> y >> mo >> d >> h >> mi >> sec;
-        } else if (line.compare(0, tag.size(), tag) == 0) {
-            std::istringstream ss(line.substr(tag.size()));
-            double x, yy, z, clk;
-            ss >> x >> yy >> z >> clk;
-            rows.push_back({y, mo, d, h, mi, sec, Vec3{x, yy, z}});
+    for (const auto& epoch : parsed->epochs) {
+        for (const auto& sat : epoch.satellites) {
+            if (sat.position.satellite_id == prn) {
+                rows.push_back({epoch.epoch.year, epoch.epoch.month, epoch.epoch.day,
+                                epoch.epoch.hour, epoch.epoch.minute, epoch.epoch.second,
+                                Vec3{sat.position.x_km, sat.position.y_km, sat.position.z_km}});
+            }
         }
     }
     return rows;

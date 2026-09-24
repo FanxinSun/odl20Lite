@@ -162,6 +162,9 @@ add_subdirectory(modules/ecom)
 # L5 spacecraft: the macromodel library as cited data (PLAN.md §3.6).
 add_subdirectory(modules/spacecraft)
 
+# L6 io-measurements: formats in, measurements out (PLAN.md §3.7).
+add_subdirectory(modules/io)
+
 add_subdirectory(tools)
 
 # --------------------------------------------------------------------------- #

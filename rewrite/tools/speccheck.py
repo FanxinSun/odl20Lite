@@ -161,8 +161,14 @@ def check_spec(path: Path, quiet: bool) -> tuple[bool, dict]:
     reqs = {i for i in defined if i.split("-")[1] in ("R", "F")}
 
     # Acceptance rows discharge requirements through their final column.
+    # `\d+[a-z]?`: an ACCEPTANCE test's own id can carry a lettered suffix too
+    # (e.g. `IOFM-A-004b`, the same amendment-lettering convention already
+    # applied to a discharged requirement's own id, three lines below) --
+    # found missing here 2026-09-25, when a genuinely lettered acceptance
+    # row's own discharge column went unread and its requirement showed
+    # UNCOVERED despite a real, correctly-written row existing for it.
     discharged: set[str] = set()
-    for row in re.findall(rf"^\|\s*`{prefix}-A-\d+`.*$", body, re.M):
+    for row in re.findall(rf"^\|\s*`{prefix}-A-\d+[a-z]?`.*$", body, re.M):
         col = row.rstrip().rstrip("|").rsplit("|", 1)[-1]
         # The suffix letter matters: an amendment that inserts R-021a between
         # R-021 and R-022 keeps every later identifier stable, which is worth

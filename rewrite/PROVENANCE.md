@@ -6465,10 +6465,194 @@ sweep" discipline this tree's other checkers already apply to themselves.
 
 ---
 
+## 36. L6 step 1 — `io`: SP3, TLE, CRD, CPF, IOD, SINEX, ANTEX, and the six tools re-pointed at them
+
+Opened by the manager's own handover (`~/.claude/handover/2026-09-25-odl-rewrite-L6.md`), the user's own
+approval relayed verbatim ("work with odl Executor for all the remaining steps"), on top of L5's own
+closed exit gate (§35, `7523e07`). `SPEC-io-formats.md` v1.0 adopted (new, Spec ID `IOFM`), `modules/io`
+built: seven format readers/writers (SP3, TLE, CRD, CPF, IOD, SINEX, ANTEX), 31 acceptance rows, one row
+per literal `TEST_CASE` name, all passing, and the six `tools/orbex_*`/`doris_jason_check` programs that
+each carried their own ad hoc SP3 parser re-pointed at the new reader, per the handover's own explicit
+requirement that a predecessor defect not keep a second place to live. Tree-wide: 427 tests, all 13
+`ci.sh` gates green, 736 artefacts byte-identical.
+
+### 36.1 Eight sources, and a hash-pinning gap caught and closed while writing this up
+
+§2's own normative-sources table names eight keys for seven formats (`SP3D`, `STR3`, `TLEFMT`, `CRD2`,
+`CPF2`, `IODFMT`, `SINEX2`, `ANTEX14` — TLE alone draws on two, see below). `STR3` (Spacetrack Report
+No. 3, 1980) own T-card/G-card element-set format sheet is a scanned tabular page that did not survive
+text extraction — confirmed absent by search (zero hits for "T-CARD", "G-CARD", "FORMAT SHEET" in the
+extracted text), recorded with its own search per plan §4 rule 4, rather than assumed unreadable.
+`TLEFMT` (CelesTrak's own current, legible column-by-column description) supplies the TLE reader's own
+layout instead; `STR3` remains this tree's own primary source for L6 step 3's `sgp4` equations and test
+vectors (D4), which it does state precisely, so this is not a departure from D4, only a narrower one for
+the column layout alone — carried open as `IOFM-Q-003` in case a cleaner scan surfaces later.
+
+**Caught while writing this section up, not while writing the spec**: §9's own provenance obligations
+promised all eight sources "hash-pinned"; §2's own table, checked directly against that promise rather
+than trusted, showed only six actually were — the two HTML-native pages (`TLEFMT`, `IODFMT`) had been
+read directly but never saved as a fixed byte stream, so nothing existed to hash. Fixed by fetching both
+with a plain HTTP GET (no login, matching this tree's own retrievability bar), saving the raw bytes, and
+computing SHA256 over them (full digests recorded in `SPEC-io-formats.md` §2) — content-checked against
+strings this reader's own layout depends on ("Epoch"/"checksum" for `TLEFMT`, "RA/DEC"/"IOD" for
+`IODFMT`) before being trusted as the same page the spec was written against. All eight sources are now
+genuinely hash-pinned, not six of eight with a promise covering the other two.
+
+### 36.2 Format readers carry no `Epoch` — a pure mapping instead, and a refusal for what has none
+
+`time::Epoch::from_calendar` requires a `LeapTable` regardless of scale, including TAI/GPS — and a format
+reader, reading one file with no leap-second table of its own, cannot construct one. §3.1's own design:
+every reader returns a raw `time::Calendar` plus a format-native time-system enum (SP3's
+`Sp3TimeSystem`, IOD's implicit UTC, etc.), and a separate, pure, table-free `to_time_scale()` maps that
+enum onto this tree's own seven-member `TimeScale` — the caller supplies its own `LeapTable` and builds
+the real `Epoch` afterward. `TimeScale` has no GLONASS/Galileo/BeiDou/QZSS system-time member, so SP3's
+own `GLO`/`GAL`/`BDT`/`QZS` codes have no faithful mapping and refuse (`IOFM-F-003`, `IOFM-A-005`) rather
+than being approximated as GPS time — constraint 4's own "refuse rather than approximate" applied at the
+format-reader boundary for the first time in this tree.
+
+### 36.3 Fixed-column fixtures cannot be safely hand-transcribed
+
+The first SP3 fixtures, hand-copied from `pdftotext -layout` output, carried column-alignment mistakes
+(four spaces where the spec's own printed table states three, and the like) that a by-eye re-check did
+not catch — `pdftotext -layout`, and especially an AI-summarized re-fetch, are not guaranteed pixel-exact
+for a column-sensitive table, only close enough to look right. Adopted for every fixed-column format
+(SP3, TLE, ANTEX) from this point on: a small Python `place(fields, total)` helper that raises unless
+each field's own text exactly fills its documented column width, run once to produce a verified string,
+which is then embedded as a C++ raw-string literal — the fixture is provably at the source's own
+documented positions before a single test runs against it, not merely eyeballed. Free-format,
+whitespace-tokenized formats (CRD, CPF, SINEX's own general structure) keep direct transcription, since
+token-splitting tolerates incidental whitespace variation a fixed-column reader cannot.
+
+### 36.4 Three SP3 writer bugs, caught only because round-trip was gated
+
+`IOFM-A-013`'s own round-trip property (`read(write(read(fixture))) == read(fixture)`) found three writer
+bugs a parse-only test would not have: (1) the `%c` Time System line's own documented columns 7–8
+"reserved" field was omitted entirely on write, shifting every later column — including `time_system`
+itself — by two characters; fixed by reading and re-emitting it explicitly (`Sp3Header::c1_reserved_2char`).
+(2) the `+` satellite-id line was missing one blank column before the "Number of Sats" field on its first
+line and before the seven-blank run on continuation lines; fixed with explicit `std::string(N, ' ')`
+construction rather than a literal space run miscounted by eye. (3) the `EP`/`EV` correlation-record tag
+was followed by three spaces where the spec documents exactly two, shifting every subsequent
+four-character field and silently truncating leading digits on round-trip (a value of "55" came back as
+"5"); fixed to the documented two spaces. All three are exactly the shape `IOFM-A-001`/`002` exist to
+catch in the predecessor's own reader, found here in this tree's own writer instead, by the same
+discipline: read a real or spec-printed value, and check the exact bytes, not merely that parsing does
+not crash.
+
+### 36.5 A real cached Jason-3 SP3 file the spec's own printed examples never show
+
+A genuine GSFC-produced Jason-3 SP3 file (`gscja3_dec.sp3`, already cached from L5's own altimetry round)
+has its `++` accuracy lines entirely blank on several slots, not `0`-filled the way both `SP3D` Examples 1
+and 2 always show them — a real-world shape neither the spec's own worked examples nor this reader's own
+self-consistency tests could have surfaced, exactly rule 8's own "an independent property, not just how
+cleanly a source reads" case. Fixed by treating a blank accuracy slot as `0`, matching the same "blank
+means unstated" convention the format already uses elsewhere; `IOFM-A-022` added as a permanent
+regression, sourced to this file, this round, rather than to either printed example.
+
+### 36.6 TLE: an optional field `STR3`'s own sample doesn't have, and a writer sign/padding bug
+
+`STR3` §13's own sample element set (satellite 88888) carries no international designator at all — blank,
+not zero — which the first draft's plain `int` fields refused outright; fixed by making
+`intl_designator_year`/`intl_designator_number` `std::optional<int>` with a dedicated `to_int_opt` helper,
+and keeping 88888 itself as the fixture (`IOFM-A-006`) rather than a synthetic satellite that would not
+have surfaced the gap. Separately, the writer's first angle-field formatter zero-padded the integer part
+and prepended a sign character for inclination/RAAN/argument-of-perigee/mean-anomaly — four fields that
+are always non-negative and, per `TLEFMT`, space-padded with no sign; renamed and rewritten as
+`angle_field()`, a plain right-justify with no sign logic, caught by the round-trip property
+(`IOFM-A-013b`) rather than by inspection.
+
+### 36.7 CRD, CPF, SINEX: an opaque-record scope stated, not silently taken
+
+CRD's own configuration/calibration/statistics record kinds (`C0`–`C7`, `40`–`42`, `50`, `9X`), CPF's own
+non-position header and opaque records, and SINEX's own ~20 named blocks are each carried as a
+record/line tag plus raw tokens verbatim rather than modelled field-by-field — no consumer this round
+(L6 step 4's own range residual) needs more. Stated as a scope decision in `SPEC-io-formats.md` §3.3/§3.6
+and as two open questions for a future consumer (`IOFM-Q-001` CRD/CPF, `IOFM-Q-002` SINEX), not left as a
+silent gap a reader would have to discover by testing. The CPF writer's own first draft handled the `H9`
+opaque record with separate search-and-re-emit logic pulled out of the general opaque-record loop —
+correct only by luck; simplified to one loop emitting every opaque record, `H9` included, in its own
+original order, with the one real scope limit this leaves (true interleaving of position (`10`) records
+with other per-epoch opaque types is not reproduced byte-for-byte) stated directly rather than covered by
+a fixture chosen to avoid exercising it.
+
+### 36.8 IOD: an untrusted transcription abandoned for the source's own documented column table
+
+IOD's own `IODFMT` "example line" was reachable this round only through an AI-summarized re-fetch, not
+this session's own direct `pdftotext` extraction the other six formats had — and a manual count of one
+example ("2008112211223344") suggested a possible character-count discrepancy against the documented
+field widths. Rather than trust a transcription this tree could not independently re-derive, the example
+line was abandoned as a fixture source entirely; `IOFM-A-010` is built purely from `IODFMT`'s own
+documented column-position table instead, with both the test file and `SPEC-io-formats.md` §8 stating
+directly that this is NOT claimed as a rank-1 published-worked-example reproduction (rule 2), only a
+lower-confidence "built at the source's own stated positions" construction — an honest downgrade rather
+than a fixture that looks like a stronger source than it is.
+
+### 36.9 `speccheck.py` gate 7 caught two defects in sequence — the second one in the tool itself, tree-wide
+
+§8's own first draft wrote the round-trip rows as one compressed range, `` `IOFM-A-013`–`IOFM-A-019` ``,
+in a single table cell — `table_defs`'s own regex requires exactly one backtick-wrapped id per cell, so
+NONE of those ids registered as defined, and `IOFM-F-001`/`F-002`/`F-007` were separately never named in
+any discharge column at all. Fixed by rewriting §8 to one row per literal `TEST_CASE` name, verified
+against `modules/io/tests/*.cpp` directly (`grep -ohE 'TEST_CASE\("IOFM-[A-Za-z0-9-]+'`), 31 rows, not a
+planned or compressed count.
+
+That fix left `IOFM-F-004`/`F-005`/`F-007`/`F-008` still reported UNCOVERED even with a correctly-written
+row (`IOFM-A-004b`, the same amendment-lettering convention `EPH-A-001b` already uses) naming each one.
+**Root-caused to a genuine, previously-unexercised defect in `speccheck.py` itself**: its own
+acceptance-row-finding regex required a bare `-A-nnn` id with no lettered suffix, unlike `table_defs`/
+`bullet_defs`, which already allow one — so ANY lettered acceptance row, tree-wide, not only this spec's,
+was invisible to discharge computation, and nothing had exercised the acceptance side of that convention
+before this table needed a lettered row for the first time. Fixed in `tools/speccheck.py` itself, not
+worked around in this spec; `tests/test_speccheck_lettered_acceptance.py` (new, four checks) proves it
+the same "inject the historical error" way `test_budgetcheck.py`/`test_speccheck_duplicate.py` already
+prove two other defects in this tool, wired into `tests/CMakeLists.txt`. A secondary dangling-reference
+this same fix surfaced: this section's own prose about the first defect had literally contained the
+compressed-range text as a substring, which the generic `ID_RE` scanner (context-free, unlike
+`table_defs`) read as a reference to a never-defined id; reworded to describe the defect without
+repeating its own problem pattern.
+
+### 36.10 Gate 12: two annotation classes, and a lookback rule a wrapped comment silently fails
+
+A clean `ci.sh` run still exited 1 after both speccheck fixes, on gate 12 (`SPEC-dynamics DYN-R-040`):
+five new 1000-family literals unaccounted for — three `1e-3` equality tolerances in
+`modules/io/src/cpf.cpp`'s own `operator==(CpfPositionRecord, CpfPositionRecord)` (millimetre precision on
+an already-metre-valued field, not a conversion) and two `1000.0` literals in `modules/io/src/iod.cpp`
+converting IOD's own integer-millisecond seconds field to and from `double` seconds (a genuine
+conversion). Annotated `NOT-A-UNIT-CROSSING`/`UNIT-CROSSING` respectively — but the first attempt at
+both, a comment wrapped across two or three lines with the marker keyword only on its own first line,
+left the gate failing again: `tools/unitcheck.py`'s own marker rule (stated in its own header) matches the
+same line or exactly one line of lookback, and only when that exact line itself contains the marker text,
+not a comment block that merely ends near the literal. Fixed by rewriting every annotation as one line,
+on the flagged line or directly above it — confirmed by running `unitcheck.py` standalone before trusting
+a full `ci.sh` re-run, the same "don't assume a fix landed, check the specific gate" discipline that
+caught the SP3 writer bugs above.
+
+### 36.11 Six tools re-pointed at the one reader, verified functionally identical
+
+`orbex_noon_check.cpp`, `orbex_shape_e_check.cpp`, `orbex_glonass_check.cpp`, `orbex_galileo_check.cpp`,
+`orbex_qzss_check.cpp`, and `doris_jason_check.cpp` each carried a near-identical ad hoc
+`struct Sp3Row{y,mo,d,h,mi,sec,r_ecef_km}` and hand-rolled `read_sp3(path[, prn])`, predating this module
+— exactly the second place a defect could live the handover asked not to leave standing. Each tool's own
+`read_sp3` now delegates to `odl::io::read_sp3`, filtering the result's own epochs by satellite id, with
+every downstream consumer (interpolation, epoch matching) unchanged; `odl::io` added to each tool's own
+`target_link_libraries` (`tools/CMakeLists.txt`). Verified not only by compiling but functionally:
+`doris_jason_check --compare`, re-run against the same real cached Jason-3 data this session already
+used, produced byte-identical output before and after re-pointing.
+
+### 36.12 What remains open
+
+Carried forward, none touched this round: `IOFM-Q-001` (CRD/CPF opaque-record scope, worth field-level
+treatment only if a future consumer needs it), `IOFM-Q-002` (SINEX block semantics, same shape),
+`IOFM-Q-003` (`STR3`'s own unreadable T-card/G-card sheet, `TLEFMT` sufficient for now). L6 steps 2–4
+(Horizons client, `sgp4`, `measmod`) not started.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-25 | **L6 opens: `io` built — seven formats (SP3, TLE, CRD, CPF, IOD, SINEX, ANTEX), the predecessor's two SP3 defects reproduced as failing tests then fixed by design (sentinel-based record boundaries, correct-column field reads), three new SP3 writer bugs found by round-tripping, a real cached Jason-3 file's blank accuracy fields, and the six ad hoc `orbex_*`/`doris_jason_check` SP3 parsers re-pointed at the one reader.** §36 added, `SPEC-io-formats` v1.0 (new, `IOFM`). Authorized by the manager's own handover, the user's approval relayed verbatim. Every reader returns a raw `Calendar` plus a format-native time-system code, never an `Epoch` (format readers have no `LeapTable` of their own); a separate `to_time_scale()` maps it, refusing SP3's own GLO/GAL/BDT/QZS codes rather than approximating them as GPS time, since `TimeScale` has no such members. Fixed-column fixtures (SP3, TLE, ANTEX) are now built by a Python `place()` helper that raises unless a field exactly fills its documented width, adopted after hand-transcribed fixtures from `pdftotext -layout` output carried real column-alignment mistakes a by-eye check missed. Three SP3 writer bugs found only by the round-trip property, not by parsing alone: an omitted `%c` reserved-field shift, a missing blank column on `+` satellite-count lines, and an `EP`/`EV` correlation tag with one space too many, silently truncating leading digits. A genuine GSFC Jason-3 file has `++` accuracy lines entirely blank, not zero-filled the way both spec examples show; fixed to read blank as zero, the format's own established convention. TLE gained an optional international designator (`STR3`'s own sample satellite 88888 has none) and a corrected space-padded, unsigned angle-field writer. CRD/CPF/SINEX opaque-record scope stated as a decision (`IOFM-Q-001`/`002`), not a silent gap; IOD's own AI-refetched "example line" distrusted after a character-count discrepancy and abandoned for a fixture built at the source's own documented column table instead (`IOFM-Q-003` carries `STR3`'s own unreadable T-card sheet forward). `speccheck.py`'s gate 7 caught two defects in sequence while §8's acceptance table was being written: a compressed id range that registered no ids, then — once every row was written out individually — a genuine, previously-unexercised defect in the tool itself (its acceptance-row-finding regex never allowed the lettered-suffix ids `EPH-A-001b`-style rows already use elsewhere), fixed tree-wide with its own regression test. Gate 12 (factor-of-a-thousand accounting) needed two new annotation classes for `cpf.cpp`'s equality tolerances and `iod.cpp`'s ms/s conversion, and surfaced `unitcheck.py`'s own one-line lookback rule the hard way: a wrapped multi-line comment does not attach. A hash-pinning gap between §9's own promise and §2's table (two HTML-native sources fetched but never byte-hash-pinned) was caught and closed by fetching both directly and computing SHA256. Tree-wide: 427 tests, all 13 `ci.sh` gates green, 736 artefacts byte-identical. L6 steps 2–4 (Horizons client, `sgp4`, `measmod`) not started. |
 | 2026-09-24 | **L5 step 2 review round: FOC's own modified yaw steering built via a closed-form window entry (epsilon depends on mu alone, PROVED), step 6's own real two guards built (not the substitutes an earlier round used), a real-data control run for the first time (all four checks matched, IOV to thousandths of a degree, FOC to a tenth), an explicit BOL/EOL selector for IOV.** SPEC-galileo-attitude v1.1, SPEC-spacecraft v2.1, PROVENANCE.md Sec.32.7 added. Most of the prior round accepted outright; three things did not survive review. FOC's own "modified yaw steering law": the manager ruled it in scope (the window IS Galileo's own noon/midnight turn, not a corner) and required a geometry-derived window entry, the same shape GPS's own IIF shadow crossing uses. Derived: GSC's own colinearity epsilon reduces algebraically to depend on mu alone (cos(beta) cancels), so the window's own entry is a fixed constant, not a remembered crossing -- checked against an independent vector-based transcription before being trusted. A new "frame from psi" construction was derived (x_body = -cos(psi)*t_hat + sin(psi)*n_hat, the sign on sin OPPOSITE GPS's own convention, a different psi definition not a slip) and proved by reproducing nominal_yaw_steering's own output when fed the unmodified angle. t_mod's own rate comes from the CURRENT state's own |r x v|/|r|^2, not a fixed constant -- Galileo's own orbit is a different period from GPS's. The built law matches an independent transcription at four geometries. Step 6's own two guards (time direction, rotation sense) were rebuilt properly: IOV's own time-direction guard hit a real, interesting finding along the way -- reversing velocity is a PROVED EXACT SYMMETRY of IOV's own substitution (the sign flips in Gamma and in the reconstructed Sun vector cancel exactly, nominal_yaw_steering never reading v at all), not a defect, checked algebraically before trusting the numeric result, and reported honestly rather than forced into a test asserting something false. The rotation-sense guard hit a second real test bug, caught the same way as an earlier one: evaluating exactly at the window's own entry measures a rate that is EXACTLY ZERO by construction (the cosine ramp's own printed shape), giving a meaningless "0.0 < 0.0" comparison -- fixed by probing well inside the window instead. The real-data control (tools/orbex_galileo_check.cpp, reproducible, not gated): a --scan pass over bare SP3 positions found 2023-10-07 as a genuinely low-beta day (beta 0.4-1.1 deg) for one IOV satellite (E11) and one FOC satellite (E33) after June and September dates gave beta too large; predictions and a 2-degree criterion REGISTERED before any attitude quaternion was read; all four crossings matched, the tightest agreement either law has had, and the first real-data check FOC's own newly-derived law has ever had. One implementation bug (elapsed seconds passed where a within-the-minute Calendar field was expected) crashed the Epoch constructor past the first minute of any day, caught by the assertion itself. SPCR-Q-004 resolved: an explicit, required OpticalLife selector for IOV's own BOL/EOL optics (plan Sec.5 constraint 10), and SPEC-spacecraft.md now states, in GALSC's own words, that FOC's single optics set carries no life-stage label at all. 349 tests tree-wide, all 13 ci.sh gates green, 696 artefacts byte-identical. |
 | 2026-09-24 | **L5 step 2 opens and its own first build lands: Galileo (IOV, FOC), from the operator's own metadata -- frame mapped and VERIFIED against real coordinate pairs (catching a "(+z, anti-nadir)" labelling error in SPEC-spacecraft.md's own prose along the way), mass/CoM a new per-satellite-at-an-epoch lookup, the yaw law reduced to existing, already-trusted code and checked against two independently-transcribed printed forms.** §32 added, `SPEC-spacecraft` to v2.0, `SPEC-galileo-attitude` v1.0 (new). Rule-4/licence search clean (GSC's own Terms of Use authorise redistribution with "© EU 2011-2026" acknowledged) -- unlike RS14's own genuinely unclear case, no ruling needed. The frame: GSC's own +Z is nadir (matching this tree's own +Z exactly) but +X is toward deep space, not the Sun; the 180-degree-about-Z mapping is VERIFIED against three real coordinate pairs GSC prints itself (its own Mechanical-RF/ANTEX-RF columns for the SAME physical point: two IOV, one FOC), not trusted from prose -- and checking this caught that SPEC-spacecraft.md's own existing "(+z, anti-nadir)" parenthetical was backwards (RS14's own "opposite the radial direction" is -r_hat, NADIR, matching `nominal_yaw_steering`'s own code exactly), corrected in place. Geometry/optics: re-parsed from GSC's own real HTML table structure (rowspan/colspan expanded) after an earlier flattened-text pass lost row alignment; GSC's own alpha/rho/delta quoted directly and matching this schema's order with no swap needed (unlike RS14); every material row's own three coefficients checked to sum to 1; multi-material faces built as separate co-normal surfaces, not averaged; a small (0.46%) FOC +Z-panel inconsistency between GSC's own summary and detailed tables found and recorded, built from the detailed table. Mass/CoM: GSC's own tables are genuinely per-satellite and dated: RULED (manager) to return a macromodel for a satellite AT AN EPOCH, refusing one outside the source's own coverage -- the same shape atmosphere's own space-weather lookup already uses, modelled with a new lightweight YearMonth rather than the tree's own full Epoch type (matching the source's own actual monthly precision), tested at the coverage boundary and outside it, each shown firing; the same shape is named, not built, for GPS's own future per-satellite masses. Attitude law: GSC's own IOV and FOC equations, read closely, reduce ALGEBRAICALLY to the SAME formula (proved, not assumed) -- and that shared law turns out to be exactly what `nominal_yaw_steering` (built at L4 step 5) already computes, so this step's own new code is only the two blocks' own deviations from it (IOV's own smooth near-singularity Sun-vector substitution, built; FOC's own near-colinearity "modified yaw steering law", NOT built, refused instead) -- checked against GSC's own SECOND printed form (the ANTEX-converted equations, offset by pi) as an independent verification GPS's own single-form laws never had. Step 6's own two guards (continuity at a boundary, bounded rate along a real trajectory) carried over and adapted; the rate-bounded test's own FIRST version used a wrong angle-extraction proxy and reported the fix as WORSE than the break it was fixing -- caught by the test's own self-contradictory numbers before being trusted, fixed by comparing output frames directly instead of a hand-picked angle. A genuine mm-to-m unit crossing (Galileo's own CoM, printed in mm) annotated per the factor-of-a-thousand gate's own requirement. 344 tests tree-wide (354/13 spacecraft, 93541/19 attitude), all 13 ci.sh gates green. |
 | 2026-09-24 | **L5 step 1: the IIF mass cross-check's own "launch vs. on-orbit" explanation was an unchecked hypothesis -- checked this round and found false. `IGSMETA` is now the primary mass source for IIR/IIR-M/IIF, `RS14` the cross-check.** §31.6 added, `SPEC-spacecraft` to v1.2. The entry below recorded `RS14`'s own IIF mass (1555 kg) as primary with `IGSMETA`'s own 1633 kg as an aggregate cross-check, the ~5% gap "explained" by launch mass exceeding on-orbit dry mass -- an explanation never actually checked against what `IGSMETA`'s own `SATELLITE/MASS` field is documented to be. The manager asked for that check, since the gap goes straight into A/m and every SRP acceleration. `IGSMETA`'s own SINEX header: `"SATELLITE/MASS  In-orbit satellite mass."` Its own format description, fetched directly this round (`SMSD24`, Steigenberger & Montenbruck 2024, DOI 10.57677/metadata-sinex): *"Knowledge of the mass of a GNSS satellite is required to compute the acceleration caused by non-gravitational forces (such as solar radiation pressure...). In line with the quality of other model parameters, a 1% accuracy is typically deemed adequate for this purpose."* Not launch mass -- documented, specifically, for this library's own purpose. The launch-vs-on-orbit explanation is WITHDRAWN, checked and found false, not merely dropped; the gap is now recorded as genuinely unexplained. `SMSD24`'s own Table 5 independently corroborates the raw SINEX rows already read (IIR/IIR-M 1080 kg Hegarty 2017, IIF 1633 kg a Boeing spec page), matching SVN50's and SVN63's own individual rows exactly -- the SAME two satellites (G05, G01) this tree's own `modules/attitude` real-data controls already use as canonical references, so no new satellite enters the tree, only a new field of ones already load-bearing. `SMSD24` §4.3 also states Block I/II/IIA's own individually-varying `FLGA92` masses are NOT incorporated into `SATELLITE/MASS` -- so those three blocks correctly keep `RS14` as primary, an asymmetry recorded rather than papered over by switching everything. Fixed: `gps_block_iir()`/`gps_block_iir_m()` 1100 -> 1080 kg (`IGSMETA`/SVN50 primary, `RS14` the cross-check, independently sourced rather than one inheriting the other's citation string); `gps_block_iif()` 1555 -> 1633 kg (`IGSMETA`/SVN63 primary, `RS14` the cross-check, inverted from the prior round). `SPCR-A-004` extended, `SPCR-A-008` added (both check the citation names its own source AND its own cross-check, plus a regression guard). No design change was needed for L7 to get SVN63's/SVN50's own specific mass: both are already this tree's sole reference satellite for their own block. 199 assertions, 8 test cases, all passing. |
