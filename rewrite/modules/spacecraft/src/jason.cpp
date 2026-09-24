@@ -94,7 +94,8 @@ build_jason23(std::string_view section_citation, double mass_kg, const Vec3& com
     const std::string mass_citation =
         std::string(section_citation) +
         ", baseline mass/CoM -- JasonMassSource::Baseline (jason.hpp's own header "
-        "comment: the per-event offset log is not embedded this round)";
+        "comment: no consumer needs the epoch-current value yet, so the per-event "
+        "offset log's own ingestion is deferred, not built)";
     auto mass = cited(mass_kg, mass_citation);
     if (!mass.has_value()) return odl::err(SpacecraftError{mass.error().id, mass.error().message});
     auto com = cited(com_m, mass_citation);

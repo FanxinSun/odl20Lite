@@ -86,7 +86,7 @@ from this spec.
 | `SMSD24` | Steigenberger, P., Montenbruck, O. | *IGS Satellite Metadata File Description*, v1.10 | 30 September 2024, DOI `10.57677/metadata-sinex` | `https://files.igs.org/pub/resource/working_groups/multi_gnss/Metadata_SINEX_1.10.pdf`, fetched directly 2026-09-24 (same `files.igs.org` domain as `IGSMETA`; redistribution not separately re-verified beyond that) | **primary**, obtained | states what `IGSMETA`'s own `SATELLITE/MASS` field IS — "in-orbit satellite mass," required "to compute the acceleration caused by non-gravitational forces... at ~1% accuracy" (§1.1) — settling `SPCR-Q-003` and its own Table 5 (§4.3), the block-level figures §3 below cites |
 | `GALSC` | European GNSS Service Centre (GSC); EUSPA/EU | *Galileo Satellite Metadata* | continuously updated; this pin 2026-09-24 | `https://www.gsc-europa.eu/support-to-developers/galileo-satellite-metadata`, fetched directly (`curl`, HTTP 200, no login) | **primary**, first-party, open with attribution — see §2.3 | the actual source of EVERY Galileo value this spec states for IOV/FOC: reference frame (§2), yaw-steering law (§3, consumed by `SPEC-galileo-attitude.md`, not this spec), mass and centre-of-mass history per satellite (§4), geometry and optical coefficients per surface (§6) |
 | `SPI_QZS1_B` | Cabinet Office, Government of Japan, National Space Policy Secretariat | *QZS-1 Satellite Information* | rev. B, 2022-03-24 | `https://qzss.go.jp/en/technical/qzssinfo/khp0mf0000000wuf-att/spi-qzs1_b.pdf`, fetched directly 2026-09-24 | **primary**, first-party, "freely available to any user... shall indicate proper credit" (`qzss.go.jp/en/technical/qzssinfo/index.html`, quoted in full) | the actual source of EVERY QZS-1 value this spec states: reference frame (§2), attitude law (§3, consumed by `SPEC-qzss-attitude.md`, not this spec), mass and CoM at beginning/end of life (§4), geometry and optical coefficients per face (§6) |
-| `SATMOD` | CNES | *DORIS satellites models implemented in POE processing* | Ed.1/Rev.20, 2026-09-09 | `SALP-NT-BORD-OP-16137-CN`, `https://ids-doris.org/documents/BC/satellites/DORISSatelliteModels.pdf`, fetched directly 2026-09-24, SHA256 `c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619` | **secondary** — the `RS14` ruling extended, §2.4 below | Sentinel-6's own mass/CoM (§16.1) and 12-surface macromodel (§16.3); Jason-1's/-2's/-3's own mass/CoM (§6.1/§7.1/§12.1) and macromodel (§6.3/§7.3/§12.3); Appendix 1's own numerical SRP worked example, consumed by `SPEC-srp-analytic.md`'s own `SRPA-A-011`–`A-013`, not this spec |
+| `SATMOD` | CNES | *DORIS satellites models implemented in POE processing* | Ed.1/Rev.20, 2026-09-09 | `SALP-NT-BORD-OP-16137-CN`, `https://ids-doris.org/documents/BC/satellites/DORISSatelliteModels.pdf`, fetched directly 2026-09-24, SHA256 `c0e7f3884888eef06a74d36b049e62e05de5092395c4c9e87edec53647ffb619` | **secondary** — the `RS14` ruling extended, §2.4 below | Sentinel-6's own mass/CoM (§16.1) and 12-surface macromodel (§16.3); Jason-1's/-2's/-3's own mass/CoM (§6.1/§7.1/§12.1) and macromodel (§6.3/§7.3/§12.3); Appendix 1's own numerical SRP worked example, consumed by `SPEC-srp-analytic.md`'s own `SRPA-A-014`–`A-013`, not this spec |
 
 ### 2.1 `FLGA92`/`FLGA96`: the search, and the one route this session added
 
@@ -438,21 +438,22 @@ numbers).
   own optics, has no field in this schema at all (`SPEC-macromodel.md`'s own stated scope). No
   consumer needs Jason-1 currently.
 - **Mass and centre of mass, for Sentinel-6 and Jason-2/-3 alike, are each source section's own
-  BASELINE value, not an epoch lookup — a deliberate choice, differently justified for each.** Every
-  one of the three satellites' own operational offset files (`s6amass.txt`, `ja2mass.txt`,
-  `ja3mass.txt`) is confirmed openly retrievable (fetched directly this round). Sentinel-6's own file
-  is small (~30 data rows, `SATMOD` §16.1) — comparable in scale to Galileo's own ~30-row dated table
-  — but the ruling for THIS round names no epoch requirement for Sentinel-6's mass/CoM specifically
-  (unlike Jason's own explicit "epoch lookup... or otherwise the baseline" instruction), so it follows
-  the existing single-baseline pattern GPS/GLONASS/QZSS already use, the gap named as an open question
-  rather than built speculatively. Jason-2's/Jason-3's own files are NOT "Galileo's shape": thousands
-  of rows each (4134/3917 lines), an ever-growing PER-MANEUVER OPERATIONAL LOG spanning each
-  satellite's entire multi-year history, not a small, stable, dated snapshot table — embedding this
-  literally would be both impractical at this layer's own established scale (no existing table in this
-  tree exceeds ~30 rows) and a poor engineering proxy for what is more honestly a NOT-YET-BUILT
-  ancillary-file-ingestion capability. Both satellites use the manager's own explicitly offered
-  fallback (`JasonMassSource::Baseline`, REQUIRED, no default, an explicitly named selector per the
-  manager's own instruction) instead.
+  BASELINE value, not an epoch lookup — THE TRUE REASON, STATED PLAINLY (the manager's own review,
+  2026-09-24, after an earlier draft of this entry gave a reason that was not the real one): NO
+  CONSUMER NEEDS THE EPOCH-CURRENT MASS/CoM YET, so ingesting either offset file into a real lookup is
+  DEFERRED, not built — the same "no consumer" reasoning BeiDou's own refusal and GPS-IIIA's own
+  refusal already state, applied here to a schema gap rather than a data one.** Every one of the three
+  satellites' own operational offset files (`s6amass.txt`, `ja2mass.txt`, `ja3mass.txt`) is confirmed
+  openly retrievable (fetched directly this round), and an operational log of dated rows is exactly
+  what a lookup CAN be built against — nothing about its own shape makes it structurally unsuitable, an
+  earlier draft's own "not Galileo's shape" framing named a real observation (Jason's own files are
+  thousands of rows — 4134/3917 lines — against Galileo's own ~30-row table, and Sentinel-6's own file
+  is closer in scale, ~30 rows) but stated it in a way that read as the REASON the lookup was skipped,
+  which it was not: the scale difference is a fact about the EFFORT a real ingestion would take, not
+  about whether one is possible. `JasonMassSource::Baseline` (REQUIRED, no default, an explicitly named
+  selector per the manager's own instruction) names the deferral explicitly at every call site, so a
+  follow-up round that DOES need epoch-current values starts from a known location
+  (`ids-doris.org/documents/BC/satellites/{ja2,ja3}mass.txt`) and a known gap, not a silent default.
 
 ---
 
@@ -634,10 +635,10 @@ numbers).
   sum to something other than 1, some with negative cells the schema's own physical triple cannot
   hold either way. No current consumer.
 - **SPCR-R-024.** `JasonMassSource { Baseline }` — REQUIRED, no default, an EXPLICITLY NAMED selector
-  per the manager's own instruction, with exactly one legal value today (§3's own reasoning: the
-  offset files' own dense, thousands-of-row operational-log shape is not "Galileo's shape") — a
-  future round that adds real epoch-based lookup extends this enum, forcing every call site to
-  choose, rather than silently keeping today's baseline-only behaviour.
+  per the manager's own instruction, with exactly one legal value today (§3's own reasoning, stated
+  plainly: no consumer needs the epoch-current mass/CoM yet, so the real lookup is deferred, not
+  blocked) — a future round that adds real epoch-based lookup extends this enum, forcing every call
+  site to choose, rather than silently keeping today's baseline-only behaviour.
 - **SPCR-R-025.** Every numeric value `SPCR-R-020`–`SPCR-R-022` state is a `Cited<double>` or
   `Cited<Vec3>` (`SPEC-macromodel`'s own `MCRM-R-004`), the same rule every other block in this spec
   states — no exemption for Sentinel-6 or Jason either.

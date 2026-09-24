@@ -427,13 +427,19 @@ namespace {
 /// `PHPR-R-004a` -- at du=0 the panel's front points directly away from
 /// Earth, so only the back face sees it at all) plus a small bus.
 Macromodel a011_model() {
+    // Energy-conserving (alpha+rho+delta=1, MCRM-F-007): the qualitative
+    // structure this test checks (extrema by geometry) does not depend on
+    // alpha's own value, which the force law uses only through the
+    // conserving identity alpha+delta=1-rho (SPEC-photon-pressure §4.1) --
+    // chosen here to conserve rather than tested against a value the schema
+    // would now refuse.
     auto area = cited(1.0, "test-stated");
-    auto al = cited(0.1, "test-stated");
+    auto al = cited(0.8, "test-stated");
     auto rh = cited(0.1, "test-stated");
     auto de = cited(0.1, "test-stated");
     REQUIRE(area.has_value()); REQUIRE(al.has_value()); REQUIRE(rh.has_value());
     REQUIRE(de.has_value());
-    auto back_al = cited(0.8, "test-stated");
+    auto back_al = cited(0.85, "test-stated");
     auto back_rh = cited(0.1, "test-stated");
     auto back_de = cited(0.05, "test-stated");
     REQUIRE(back_al.has_value()); REQUIRE(back_rh.has_value()); REQUIRE(back_de.has_value());

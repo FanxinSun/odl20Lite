@@ -2910,7 +2910,7 @@ a wiring check cannot see the law it wires together. `SRPA-A-004`, the only sing
 flat-plate test, made the gap worse than it looked: `sun_pointing` and black, so cos θ ≡ 1
 and ρ = δ = 0 collapse every structural feature of Eq. (6) — the *e*ᴰ/*e*ᴺ split, and the
 *extra* power of cos θ the specular term carries — onto one number. Found by the manager,
-not by this session; the check is added here, `SRPA-R-009`, `-R-010`, `SRPA-A-011`…`-A-013`.
+not by this session; the check is added here, `SRPA-R-009`, `-R-010`, `SRPA-A-014`…`-A-013`.
 
 **Two closed-form single-plate checks, verified before being written into the gate.** A pure
 absorber at oblique incidence gives *P A* cos θ along −*e*ᴰ; a pure specular reflector gives
@@ -2920,7 +2920,7 @@ is itself reduced by cos θ; a specular bounce off a tilted mirror reflects with
 angle equal to the incoming one, so the NORMAL component of momentum transferred per photon
 carries a second cos θ, and the flux reduction a third — cos³θ per photon count, but the
 recoil is along the normal and the flux-weighted count restores one power, giving cos²θ net
-along −*e*ᴺ, the standard result for a tilted mirror). `SRPA-A-011`/`-A-012` check both
+along −*e*ᴺ, the standard result for a tilted mirror). `SRPA-A-014`/`-A-012` check both
 magnitude **and direction** exactly, since a term/direction swap (e.g. the absorber's force
 accidentally computed along −*e*ᴺ) would leave a magnitude-only check unable to tell the
 difference.
@@ -2941,7 +2941,7 @@ measured at the sharpest (pure specular) case over five consecutive doublings:
 | 128 (32768) | 7.53 × 10⁻⁵ | 4.00 |
 
 The ratio settles to 4.00 and stays there; pure-diffuse and mixed triples reproduce the same
-table to three figures. `SRPA-A-013` uses *n* = 32 and 64 — inside the range this was
+table to three figures. `SRPA-A-016` uses *n* = 32 and 64 — inside the range this was
 checked over, not beyond it — and asserts both the absolute error against a margin above
 the prediction **and** the ratio against [3.0, 5.0]. The C++ gate's own numbers at *n* = 32
 matched this Python prototype's to five decimal places (diffuse: 1.08265 × 10⁻³ both ways;
@@ -2951,8 +2951,8 @@ itself, before it was ever used to bound a test.
 **The guard was proven by making it fire, in the place it fires from** (plan §4 rule 5).
 `e_N_coeff`'s `rho * cos_theta` was changed to `rho` — dropping exactly the power of cos θ
 the manager's rule-4 analysis named — and every other file left untouched. Result:
-`SRPA-A-012` (the single-plate check) failed with a 2.86× magnitude error at one angle,
-directly. `SRPA-A-013` (the tessellated sphere) failed both ways at once: pure-specular error
+`SRPA-A-015` (the single-plate check) failed with a 2.86× magnitude error at one angle,
+directly. `SRPA-A-016` (the tessellated sphere) failed both ways at once: pure-specular error
 at *n* = 32 was 0.3344 — matching the hand-derived 1 + ρ/3 = 4/3 prediction (§27.6) to four
 figures — **and** the convergence ratio collapsed from the predicted ~4.0 to 1.00, because a
 bug in the LAW does not shrink with discretisation resolution the way genuine discretisation
@@ -6065,12 +6065,24 @@ Mass/CoM: baseline only (505.9/509.6 kg respectively), under `JasonMassSource::B
 NAMED selector (REQUIRED, no default, the manager's own instruction) with exactly one legal value
 today. `ja2mass.txt`/`ja3mass.txt` ARE openly retrievable (fetched directly, 4134/3917 lines — one
 required three retries under a TLS handshake flake before succeeding, the same connection-flakiness
-class already seen fetching PDFs from the same host earlier this round) but their own SHAPE — a dense,
-ever-growing per-maneuver operational log spanning each satellite's entire multi-year history — is not
-"Galileo's shape" (a small, stable, ~30-row dated table): no table this tree has embedded before this
-round exceeds that scale, and mechanically transcribing thousands of rows would be a poor proxy for
-what is more honestly a not-yet-built ancillary-file-ingestion capability. The manager's own explicitly
-offered fallback was taken instead, the gap named, not silently defaulted to.
+class already seen fetching PDFs from the same host earlier this round).
+
+**The TRUE reason this round did not build a real epoch lookup, corrected during the manager's own
+review of this round's own work — the FULL story, not only the corrected end state.** The first draft
+of this section, and of `jason.hpp`'s own header comments, gave the offset files' own SHAPE — a dense,
+ever-growing per-maneuver operational log, thousands of rows, unlike Galileo's own small, stable,
+~30-row dated table — as the reason a lookup was not built. The manager's own review caught this: an
+operational log of dated rows is exactly what a lookup is FOR, so "shape" was never a structural
+obstacle, and stating it as one was the same CLASS of defect as a comment naming the wrong cause for a
+true conclusion (this tree's own `mu_rad` sign-fix precedent, §30.16 above, where an earlier comment
+named the wrong mechanism for a real, correctly-fixed bug). **The real reason: no consumer needs
+Jason's own epoch-current mass or centre of mass yet** — the same "no consumer" reasoning BeiDou's own
+refusal and GPS-IIIA's own refusal already state, applied here to a schema gap rather than a data one.
+The file's own large row count is a real fact about how much EFFORT a real ingestion would take, kept
+in the corrected text as context, not as the reason itself. `jason.hpp`, `jason.cpp` and
+`SPEC-spacecraft.md` were all corrected to state the true reason plainly, each naming the offset
+files' own location so a follow-up round that DOES need epoch-current values starts from a known gap,
+not a silent default.
 
 ### 34.5 Jason's attitude law — fixed yaw built directly, yaw steering by a derived sign flip
 
@@ -6143,14 +6155,14 @@ direction minus a mean 2/3 factor along the normal), not copied from the flatten
 
 **Confirmed to match all 20 of the appendix's own printed vectors to 0.0005 (the exact rounding ceiling
 of the source's own 3-decimal print)** — verified first in a standalone Python script before any C++
-was written, then reproduced as `SRPA-A-011` against the real `Vec3`/production-adjacent types.
+was written, then reproduced as `SRPA-A-014` against the real `Vec3`/production-adjacent types.
 
 **A genuine, quantified finding, not concealed by testing only convenient data:** this general formula
 is `srp_analytic::flat_force`'s own EXACT formula (`(1-rho)*e_D + 2*(delta/3+rho*cos_theta)*n`) if and
 only if `alpha+rho+delta=1` (energy conservation) — algebraically obvious once both are written out, but
 not previously stated anywhere in this tree because every macromodel built before this round DID
 conserve energy on every row (checked, e.g. `SPCR-A-001`/`SPCR-A-010`). SPOT-5's own Appendix-1 table
-does NOT conserve energy (its own six rows sum to 0.499–0.912, checked directly, `SRPA-A-012`) — so the
+does NOT conserve energy (its own six rows sum to 0.499–0.912, checked directly, `SRPA-A-015`) — so the
 REAL kernel, fed SPOT-5's own literal `(rho, delta)` through an honest `Macromodel`/`OpticalTriple` (no
 fudged values; `absorptivity` is stored, per `MCRM-R-004`, but confirmed never read by `flat_force`
 itself), does NOT reproduce the appendix's own printed numbers. At the cleanest single-face test point
@@ -6163,7 +6175,7 @@ independent prediction, not a tautological read-back) — a genuine, ~49% mismat
 **The genuine, positive deliverable:** Sentinel-6's OWN real macromodel (energy-conserving on every
 row, confirmed) run through the REAL `photon_force` kernel matches the SAME independently-derived (and
 now twice-validated) general formula EXACTLY, at 40 geometries spanning the same (azimuth, elevation)
-sweep the appendix itself demonstrates (`SRPA-A-013`) — the genuine "real macromodel through the real
+sweep the appendix itself demonstrates (`SRPA-A-016`) — the genuine "real macromodel through the real
 kernel" check, using Sentinel-6's own real data (the appendix's OWN satellite, SPOT-5, is not part of
 this tree; Sentinel-6 is the one that is).
 
@@ -6214,7 +6226,7 @@ timeout in the QZSS search, not evidence the directory is empty.
 
 New test files: `modules/spacecraft/tests/{sentinel6,jason}_tests.cpp` (SPCR-A-025..032),
 `modules/attitude/tests/{sentinel6,jason}_tests.cpp` (S6AT-A-001..003, JSAT-A-001..004),
-`tests/spot5_appendix_tests.cpp` (SRPA-A-011..013, top-level, cross-module). `ci.sh` re-run after every
+`tests/spot5_appendix_tests.cpp` (SRPA-A-014..016, top-level, cross-module). `ci.sh` re-run after every
 addition this round; the full, final gate/test/artefact counts are recorded in this round's own
 closing report (`~/.claude/handover/2026-09-24-odl-rewrite-L5.REPORT.md`).
 

@@ -1,4 +1,4 @@
-// spot5_appendix_tests.cpp — SPEC-srp-analytic.md SRPA-A-011..A-013, cross-
+// spot5_appendix_tests.cpp — SPEC-srp-analytic.md SRPA-A-014..A-013, cross-
 // module (odl::spacecraft + odl::srp_analytic), the same "linked here on
 // purpose" reasoning `tests/l2_floors.cpp` states for its own three
 // modules (L5 step 4's own rule-2 check: reproducing a published, source-
@@ -20,7 +20,7 @@
 // THE APPENDIX'S OWN FORMULA IS NOT `srp_analytic::flat_force`'S FORMULA IN
 // GENERAL -- a finding, not an oversight, worked out in full below (this
 // file's own `general_srp_force`) and proved against SPOT-5's own 20
-// printed test vectors before being trusted (SRPA-A-011). The appendix's
+// printed test vectors before being trusted (SRPA-A-014). The appendix's
 // own equation (quoted, OCR-flattened in the source's own text but
 // re-derived from first principles and independently confirmed numerically,
 // not trusted from the flattened rendering alone):
@@ -45,18 +45,32 @@
 // 2*(delta/3+rho*cos_theta)*n` -- if and ONLY if alpha+delta = 1-rho, i.e.
 // alpha+rho+delta = 1 (energy conservation). SPOT-5's own Appendix-1 table
 // does NOT conserve energy (its own six rows sum to 0.499-0.912, checked
-// directly, SRPA-A-012) -- so the REAL kernel, fed SPOT-5's own literal
-// (rho, delta) pair (which is all `OpticalTriple` feeds `flat_force`;
-// absorptivity is stored but never read by the force law, `srp_analytic.cpp`
-// itself), does NOT reproduce the appendix's own printed numbers, and
-// SRPA-A-012 proves this honestly rather than avoiding the comparison.
+// directly, SRPA-A-015).
+//
+// THIS FINDING IS NOW A GUARANTEED SCHEMA GUARD, NOT MERELY A REPORTED GAP
+// (the manager's own review of this file's first version): `flat_surface_
+// body_fixed`/`flat_surface_sun_pointing` (`modules/macromodel/include/odl/
+// macromodel/macromodel.hpp`, MCRM-F-007) now refuse any triple more than
+// 1% short of energy conservation, so a non-conserving macromodel (SPOT-5's
+// own table, or a future one shaped like it) cannot reach `photon_force`
+// silently -- SRPA-A-015 now proves the REFUSAL fires for every one of
+// SPOT-5's six rows, through the exact factory call a real spacecraft-data
+// file uses, rather than showing the kernel's own mismatched output (which
+// is no longer reachable to demonstrate this way, since the data can no
+// longer be built at all -- SRPA-A-015's own header comment keeps the
+// original hand-worked-out numbers as the record of why the guard exists).
 // Sentinel-6's OWN real macromodel (`sentinel6()`, `modules/spacecraft`)
 // DOES conserve energy on every row (checked, `SPCR-A-026`) -- so for
-// Sentinel-6, the two formulas are IDENTICAL, and SRPA-A-013 is the
+// Sentinel-6, the two formulas are IDENTICAL, and SRPA-A-016 is the
 // genuine, positive "real macromodel through the real kernel" deliverable,
 // checked against `general_srp_force` applied to Sentinel-6's own data at
 // the SAME 40-point (azimuth, elevation) sweep the appendix itself
-// demonstrates.
+// demonstrates. Together, SRPA-A-014 (the formula against the published
+// case), SRPA-A-015 (the guard keeping non-conserving data out) and
+// SRPA-A-016 (the real kernel against the formula, within its own scope)
+// are how this tree validates `photon_force` against a published example:
+// through the formula, within the scope the formula and the guard both
+// state -- and no more than that (`SPEC-photon-pressure.md` §4.1).
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -168,9 +182,9 @@ const std::vector<ExampleRow> kExamples = {
 
 }  // namespace
 
-// --- SRPA-A-011: the independently-derived formula matches all 20 --------
+// --- SRPA-A-014: the independently-derived formula matches all 20 --------
 
-TEST_CASE("SRPA-A-011  general_srp_force, independently re-derived from "
+TEST_CASE("SRPA-A-014  general_srp_force, independently re-derived from "
           "radiation-momentum first principles (this file's own header "
           "comment, NOT copied from RHS12 or srp_analytic's own formula), "
           "reproduces ALL 20 of Appendix 1's own printed SPOT-5 test "
@@ -188,26 +202,36 @@ TEST_CASE("SRPA-A-011  general_srp_force, independently re-derived from "
     }
 }
 
-// --- SRPA-A-012: SPOT-5 does not energy-conserve; the REAL kernel gap ------
+// --- SRPA-A-015: SPOT-5 does not energy-conserve; MCRM-F-007 refuses it ----
+//
+// FIRST DRAFT OF THIS TEST (kept here as the record, not the executable
+// claim any more): built SPOT-5's own non-conserving table through
+// `flat_surface_body_fixed` directly, then showed the REAL kernel's own
+// output ("-10.9592") did NOT match the appendix's own printed "-7.347" --
+// a genuine ~49% gap, worked out by hand from `flat_force`'s own published
+// formula before running it, matching the row's own energy gap
+// (1-0.499=0.501) exactly. That finding is what led the manager to rule
+// (this round's own review) that the SCHEMA itself must refuse a
+// non-conserving surface (MCRM-F-007, `modules/macromodel/include/odl/
+// macromodel/macromodel.hpp`) -- built in response, and it now refuses
+// EVERY row of SPOT-5's own table below, which is what this test checks
+// instead: not that the kernel mismatches non-conserving data (still true,
+// but no longer reachable to demonstrate this way, since the data can no
+// longer be built at all), but that IT CANNOT REACH THE KERNEL IN THE
+// FIRST PLACE.
 
-TEST_CASE("SRPA-A-012  SPOT-5's own six rows do NOT sum to 1 (checked "
-          "directly, 0.499-0.912) -- so the REAL srp_analytic::photon_force "
-          "kernel, fed SPOT-5's own literal (rho, delta) through an honest "
-          "Macromodel/OpticalTriple (no fudged values), does NOT reproduce "
-          "the appendix's own printed numbers -- a genuine, quantified, "
-          "reported finding, not concealed by testing only conserving data",
+TEST_CASE("SRPA-A-015  SPOT-5's own six rows do NOT sum to 1 (checked "
+          "directly, 0.499-0.912) -- and MCRM-F-007 now refuses every one "
+          "of them at `flat_surface_body_fixed` itself, PROVING a non-"
+          "conserving macromodel cannot reach the real "
+          "srp_analytic::photon_force kernel silently, through the exact "
+          "construction path a real caller would use (rule 5)",
           "[srp_analytic][spot5][gate]") {
+    int refused = 0;
     for (const RawFace& f : kSpot5) {
         const double sum = f.alpha + f.rho + f.delta;
         CHECK(sum < 0.999);  // every row genuinely under 1, none accidentally conserving
-    }
 
-    // Build the SAME SPOT-5 table through the REAL schema/kernel -- rho and
-    // delta exactly as printed; alpha is cited (MCRM-R-004 requires it) but
-    // -- confirmed by `srp_analytic.cpp` itself -- never read by the force
-    // law.
-    MacromodelBuilder b;
-    for (const RawFace& f : kSpot5) {
         auto area = cited(f.area_m2, "Appendix 1, SPOT-5 table (test-local, not a tree constellation)");
         auto a = cited(f.alpha, "Appendix 1");
         auto s = cited(f.rho, "Appendix 1");
@@ -218,64 +242,35 @@ TEST_CASE("SRPA-A-012  SPOT-5's own six rows do NOT sum to 1 (checked "
         REQUIRE(d.has_value());
         auto n = body_direction(f.normal);
         REQUIRE(n.has_value());
+
+        // The SAME call a real spacecraft-data file makes (jason.cpp's own
+        // `build_row`, sentinel6.cpp's own `build_row`) -- not a bespoke
+        // bypass of the schema's own factory.
         auto surf = flat_surface_body_fixed(*area, *n, *a, *s, *d);
-        REQUIRE(surf.has_value());
-        b.add_surface(*surf);
+        if (!surf.has_value()) {
+            CHECK(surf.error().id == "MCRM-F-007");
+            ++refused;
+        }
     }
-    auto mass = cited(1.0, "unused, required by the schema");
-    auto com = cited(Vec3{0.0, 0.0, 0.0}, "unused, required by the schema");
-    REQUIRE(mass.has_value());
-    REQUIRE(com.has_value());
-    b.set_mass(*mass).set_centre_of_mass(*com);
-    auto model = std::move(b).build();
-    REQUIRE(model.has_value());
+    // Every one of SPOT-5's six rows is refused -- none happens to sneak
+    // through under the 1% tolerance (the closest, row 5, is 8.8% short).
+    CHECK(refused == 6);
 
-    auto irr = irradiance_w_per_m2(kSpeedOfLightMPerS);
-    REQUIRE(irr.has_value());
-
-    // az=0, el=0 -- the cleanest single-face case: only the +X row lights.
-    const Vec3 e_D = u_from_az_el(0.0, 0.0);
-    auto dir = body_direction(e_D);
-    REQUIRE(dir.has_value());
-    auto kernel_force = srp_analytic::photon_force(*model, *irr, Band::visible, *dir, *dir,
-                                                   Vec3{0.0, 0.0, 0.0});
-    REQUIRE(kernel_force.has_value());
-    const Vec3 general = general_srp_force(kSpot5, e_D);
-
-    // The appendix's own printed answer here is (-7.347, 0, 0) --
-    // `general_srp_force` already matches it exactly (SRPA-A-011): checked
-    // as a PASSING assertion, not merely claimed.
-    CHECK_THAT(general.x, WithinAbs(-7.347, 5.0e-4));
-
-    // The REAL kernel does NOT reproduce that number: only the +X face
-    // (area 7.21, rho=0.346, delta=0.261) is illuminated at this geometry,
-    // and `flat_force` computes -(A*cos_theta)*[(1-rho)*e_D + 2*(delta/3 +
-    // rho*cos_theta)*n], which at cos_theta=1 gives -7.21*[(0.654) +
-    // 2*(0.087+0.346)] = -7.21*1.5197 = -10.9569 -- WORKED OUT BY HAND here
-    // (not copied from the kernel) and checked against the kernel's own
-    // output, so this is an independent prediction, not a tautological
-    // read-back of whatever the kernel happens to produce.
-    CHECK_THAT(kernel_force->x, WithinAbs(-10.9592, 2.0e-3));
-    // The gap between the two is real and substantial (~49% of the
-    // general-formula answer at this geometry, exactly the row's own
-    // energy gap 1-alpha-rho-delta = 1-0.499 = 0.501 predicts) -- reported
-    // here and in PROVENANCE.md's own L5 step 4 section, not concealed by
-    // only ever exercising energy-conserving data (SRPA-A-013 below).
-    CHECK(std::abs(kernel_force->x - general.x) > 3.0);
+    // A genuinely CONSERVING row, adjacent to the six refused ones, is NOT
+    // refused -- the guard catches the real defect, not merely every input.
+    auto area = cited(7.21, "test-stated, conserving");
+    auto a = cited(0.610, "test-stated"), s = cited(0.349, "test-stated"),
+        d = cited(0.041, "test-stated");  // matches Sentinel-6's own +X row, sums to 1.000
+    REQUIRE(area.has_value()); REQUIRE(a.has_value()); REQUIRE(s.has_value()); REQUIRE(d.has_value());
+    auto n = body_direction(Vec3{1.0, 0.0, 0.0});
+    REQUIRE(n.has_value());
+    auto conserving = flat_surface_body_fixed(*area, *n, *a, *s, *d);
+    CHECK(conserving.has_value());
 }
 
-// SRPA-A-012's own final two checks above are the honest record of this
-// finding: the REAL kernel's own output, independently worked out by hand
-// from `flat_force`'s own published formula (not read back from the
-// kernel and asserted as ground truth), disagrees with the appendix's own
-// printed number by more than 3 m^2's worth of the reported acceleration-
-// per-unit-surface units -- roughly half the row's own total, matching
-// the row's own energy gap exactly. PROVENANCE.md's own L5 step 4 section
-// records the exact printed gap alongside the passing SRPA-A-013 below.
+// --- SRPA-A-016: Sentinel-6's REAL macromodel through the REAL kernel -----
 
-// --- SRPA-A-013: Sentinel-6's REAL macromodel through the REAL kernel -----
-
-TEST_CASE("SRPA-A-013  Sentinel-6's own REAL macromodel (sentinel6(), "
+TEST_CASE("SRPA-A-016  Sentinel-6's own REAL macromodel (sentinel6(), "
           "energy-conserving on every row, SPCR-A-026), run through the "
           "REAL srp_analytic::photon_force kernel, matches "
           "general_srp_force exactly at the SAME 40-point (az, el) sweep "

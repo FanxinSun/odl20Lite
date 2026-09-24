@@ -127,47 +127,50 @@ rule-4 search `SPEC-spacecraft.md`'s own `sentinel6.hpp`/`jason.hpp` header comm
 
 ## 4. Real-data control
 
-**FOUND — real attitude data AND real orbit data, both openly reachable — but a FULL REGISTERED
-comparison was NOT completed this round, for a stated engineering reason, not concealed as a
-completed check.** This is a genuinely different, richer outcome than QZS-1's own confirmed absence
-(`SPEC-qzss-attitude.md` §3) and is reported with the same precision, not rounded up to "confirmed" or
-down to "not found."
+**FOUND — real attitude data AND real orbit data, both fetched, decompressed and parsed by a working
+tool (`tools/doris_jason_check.cpp`) — but the quaternion's own convention was NOT SETTLED this round,
+despite a systematic attempt, so the registered comparison itself was not run.** This is a genuinely
+different, richer outcome than QZS-1's own confirmed absence (`SPEC-qzss-attitude.md` §3) — real data
+was obtained and a real nadir test was executed against it — and is reported with the same precision as
+every other finding in this tree, not rounded up to "confirmed" or down to "not found."
 
-**What was found.** `SATMOD` §7.2/§12.2 name two routes to real quaternions: CDDIS
-(`cddis.nasa.gov/archive/doris/ancillary/quaternions/{ja2,ja3}`) and IGN
-(`ftp://doris.ign.fr/pub/doris/ancillary/quaternions/{ja2,ja3}`). CDDIS redirects to an EarthData OAuth
-login — refused per this project's own standing no-account discipline, the SAME dead end this session's
-own step-3 QZSS search already hit for CODE's true archive. **`doris.ign.fr` is genuinely open**:
-anonymous FTP (`USER anonymous` / any password), no login challenge, confirmed by a direct session
-transcript (`PROVENANCE.md`'s own L5 step 4 section) — years of per-satellite quaternion archives back
-to 2008, current through TODAY'S OWN DATE (2026-09-24, a file timestamped this same day was listed).
-Two file kinds per satellite per ~28-hour window: `ja{2,3}qsolp*.001` (solar-panel angles, columns
-POSTARGL/POSTARGR — NOT the body attitude, confirmed by reading a file's own header before use, not
-assumed from the filename alone) and `ja{2,3}qbody*.001` (the real body-attitude QUATERNION — fetched
-and read: four columns, header "QISLEST1 QISLEST2 QISLEST3 QISLEST4," each in `[-1, 1]`, at roughly
-32-second cadence, no stated component order (scalar-first/last) or rotation sense/frame — none of
-which this session determined). The SAME archive's own `products/orbits/gsc/{ja3,s6a}/` directory
-carries real, compressed SP3-format orbit solutions (`gscja322.b26029.e26040.D_S.sp3.001.Z`-style
-filenames) from a DORIS analysis centre (GSC) — real position/velocity, the piece a quaternion-only
-file does not supply and this control would need to convert a quaternion into a comparable body frame
-at a KNOWN orbital geometry.
+**What was found and built.** `SATMOD` §7.2/§12.2 name two routes to real quaternions: CDDIS
+(EarthData OAuth login, refused, the standing no-account discipline) and `doris.ign.fr` — confirmed
+GENUINELY OPEN anonymous FTP, no login challenge, years of per-satellite archives current through
+TODAY. Two quaternion file kinds per satellite per ~28-hour window: `ja{2,3}qsolp*.001` (solar-panel
+angles, NOT the body attitude, checked by its own header) and `ja{2,3}qbody*.001` (the real
+body-attitude quaternion: four columns headed "QISLEST1..4," each in `[-1,1]`, ~32s cadence). The SAME
+archive's own `products/orbits/gsc/{ja3,s6a}/` directory carries real, `.Z`-compressed SP3-format
+orbit solutions from GSFC (a DORIS analysis centre, "gsc" = Goddard Space Flight Center, its own SP3
+header states) — fetched, decompressed (`zcat`, a routine step as the manager's own review named it),
+and parsed by `tools/doris_jason_check.cpp`, reusing `orbex_qzss_check.cpp`'s own already-proven
+SP3-to-GCRS pipeline (`frames::to_gcrs`, the EOP C04 series, the leap table) unchanged. The orbit
+itself was cross-checked as genuinely Jason-3's own: altitude ~1312 km, computed directly from a
+parsed position, against Jason-3's own known ~1336 km.
 
-**What was NOT completed, and why.** A full registered control, matching `tools/orbex_*_check.cpp`'s
-own house style (a prediction stated before the data is read, a tolerance fixed in advance), needs:
-decompressing and parsing the SP3-format orbit file for Jason-3's own real position/velocity at epochs
-overlapping the quaternion file's own 2026-09-21/23 window; determining the quaternion's own component
-order and rotation convention (not stated in the file's own header, and no second source read this
-round states it either); aligning the two files' own epoch grids exactly. This is a genuine,
-non-trivial ADDITIONAL engineering task beyond fetching and reading the files, and it was not completed
-within this round's own remaining scope — recorded here as a SPECIFIC, characterised gap (the files, the
-paths, the column layout), not a vague "ran out of time" note, so a follow-up round can pick it up
-without repeating this round's own search.
+**The nadir test — run, not merely planned — did NOT settle the convention.** `SATMOD`'s own stated
+property ("Z always nadir," §3 above) was checked against real data: at eight epochs across a ~26-hour
+span (2025-12-03/04, the earliest date this environment's own CACHED EOP C04 series covers close to —
+that series runs only through 2026-01-03, `data/cache/eop-c04-20/eopc04.1962-now`, so the manager's own
+first-choice September window could not be used), all three body axes and both component
+orderings/rotation senses (12 combinations total) were checked against real nadir (`-r_hat`, from the
+SAME SP3 ephemeris). NONE converged: every combination's own angle-to-nadir varied chaotically across
+the eight epochs (13.6 deg to 170.0 deg), inconsistent with a single, constant convention error, which
+would show a STABLE angle instead. Three specific, NOT-yet-ruled-out possibilities are recorded in the
+tool's own header comment for a follow-up round: the quaternion file's own big-integer column
+preceding each float value (assumed here to be unrelated metadata, never used) may be load-bearing; the
+quaternion's own target frame may be neither ECEF nor GCRS but a third frame this round did not try; the
+~32s-to-1-minute epoch alignment (nearest-minute, not interpolated) was checked and ruled OUT as the
+PRIMARY cause (bounded to <2 deg of argument-of-latitude at this orbit's own period) but not eliminated
+as a contributing one.
 
-**Absence, not found this round:** a Sentinel-6 (`s6a`) counterpart under
-`ancillary/quaternions/s6a/` was confirmed to EXIST as a directory (the FTP `CWD` command succeeds),
-but every attempt to retrieve its own listing timed out (multiple attempts, up to 280 seconds) — a
-genuine environmental access limitation, the SAME class of finding as `ftp.aiub.unibe.ch`'s own timeout
-in the QZSS search, not evidence the directory is empty.
+**Sentinel-6, per the manager's own instruction: one direct-path fetch attempt, constructed from
+Jason-3's own exact naming pattern and a matching date, instead of listing the directory.**
+`s6aqbody20260922220000_20260924020000.001` (mirroring `ja3qbody20260922220000_20260924020000.001`,
+Jason-3's own most recent listed file at the time) returned a clean "550 Could not get file size" — a
+definitive file-not-found, not a timeout or a directory-access failure the way every earlier attempt at
+LISTING `ancillary/quaternions/s6a/` was. Recorded as the absence, per the manager's own instruction:
+Sentinel-6's own frame identification stays a marked assumption (`S6AT-Q-001`).
 
 ---
 
@@ -270,5 +273,5 @@ A stateless provider, the same shape every other attitude function in this tree 
 |---|---|
 | `JSAT-Q-001` | **The flight-direction/beta-sign association (forward flying = beta-prime > 0) is carried by analogy from the SAME document's own SWOT section, not independently confirmed for Jason specifically.** Worth checking directly against Jason's own real attitude data (§4) if the sign turns out to matter for a consumer beyond this spec's own qualitative fixed-yaw construction. |
 | `JSAT-Q-002` | **Ramp/flip timing is NOT modelled** — the source states it is operational, recorded in a per-satellite ancillary file (`ja{2,3}att.txt`, found but not parsed for event timing this round), with the full derivation in the paywalled Cerri et al. 2010. Worth building if L6/L7's own integrator needs the exact transition timing rather than treating it as a discontinuity. |
-| `JSAT-Q-003` | **The yaw-steering frame mapping (negate the Sun, right-handedness forces y) is DERIVED, not independently confirmed** by a second reading, a printed coordinate pair, or real data — §4's own real-data control (quaternions AND orbit files both found, openly reachable) was not completed this round, so this mapping remains unconfirmed by data, resting on the right-handedness argument alone. The clearest candidate for closing this gap: finish §4's own control. |
+| `JSAT-Q-003` | **The yaw-steering frame mapping (negate the Sun, right-handedness forces y) is DERIVED, not independently confirmed** by a second reading, a printed coordinate pair, or real data — §4's own nadir test, run against real SP3 and quaternion data, did NOT settle even the quaternion's own basic convention (12 axis/order/sense combinations tried, none converged), so the mapping remains unconfirmed by data, resting on the right-handedness argument alone. `tools/doris_jason_check.cpp`'s own header names three specific, not-yet-ruled-out next steps for closing this gap. |
 | `JSAT-Q-004` | **The July-2017 threshold widening (15 deg to 30 deg, `SATMOD` §7.2/§12.2, Jason-2/-3 only) is NOT built.** This spec's own `kJasonFixedYawSwitchRad` is the ORIGINAL ~15 deg figure throughout. Worth adding an epoch-dependent switch if a consumer needs post-2017-07 Jason-2/-3 attitude specifically. |

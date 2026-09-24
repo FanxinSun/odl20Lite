@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `MCRM` |
-| **Status** | **draft** 2026-09-24, for review (v2.0: `srp_force` and the two force laws relocated to `SPEC-srp-analytic`, per the manager's verdict on v1.0 — `../plan/PLAN.md`'s L4 step list, step 2's entry. v2.1: the band/face amendment §1's own "Not in scope" list already anticipated — L4 step 5's real need, found while building `SPEC-photon-pressure`, not spun ahead of it) |
-| **Version** | 2.1 |
+| **Status** | **draft** 2026-09-24, for review (v2.0: `srp_force` and the two force laws relocated to `SPEC-srp-analytic`, per the manager's verdict on v1.0 — `../plan/PLAN.md`'s L4 step list, step 2's entry. v2.1: the band/face amendment §1's own "Not in scope" list already anticipated — L4 step 5's real need, found while building `SPEC-photon-pressure`, not spun ahead of it. v2.2: the energy-conservation guard, `MCRM-R-016`/`MCRM-F-007` — L5 step 4's own review, after a published worked example (SPOT-5's own Appendix-1 SRP case) was found to fall outside the kernel's own implicit scope, `SPEC-photon-pressure.md` §4.1) |
+| **Version** | 2.2 |
 | **Date** | 2026-09-24 |
 | **Layer** | L4 `forces-analytic`, step 2 (`../plan/PLAN.md` §3.5) |
 | **Depends on** | `core` only |
@@ -197,6 +197,37 @@ usually printed in it.
   (`DYN-Q-001`'s own terms) — §1a states the claim this subsection's own requirements make
   true.
 
+### 4.4 The energy-conservation guard (v2.2, L5 step 4's own review)
+
+- **MCRM-R-016.** `flat_surface_body_fixed` and `flat_surface_sun_pointing` REFUSE
+  (`MCRM-F-007`) any `OpticalTriple` — front visible, front infrared, back visible or back
+  infrared, whichever are supplied — whose own `absorptivity + specular + diffuse` is more than
+  1% relative away from 1. `SPEC-photon-pressure.md` §4.1's own kernel formula,
+  `flat_force`'s `(1−ρ)*e_D + 2*(δ/3+ρ·cosθ)*e_N`, is the GENERAL three-coefficient
+  radiation-momentum law, `(α+δ)*e_D + 2*(δ/3+ρ·cosθ)*e_N`, ONLY where `α+ρ+δ=1` — a fact
+  found, not assumed, at L5 step 4: a published worked example (SPOT-5's own bus, a CNES
+  technical note's Appendix 1) does NOT conserve energy, and the REAL kernel's own output,
+  fed that data directly, disagreed with the example's own printed answer by the row's own
+  energy gap (`SPEC-srp-analytic.md` `SRPA-A-014`/`A-015`). Every macromodel this tree has
+  built through this version conserves energy exactly or to floating-point rounding — this
+  guard makes that a CHECKED property of every surface this schema accepts from now on, not
+  merely an unstated assumption every source so far happened to satisfy: a future
+  non-conserving macromodel cannot reach `photon_force` silently. The 1% threshold sits with
+  real margin on both sides of every value seen so far — an order of magnitude above the
+  largest genuine rounding-level deviation this tree has accepted (Jason-2's/Jason-3's own
+  infrared rows, up to 0.2%, `SPEC-spacecraft.md` `SPCR-P-5`) and almost an order of
+  magnitude below the smallest genuine violation found (SPOT-5's own least-bad row, 8.8%
+  short of 1) — not tuned to either boundary.
+- **MCRM-R-017.** `SphericalSurface` is NOT covered by this guard: its own `absorptivity`/
+  `specular` are stored for completeness but never read by `spherical_force`
+  (`MCRM-R-007`'s own already-proven fact — only `diffuse`, through `Q_pr=1+4δ/9`, affects a
+  sphere's net force), so the energy-conservation identity this guard enforces for
+  `FlatSurface` does not describe a sphere's own force law the same way, and no constructor
+  exists to attach a check to (`SphericalSurface` is a plain aggregate, `MCRM-R-003`). Not
+  built speculatively for a surface kind no constellation in this tree has used
+  (`SPCR-Q`-style "no consumer" reasoning, applied here to a schema gap rather than a data
+  one).
+
 ---
 
 ## 5. Interfaces, stated language-free
@@ -221,7 +252,8 @@ usually printed in it.
   back = none)` — two named factories, one per `NormalMode`, rather than a struct pairing a
   mode with an independent optional normal that the two could disagree about. The two
   trailing parameters (v2.1) both default to absent, so every pre-v2.1 call compiles
-  unchanged. Read accessors: `.area_m2()`, `.normal_mode()`, `.body_fixed_normal()`
+  unchanged. Both factories REFUSE (v2.2, `MCRM-F-007`, `MCRM-R-016`) any supplied triple
+  more than 1% short of energy conservation. Read accessors: `.area_m2()`, `.normal_mode()`, `.body_fixed_normal()`
   (populated iff the mode is `BodyFixed`), `.absorptivity()`, `.specular()`, `.diffuse()`
   (the front, visible triple — unchanged in meaning), `.front(Band) -> const
   OpticalTriple&` (v2.1, resolved), `.back(Band) -> optional<OpticalTriple>` (v2.1, absent
@@ -263,6 +295,7 @@ and moved with it. `SPEC-srp-analytic` §6.
 | `MCRM-F-002` | a `BodyDirection` constructed from a non-unit vector | the vector and its actual norm | silently renormalising |
 | `MCRM-F-003` | a `Macromodel` builder asked to finish with the mass or the centre of mass not yet set | which field(s) are missing | defaulting the citation to empty and proceeding |
 | `MCRM-F-006` | (v2.1) `irradiance_w_per_m2` called with a negative, infinite or NaN value | the offending value | treating it as zero, or clamping to the nearest valid flux density |
+| `MCRM-F-007` | (v2.2) `flat_surface_body_fixed`/`flat_surface_sun_pointing` called with any supplied `OpticalTriple` (front visible, front infrared, back visible or back infrared) more than 1% relative from summing to 1 | which band/face triple, its own actual sum, and the kernel-scope reasoning (`MCRM-R-016`) | silently accepting it and letting a mismatched force reach `photon_force` |
 
 **`MCRM-F-004` and `-F-005` are retired, not relocated.** Both were about `srp_force`'s
 own refusals; that function is no longer declared by this module, so there is nothing
@@ -282,6 +315,7 @@ type already makes unreachable, and is not carried forward at all — see that s
 | `MCRM-A-007` | `BodyDirection` refuses a non-unit vector, **and does not refuse** a genuinely unit one adjacent to it | the diagnostics | the refusal catalogue | — | F-002 |
 | `MCRM-A-013` | **(v2.1) the band/face round trip, schema-only, no force law involved**: (1) `BandedOptics.in(Band::infrared)` returns the stated infrared triple when one was supplied, and falls back to the visible triple when it was not, for both `FlatSurface` (front) and `SphericalSurface`; (2) `FlatSurface.back(Band)` is absent when no back face was supplied and returns the stated (band-resolved) triple when one was | as stated, all cases, both surface kinds | `MCRM-R-013`/`R-014`'s own stated fall-back | exact | R-013, R-014 |
 | `MCRM-A-014` | **(v2.1)** `irradiance_w_per_m2` refuses a negative value and a NaN value, **and does not refuse** a genuine (including zero) non-negative finite one adjacent to them — whose `.watts_per_m2()` round-trips exactly | the diagnostics; the round-tripped value | the refusal catalogue; identity | exact (round trip) | F-006, R-015 |
+| `MCRM-A-015` | **(v2.2) the guard shown firing through the real construction path, not a synthetic one**: `flat_surface_body_fixed`, called with a published, genuinely non-conserving triple (SPOT-5's own six Appendix-1 rows, 0.499–0.912) each refused with `MCRM-F-007`; an adjacent, genuinely conserving triple (Sentinel-6's own +X row) is NOT refused | all 6 SPOT-5 rows refused; the conserving control succeeds | `SPEC-srp-analytic.md` `SRPA-A-015`, `tests/spot5_appendix_tests.cpp` | — | R-016, F-007 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 
@@ -289,6 +323,7 @@ type already makes unreachable, and is not carried forward at all — see that s
 |---|---|
 | `MCRM-R-011` | A documentation obligation: `PROVENANCE.md` must record the retrieval route for `RS14`, that `RHS12` is reprinted in full within it, and the relocation this version records — what moved, why, and what the review found while it moved. Discharged by §9 and the entry a reviewer reads, the same pattern as `SHDW-R-020`. |
 | `MCRM-R-005`, `MCRM-R-006`, `MCRM-R-007`, `MCRM-R-008`, `MCRM-R-009`, `MCRM-R-010`, `MCRM-F-004`, `MCRM-F-005` | **Retired, not live requirements of this document.** Each moved to `SPEC-srp-analytic` in v2.0 (`MCRM-F-005` alone was retired outright); the Retired identifiers table below names where. Listed here only so the tool's own denominator — which counts every `-R-`/`-F-` row the Retired table's format necessarily defines — does not report them as uncovered live requirements; none is discharged by a test IN THIS document because none is a requirement OF this document any longer. |
+| `MCRM-R-017` | **(v2.2)** States a SCOPE BOUNDARY (the energy-conservation guard does NOT cover `SphericalSurface`), not a behaviour to exercise — there is no constructor to attach a test to (`SphericalSurface` is a plain aggregate), and no consumer in this tree has built one, `MCRM-R-017`'s own text. |
 
 ---
 
@@ -303,6 +338,15 @@ type already makes unreachable, and is not carried forward at all — see that s
   `SPEC-photon-pressure`'s own — the schema-level change (this document) and the
   force-law-level need that drove it (that one) are two different claims, kept as such
   rather than conflated (`PHPR-R-003`'s own bit-identity note names the same discipline).
+- **v2.2 (§4.4).** `PROVENANCE.md`'s own L5 step-4 entry records the full finding this guard
+  responds to: SPOT-5's own Appendix-1 worked example found NOT to conserve energy, the
+  real kernel's own output quantifiably disagreeing with the example's own printed answer as
+  a direct consequence, and the manager's own instruction that this become an ENFORCED
+  schema property rather than a documented gap — plus the two pre-existing tests
+  (`PHPR-A-011`/`PHPR-A-016`, in `erp`/`srp_analytic`) whose own synthetic, non-conserving
+  test triples this guard newly refuses, fixed by choosing conserving values instead (the
+  qualitative claims either test makes do not depend on the exact triple, checked before the
+  fix, not merely assumed).
 
 ---
 

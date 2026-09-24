@@ -117,7 +117,7 @@ coefficients directly, in closed form, with no notation needing a second reading
   CONVENTION — the manager's own named alternative used instead.** The appendix's own worked example is
   for SPOT-5's BUS ALONE (no attitude, no yaw/roll/pitch mentioned at all, `tests/spot5_appendix_tests.
   cpp`'s own header comment) — it validates the photon-pressure KERNEL (`SPEC-srp-analytic.md`
-  `SRPA-A-011..A-013`), not this attitude law. Per the manager's own ruling, this law's own rotation
+  `SRPA-A-014..A-013`), not this attitude law. Per the manager's own ruling, this law's own rotation
   convention is instead checked against the property that the roll/pitch/yaw oscillations VANISH AT
   THEIR OWN NODES, against an INDEPENDENTLY worked-out closed form (`S6AT-A-003`, §3 above): at
   theta=0/180 deg, roll and pitch both vanish (`sin(theta)=0` and `sin(2*theta)=0` together), leaving a

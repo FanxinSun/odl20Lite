@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Spec ID** | `PHPR` |
-| **Status** | **draft** 2026-09-23, for review |
-| **Version** | 1.0 |
-| **Date** | 2026-09-23 |
+| **Status** | **draft** 2026-09-23, for review (v1.1, 2026-09-24: `flat_force`'s own energy-conservation scope stated beside `PHPR-R-010`'s formula, per L5 step 4's own SPOT-5 finding, `SPEC-srp-analytic.md` `SRPA-A-014`/`A-015`) |
+| **Version** | 1.1 |
+| **Date** | 2026-09-24 |
 | **Layer** | L4 `forces-analytic`, step 5 (`../plan/PLAN.md` §3.5, `../plan/subplan_L4/L4-5.md`) |
 | **Depends on** | `core`, `time`, `eop`, `frames`, `ephemerides`, `shadow`, `macromodel`, `srp_analytic`, `dynamics` |
 | **Depended on by** | L4's own exit gate (after step 7 — an arc fit with this layer's forces, unreachable without a working `dyn::Force` for SRP) |
@@ -273,6 +273,23 @@ photon_force(model: Macromodel, irradiance: IrradianceWPerM2, band: Band,
   scope), and `KVP10`'s independent solar-sail derivation, checked for the general oblique case,
   turns out to cover the same normal-incidence geometry `BLS79` already does exactly, not a wider
   one, so no accessible source closes this bound tighter than stating it.
+
+  **THE KERNEL'S SCOPE: `flat_force`'s own `(1−ρ)` form is the general, three-coefficient
+  radiation-momentum law — `(α+δ)*e_D + 2*(δ/3+ρ·cosθ)*e_N` — ONLY where `α+ρ+δ=1` (energy
+  conservation).** The two are algebraically identical exactly there (`α+δ = 1−ρ` is that
+  identity restated) and genuinely DIFFERENT otherwise — this is a stated SCOPE of the kernel,
+  not a rounding-level approximation, found and quantified at L5 step 4 (`SPEC-srp-analytic.md`
+  `SRPA-A-014`/`A-015`): a CNES technical note's own worked SRP example (Appendix 1,
+  `SALP-NT-BORD-OP-16137-CN`) for SPOT-5's bus does NOT conserve energy (its own six rows sum to
+  0.499–0.912) and the kernel's own `(1−ρ)` output, fed that data directly, disagrees with the
+  example's own printed answer by roughly the row's own energy gap (`1−α−ρ−δ`) — at the
+  clearest single-face case, ~49%. Every macromodel this tree has built through L5 step 4
+  conserves energy exactly or to floating-point rounding (`SPCR-A-001` and its own successors);
+  SPOT-5's own table is the first, and so far only, example this tree has seen OUTSIDE that
+  scope. `SPEC-macromodel.md`'s own `MCRM-R-016`/`MCRM-F-007` now REFUSES a surface whose
+  optics fall more than 1% short of conservation, so a future non-conserving macromodel cannot
+  reach this kernel un-refused — the scope this paragraph states is therefore enforced, not
+  merely documented.
 
   **The Jacobian this term implies is ANALYTIC, not a finite difference of the kernel.** Per surface,
   the substitution above is exactly AFFINE in **v** — every direction and coefficient it uses

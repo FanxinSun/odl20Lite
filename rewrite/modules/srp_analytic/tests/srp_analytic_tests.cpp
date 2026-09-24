@@ -766,7 +766,11 @@ TEST_CASE("PHPR-A-016  PHPR-R-004a's two axes, face and band, checked separately
 
     SECTION("(1) face: a two-sided surface lit from behind receives a force through the "
             "back triple; the same geometry on a one-sided surface receives nothing") {
-        auto front_a = cited(0.1, "front"), front_r = cited(0.1, "front"),
+        // Energy-conserving (MCRM-F-007); the front triple is never actually
+        // read in this section (the source is BEHIND the front, cos_theta<0
+        // zeroes it regardless of its own optics), so this choice changes
+        // nothing this section's own claim depends on.
+        auto front_a = cited(0.8, "front"), front_r = cited(0.1, "front"),
             front_d = cited(0.1, "front");
         auto back_a = cited(0.9, "back"), back_r = cited(0.05, "back"), back_d = cited(0.05, "back");
         REQUIRE(front_a.has_value()); REQUIRE(back_a.has_value());
@@ -840,7 +844,10 @@ TEST_CASE("PHPR-A-016  PHPR-R-004a's two axes, face and band, checked separately
 
     SECTION("(3) both together: a two-sided surface with band-differing BACK optics only -- "
             "the front reads identically in both bands, the back does not") {
-        auto front_a = cited(0.1, "front"), front_r = cited(0.1, "front"),
+        // Energy-conserving (MCRM-F-007); the equality this section checks
+        // (front_vis == front_ir, an exact fall-back) holds for any front
+        // triple, so this choice changes nothing the section depends on.
+        auto front_a = cited(0.8, "front"), front_r = cited(0.1, "front"),
             front_d = cited(0.1, "front");
         auto back_vis_a = cited(0.8, "back-vis"), back_vis_r = cited(0.1, "back-vis"),
             back_vis_d = cited(0.1, "back-vis");

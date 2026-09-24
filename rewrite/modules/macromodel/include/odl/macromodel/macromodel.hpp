@@ -22,6 +22,7 @@
 #include <odl/macromodel/body_direction.hpp>
 #include <odl/macromodel/cited.hpp>
 
+#include <cmath>
 #include <optional>
 #include <string>
 #include <variant>
@@ -133,10 +134,58 @@ private:
     std::optional<BandedOptics> back_;    ///< PHPR-R-004a/R-004b
 };
 
+/// MCRM-R-016.  `SPEC-photon-pressure` §4.1's own flat-force formula --
+/// `(1-rho)*e_D + 2*(delta/3+rho*cos_theta)*e_N` -- is the general,
+/// three-coefficient radiation-momentum law -- `(alpha+delta)*e_D +
+/// 2*(delta/3+rho*cos_theta)*e_N` -- ONLY where `alpha+rho+delta=1` (energy
+/// conservation): the two are algebraically identical exactly there, and
+/// genuinely different otherwise (`SPEC-photon-pressure` §4.1's own worked
+/// derivation, `SPEC-srp-analytic.md`'s `SRPA-A-014`/`A-015` prove the gap
+/// numerically against a published, non-conserving case). Every triple this
+/// schema has ever accepted, from every constellation built through L5 step
+/// 4, conserves energy to within floating-point rounding (`SPCR-A-001` and
+/// its own successors) -- this is not a property the kernel merely assumes
+/// silently, it is now a property THIS FACTORY checks, so a future
+/// non-conserving macromodel cannot reach `flat_force` un-refused the way a
+/// hand-built, schema-bypassing SPOT-5 macromodel could before this
+/// guard existed. 1% relative tolerance: an order of magnitude above the
+/// largest ROUNDING-level deviation any accepted triple has shown (Jason-2's/
+/// Jason-3's own infrared rows, up to 0.2%, `SPEC-spacecraft.md` `SPCR-P-5`),
+/// and almost an order of magnitude below the smallest GENUINE violation
+/// found (SPOT-5's own least-bad row, 8.8% short of 1) -- a threshold with
+/// real margin on both sides, not tuned to the boundary.
+[[nodiscard]] inline odl::Result<void, MacromodelError>
+check_energy_conservation(const OpticalTriple& t, const char* band_name) {
+    const double sum = t.absorptivity.value() + t.specular.value() + t.diffuse.value();
+    if (std::abs(sum - 1.0) > 1.0e-2) {
+        return odl::err(MacromodelError{"MCRM-F-007",
+            std::string("a surface's own ") + band_name + " optical triple does not "
+            "conserve energy: absorptivity + specular + diffuse = " + std::to_string(sum) +
+            " (expected 1, within 1% relative) -- srp_analytic::flat_force's own (1-rho) "
+            "term equals this triple's own (alpha+delta) only under energy conservation "
+            "(SPEC-photon-pressure.md §4.1); a triple this far from 1 would silently feed "
+            "the kernel a different force law than its own citation implies"});
+    }
+    return {};
+}
+
+[[nodiscard]] inline odl::Result<void, MacromodelError>
+check_banded_energy_conservation(const BandedOptics& b) {
+    auto vis = check_energy_conservation(b.visible, "visible");
+    if (!vis.has_value()) return vis;
+    if (b.infrared.has_value()) {
+        auto ir = check_energy_conservation(*b.infrared, "infrared");
+        if (!ir.has_value()) return ir;
+    }
+    return {};
+}
+
 /// A surface whose normal is a body-fixed constant (a bus panel).
 /// `front_infrared`/`back` default to absent (PHPR-R-004a/R-004b), so every
 /// pre-existing call site compiles unchanged: one-sided, visible-band-only,
-/// exactly as before these fields existed.
+/// exactly as before these fields existed. MCRM-F-007 (`MCRM-R-016`): every
+/// supplied triple (front visible, front infrared, back visible, back
+/// infrared) is checked to conserve energy before construction succeeds.
 [[nodiscard]] inline odl::Result<FlatSurface, MacromodelError>
 flat_surface_body_fixed(Cited<double> area_m2, BodyDirection normal, Cited<double> absorptivity,
                         Cited<double> specular, Cited<double> diffuse,
@@ -144,6 +193,12 @@ flat_surface_body_fixed(Cited<double> area_m2, BodyDirection normal, Cited<doubl
                         std::optional<BandedOptics> back = std::nullopt) {
     BandedOptics front{OpticalTriple{std::move(absorptivity), std::move(specular), std::move(diffuse)},
                        std::move(front_infrared)};
+    auto front_ok = check_banded_energy_conservation(front);
+    if (!front_ok.has_value()) return odl::err(front_ok.error());
+    if (back.has_value()) {
+        auto back_ok = check_banded_energy_conservation(*back);
+        if (!back_ok.has_value()) return odl::err(back_ok.error());
+    }
     return FlatSurface(std::move(area_m2), NormalMode::body_fixed, normal, std::move(front),
                        std::move(back));
 }
@@ -153,7 +208,8 @@ flat_surface_body_fixed(Cited<double> area_m2, BodyDirection normal, Cited<doubl
 /// normal at all: there is nothing to disagree with the tracking law.
 /// `back` defaults to absent (PHPR-R-004a); a sun-tracking panel's own back
 /// is exactly the case this field exists for -- the Sun never lights it, but
-/// a different body's radiation (ERP's Earth) can.
+/// a different body's radiation (ERP's Earth) can. MCRM-F-007, the same
+/// energy-conservation check `flat_surface_body_fixed` runs.
 [[nodiscard]] inline odl::Result<FlatSurface, MacromodelError>
 flat_surface_sun_pointing(Cited<double> area_m2, Cited<double> absorptivity,
                           Cited<double> specular, Cited<double> diffuse,
@@ -161,6 +217,12 @@ flat_surface_sun_pointing(Cited<double> area_m2, Cited<double> absorptivity,
                           std::optional<BandedOptics> back = std::nullopt) {
     BandedOptics front{OpticalTriple{std::move(absorptivity), std::move(specular), std::move(diffuse)},
                        std::move(front_infrared)};
+    auto front_ok = check_banded_energy_conservation(front);
+    if (!front_ok.has_value()) return odl::err(front_ok.error());
+    if (back.has_value()) {
+        auto back_ok = check_banded_energy_conservation(*back);
+        if (!back_ok.has_value()) return odl::err(back_ok.error());
+    }
     return FlatSurface(std::move(area_m2), NormalMode::sun_pointing, std::nullopt, std::move(front),
                        std::move(back));
 }

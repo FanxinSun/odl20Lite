@@ -40,13 +40,24 @@
 
 namespace odl::spacecraft {
 
-/// `ja2mass.txt`/`ja3mass.txt`'s own dense, thousands-of-row operational
-/// offset log is NOT "Galileo's shape" (a small, stable, dated table,
-/// `galileo.hpp`'s own `YearMonth`) -- REQUIRED, no default (the manager's
-/// own instruction, "an explicitly named selector"), with exactly one legal
-/// value today: a future round that adds real epoch-based lookup extends
-/// this enum, forcing every call site to choose, rather than silently
-/// keeping today's baseline-only behaviour.
+/// THE TRUE REASON THIS IS `Baseline` ONLY, STATED PLAINLY (the manager's
+/// own review, 2026-09-24, after an earlier draft of this comment gave a
+/// reason that was not the real one): NO CONSUMER NEEDS JASON'S OWN MASS OR
+/// CENTRE OF MASS YET, so ingesting `ja2mass.txt`/`ja3mass.txt` (confirmed
+/// openly retrievable, ~4000 dated rows each) into a real epoch lookup is
+/// DEFERRED, not built -- the same "no consumer" reasoning BeiDou's and
+/// GPS-IIIA's own refusals already state, applied here to a schema gap
+/// rather than a data one. An operational log of dated rows is exactly what
+/// a lookup CAN be built against (an earlier version of this comment
+/// suggested otherwise, calling the file's own row count a poor match for
+/// "Galileo's shape" -- true as an observation about SCALE, but not why the
+/// lookup was skipped, and stated in a way that could be misread as a
+/// structural obstacle rather than a deferred, ordinary engineering task).
+/// REQUIRED, no default (the manager's own instruction, "an explicitly
+/// named selector"), with exactly one legal value today: a future round
+/// that adds the real epoch-based lookup extends this enum, forcing every
+/// call site to choose, rather than silently keeping today's baseline-only
+/// behaviour.
 enum class JasonMassSource { Baseline };
 
 /// SPCR-R-021. Jason-2's own macromodel: 6 body-fixed bus `FlatSurface`s
@@ -63,12 +74,11 @@ enum class JasonMassSource { Baseline };
 /// its own first consumer). Mass and centre of mass are §7.1's own BASELINE
 /// values (505.9 kg; (0.9768, 0.0001, 0.0011) m) under an EXPLICITLY NAMED
 /// selector (`JasonMassSource`) -- `ja2mass.txt`'s own per-event offset log
-/// IS openly retrievable (confirmed, fetched directly, 4134 lines) but its
-/// own SHAPE -- a dense, ever-growing operational correction history, not a
-/// small stable dated table -- is a poor match for the epoch-lookup pattern
-/// `galileo_iov`/`_foc` already use (~30 stable rows); NOT embedded this
-/// round, the manager's own explicitly offered fallback taken instead
-/// (`SPCR-Q`). Always succeeds -- one satellite, one table, no per-epoch or
+/// IS openly retrievable (confirmed, fetched directly, 4134 lines), but NO
+/// CONSUMER NEEDS THE EPOCH-CURRENT VALUE YET, so ingesting it into a real
+/// lookup is deferred (`JasonMassSource`'s own header comment states this
+/// plainly, and why an earlier draft's "shape" reasoning was not the real
+/// one). Always succeeds -- one satellite, one table, no per-epoch or
 /// per-life-stage axis this source offers.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError>
 jason2(JasonMassSource source);

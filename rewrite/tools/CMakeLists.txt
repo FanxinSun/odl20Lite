@@ -23,3 +23,7 @@ target_link_libraries(orbex_glonass_check PRIVATE
 add_executable(orbex_qzss_check orbex_qzss_check.cpp)
 target_link_libraries(orbex_qzss_check PRIVATE
   odl::attitude odl::frames odl::eop odl::ephemerides odl::time)
+
+add_executable(doris_jason_check doris_jason_check.cpp)
+target_link_libraries(doris_jason_check PRIVATE
+  odl::attitude odl::frames odl::eop odl::ephemerides odl::time)
