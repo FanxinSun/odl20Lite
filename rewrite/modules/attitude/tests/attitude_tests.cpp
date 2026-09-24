@@ -453,6 +453,93 @@ TEST_CASE("TYAW-A-005  IIIA is bit-identical to IIF at the same inputs -- the st
     }
 }
 
+TEST_CASE("TYAW-A-015  the ramp's own sense, in every active rate-limited turn of every "
+          "block, equals the sign of the nominal law's own rate at onset -- KOUBA09's Eq.15/16, "
+          "SIGN[R,psi_dot_n(t_s)], the SAME term verbatim in both equations, his own text: "
+          "IIR's noon and midnight turns 'modeled in the same fashion [as Eq.15], except for "
+          "the 180 deg reversal of X-bar' -- that reversal is the ATAN2 term only, not this "
+          "one. IIR is EXPECTED to FAIL this on the code as it currently stands: turn_ramp_sign "
+          "still carries an x_sign factor Eq.15/16 do not license (PROVENANCE.md Sec.30.20)",
+          "[attitude][gate]") {
+    // psidot_nominal is private (attitude.cpp's own anonymous namespace) --
+    // its TRUE sign at onset is read here through the PUBLIC interface
+    // instead, by a central finite difference of nominal_yaw_steering's own
+    // recovered psi at two points straddling onset, independent of
+    // whatever attitude.cpp's own internals currently compute.
+    auto nominal_psidot_sign_at = [](double beta_deg, double mu_deg) {
+        constexpr double kH = 1.0e-4;
+        auto psi_at = [&](double mu_d) {
+            auto f = fixture_at(beta_deg, mu_d);
+            auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+            REQUIRE(nom.has_value());
+            return recover_psi(Vec3{nom->r[0][0], nom->r[0][1], nom->r[0][2]}, mu_d);
+        };
+        const double p1 = psi_at(mu_deg + kH);
+        const double p2 = psi_at(mu_deg - kH);
+        const double d = std::atan2(std::sin(p1 - p2), std::cos(p1 - p2));
+        return d > 0.0;
+    };
+    auto boundary_active = [](double beta_deg, double mu_deg, GpsBlock block,
+                               const HardwareYawRates& rates) {
+        auto f = fixture_at(beta_deg, mu_deg);
+        auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, block, rates);
+        auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+        REQUIRE(turn.has_value());
+        REQUIRE(nom.has_value());
+        return max_component_diff(*turn, *nom) > 1.0e-6;
+    };
+    auto find_onset = [&](double beta_deg, double lo, double hi, GpsBlock block,
+                           const HardwareYawRates& rates) {
+        const bool lo_active = boundary_active(beta_deg, lo, block, rates);
+        REQUIRE(boundary_active(beta_deg, hi, block, rates) != lo_active);
+        for (int i = 0; i < 60; ++i) {
+            const double mid = (lo + hi) / 2.0;
+            if (boundary_active(beta_deg, mid, block, rates) == lo_active) lo = mid; else hi = mid;
+        }
+        return (lo + hi) / 2.0;
+    };
+    auto psi_at_public = [](double beta_deg, double mu_deg, GpsBlock block,
+                             const HardwareYawRates& rates) {
+        auto f = fixture_at(beta_deg, mu_deg);
+        auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, block, rates);
+        REQUIRE(turn.has_value());
+        return recover_psi(Vec3{turn->r[0][0], turn->r[0][1], turn->r[0][2]}, mu_deg);
+    };
+
+    const HardwareYawRates ii_iia{0.122, 0.122, 0.5, 0.0017};
+    const HardwareYawRates iir{0.20, 0.20, 0.0, 0.0};
+    const HardwareYawRates iif{0.11, 0.06, 0.0, 0.0};
+    struct Case { const char* label; double beta_deg, lo, hi; GpsBlock block; HardwareYawRates rates; };
+    const Case cases[] = {
+        {"II/IIA noon",    1.0, 170.0, 180.0, GpsBlock::II_IIA, ii_iia},
+        {"IIR noon",       1.0, 170.0, 180.0, GpsBlock::IIR_IIRM, iir},
+        {"IIR midnight",   1.0, -15.0,   0.0, GpsBlock::IIR_IIRM, iir},
+        {"IIF noon",       1.0, 170.0, 180.0, GpsBlock::IIF, iif},
+    };
+    for (const auto& c : cases) {
+        INFO(c.label);
+        const double mu_s = find_onset(c.beta_deg, c.lo, c.hi, c.block, c.rates);
+        const bool nominal_rising = nominal_psidot_sign_at(c.beta_deg, mu_s);
+        // Sample two points genuinely inside the turn, both on the same side
+        // of onset as "active", well clear of the boundary itself.
+        constexpr double kStep = 0.02;
+        const bool lo_active = boundary_active(c.beta_deg, c.lo, c.block, c.rates);
+        const double mu1 = lo_active ? mu_s - kStep : mu_s + kStep;
+        const double mu2 = lo_active ? mu_s - 2 * kStep : mu_s + 2 * kStep;
+        const double psi1 = psi_at_public(c.beta_deg, mu1, c.block, c.rates);
+        const double psi2 = psi_at_public(c.beta_deg, mu2, c.block, c.rates);
+        // Walking from mu_s outward in the turn's own active direction: does
+        // the ramp's own psi move the SAME way the nominal law was already
+        // heading at onset? Both readings taken walking AWAY from onset in
+        // mu, so a directional (not wrapped-nearest) comparison is exact
+        // for a linear ramp over this small a span.
+        const double d_ramp = psi2 - psi1;
+        const bool ramp_rising = (lo_active ? -d_ramp : d_ramp) > 0.0;
+        INFO("mu_s=" << mu_s << " nominal_rising=" << nominal_rising << " ramp_rising=" << ramp_rising);
+        CHECK(ramp_rising == nominal_rising);
+    }
+}
+
 TEST_CASE("TYAW-A-014  TYAW-P-2 continuity, checked one step inside and one step outside "
           "EVERY hand-over of every block (not just at the exact onset, which TYAW-A-002's "
           "own check sits at, and which the manager's own review found every block's turn "

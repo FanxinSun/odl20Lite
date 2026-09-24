@@ -199,35 +199,49 @@ struct OrbitTriad {
 }
 
 /// The ramp's own constant-rate direction for a noon/midnight-shaped turn
-/// (KOUBA09's own SIGN[R, psi_dot_n(t_s)], Eq. 15/16, HIS OWN psi_dot_n --
-/// not this file's `psidot_nominal`, which no longer takes `x_sign` at all,
-/// see below): algebraically, in KOUBA09's own frame, sign(psi_dot_n) =
-/// x_sign * sign(beta) * sign(cos(mu_s)), and cos(mu_s) has a FIXED sign for
-/// each turn family (negative approaching noon, positive approaching
-/// midnight, since the turn's own half-width is always < 90 deg) -- so this
-/// needs no direct, beta-near-zero-fragile evaluation of psi_dot_n itself.
-/// sign(beta) uses TYAW-R-007's own RULED convention: sign(0) := +1, the
-/// stateless tie-break for the beta-near-zero edge case (TYAW-Q-002).
+/// (KOUBA09's own SIGN[R, psi_dot_n(t_s)]) -- Eq. 15 (II/IIA) and Eq. 16
+/// (IIR) carry this EXACT SAME term, verbatim, not a block-dependent one:
+/// his own text states the two turns are "modeled in the same fashion...
+/// except for the 180 deg reversal of X-bar", and that reversal is the
+/// ATAN2 term alone (Eq. 4 vs Eq. 5) -- SIGN[R, psi_dot_n(t_s)] is untouched
+/// by it. His own psi_dot_n, Eq. 6, is ALSO printed as a single formula, no
+/// IIR variant given, matching `psidot_nominal` above (which, independent
+/// of any of this, already does not take an x_sign, PROVENANCE.md
+/// Sec.30.16). No `x_sign` PARAMETER here either (removed 2026-09-24, the
+/// manager's own finding and correction of an earlier version of this
+/// function, PROVENANCE.md Sec.30.20): algebraically, sign(psi_dot_n) =
+/// sign(beta) * sign(cos(mu_s)), and cos(mu_s) has a FIXED sign for each
+/// turn family (negative approaching noon, positive approaching midnight,
+/// since the turn's own half-width is always < 90 deg) -- so this needs no
+/// direct, beta-near-zero-fragile evaluation of psi_dot_n itself. sign(beta)
+/// uses TYAW-R-007's own RULED convention: sign(0) := +1, the stateless
+/// tie-break for the beta-near-zero edge case (TYAW-Q-002).
 ///
-/// STILL TAKES `x_sign`, the ONE place in this file that does (`psi_nominal`
-/// above dropped it, PROVENANCE.md Sec.30.16/30.19): this function's own
-/// job is narrower than computing a frame-correct angle -- it only has to
-/// pick the SIGN `evaluate_turn`'s own ramp advances in, matching KOUBA09's
-/// own operational rule (the ramp continues the direction the nominal law
-/// was already heading at onset). Removing `x_sign` from `psi_nominal`
-/// alone, leaving this function AS IS, was PROVED -- not assumed -- to
-/// leave `evaluate_turn`'s own `gap` sign, hence every turn's own active
-/// region and hand-over timing, EXACTLY unchanged for every block: the
-/// constant pi that `psi_s` and the nominal-law delta both pick up cancels
-/// algebraically inside `gap`, confirmed symbolically and by re-evaluating
-/// a dense IIR noon-turn sweep before this fix was trusted (4000 points,
-/// zero activity mismatches, psi differing from the pre-fix value by
-/// exactly pi at every active one, to 8.88e-16) -- while the RETURNED psi
-/// itself shifts by that same pi throughout the whole turn, which is
-/// exactly the fix `psi_nominal`'s own comment describes.
-[[nodiscard]] double turn_ramp_sign(double beta, double x_sign, bool is_noon) noexcept {
+/// An earlier version of this function multiplied by `x_sign`, reasoning
+/// (wrongly) that IIR's own "180 deg reversal" reaches this term too --
+/// it does not, per KOUBA09's own Eq. 15/16 quoted above, confirmed
+/// independently three ways before this was trusted: (1) the source's own
+/// rendered page, not a prior transcription (the same discipline that
+/// caught a dropped minus sign in `MSGA15`'s own text this same day); (2) a
+/// direct symbolic/numerical check that d(psi_K)/d(mu), Eq. 4 or Eq. 5
+/// alike, is x_sign-INDEPENDENT (x^2 = 1 cancels inside the ATAN2
+/// derivative), confirmed to 2.2e-9 over 2000 random points; (3) `TYAW-A-015`
+/// (the permanent guard for this), checking the ramp's own sense against an
+/// INDEPENDENT finite difference of `nominal_yaw_steering`'s own psi at
+/// onset, shown to FAIL for IIR on the `x_sign`-multiplied code (`plan`
+/// rule 5) before being trusted to pass after. The earlier version's own
+/// mistake ran IIR's ramp AGAINST the nominal law's own rate at onset,
+/// forcing the turn to complete "the long way round" -- roughly a lap and
+/// change of ATAN2's own branch -- rather than catching up promptly; this
+/// is what CODE's own real G05 data was showing all along (PROVENANCE.md
+/// Sec.30.20's own pointwise account), which an earlier pass on this same
+/// day misread as evidence of KOUBA09's own printed hardware wind-up effect
+/// (PROVENANCE.md Sec.30.14, commit d7a1452) -- a real, printed effect, but
+/// not the cause of the residual measured here; that explanation is
+/// withdrawn in place there, not deleted.
+[[nodiscard]] double turn_ramp_sign(double beta, bool is_noon) noexcept {
     const double sign_beta = (beta < 0.0) ? -1.0 : 1.0;
-    return -(x_sign * sign_beta * (is_noon ? -1.0 : 1.0));
+    return -(sign_beta * (is_noon ? -1.0 : 1.0));
 }
 
 struct TurnResult {
@@ -443,11 +457,10 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
                   GpsBlock block, const HardwareYawRates& rates) {
     // TYAW-R-004: IIIA is TYAW-R-003's own IIF law, unchanged -- not a fifth
     // implementation (TYAW-A-005 checks this is bit-identical to IIF).
+    // No `x_sign` here (removed 2026-09-24, the last of it -- PROVENANCE.md
+    // Sec.30.19/30.20): every block now shares one frame and one ramp-sign
+    // rule, differing only in the HARDWARE RATES `rates` itself carries.
     const GpsBlock effective_block = (block == GpsBlock::IIIA) ? GpsBlock::IIF : block;
-    // Fed to `turn_ramp_sign` only, below -- `psi_nominal` itself no longer
-    // takes an x_sign (PROVENANCE.md Sec.30.19/TYAW-Q-007, `psi_nominal`'s
-    // own comment has the full account of why).
-    const double x_sign = (effective_block == GpsBlock::IIR_IIRM) ? -1.0 : 1.0;
 
     const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
     const Vec3 s_hat = normalized(sun_direction_gcrs);
@@ -470,7 +483,7 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
     // the mu bug was found, not because the implementation was wrong for
     // what it modelled).
     TurnResult result = evaluate_turn(beta, mu, M_PI, noon_onset, noon_rate,
-                                       turn_ramp_sign(beta, x_sign, /*is_noon=*/true));
+                                       turn_ramp_sign(beta, /*is_noon=*/true));
 
     if (!result.active) {
         switch (effective_block) {
@@ -487,7 +500,7 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
                 // noon, IIR's own single hardware rate (identical to noon).
                 const double night_onset = std::atan(kMuDotRadPerS / night_rate);
                 result = evaluate_turn(beta, mu, 0.0, night_onset, night_rate,
-                                        turn_ramp_sign(beta, x_sign, /*is_noon=*/false));
+                                        turn_ramp_sign(beta, /*is_noon=*/false));
                 break;
             }
             case GpsBlock::IIF:
