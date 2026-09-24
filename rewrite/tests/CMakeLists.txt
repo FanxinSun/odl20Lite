@@ -29,6 +29,15 @@ add_test(NAME budget.checker_catches_the_historical_errors
 add_test(NAME constraint8.result_only
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/constraint8.py")
 
+# L5 step 4's own review round: speccheck.py's new duplicate-TEST_CASE check
+# (gate 7) caught a real bug (two different modules' own tests claiming the
+# same id) that nothing before it could see. This proves the checker itself
+# catches that shape, the same "inject the historical error" discipline
+# budget.checker_catches_the_historical_errors already uses for a different
+# checker.
+add_test(NAME speccheck.catches_duplicate_test_case_ids
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_duplicate.py")
+
 # --------------------------------------------------------------------------- #
 # The module boundary is a link boundary — proved both ways.
 

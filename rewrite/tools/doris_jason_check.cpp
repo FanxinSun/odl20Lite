@@ -13,64 +13,61 @@
 // SLR+DORIS dynamic orbit, satellite id "L39" inside the file, ITRF,
 // `.Z`-compressed) -- both fetched and decompressed this round.
 //
-// MODE 1 (--nadir): the quaternion's own convention is UNSTATED, so it is
-// SETTLED HERE FIRST, independently of trusting `jason_attitude`'s own
-// construction -- the SAME "verify independently before testing" discipline
-// this project's own QZS-3 diagnosis used. TOPEX/Jason's own source states
-// "Z always nadir" (`SPEC-jason-attitude.md` §3) -- a MODEL-INDEPENDENT fact
-// this test checks directly: for each of 4 candidate conventions (scalar
-// first/last x rotates-body-to-ECEF/rotates-ECEF-to-body), the predicted
-// body Z axis (transformed ECEF->GCRS the SAME way `frames::to_gcrs`
-// already converts position, `orbex_qzss_check.cpp`'s own established
-// pattern) is compared against the real nadir direction (-r_hat, from the
-// SAME SP3 ephemeris) at several epochs. The convention giving consistent
-// near-zero (or near-180, checked separately) angle across epochs is used
-// for MODE 2; the others are reported and discarded.
+// FIRST VERSION OF THIS TOOL tried 12 axis/order/sense combinations against
+// a nadir test and found none converging (13.6-170.0 deg, chaotic across
+// epochs) -- the manager's own review named this trial-and-error (rule 7's
+// own loophole: a comparator family widened after looking tells us little)
+// and asked for rule 4 first. Found and read in full: `SALP-IF-M/IDS-
+// EA15938-CN` v2 (30/06/2020), "JASON1&2&3 / Descriptions of the quaternion
+// and solar panel files" (CNES, DOI 10.24400/312072/i04-2026.018),
+// `ids-doris.org/resources/technical-documents/technical-note-jasons-
+// quaternions-description.html`. It settles the frame (J2000, NOT ECEF --
+// the earlier version's own spurious ECEF->GCRS step on the quaternion side
+// is the likely cause of the earlier chaotic result, explained in full at
+// `run_nadir`'s own header comment below), the component order (scalar
+// first, confirming the earlier hypothesis) and the time scale (UTC). It
+// does NOT state the rotation sense (body-to-J2000 or J2000-to-body) --
+// the ONE genuinely remaining choice, checked both ways, a bounded second
+// attempt per the manager's own instruction, not a re-opened search.
+//
+// MODE 1 (--nadir): TOPEX/Jason's own source states "Z always nadir"
+// (`SPEC-jason-attitude.md` §3) -- a MODEL-INDEPENDENT fact checked
+// directly, before trusting `jason_attitude`'s own construction, the SAME
+// "verify independently before testing" discipline this project's own
+// QZS-3 diagnosis used.
 //
 // MODE 2 (--compare): REGISTERED comparison against `jason_attitude`, for
-// one Jason-3 day, at several epochs -- criterion and predictions stated
-// BEFORE the quaternion file is read for those specific epochs (the nadir
-// test above already read the file, but only to settle the CONVENTION, a
-// different question from whether `jason_attitude`'s own CONSTRUCTION is
-// correct, which this mode alone tests).
+// one Jason-3 day -- criterion and predictions stated BEFORE this mode
+// reads a quaternion row for comparison (the nadir test above already read
+// the file, but only to settle the rotation SENSE, a different question
+// from whether `jason_attitude`'s own CONSTRUCTION is correct).
 //
-// RESULT (2026-09-24, --nadir, GSFC/gsc's own SLR+DORIS L39=Jason-3 SP3,
-// 2025-12-03/04, matched against ja3qbody20251203220000_20251205020000.001
-// -- an earlier date than the manager's own first-choice window because the
-// cached EOP C04 series this environment holds covers only through
-// 2026-01-03, `data/cache/eop-c04-20/eopc04.1962-now`): THE CONVENTION WAS
-// NOT SETTLED. Eight epochs across a ~26-hour span, all three body axes
-// (X/Y/Z), both component orderings (scalar first/last) and both rotation
-// senses (direct/transpose) checked against real nadir (-r_hat, from the
-// SAME SP3 ephemeris `frames::to_gcrs` already converts for the position
-// itself, the identical technique `orbex_qzss_check.cpp`'s own proven
-// 0.00003-0.0002 deg QZSS result already validates) -- NONE of the twelve
-// (3 axes x 4 order/sense combinations) gave a consistently small (near 0)
-// or consistently large (near 180) angle across the eight epochs; every
-// one ranged unpredictably across tens of degrees epoch to epoch (13.6 to
-// 170.0), inconsistent with a single, constant convention error (which
-// would show a STABLE angle, not a chaotic one). The orbit itself was
-// cross-checked and IS Jason-3's own (altitude ~1312 km against Jason-3's
-// own known ~1336 km, computed directly from the parsed SP3 position, not
-// assumed from the file's own directory placement alone).
+// RESULT (2026-09-24, GSFC/gsc's own SLR+DORIS L39=Jason-3 SP3, 2025-12-01/
+// 12, matched against ja3qbody20251203220000_20251205020000.001): --nadir,
+// DIRECT sense, Z axis: 0.60-1.56 deg across all 8 sampled epochs (X and Y
+// both ~90 deg, as they must be when Z is genuinely nadir) -- a clean,
+// consistent match, unlike the first version's chaotic 13.6-170.0 deg. The
+// TRANSPOSE sense scattered (30.2-117.2 deg), clearly wrong. A SECOND,
+// independent bug was found and fixed while chasing the first version's own
+// stable-but-wrong ~150-155 deg result: `nearest_sp3` matched a query's own
+// (hour, minute) against `e.t[i]`'s own ELAPSED hour/minute SINCE the arc's
+// first epoch, not wall-clock time of day -- correct only on the SP3 arc's
+// own first day, silently wrong on every later one. Fixed by matching on
+// the query's own FULL calendar date/time, converted to UTC (rule 4) and
+// compared by absolute elapsed TAI seconds from the SAME `t0` the ephemeris
+// itself is built from.
 //
-// NOT YET RULED OUT, recorded as the specific next steps rather than a
-// vague "convention unknown": (1) the quaternion file's own big-integer
-// column preceding each float (e.g. "1245251323") -- assumed here to be
-// unrelated metadata (a sub-epoch timestamp or an internal sample index),
-// never used in the comparison -- may instead be load-bearing, a
-// possibility this round did not chase down; (2) the quaternion's own
-// target frame may be neither ECEF nor GCRS directly but a third frame
-// (e.g. an orbital RTN-like frame, or a frame this file's own "L39" heading
-// does not otherwise identify) this round did not try; (3) the quaternion
-// file's own epoch cadence (~32s) against the SP3's own 1-minute grid was
-// matched to the nearest MINUTE only, not interpolated -- ruled OUT as the
-// primary cause (the resulting position error is bounded by <2 deg of
-// argument-of-latitude at this orbit's own period, far short of the
-// observed tens-of-degrees scatter) but not eliminated as a contributing
-// one. This tool and this finding are kept, not discarded, so a follow-up
-// round starts from a working SP3/quaternion pipeline and a narrowed set
-// of remaining hypotheses, not from an unopened archive.
+// --compare, DIRECT sense, criterion 2 deg, REGISTERED before this mode
+// read a quaternion row: 12 epochs across 2025-12-03/05, beta-prime -75.3
+// to -78.5 deg throughout (no fixed-yaw window, |beta-prime|<15 deg, fell
+// within this particular 2.5-day arc -- not chased further, the manager's
+// own instruction to include one was conditional, "if one falls within
+// reach"). ALL TWELVE MATCHED, 0.14-1.52 deg -- strong, real-data
+// confirmation of `jason_attitude`'s own yaw-steering construction,
+// INCLUDING the "negate the Sun direction" frame mapping (`SPEC-jason-
+// attitude.md` §3), previously DERIVED but unconfirmed. The fixed-yaw
+// regime and its own construction remain UNCONFIRMED by real data -- no
+// epoch this round's own reachable window exercised it.
 
 #include <odl/attitude/attitude.hpp>
 #include <odl/core/vec3.hpp>
@@ -136,9 +133,18 @@ std::vector<Sp3Row> read_sp3(const std::string& path, const std::string& tag_id)
 }
 
 struct Ephem {
-    std::vector<double> t;   // seconds since t[0], TAI difference
+    std::vector<double> t;   // seconds since t0, TAI difference
     std::vector<Vec3> r, v;  // GCRS, km, km/s
     int y0, mo0, d0;
+    time::Epoch t0;   ///< the absolute moment t[i] is measured from -- REQUIRED
+                       ///< to place a query epoch correctly on a multi-day SP3
+                       ///< arc (a bug this tool's own first version had: matching
+                       ///< a query's own (hour, minute) against t[i]'s own
+                       ///< ELAPSED hour/minute SINCE t0, which is only the same
+                       ///< thing as wall-clock time of day on the arc's own
+                       ///< FIRST day -- silently wrong on every later day,
+                       ///< explaining a stable-but-wrong ~150 deg nadir result
+                       ///< this bug produced before it was found).
 };
 
 Ephem build_ephem(const std::string& sp3path, const std::string& tag_id, const time::LeapTable& leaps,
@@ -161,18 +167,14 @@ Ephem build_ephem(const std::string& sp3path, const std::string& tag_id, const t
         return g->position();
     };
 
-    Ephem e;
-    e.y0 = sp3[0].y; e.mo0 = sp3[0].mo; e.d0 = sp3[0].d;
     time::Epoch t0 = make_epoch(sp3[0].y, sp3[0].mo, sp3[0].d, sp3[0].h, sp3[0].mi, sp3[0].sec);
+    Ephem e{{}, {}, {}, sp3[0].y, sp3[0].mo, sp3[0].d, t0};
     e.t.resize(sp3.size());
     e.r.resize(sp3.size());
-    std::vector<time::Epoch> epochs;
-    epochs.reserve(sp3.size());
     for (std::size_t i = 0; i < sp3.size(); ++i) {
         auto ti = make_epoch(sp3[i].y, sp3[i].mo, sp3[i].d, sp3[i].h, sp3[i].mi, sp3[i].sec);
         e.t[i] = static_cast<double>(ti.tai_seconds() - t0.tai_seconds());
         e.r[i] = ecef_to_gcrs(ti, sp3[i].r_ecef_km);
-        epochs.push_back(ti);
     }
     e.v.resize(sp3.size());
     for (std::size_t i = 0; i < sp3.size(); ++i) {
@@ -250,19 +252,74 @@ EnvBits load_env(const std::string& leappath) {
     return EnvBits{std::move(*leaps), std::move(*c04), std::move(*ephem)};
 }
 
-/// Find the SP3 sample nearest a given (h, m) on the ephemeris's own first
-/// day, and the quaternion row nearest that same wall-clock instant.
-std::size_t nearest_sp3(const Ephem& e, int hh, int mm) {
+/// Find the SP3 sample nearest a query's own FULL calendar date and time
+/// (UTC, the quaternion file's own time scale, rule 4) -- by ABSOLUTE
+/// elapsed time from `e.t0`, not by (hour, minute) alone. A first version
+/// of this function matched by `(hour, minute)` computed from `e.t[i]`
+/// itself, which is elapsed time SINCE `e.t0`, not wall-clock time of day --
+/// correct only on `e.t0`'s own first day, silently wrong on every later
+/// day of a multi-day SP3 arc (query "22:00" resolved to "22 hours after
+/// the arc's own start", not "22:00 on the query's own date") -- the actual
+/// cause of a stable-but-wrong ~150-155 deg nadir result this bug produced,
+/// found and fixed before being trusted.
+std::size_t nearest_sp3(const Ephem& e, int y, int mo, int d, int hh, int mm, double sec,
+                        const time::LeapTable& leaps) {
+    time::Calendar c;
+    c.year = y; c.month = mo; c.day = d; c.hour = hh; c.minute = mm; c.second = sec;
+    auto query = time::Epoch::from_calendar(time::TimeScale::UTC, c, leaps);
+    if (!query.has_value()) { std::cerr << "epoch: " << query.error().message << "\n"; std::exit(1); }
+    const double target = static_cast<double>(query->tai_seconds() - e.t0.tai_seconds());
+
     std::size_t best = 0;
     double best_d = 1e18;
     for (std::size_t i = 0; i < e.t.size(); ++i) {
-        int h = static_cast<int>(e.t[i]) / 3600, m = (static_cast<int>(e.t[i]) / 60) % 60;
-        double d = std::abs((h * 60 + m) - (hh * 60 + mm));
-        if (d < best_d) { best_d = d; best = i; }
+        double d_s = std::abs(e.t[i] - target);
+        if (d_s < best_d) { best_d = d_s; best = i; }
     }
     return best;
 }
 
+/// RULE 4, applied per the manager's own instruction: `SALP-IF-M/IDS-
+/// EA15938-CN` v2 (30/06/2020), "JASON1&2&3 / Descriptions of the
+/// quaternion and solar panel files" (CNES, DOI 10.24400/312072/i04-
+/// 2026.018), found at `ids-doris.org/resources/technical-documents/
+/// technical-note-jasons-quaternions-description.html`, fetched and read
+/// in full 2026-09-24 -- THE convention, quoted, not the 12-way guess this
+/// tool's own earlier version tried:
+///
+///   "The quaternion files contain the 4 components of the spacecraft
+///   attitude in the J2000 frame."  -- NOT ECEF. The earlier version of
+///   this tool converted the quaternion-derived body axis from ECEF to
+///   GCRS via `frames::to_gcrs`, the SAME step CODE's own ORBEX
+///   quaternions genuinely need (confirmed correct there, 0.00003-0.0002
+///   deg agreement) -- but DORIS's own quaternions need NO such step,
+///   already being in an inertial (J2000 approx GCRS at this precision)
+///   frame. Applying that spurious extra Earth-rotation transform is the
+///   most likely reason NONE of the earlier version's twelve combinations
+///   converged: Earth rotates ~15 deg/hour, and the earlier test's own
+///   eight epochs spanned ~26 hours, so a wrongly-applied ECEF/GCRS
+///   rotation would swing the predicted axis across tens of degrees as
+///   time of day changes -- exactly the chaotic (13.6-170.0 deg) pattern
+///   found, not a constant offset.
+///
+///   "Q = [Q0, Q1, Q2, Q3] where Q0 = scalar (real) part, and [Q1,Q2,Q3] =
+///   vector (imaginary) part" ... "QISLEST1 ... Scalar (real) part" --
+///   SCALAR FIRST, confirming this tool's own "scalar-first" hypothesis
+///   (never the "scalar-last" one, now dropped).
+///
+///   "UT time ... UTC time of the packet" -- UTC, not GPS time (the SP3's
+///   own convention, unrelated and unchanged -- SP3 epochs stay GPS time,
+///   `time::TimeScale::GPS`, the standard for that format).
+///
+///   "only 5 parameters are useful (time and quaternion components), the 8
+///   others (integers UI<n>) are useless and shall be skipped" -- confirms
+///   this tool's own existing parsing (the big integers were always
+///   ignored).
+///
+/// NOT STATED by this document: the rotation SENSE (does the quaternion
+/// rotate body-frame coordinates INTO J2000, or J2000 coordinates INTO the
+/// body frame?). This is the ONE remaining, genuinely unresolved choice --
+/// checked both ways below, a bounded, single run, not a re-opened search.
 void run_nadir(const std::string& sp3path, const std::string& qpath, const std::string& leappath) {
     auto env = load_env(leappath);
     auto e = build_ephem(sp3path, "L39", env.leaps, env.c04);
@@ -270,10 +327,10 @@ void run_nadir(const std::string& sp3path, const std::string& qpath, const std::
     if (q.empty()) { std::cerr << "no quaternion rows in " << qpath << "\n"; std::exit(1); }
 
     std::cout << std::fixed << std::setprecision(4);
-    std::cout << "NADIR TEST -- angle (deg) between the quaternion's own predicted body Z axis "
-                 "(in GCRS) and -r_hat (real nadir), 4 candidate conventions, several epochs\n";
-    std::cout << "epoch_idx | scalar-first,direct | scalar-first,transpose | "
-                 "scalar-last,direct | scalar-last,transpose\n";
+    std::cout << "NADIR TEST (rule-4 convention: scalar-first, J2000/GCRS directly, UTC) -- "
+                 "angle (deg) between the quaternion's own predicted body Z axis and -r_hat "
+                 "(real nadir), the ONE remaining ambiguity (rotation sense), several epochs\n";
+    std::cout << "epoch (UTC)       | direct  | transpose\n";
 
     int checked = 0;
     for (std::size_t qi = 0; qi < q.size() && checked < 8; qi += (q.size() / 8 == 0 ? 1 : q.size() / 8), ++checked) {
@@ -281,61 +338,91 @@ void run_nadir(const std::string& sp3path, const std::string& qpath, const std::
         // Nearest SP3 sample to this quaternion row's own wall-clock time
         // (SP3 epochs are on this satellite's own minute grid; the
         // quaternion file's own ~32s cadence does not align exactly).
-        int hh = row.h, mm = row.mi;
-        std::size_t si = nearest_sp3(e, hh, mm);
+        std::size_t si = nearest_sp3(e, row.y, row.mo, row.d, row.h, row.mi, row.sec, env.leaps);
         Vec3 nadir_gcrs = -1.0 * normalized(e.r[si]);
+
+        // Q0 (scalar) = row.q1; [Q1,Q2,Q3] (vector) = row.q2,q3,q4 -- rule-4
+        // confirmed, applied directly to GCRS, NO ECEF step.
+        Vec3 z_direct_gcrs = body_z_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
+        Vec3 z_transp_gcrs = body_z_axis_in_other_frame(-row.q1, row.q2, row.q3, row.q4);
+
+        double a1 = angle_deg(z_direct_gcrs, nadir_gcrs);
+        double a2 = angle_deg(z_transp_gcrs, nadir_gcrs);
+        std::cout << row.y << "/" << row.mo << "/" << row.d << " " << row.h << ":" << row.mi
+                  << ":" << row.sec << " | " << a1 << " | " << a2 << "\n";
+
+        // Z/direct is stable but clusters away from both 0 and 180 -- ADDED
+        // when that was found: which of the three body axes (still under
+        // the NOW rule-4-corrected frame/order/timescale, not a repeat of
+        // the earlier, uncorrected 12-way sweep) is actually nadir in
+        // DORIS's own telemetry-native frame, which may differ from "the
+        // satellite reference frame" the ATTITUDE-LAW document names.
+        Vec3 x_direct_gcrs = body_x_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
+        Vec3 y_direct_gcrs = body_y_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
+        std::cout << "    [direct sense, all axes] X:" << angle_deg(x_direct_gcrs, nadir_gcrs)
+                  << " Y:" << angle_deg(y_direct_gcrs, nadir_gcrs) << " Z:" << a1 << "\n";
+    }
+}
+
+/// MODE 2, run only after `--nadir` shows one sense converging cleanly.
+/// REGISTERED: the criterion below (2 deg, matching every other ORBEX-style
+/// control's own `kMatchCriterionDeg`) is fixed BEFORE this function reads
+/// a single quaternion row for comparison -- the nadir test above already
+/// read the file, but only to settle which of the two rotation senses to
+/// use, a different question from whether `jason_attitude`'s own
+/// CONSTRUCTION is correct, which is what this mode alone tests.
+constexpr double kMatchCriterionDeg = 2.0;
+
+void run_compare(const std::string& sp3path, const std::string& qpath, const std::string& leappath,
+                 bool use_transpose) {
+    auto env = load_env(leappath);
+    auto e = build_ephem(sp3path, "L39", env.leaps, env.c04);
+    auto q = read_qbody(qpath);
+    if (q.empty()) { std::cerr << "no quaternion rows in " << qpath << "\n"; std::exit(1); }
+
+    std::cout << std::fixed << std::setprecision(5);
+    std::cout << "REGISTERED COMPARISON against jason_attitude, criterion " << kMatchCriterionDeg
+              << " deg, " << (use_transpose ? "transpose" : "direct") << " sense (settled by --nadir)\n";
+    std::cout << "epoch (UTC)       | beta-prime | regime      | angle to prediction (deg)\n";
+
+    bool all_matched = true;
+    int checked = 0;
+    for (std::size_t qi = 0; qi < q.size() && checked < 12;
+        qi += (q.size() / 12 == 0 ? 1 : q.size() / 12), ++checked) {
+        const QRow& row = q[qi];
+        std::size_t si = nearest_sp3(e, row.y, row.mo, row.d, row.h, row.mi, row.sec, env.leaps);
+        const Vec3 r = e.r[si], v = e.v[si];
 
         time::Epoch t = [&] {
             time::Calendar c; c.year = row.y; c.month = row.mo; c.day = row.d;
             c.hour = row.h; c.minute = row.mi; c.second = row.sec;
-            auto ep = time::Epoch::from_calendar(time::TimeScale::GPS, c, env.leaps);
+            auto ep = time::Epoch::from_calendar(time::TimeScale::UTC, c, env.leaps);
             if (!ep.has_value()) { std::cerr << "epoch: " << ep.error().message << "\n"; std::exit(1); }
             return *ep;
         }();
-        auto eop_rec = env.c04.at(t, eop::EopPolicy{});
-        if (!eop_rec.has_value()) { std::cerr << "eop: " << eop_rec.error().message << "\n"; continue; }
+        auto sun = env.ephem.geocentric_state(eph::Body::Sun, t, env.leaps);
+        if (!sun.has_value()) { std::cerr << "sun: " << sun.error().message << "\n"; continue; }
+        Vec3 sun_dir_km = sun->position() - r;
 
-        auto to_gcrs_dir = [&](const Vec3& v_ecef) -> Vec3 {
-            frames::ItrsState itrs{t, v_ecef, Vec3{0, 0, 0}};
-            auto g = frames::to_gcrs(itrs, *eop_rec, env.leaps);
-            if (!g.has_value()) { std::cerr << "to_gcrs: " << g.error().message << "\n"; std::exit(1); }
-            return g->position();
-        };
+        attitude::JasonRegime regime{};
+        auto pred = attitude::jason_attitude(r, v, sun_dir_km, &regime);
+        if (!pred.has_value()) { std::cerr << "REFUSED: " << pred.error().message << "\n"; continue; }
+        Vec3 x_pred{pred->r[0][0], pred->r[0][1], pred->r[0][2]};
 
-        // scalar-first: (q1=scalar, q2,q3,q4=vector); scalar-last: (q1,q2,q3=vector, q4=scalar).
-        Vec3 z_sf_direct_ecef = body_z_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
-        Vec3 z_sl_direct_ecef = body_z_axis_in_other_frame(row.q4, row.q1, row.q2, row.q3);
-        // "transpose" (the OTHER rotation sense): DCM(q)^T's own third
-        // COLUMN equals DCM(q)'s own third ROW -- (2(qx.qz-q_s.qy),
-        // 2(qy.qz+q_s.qx), 1-2(qx^2+qy^2)) in the standard DCM(q) this
-        // file's own `body_z_axis_in_other_frame` already implements for
-        // the third COLUMN. Negating q_s alone (NOT the vector part -- that
-        // would be the quaternion CONJUGATE, a different operation) and
-        // re-applying the SAME column formula gives EXACTLY this row,
-        // verified by direct symbolic expansion of the standard DCM(q)
-        // before being trusted here, not assumed from a name like
-        // "conjugate" that does not actually apply.
-        Vec3 z_sf_transp_ecef = body_z_axis_in_other_frame(-row.q1, row.q2, row.q3, row.q4);
-        Vec3 z_sl_transp_ecef = body_z_axis_in_other_frame(-row.q4, row.q1, row.q2, row.q3);
+        const double q_s = use_transpose ? -row.q1 : row.q1;
+        Vec3 x_real_gcrs = body_x_axis_in_other_frame(q_s, row.q2, row.q3, row.q4);
 
-        double a1 = angle_deg(to_gcrs_dir(z_sf_direct_ecef), nadir_gcrs);
-        double a2 = angle_deg(to_gcrs_dir(z_sf_transp_ecef), nadir_gcrs);
-        double a3 = angle_deg(to_gcrs_dir(z_sl_direct_ecef), nadir_gcrs);
-        double a4 = angle_deg(to_gcrs_dir(z_sl_transp_ecef), nadir_gcrs);
+        double n_hat_dot_s = normalized(r.cross(v)).dot(normalized(sun_dir_km));
+        double beta_deg = std::asin(std::clamp(n_hat_dot_s, -1.0, 1.0)) / kDeg;
+        double err = angle_deg(x_pred, x_real_gcrs);
+        if (err > kMatchCriterionDeg) all_matched = false;
         std::cout << row.y << "/" << row.mo << "/" << row.d << " " << row.h << ":" << row.mi
-                  << " | " << a1 << " | " << a2 << " | " << a3 << " | " << a4 << "\n";
-
-        // DIAGNOSTIC (added when none of the four above converged): all
-        // three axes, scalar-first/direct convention only, against nadir --
-        // checking for a simple AXIS mislabelling (Jason's own X or Y being
-        // nadir in this file's own encoding, not Z) rather than a sign/
-        // order convention error.
-        Vec3 x_ecef = body_x_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
-        Vec3 y_ecef = body_y_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
-        std::cout << "    [axis diag, scalar-first/direct] X:" << angle_deg(to_gcrs_dir(x_ecef), nadir_gcrs)
-                  << " Y:" << angle_deg(to_gcrs_dir(y_ecef), nadir_gcrs)
-                  << " Z:" << a1 << "\n";
+                  << ":" << row.sec << " | " << beta_deg << " | "
+                  << (regime == attitude::JasonRegime::FixedYaw ? "FixedYaw " : "YawSteering")
+                  << " | " << err << "\n";
     }
+    std::cout << (all_matched ? "ALL MATCHED within the registered criterion\n"
+                              : "AT LEAST ONE EXCEEDED the registered criterion\n");
 }
 
 }  // namespace
@@ -345,6 +432,15 @@ int main(int argc, char** argv) {
         run_nadir(argv[2], argv[3], argv[4]);
         return 0;
     }
-    std::cerr << "usage: doris_jason_check --nadir <sp3> <qbody> <leap_seconds_dat>\n";
+    if (argc == 6 && std::string(argv[1]) == "--compare") {
+        const std::string sense = argv[5];
+        if (sense != "direct" && sense != "transpose") {
+            std::cerr << "sense must be 'direct' or 'transpose'\n"; return 1;
+        }
+        run_compare(argv[2], argv[3], argv[4], sense == "transpose");
+        return 0;
+    }
+    std::cerr << "usage: doris_jason_check --nadir <sp3> <qbody> <leap_seconds_dat>\n"
+              << "   or: doris_jason_check --compare <sp3> <qbody> <leap_seconds_dat> <direct|transpose>\n";
     return 1;
 }

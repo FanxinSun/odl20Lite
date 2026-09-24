@@ -287,9 +287,22 @@ photon_force(model: Macromodel, irradiance: IrradianceWPerM2, band: Band,
   conserves energy exactly or to floating-point rounding (`SPCR-A-001` and its own successors);
   SPOT-5's own table is the first, and so far only, example this tree has seen OUTSIDE that
   scope. `SPEC-macromodel.md`'s own `MCRM-R-016`/`MCRM-F-007` now REFUSES a surface whose
-  optics fall more than 1% short of conservation, so a future non-conserving macromodel cannot
-  reach this kernel un-refused — the scope this paragraph states is therefore enforced, not
-  merely documented.
+  optics sum to anything more than 1% away from 1, IN EITHER DIRECTION — an over-unity triple
+  (e.g. summing to 1.05) is exactly as non-physical, and exactly as far outside this formula's
+  own shape, as an under-unity one, and is refused on the same terms (`MCRM-A-016` shows this
+  directly, not only the under-unity SPOT-5 case) — so a future non-conserving macromodel cannot
+  reach this kernel un-refused, from either side, and the scope this paragraph states is
+  therefore enforced, not merely documented.
+
+  **The residual WITHIN the accepted 1% band, stated as a number, not left implicit.** The
+  kernel's own `e_D`-direction coefficient is `(1-ρ)`; the general formula's is `(α+δ)`. Their
+  difference is EXACTLY `(1-ρ)-(α+δ) = 1-α-ρ-δ = -(sum-1)` — an EXACT algebraic identity, not an
+  approximation, so a triple accepted by `MCRM-F-007` (within 1% of conserving) has its own
+  `e_D`-coefficient residual bounded by that SAME 1%, absolute, directly. The live case in this
+  tree: Jason-2's/Jason-3's own infrared rows, the only accepted triples found so far that do not
+  conserve exactly — their own sums run 0.998–1.002 (`SPEC-spacecraft.md` `SPCR-P-5`), so their
+  own `e_D`-coefficient residual is bounded by 0.2% absolute, well inside the 1% band and far
+  below the ~49% SPOT-5 itself would have produced were it not refused outright.
 
   **The Jacobian this term implies is ANALYTIC, not a finite difference of the kernel.** Per surface,
   the substitution above is exactly AFFINE in **v** — every direction and coefficient it uses
@@ -581,6 +594,7 @@ minted directly by this spec's own code.
 | `PHPR-A-015` | `Erp::accel` wired end-to-end at a stated LEO case: `dyn::Force`'s own interface reached, a non-zero result returned, and its direction and order of magnitude checked against the jump-table-style figures §1/§6 already state for Earth-radiation accelerations, not merely that it returns without refusing | a non-degenerate result, right order of magnitude and general direction | this spec | plausibility, not exact | R-011 |
 | `PHPR-A-016` | **`PHPR-R-004a`'s two axes, each checked separately then together**: (1) face — a two-sided `FlatSurface` with the source behind its front normal receives a force through the back triple's own optical properties; the same geometry on a one-sided surface receives nothing, `cos θ < 0` unchanged from today; (2) band — a surface with a stated infrared triple different from its visible one gives a measurably different `photon_force` result under `Band::infrared` than `Band::visible`; a surface with no infrared triple gives the *same* result under both, the stated fall-back; (3) both together — a two-sided surface with band-differing back optics only, front optics identical in both bands | as stated, all three cases | this spec, §4.1 | exact | R-004a |
 | `PHPR-A-017` | `Srp::accel`'s own remaining finite-difference step, the position-Jacobian one (`PHPR-P-6`), is SIZED, not guessed (plan §4 rule 7): a step sweep (1e4 m down to 1e-2 m) of `Srp::accel`'s own public `d(a)/d(r)`, measured independently of `accel_only`'s own internal step, shows a stable plateau containing the production 100 m value, with visibly more step-to-step jitter at the sweep's small-*h* end | 100 m agrees with its 30 m/1000 m neighbours to better than 1e-3 relative; jitter at 0.1 m exceeds that | measured, against the true pipeline | measured | P-6 |
+| `PHPR-A-018` | **(v1.1, L5 step 4's own review — a genuine copy-paste bug caught by `speccheck.py`'s new duplicate-`TEST_CASE` check, not written fresh)** `Srp::accel` wired end-to-end at a stated LEO case: `dyn::Force`'s own interface reached, a non-zero result returned, right order of magnitude — `Srp`'s own counterpart to `PHPR-A-015` (`Erp`'s), which `modules/srp/tests/srp_tests.cpp` had claimed instead, unnoticed until this round: nothing before this round's own new check could tell two different modules' own tests, in two different files, apart merely for sharing a string | a non-degenerate result, right order of magnitude | this spec | plausibility, not exact | R-005 |
 
 ---
 

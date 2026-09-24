@@ -217,7 +217,17 @@ usually printed in it.
   largest genuine rounding-level deviation this tree has accepted (Jason-2's/Jason-3's own
   infrared rows, up to 0.2%, `SPEC-spacecraft.md` `SPCR-P-5`) and almost an order of
   magnitude below the smallest genuine violation found (SPOT-5's own least-bad row, 8.8%
-  short of 1) — not tuned to either boundary.
+  short of 1) — not tuned to either boundary. Fires in EITHER direction, checked directly, not
+  merely implied by the symmetric `abs()` in its own implementation: an over-unity triple
+  (e.g. summing to 1.05) is exactly as non-physical, and exactly as far outside `flat_force`'s
+  own algebraic shape, as an under-unity one, and `MCRM-A-016` shows it refused on the same
+  terms SPOT-5's own under-unity rows already are (`MCRM-A-015`). **The residual WITHIN the
+  accepted band, as a number**: the kernel's own `e_D`-coefficient `(1-ρ)` and the general
+  formula's own `(α+δ)` differ by EXACTLY `1-α-ρ-δ = -(sum-1)` (an exact identity, not an
+  approximation), so a triple this guard accepts (within 1% of 1) has its own coefficient
+  residual bounded by that SAME 1%, directly. Jason-2's/Jason-3's own infrared rows are the
+  live case (`SPCR-P-5`'s own 0.998–1.002 range) — a 0.2% absolute residual, well inside the
+  band and two orders of magnitude below the ~49% SPOT-5 itself would have produced.
 - **MCRM-R-017.** `SphericalSurface` is NOT covered by this guard: its own `absorptivity`/
   `specular` are stored for completeness but never read by `spherical_force`
   (`MCRM-R-007`'s own already-proven fact — only `diffuse`, through `Q_pr=1+4δ/9`, affects a
@@ -253,7 +263,8 @@ usually printed in it.
   mode with an independent optional normal that the two could disagree about. The two
   trailing parameters (v2.1) both default to absent, so every pre-v2.1 call compiles
   unchanged. Both factories REFUSE (v2.2, `MCRM-F-007`, `MCRM-R-016`) any supplied triple
-  more than 1% short of energy conservation. Read accessors: `.area_m2()`, `.normal_mode()`, `.body_fixed_normal()`
+  more than 1% away from energy conservation, in EITHER direction (under- or over-unity
+  alike). Read accessors: `.area_m2()`, `.normal_mode()`, `.body_fixed_normal()`
   (populated iff the mode is `BodyFixed`), `.absorptivity()`, `.specular()`, `.diffuse()`
   (the front, visible triple — unchanged in meaning), `.front(Band) -> const
   OpticalTriple&` (v2.1, resolved), `.back(Band) -> optional<OpticalTriple>` (v2.1, absent
@@ -316,6 +327,7 @@ type already makes unreachable, and is not carried forward at all — see that s
 | `MCRM-A-013` | **(v2.1) the band/face round trip, schema-only, no force law involved**: (1) `BandedOptics.in(Band::infrared)` returns the stated infrared triple when one was supplied, and falls back to the visible triple when it was not, for both `FlatSurface` (front) and `SphericalSurface`; (2) `FlatSurface.back(Band)` is absent when no back face was supplied and returns the stated (band-resolved) triple when one was | as stated, all cases, both surface kinds | `MCRM-R-013`/`R-014`'s own stated fall-back | exact | R-013, R-014 |
 | `MCRM-A-014` | **(v2.1)** `irradiance_w_per_m2` refuses a negative value and a NaN value, **and does not refuse** a genuine (including zero) non-negative finite one adjacent to them — whose `.watts_per_m2()` round-trips exactly | the diagnostics; the round-tripped value | the refusal catalogue; identity | exact (round trip) | F-006, R-015 |
 | `MCRM-A-015` | **(v2.2) the guard shown firing through the real construction path, not a synthetic one**: `flat_surface_body_fixed`, called with a published, genuinely non-conserving triple (SPOT-5's own six Appendix-1 rows, 0.499–0.912) each refused with `MCRM-F-007`; an adjacent, genuinely conserving triple (Sentinel-6's own +X row) is NOT refused | all 6 SPOT-5 rows refused; the conserving control succeeds | `SPEC-srp-analytic.md` `SRPA-A-015`, `tests/spot5_appendix_tests.cpp` | — | R-016, F-007 |
+| `MCRM-A-016` | **(v2.2) the guard fires in BOTH directions**: an OVER-unity triple (0.40/0.40/0.25, sum 1.05, 5% over) is refused with `MCRM-F-007`, exactly as an under-unity one (`MCRM-A-015`) is; triples at exactly +1% and -1% relative (the guard's own stated boundary) are checked on both sides of that line — refused just outside, accepted just inside — proving the threshold is where it is stated to be, not merely present | over-unity refused; boundary cases refused/accepted as stated | this file's own `MCRM-R-016` | 1e-9 (boundary placement) | R-016, F-007 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row, except:
 

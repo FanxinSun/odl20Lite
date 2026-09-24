@@ -93,9 +93,9 @@ rule-4 search `SPEC-spacecraft.md`'s own `sentinel6.hpp`/`jason.hpp` header comm
   CNES attitude-law family (TOPEX/Jason/SWOT/Sentinel-6 are all described in the same small set of
   companion documents) as the operative sign convention for Jason's own beta-prime, since no
   Jason-specific statement of the sign association was found this round.
-- **Yaw steering reduces to `nominal_yaw_steering` with the Sun direction NEGATED — DERIVED, not
-  independently confirmed by a second reading or a printed coordinate pair the way Galileo's/QZSS's own
-  mappings are (`JSAT-Q-003`, flagged).** The source's own words, "positive X axis points away from the
+- **Yaw steering reduces to `nominal_yaw_steering` with the Sun direction NEGATED — DERIVED from
+  right-handedness, and now CONFIRMED against real data (`JSAT-Q-003`, CLOSED, §4 below): all 12
+  real-data checks matched to 0.14–1.52 deg.** The source's own words, "positive X axis points away from the
   sun," state only the X-axis sign; Z (nadir) is shared with every other regime and every other law in
   this module. Given z is unchanged and x flips, RIGHT-HANDEDNESS ALONE FORCES y to flip together with
   it (the identical "pure rotation, not a reflection" argument `qzss_frame_from_native`'s own header
@@ -127,42 +127,51 @@ rule-4 search `SPEC-spacecraft.md`'s own `sentinel6.hpp`/`jason.hpp` header comm
 
 ## 4. Real-data control
 
-**FOUND — real attitude data AND real orbit data, both fetched, decompressed and parsed by a working
-tool (`tools/doris_jason_check.cpp`) — but the quaternion's own convention was NOT SETTLED this round,
-despite a systematic attempt, so the registered comparison itself was not run.** This is a genuinely
-different, richer outcome than QZS-1's own confirmed absence (`SPEC-qzss-attitude.md` §3) — real data
-was obtained and a real nadir test was executed against it — and is reported with the same precision as
-every other finding in this tree, not rounded up to "confirmed" or down to "not found."
+**CONFIRMED — the yaw-steering regime, INCLUDING its own frame mapping, is now validated against real
+Jason-3 attitude data. The fixed-yaw regime remains unconfirmed (no fixed-yaw epoch fell within reach).**
 
-**What was found and built.** `SATMOD` §7.2/§12.2 name two routes to real quaternions: CDDIS
-(EarthData OAuth login, refused, the standing no-account discipline) and `doris.ign.fr` — confirmed
-GENUINELY OPEN anonymous FTP, no login challenge, years of per-satellite archives current through
-TODAY. Two quaternion file kinds per satellite per ~28-hour window: `ja{2,3}qsolp*.001` (solar-panel
-angles, NOT the body attitude, checked by its own header) and `ja{2,3}qbody*.001` (the real
-body-attitude quaternion: four columns headed "QISLEST1..4," each in `[-1,1]`, ~32s cadence). The SAME
-archive's own `products/orbits/gsc/{ja3,s6a}/` directory carries real, `.Z`-compressed SP3-format
-orbit solutions from GSFC (a DORIS analysis centre, "gsc" = Goddard Space Flight Center, its own SP3
-header states) — fetched, decompressed (`zcat`, a routine step as the manager's own review named it),
-and parsed by `tools/doris_jason_check.cpp`, reusing `orbex_qzss_check.cpp`'s own already-proven
-SP3-to-GCRS pipeline (`frames::to_gcrs`, the EOP C04 series, the leap table) unchanged. The orbit
-itself was cross-checked as genuinely Jason-3's own: altitude ~1312 km, computed directly from a
-parsed position, against Jason-3's own known ~1336 km.
+**Rule 4, applied properly, before any further attempt.** The manager's own review named the first
+attempt (12 axis/order/sense combinations against a nadir test, none converging) trial-and-error, and
+asked for the format's own definition first. Found and read in full: `SALP-IF-M/IDS-EA15938-CN` v2
+(30/06/2020), *"JASON1&2&3 / Descriptions of the quaternion and solar panel files"* (CNES, DOI
+`10.24400/312072/i04-2026.018`), `ids-doris.org/resources/technical-documents/technical-note-jasons-
+quaternions-description.html`. Quoted directly: *"The quaternion files contain the 4 components of the
+spacecraft attitude in the **J2000 frame**"* (NOT ECEF — the first attempt's own spurious ECEF-to-GCRS
+step on the quaternion side is the most likely cause of its own chaotic, non-converging result: Earth
+rotates ~15 deg/hour, and that attempt's own eight epochs spanned ~26 hours, so a wrongly-applied
+Earth-rotation transform would swing the predicted axis across tens of degrees as time of day changes —
+exactly the pattern found, not a constant offset); *"Q = [Q0, Q1, Q2, Q3] where Q0 = scalar (real) part,
+and [Q1,Q2,Q3] = vector (imaginary) part"* (SCALAR FIRST, confirming the first attempt's own
+"scalar-first" hypothesis, the "scalar-last" one dropped); *"UTC time of the packet"* (UTC, not GPS —
+the SP3's own, separate, unchanged convention). NOT stated: the rotation SENSE (body-to-J2000 or
+J2000-to-body) — the one genuinely remaining choice.
 
-**The nadir test — run, not merely planned — did NOT settle the convention.** `SATMOD`'s own stated
-property ("Z always nadir," §3 above) was checked against real data: at eight epochs across a ~26-hour
-span (2025-12-03/04, the earliest date this environment's own CACHED EOP C04 series covers close to —
-that series runs only through 2026-01-03, `data/cache/eop-c04-20/eopc04.1962-now`, so the manager's own
-first-choice September window could not be used), all three body axes and both component
-orderings/rotation senses (12 combinations total) were checked against real nadir (`-r_hat`, from the
-SAME SP3 ephemeris). NONE converged: every combination's own angle-to-nadir varied chaotically across
-the eight epochs (13.6 deg to 170.0 deg), inconsistent with a single, constant convention error, which
-would show a STABLE angle instead. Three specific, NOT-yet-ruled-out possibilities are recorded in the
-tool's own header comment for a follow-up round: the quaternion file's own big-integer column
-preceding each float value (assumed here to be unrelated metadata, never used) may be load-bearing; the
-quaternion's own target frame may be neither ECEF nor GCRS but a third frame this round did not try; the
-~32s-to-1-minute epoch alignment (nearest-minute, not interpolated) was checked and ruled OUT as the
-PRIMARY cause (bounded to <2 deg of argument-of-latitude at this orbit's own period) but not eliminated
-as a contributing one.
+**The nadir test, re-run once with the documented convention, converged cleanly.** `SATMOD`'s own "Z
+always nadir" checked at 8 epochs (2025-12-03/04 — this environment's own cached EOP C04 series covers
+only through 2026-01-03, so an earlier window than the manager's own first-choice September one was
+used): the DIRECT sense gave 0.60–1.56 deg agreement at every epoch (X and Y both ~90 deg, exactly as
+they must be when Z is genuinely nadir); the TRANSPOSE sense scattered (30.2–117.2 deg), clearly wrong.
+**A second, independent bug was found and fixed along the way**: the tool's own epoch-matching
+(`nearest_sp3`) compared a query's own (hour, minute) against the SP3 ephemeris's own ELAPSED
+hour/minute since the arc's first epoch, not true wall-clock time of day — correct only on the arc's
+own first day, silently wrong on every later one, and the actual cause of an intermediate, stable-but-
+wrong ~150–155 deg result the corrected FRAME/ORDER/TIME-SCALE alone did not fully resolve. Fixed by
+matching on the query's own full calendar date and time.
+
+**The registered comparison, run once both bugs were fixed: ALL TWELVE MATCHED.** Criterion (2 deg,
+matching every other real-data control in this tree) and the DIRECT sense (settled by the nadir test
+above) fixed before this mode read a single quaternion row for comparison. 12 epochs across
+2025-12-03/05, beta-prime -75.3 to -78.5 deg throughout (deep in the yaw-steering regime for this
+particular window — no fixed-yaw epoch, `|beta-prime| < 15 deg`, fell within it; the manager's own
+instruction to include one was conditional, "if one falls within reach," and searching further for one
+was not pursued this round): every epoch matched to 0.14–1.52 deg. **This confirms
+`jason_attitude`'s own yaw-steering construction — INCLUDING the "negate the Sun direction" frame
+mapping (§3 above), previously DERIVED from right-handedness alone and explicitly flagged as
+unconfirmed — against real data, to a precision comparable with this tree's other real-data controls.**
+`JSAT-Q-003` is CLOSED on this result. The fixed-yaw regime's own construction remains UNCONFIRMED by
+real data (`JSAT-Q-001` narrowed accordingly) — built independently, from the orbital triad's own
+cyclic identity directly, not through the same Sun-negation route, so this gap is not the same open
+question as the now-closed one.
 
 **Sentinel-6, per the manager's own instruction: one direct-path fetch attempt, constructed from
 Jason-3's own exact naming pattern and a matching date, instead of listing the directory.**
@@ -202,6 +211,15 @@ Sentinel-6's own frame identification stays a marked assumption (`S6AT-Q-001`).
   - **Handedness/sign correctness** (`JSAT-A-002`, `TYAW-A-015`'s own role): the fixed-yaw
     construction's own x/y/z are checked against an independently computed orbital triad, both signs
     of beta-prime.
+- **JSAT-R-006.** **Real-data control** (`tools/doris_jason_check.cpp`, reproducible on demand, NOT
+  part of the automatic gate, the same treatment every other real-data control in this tree gets):
+  real Jason-3 SP3 orbit data and body-attitude quaternions (`doris.ign.fr`, anonymous FTP, §4),
+  compared against `jason_attitude`'s own yaw-steering prediction at 12 epochs (2025-12-03/05),
+  DIRECT quaternion sense (settled by a nadir test against real nadir, §4), criterion 2 deg REGISTERED
+  before the comparison ran. Result: all twelve matched, 0.14–1.52 deg — confirming the yaw-steering
+  construction, including its own "negate the Sun" frame mapping, against real data. The fixed-yaw
+  regime was not exercised (no `|beta-prime| < 15 deg` epoch fell within the reachable window) and
+  remains unconfirmed by real data.
 
 ---
 
@@ -219,10 +237,12 @@ A stateless provider, the same shape every other attitude function in this tree 
 - **JSAT-P-1.** The fixed-yaw/yaw-steering switch (~15 deg) is APPROXIMATE, the source's own stated
   figure — no closed-form derivation the way GPS's/GLONASS-M's own rate-derived onsets are, the same
   status QZSS's own ~20 deg switch already carries (`QZSY-P` precedent).
-- **JSAT-P-2.** No real-data agreement figure exists this round: §4's own control was not completed
-  (real quaternion and real orbit data were both found, but not yet combined into a registered
-  comparison). This law's own frame constructions are UNCONFIRMED by real data, the same status
-  Sentinel-6's own law and QZSS's own orbit-normal mode each carry for their own, different reasons.
+- **JSAT-P-2.** The yaw-steering regime's own real-data agreement: 0.14–1.52 deg across 12 epochs
+  (§4, `JSAT-R-006`), comparable with this tree's other real-data controls (QZSS's own 0.00003–0.00019
+  deg is tighter still; GPS's and Galileo's own are in a similar range to Jason's). The fixed-yaw
+  regime has no real-data agreement figure — no `|beta-prime| < 15 deg` epoch fell within this round's
+  own reachable window — and stays UNCONFIRMED by real data, the same status Sentinel-6's own law and
+  QZSS's own orbit-normal mode each carry for their own, different reasons.
 
 ---
 
@@ -249,6 +269,7 @@ A stateless provider, the same shape every other attitude function in this tree 
 | id | why no test |
 |---|---|
 | `JSAT-F-001` | PROVED structurally unreachable through this law's own domain (§3 above) — a test attempting to trigger it would need a geometry outside this law's own physical regime, testing nothing this law's own contract states. Recorded in `modules/attitude/tests/jason_tests.cpp`'s own closing comment. |
+| `JSAT-R-006` | The real-data control is `tools/doris_jason_check.cpp`, deliberately NOT part of the automatic gate — no pinned data present in CI, reproducible on demand, the same treatment every other real-data control in this tree gets (`QZSY-R-004`'s own precedent). |
 
 ---
 
@@ -271,7 +292,7 @@ A stateless provider, the same shape every other attitude function in this tree 
 
 | id | question |
 |---|---|
-| `JSAT-Q-001` | **The flight-direction/beta-sign association (forward flying = beta-prime > 0) is carried by analogy from the SAME document's own SWOT section, not independently confirmed for Jason specifically.** Worth checking directly against Jason's own real attitude data (§4) if the sign turns out to matter for a consumer beyond this spec's own qualitative fixed-yaw construction. |
+| `JSAT-Q-001` | **NARROWED (this round's own real-data control confirmed the YAW-STEERING regime; the flight-direction/beta-sign association is specifically a FIXED-YAW question, still open).** The association (forward flying = beta-prime > 0) is carried by analogy from the SAME document's own SWOT section, not independently confirmed for Jason. No fixed-yaw epoch fell within this round's own reachable window (§4, `JSAT-R-006`) to check it against. Worth checking directly if a fixed-yaw-period real-data window is found. |
 | `JSAT-Q-002` | **Ramp/flip timing is NOT modelled** — the source states it is operational, recorded in a per-satellite ancillary file (`ja{2,3}att.txt`, found but not parsed for event timing this round), with the full derivation in the paywalled Cerri et al. 2010. Worth building if L6/L7's own integrator needs the exact transition timing rather than treating it as a discontinuity. |
-| `JSAT-Q-003` | **The yaw-steering frame mapping (negate the Sun, right-handedness forces y) is DERIVED, not independently confirmed** by a second reading, a printed coordinate pair, or real data — §4's own nadir test, run against real SP3 and quaternion data, did NOT settle even the quaternion's own basic convention (12 axis/order/sense combinations tried, none converged), so the mapping remains unconfirmed by data, resting on the right-handedness argument alone. `tools/doris_jason_check.cpp`'s own header names three specific, not-yet-ruled-out next steps for closing this gap. |
+| `JSAT-Q-003` | **CLOSED (this round's own real-data control, 2026-09-24).** The yaw-steering frame mapping (negate the Sun, right-handedness forces y) was DERIVED, not independently confirmed by a second reading or a printed coordinate pair — now CONFIRMED against real data instead: `tools/doris_jason_check.cpp`'s own registered comparison, rule-4 convention (CNES's own format description, `SALP-IF-M/IDS-EA15938-CN`), 12 epochs, all matched 0.14–1.52 deg against a 2 deg criterion fixed in advance. No further action needed on this specific question. |
 | `JSAT-Q-004` | **The July-2017 threshold widening (15 deg to 30 deg, `SATMOD` §7.2/§12.2, Jason-2/-3 only) is NOT built.** This spec's own `kJasonFixedYawSwitchRad` is the ORIGINAL ~15 deg figure throughout. Worth adding an epoch-dependent switch if a consumer needs post-2017-07 Jason-2/-3 attitude specifically. |

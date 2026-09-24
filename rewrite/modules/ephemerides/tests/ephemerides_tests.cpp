@@ -164,7 +164,7 @@ TEST_CASE("EPH-A-001/002: THE GATE — JPL's published testpo.440, short kernel"
     REQUIRE(s.worst_au < 1e-13);
 }
 
-TEST_CASE("EPH-A-001: THE FULL SWEEP — the long kernel, which must actually RUN",
+TEST_CASE("EPH-A-001b: THE FULL SWEEP — the long kernel, which must actually RUN",
           "[eph][spec][gate][published][slow]") {
     // EPH-Q-003 was ruled that pinning both kernels is not enough: the full
     // sweep must be run at this step's gate and its case count recorded, because

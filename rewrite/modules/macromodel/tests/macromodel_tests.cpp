@@ -246,3 +246,55 @@ TEST_CASE("MCRM-A-014  irradiance_w_per_m2 refuses a negative and a NaN value, d
     REQUIRE(real.has_value());
     CHECK(real->watts_per_m2() == 1367.0);
 }
+
+namespace {
+/// `flat_surface_body_fixed` called with an (absorptivity, specular,
+/// diffuse) triple summing to `sum`, a fixed +Z normal and area -- for
+/// probing MCRM-F-007's own boundary directly, not through a real
+/// spacecraft's own table (`SRPA-A-015`'s own role).
+odl::Result<FlatSurface, MacromodelError> surface_summing_to(double sum, const char* tag) {
+    // Split evenly across all three fields so no single coefficient is
+    // itself implausible (e.g. negative) merely to hit the stated sum.
+    const double each = sum / 3.0;
+    auto area = cited(1.0, tag);
+    auto a = cited(each, tag), s = cited(each, tag), d = cited(each, tag);
+    REQUIRE(area.has_value()); REQUIRE(a.has_value()); REQUIRE(s.has_value()); REQUIRE(d.has_value());
+    auto n = body_direction(Vec3{0.0, 0.0, 1.0});
+    REQUIRE(n.has_value());
+    return flat_surface_body_fixed(*area, *n, *a, *s, *d);
+}
+}  // namespace
+
+TEST_CASE("MCRM-A-016  MCRM-F-007 fires in BOTH directions, and its own stated "
+          "1% boundary is exactly where it is claimed to be",
+          "[macromodel][gate]") {
+    // Over-unity: 5% over, refused on the SAME terms as an under-unity
+    // triple (SRPA-A-015's own SPOT-5 rows, all under-unity) already is --
+    // not merely assumed symmetric from `std::abs()` appearing in the
+    // implementation, checked directly against a real over-unity input.
+    auto over = surface_summing_to(1.05, "over-unity, test-stated");
+    REQUIRE_FALSE(over.has_value());
+    CHECK(over.error().id == "MCRM-F-007");
+
+    // The under-unity case, for the same direct comparison in one place
+    // (SRPA-A-015 already covers this against real SPOT-5 data; repeated
+    // here, minimally, so this test alone proves both directions without
+    // needing to cross-reference another module's own test).
+    auto under = surface_summing_to(0.95, "under-unity, test-stated");
+    REQUIRE_FALSE(under.has_value());
+    CHECK(under.error().id == "MCRM-F-007");
+
+    // The boundary itself: +/-1% relative is the stated threshold
+    // (MCRM-R-016). Just OUTSIDE it (1.0101, 0.9899 -- 1.01% away) is
+    // refused; just INSIDE it (1.0099, 0.9901 -- 0.99% away) is not --
+    // proving the threshold sits where the spec states it, not merely that
+    // "some" threshold exists.
+    auto just_over_refused = surface_summing_to(1.0101, "boundary, test-stated");
+    CHECK_FALSE(just_over_refused.has_value());
+    auto just_under_refused = surface_summing_to(0.9899, "boundary, test-stated");
+    CHECK_FALSE(just_under_refused.has_value());
+    auto just_over_accepted = surface_summing_to(1.0099, "boundary, test-stated");
+    CHECK(just_over_accepted.has_value());
+    auto just_under_accepted = surface_summing_to(0.9901, "boundary, test-stated");
+    CHECK(just_under_accepted.has_value());
+}

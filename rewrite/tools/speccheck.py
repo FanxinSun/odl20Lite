@@ -26,16 +26,28 @@ adopted-but-unbuilt specification passes.  Saying "tested" would have been the
 same class of error as an unstated denominator: a true statement about a smaller
 thing, read as a statement about a larger one.
 
-Usage:  speccheck.py [--spec-dir DIR] [--quiet]
+Usage:  speccheck.py [--spec-dir DIR] [--cpp-root DIR] [--quiet]
 Exit:   0 complete   1 gaps found   3 a spec could not be parsed
-"""
+
+DUPLICATE TEST_CASE CLAIMS (added 2026-09-24, L5 step 4's own review round).
+A spec file's own internal duplicate rows were always caught (`DUPLICATE
+definitions`, below) — but the defect that prompted this addition was NOT
+that: two DIFFERENT `TEST_CASE`s, in two DIFFERENT `.cpp` files, both named
+themselves after the SAME id (`SRPA-A-011`), one a long-standing test this
+tree already had, the other a brand new one that assumed the number was
+free without checking. Nothing in this tool, or in Catch2 itself (each
+compiles into its own module's own test binary, so the same string name in
+two binaries collides with nothing at build or run time), would have
+caught it. This scans every `.cpp` file's own `TEST_CASE("<ID> ...")`
+invocations, tree-wide, and refuses if the SAME id is claimed by more than
+one — independent of which spec file, if any, actually defines that id."""
 
 from __future__ import annotations
 
 import argparse
 import re
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 OK, GAPS, UNPARSEABLE = 0, 1, 3
@@ -44,6 +56,41 @@ ID_RE = re.compile(r"\b([A-Z][A-Z0-9]{1,15})-([RSFAQP])-(\d+[a-z]?)\b")
 SPEC_ID_RE = re.compile(r"^\|\s*\*\*Spec ID\*\*\s*\|\s*`([A-Z][A-Z0-9]{1,15})`\s*\|", re.M)
 COVERAGE_RE = re.compile(r"\*\*Coverage\.\*\*")
 RANGE_RE = re.compile(r"\b([RF])-(\d+)…([RF])-(\d+)\b")
+TEST_CASE_RE = re.compile(
+    r'TEST_CASE\s*\(\s*"([A-Z][A-Z0-9]{1,15}-[RSFAQP]-\d+[a-z]?)')
+
+
+def test_case_claims(cpp_root: Path) -> dict[str, list[str]]:
+    """Every id claimed as a `TEST_CASE`'s own leading identifier, tree-wide,
+    mapped to where each claim was found ("path:line"). A `.cpp` file that
+    cannot be read as UTF-8 is skipped, not fatal — this check's own false
+    negative there is far cheaper than making an unrelated encoding issue
+    block gate 7."""
+    claims: dict[str, list[str]] = defaultdict(list)
+    for path in sorted(cpp_root.rglob("*.cpp")):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for m in TEST_CASE_RE.finditer(text):
+            line = text.count("\n", 0, m.start()) + 1
+            claims[m.group(1)].append(f"{path}:{line}")
+    return claims
+
+
+def check_duplicate_test_case_claims(cpp_root: Path, quiet: bool) -> bool:
+    claims = test_case_claims(cpp_root)
+    dupes = {i: locs for i, locs in claims.items() if len(locs) > 1}
+    if not quiet:
+        print(f"\nTEST_CASE claims, tree-wide (`--cpp-root {cpp_root}`)")
+        print(f"  distinct ids claimed     {len(claims):>4}")
+        print(f"  DUPLICATE claims         {len(dupes):>4}")
+    if dupes:
+        for i, locs in sorted(dupes.items()):
+            print(f"  DUPLICATE  {i}  claimed by {len(locs)} TEST_CASEs:", file=sys.stderr)
+            for loc in locs:
+                print(f"      {loc}", file=sys.stderr)
+    return not dupes
 
 
 def table_defs(text: str, prefix: str) -> list[str]:
@@ -200,6 +247,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="speccheck.py", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--spec-dir", type=Path, default=root / "spec")
+    ap.add_argument("--cpp-root", type=Path, default=root)
+    ap.add_argument("--skip-test-case-check", action="store_true",
+                    help="spec-only run (the synthetic-duplicate test's own positive case "
+                         "needs this, so a --spec-dir pointed at a temp dir is not also "
+                         "scanned tree-wide for unrelated TEST_CASE duplicates)")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
 
@@ -210,6 +262,8 @@ def main(argv: list[str] | None = None) -> int:
 
     results = [check_spec(p, args.quiet) for p in specs]
     stats = [s for _, s in results]
+    test_case_ok = True if args.skip_test_case_check else check_duplicate_test_case_claims(
+        args.cpp_root, args.quiet)
 
     total_reqs = sum(s["reqs"] for s in stats)
     total_own = sum(s["own"] for s in stats)
@@ -230,9 +284,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  are references and not definitions.  Counting them would inflate the")
         print(f"  denominator; that is the 121-against-128 error, printed rather than made.")
 
-    if all(ok for ok, _ in results):
+    if all(ok for ok, _ in results) and test_case_ok:
         print("\nok       every requirement and refusal is discharged by an acceptance ROW")
         print("         or individually excused, in every specification.")
+        if not args.skip_test_case_check:
+            print("ok       no id is claimed by more than one TEST_CASE, tree-wide.")
         print()
         print("         WHAT THIS DOES NOT CHECK: that those rows are implemented. This reads")
         print("         the specifications' own traceability, not the test suite, so a spec")

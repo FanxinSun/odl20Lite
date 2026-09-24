@@ -107,7 +107,7 @@ Macromodel one_sphere_model() {
 
 }  // namespace
 
-TEST_CASE("PHPR-A-015  Srp::accel is wired end-to-end at a stated LEO case: "
+TEST_CASE("PHPR-A-018  Srp::accel is wired end-to-end at a stated LEO case: "
           "dyn::Force reached, a non-degenerate result, right order of magnitude",
           "[srp][gate]") {
     const Srp force(one_panel_model(), ephemeris(), leaps());

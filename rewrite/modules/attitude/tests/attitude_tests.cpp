@@ -128,7 +128,7 @@ TEST_CASE("PHPR-A-003  nominal yaw-steering reproduces the standard law at a sta
     }
 }
 
-TEST_CASE("PHPR-A-003  nominal yaw-steering refuses at the Sun-on-nadir singularity, "
+TEST_CASE("PHPR-A-003b  nominal yaw-steering refuses at the Sun-on-nadir singularity, "
           "both ways, and does not over-refuse a case that only approaches it",
           "[attitude][gate]") {
     const Vec3 r_gcrs_m{2.656e7, 0.0, 0.0};

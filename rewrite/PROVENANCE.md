@@ -6230,6 +6230,60 @@ New test files: `modules/spacecraft/tests/{sentinel6,jason}_tests.cpp` (SPCR-A-0
 addition this round; the full, final gate/test/artefact counts are recorded in this round's own
 closing report (`~/.claude/handover/2026-09-24-odl-rewrite-L5.REPORT.md`).
 
+### 34.10 Second review round — the guard made bidirectional, duplicate IDs made impossible, Jason confirmed
+
+The manager's own second review of this step accepted the round above and named three further items.
+
+**1. The energy-conservation guard now fires in both directions, checked directly, with the residual
+stated as a number.** The CODE was already symmetric (`std::abs(sum-1.0) > 1e-2`) — the gap was in the
+WORDING: `SPEC-photon-pressure.md` and `SPEC-macromodel.md` each had one phrase ("falls more than 1%
+SHORT of conservation") that described only the under-unity direction SPOT-5 happens to be. Both fixed
+to state EITHER direction explicitly, and a new test (`MCRM-A-016`) proves an OVER-unity triple (sum
+1.05) is refused on the same terms as SPOT-5's own under-unity rows, plus checks the +/-1% boundary
+itself sits where stated (1.01% refused, 0.99% accepted, both signs). The RESIDUAL within the accepted
+band is now stated as an exact identity, not left implicit: the kernel's own `(1-rho)` and the general
+`(alpha+delta)` differ by EXACTLY `-(sum-1)`, so a triple within 1% has its own `e_D`-coefficient
+residual bounded by that SAME 1% directly — Jason-2's/Jason-3's own infrared rows (the live case) are
+bounded by 0.2%, two orders of magnitude under SPOT-5's own ~49%.
+
+**2. speccheck.py (gate 7) now refuses a duplicate TEST_CASE claim, tree-wide — and running it against
+the whole tree found THREE MORE, beyond the one already fixed.** The manager's own instruction: "you
+said nothing in the tooling would have caught it, and that's the finding... extend speccheck... run it
+against the whole tree: there may be others." There were: `EPH-A-001` and `PHPR-A-003` each had a
+SECOND `TEST_CASE` legitimately testing a companion aspect of the SAME requirement (a full-sweep
+variant, a refusal case) — resolved with a lettered suffix (`EPH-A-001b`, `PHPR-A-003b`), the SAME
+mechanism this tree's own discharge-parsing already supports, rather than carving an exception into the
+new checker. `PHPR-A-015` was a GENUINE bug: `modules/srp/tests/srp_tests.cpp`'s own "wired end-to-end"
+test for `Srp::accel` had copy-pasted `Erp::accel`'s own id — an entirely different class, in a
+different module, discharging a different requirement (`R-011` vs. the correct `R-005`) — unnoticed
+until this round. Given its own id, `PHPR-A-018`, and its own proper spec row. The checker's own
+positive case is proven by a new, injected-duplicate test (`tests/test_speccheck_duplicate.py`), the
+same "replay the historical error" discipline `test_budgetcheck.py` already established for a different
+checker — including a check that a LEGITIMATE lettered-suffix split is NOT flagged, so the fix for (1)
+does not silently disable the check for (2).
+
+**3. Jason's yaw-steering regime is now confirmed against real data — rule 4 first, exactly as
+instructed, found the actual cause of the earlier non-convergence.** The manager's own read of the
+first attempt (12 combinations, none converging) as trial-and-error was correct; CNES's own format
+description (`SALP-IF-M/IDS-EA15938-CN` v2, found via `ids-doris.org`'s own technical-documents page,
+a document this session had not located before this round) settles the frame (J2000, NOT the ECEF the
+first attempt wrongly assumed and converted through — explaining the earlier chaotic, time-of-day-
+correlated scatter), the component order (scalar first, confirming the standing hypothesis) and the
+time scale (UTC). Re-running the nadir test with this corrected convention gave an intermediate,
+DIFFERENT symptom — a STABLE but wrong ~150-155 deg result — which led to finding a SECOND,
+independent bug: `nearest_sp3` matched a query's own (hour, minute) against the SP3 ephemeris's own
+ELAPSED hour/minute since the arc's first epoch, correct only on that arc's own first day. Fixed by
+matching on the query's own full calendar date and time instead. With both fixes, the DIRECT rotation
+sense (the one convention the format document does not state) converged cleanly: 0.60-1.56 deg at
+every one of 8 nadir-test epochs, X and Y both ~90 deg as they must be. The registered comparison
+(criterion 2 deg, fixed before the comparison ran) then matched all 12 epochs to 0.14-1.52 deg,
+confirming `jason_attitude`'s own yaw-steering construction — including the "negate the Sun" frame
+mapping, previously derived but unconfirmed — against real data. No `|beta-prime|<15 deg` (fixed-yaw)
+epoch fell within the 2025-12-03/05 window used (beta-prime ran -75.3 to -78.5 deg throughout); the
+manager's own instruction to include one was conditional ("if one falls within reach") and was not
+pursued further. `JSAT-Q-003` closed; `JSAT-Q-001` narrowed to the fixed-yaw-specific question that
+remains.
+
 ---
 
 ## Changelog
