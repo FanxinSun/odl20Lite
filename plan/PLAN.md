@@ -380,8 +380,14 @@ the MVP needs.
 
 **Exit gate:** every force reproduces **its own published test case** — the oracle ranks last
 (§4 rule 2) — or, where the source prints none and the search that established the absence is
-recorded (§4 rule 4), the independent properties its specification names. **Amended 2026-09-24:**
-the arc fit with parameters stated in the test, which this gate carried, moves to L7's exit gate.
+recorded (§4 rule 4), the independent properties its specification names — **and the layer's
+ranking table**: every force of this layer measured in one place, through `DYN-R-023`'s registry,
+at reference points each row states (§4 rule 3), so the layers above inherit what is modelled and
+at what size rather than reconstructing it. **Amended 2026-09-24:** the arc fit with parameters
+stated in the test, which this gate carried, moves to L7's exit gate. *The ranking table is added
+the same day:* the L4 handover of 2026-09-18 called it "the one thing L4 owes every layer above
+it", but it never entered this plan, so no step and no gate carried it through seven steps and none
+was built — an obligation stated only where a plan's reader would not look, by the manager.
 
 > **Correction found at L4 step 7: the 2026-09-18 resolution did not close.** It moved the arc
 > fit's *force* parameters into the test so that no library is read — but an arc fit also
