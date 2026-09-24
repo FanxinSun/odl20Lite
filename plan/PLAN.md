@@ -379,10 +379,20 @@ the MVP needs.
 7. **TODO** — `ecom` → [`subplan_L4/L4-7.md`](subplan_L4/L4-7.md)
 
 **Exit gate:** every force reproduces **its own published test case** — the oracle ranks last
-(§4 rule 2) — and an arc fit with this layer's forces reaches its frozen residual using
-**parameters stated in the test**, three numbers, no library read. The arc fit that reads a
-populated library is **L5's** exit gate, and that difference is what keeps each layer's gate
-satisfiable with what it and the layers below it have.
+(§4 rule 2) — or, where the source prints none and the search that established the absence is
+recorded (§4 rule 4), the independent properties its specification names. **Amended 2026-09-24:**
+the arc fit with parameters stated in the test, which this gate carried, moves to L7's exit gate.
+
+> **Correction found at L4 step 7: the 2026-09-18 resolution did not close.** It moved the arc
+> fit's *force* parameters into the test so that no library is read — but an arc fit also
+> estimates the initial state from the observations, and nothing in L0–L4 estimates anything: the
+> estimator is L7's and the SP3 reader L6's, both later in the one execution order. The frozen
+> `G-*` cases record each fit's residual RMS, not a fitted state a test could state instead. So
+> L4's arc fit, and L5's, still needed a layer above them — the defect the principle exists to
+> stop, removed in its large form and left in a smaller one. Both arc fits move to L7's exit gate,
+> where the estimator, the reader, this layer's forces and L5's library all exist, and L4 and L5
+> exit on what they can reach. Found by the executor's rule-4 search for step 7, whose own gate had
+> the same shape; the resolution it corrects was the manager's.
 
 ---
 
@@ -407,9 +417,9 @@ where copyright in it is thin. Where a public source is coarser than the predece
 the answer is a model derived from published dimensions and imagery, which is this tree's own;
 not a transcription, which is not.
 
-**Exit gate:** every value resolves to a citation, the library refuses to build if any does not,
-**and an arc fit whose spacecraft parameters are read from the library reaches its frozen
-residual** — the check L4's gate deliberately cannot make.
+**Exit gate:** every value resolves to a citation, and the library refuses to build if any does
+not. **Amended 2026-09-24:** the arc fit that reads the library, which this gate carried, needs
+L7's estimator and moves to L7's exit gate (§3.5's correction).
 
 ---
 
@@ -453,7 +463,11 @@ Two of the predecessor's defects are design requirements here rather than lesson
 4. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md)
 
 **Exit gate:** a fit over real data reaches its frozen residual and reports a joint covariance
-whose correlations are reproduced by finite differences.
+whose correlations are reproduced by finite differences. **Amended 2026-09-24**, taking the two
+arc fits L4 and L5 could not reach (§3.5's correction): cannonball fits with L4's forces reach
+the `G-*` frozen residuals with their force parameters stated in the test, and a box-wing fit
+reading the L5 library reaches them too — the stronger claim, since the frozen fits are
+cannonball fits (`oracle/ORACLE.md` §6).
 
 ---
 
