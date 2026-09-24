@@ -4,9 +4,9 @@
 |---|---|
 | **Spec ID** | `SPCR` |
 | **Status** | **draft** 2026-09-24, for review |
-| **Version** | 2.3 — L5 step 3 continues: `qzss_1()` built from the Cabinet Office's own SPI_QZS1_B; the L-ANT Cover's own missing area and unsupported cone shape reported, omitted not approximated |
+| **Version** | 2.4 — L5 step 3 closes: `qzss_1()` built from the Cabinet Office's own SPI_QZS1_B (the L-ANT Cover's own missing area and unsupported cone shape reported, omitted not approximated); `beidou()` refuses unconditionally, five independent reasons named |
 | **Date** | 2026-09-24 |
-| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo) and 3 (GLONASS, QZSS) |
+| **Layer** | L5 `spacecraft` (`../plan/PLAN.md` §3.6), steps 1 (GPS), 2 (Galileo) and 3 (GLONASS, QZSS, BeiDou) |
 | **Depends on** | `macromodel` (the schema this spec populates, not extends) |
 | **Depended on by** | L7's own box-wing fit, which reads this library |
 
