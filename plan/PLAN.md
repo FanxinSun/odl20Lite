@@ -382,7 +382,8 @@ the MVP needs.
 (§4 rule 2) — or, where the source prints none and the search that established the absence is
 recorded (§4 rule 4), the independent properties its specification names — **and the layer's
 ranking table**: every force of this layer measured in one place, through `DYN-R-023`'s registry,
-at reference points each row states (§4 rule 3), so the layers above inherit what is modelled and
+beside L2's own terms computed at the same points in the same test, at reference points each row
+states (§4 rule 3), so the layers above inherit what is modelled and
 at what size rather than reconstructing it. **Amended 2026-09-24:** the arc fit with parameters
 stated in the test, which this gate carried, moves to L7's exit gate. *The ranking table is added
 the same day:* the L4 handover of 2026-09-18 called it "the one thing L4 owes every layer above
@@ -446,7 +447,7 @@ for all three observation types.
 
 ---
 
-### 3.8 L7 `estimation` — 0 of 4 done
+### 3.8 L7 `estimation` — 0 of 5 done
 
 Two of the predecessor's defects are design requirements here rather than lessons learned.
 
@@ -463,10 +464,11 @@ Two of the predecessor's defects are design requirements here rather than lesson
 > So event location (or an equivalent) is central here, not a corner case. It is decided at L7,
 > and it may need an integrator amendment in L3, made on `DYN-Q-001`'s terms.
 
-1. **TODO** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md)
-2. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
-3. **TODO** — A priori constraints → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md)
-4. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md)
+1. **TODO** — The whole force model through the registry → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md) — *added 2026-09-24*
+2. **TODO** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
+3. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md)
+4. **TODO** — A priori constraints → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md)
+5. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-5.md`](subplan_L7/L7-5.md)
 
 **Exit gate:** a fit over real data reaches its frozen residual and reports a joint covariance
 whose correlations are reproduced by finite differences. **Amended 2026-09-24**, taking the two
