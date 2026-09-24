@@ -115,42 +115,68 @@ struct OrbitTriad {
     return d;
 }
 
-/// KOUBA09 Eq. 4 (`x_sign` = +1) / Eq. 5 (`x_sign` = -1, IIR's own 180 deg
-/// X-axis reversal), REWRITTEN for this tree's own yaw convention, not
-/// transcribed as printed (the manager's own correction of an earlier,
-/// wrong causal claim here, PROVENANCE.md Sec.30.16): `frame_from_yaw`
-/// below builds x_body = -cos(psi)*t_hat - sin(psi)*n_hat, a right-handed
+/// KOUBA09 Eq. 4, REWRITTEN for this tree's own yaw convention, not
+/// transcribed as printed (PROVENANCE.md Sec.30.16): `frame_from_yaw` below
+/// builds x_body = -cos(psi)*t_hat - sin(psi)*n_hat, a right-handed
 /// rotation about nadir starting from -t_hat; KOUBA09's own psi is a
 /// right-handed rotation about nadir starting from +t_hat, x = cos(psi)*
-/// t_hat - sin(psi)*n_hat. For x_sign=+1 (Eq.4) the two name the same
-/// physical x_body only at psi_tree = pi - psi_KOUBA09 (mod 2pi) -- checked
-/// against an INDEPENDENT x_body construction (`nominal_yaw_steering`'s own
-/// z=-r_hat/y=(z x s)/x=y x z build, which every block's own OFF-TURN
-/// attitude already goes through), both KOUBA09's own rotation and this
-/// tree's, agreeing with it to under 4e-15 over 2000 random geometries
-/// (PROVENANCE.md Sec.30.16). For x_sign=-1 (Eq.5, IIR) the SAME relation
-/// psi_tree = pi - psi_KOUBA09 holds too, but only checked at the FORMULA
-/// level so far (the standard identity pi - ATAN2(y,x) = ATAN2(y,-x)
-/// applied to Eq.5 as printed, verified numerically to 1e-15) -- NOT yet
-/// against an independent x_body construction the way x_sign=+1 was, since
-/// `nominal_yaw_steering` itself takes no x_sign and so cannot directly
-/// play that role for IIR (PROVENANCE.md Sec.30.16 records this gap and a
-/// separately-found, unrelated discontinuity it surfaced, left for the
-/// manager). Either way, substituting Eq. 4/5 as printed into that same
-/// identity gives exactly this function's own form: the sin(mu) term's own
-/// sign flip relative to Eq. 4/5 as printed IS that substitution -- not (an
-/// earlier version of this comment's claim, numerically harmless but
-/// factually wrong) a compensation for `mu_rad`'s own negation above, which
-/// stands on its own and needs no compensating fix elsewhere. `TYAW-A-013`
-/// transcribes Eq. 4 (x_sign=+1) independently and checks it against this
-/// relation directly, through the off-turn interface. PROVED against real
-/// ORBEX data too, not assumed: this exact form, fed mu_rad's NEW
-/// (KOUBA09-true) output, reproduces the same psi -- to the same
-/// 0.000-0.001 deg -- that the pre-fix formula (unflipped sin term)
-/// reproduced when fed mu_rad's OLD (negated) output; checked at 21 points
-/// spread across a full real day, far from any turn.
-[[nodiscard]] double psi_nominal(double beta, double mu, double x_sign) noexcept {
-    return std::atan2(-x_sign * std::tan(beta), -x_sign * std::sin(mu));
+/// t_hat - sin(psi)*n_hat. The two name the same physical x_body only at
+/// psi_tree = pi - psi_KOUBA09 (mod 2pi) -- checked against an INDEPENDENT
+/// x_body construction (`nominal_yaw_steering`'s own z=-r_hat/y=(z x
+/// s)/x=y x z build, which every block's own off-turn attitude already
+/// goes through), both KOUBA09's own rotation and this tree's, agreeing
+/// with it to under 4e-15 over 2000 random geometries. Substituting Eq. 4
+/// as printed into the standard identity pi - ATAN2(y,x) = ATAN2(y,-x)
+/// gives exactly this function's own form: the sin(mu) term's own sign
+/// flip relative to Eq. 4 as printed IS that substitution. `TYAW-A-013`
+/// transcribes Eq. 4 independently and checks it against this relation
+/// directly, through the off-turn interface. PROVED against real ORBEX
+/// data too, not assumed: this exact form, fed mu_rad's own (KOUBA09-true)
+/// output, matches CODE's own real attitude to 0.000-0.001 deg; checked at
+/// 21 points spread across a full real day, far from any turn.
+///
+/// NO `x_sign` PARAMETER (removed here, 2026-09-24, the manager's own
+/// ruling, PROVENANCE.md Sec.30.19/TYAW-Q-007): this function used to take
+/// one, computing KOUBA09's Eq. 5 (his own `x_sign` = -1 form) for IIR --
+/// a real, deliberate transcription of his own printed equation, not a
+/// slip. The bug was applying it here at all: Eq. 5 is IIR's yaw angle in
+/// KOUBA09's own frame for that block, and this tree's own frame is NOT
+/// that frame, for any block -- `frame_from_yaw`/`nominal_yaw_steering`
+/// above already implement the single, block-agnostic convention
+/// `SPEC-photon-pressure`'s `PHPR-R-004` took from `MSGA15` (+x toward the
+/// Sun, universally), and `MSGA15`'s own text on IIR (his own -x_BF, not
+/// +x_BF, is the face he says stays sunlit; the IGS frame's x/y are then
+/// STATED inverted relative to his) works out to +x TOWARD the Sun for IIR
+/// too once carried through -- confirmed independently two ways before
+/// anything changed: against `MSGA15`'s own words (not skimmed once), and
+/// against CODE's own real G05 (IIR-M) quaternion away from any turn
+/// (x_body.dot(sun_hat) = 0.985 to 1.000 at all 318 off-turn epochs
+/// checked, matching `nominal_yaw_steering` to 0.00013 deg). Eq. 5's own
+/// `x_sign` = -1 form does not belong in this function at all: applying it
+/// made `gps_yaw_attitude` emit +x AWAY from the Sun throughout every IIR
+/// turn while the ideal law right outside emits +x TOWARD it -- an
+/// approximately 180 deg jump at every IIR hand-over, `TYAW-A-014` (below)
+/// showing it FAIL on the code as it stood (`plan` rule 5) before this fix,
+/// masked until now because `TYAW-A-002`'s own "exact at onset" check
+/// samples precisely where `evaluate_turn`'s own strict `gap > 0.0` boundary
+/// makes BOTH the turn path and the off-turn path fall through to the same
+/// `nominal_yaw_steering` call -- a guard that had never actually fired.
+/// `turn_ramp_sign` below keeps its own `x_sign` parameter: PROVED, not
+/// merely argued, that removing `x_sign` from THIS function alone, leaving
+/// `turn_ramp_sign` untouched, leaves `evaluate_turn`'s own `gap` sign (so
+/// the turn's own active region, timing, and hand-over points) EXACTLY
+/// unchanged for every block -- the `psi_s` shift and the nominal-law delta
+/// used to build `gap` cancel algebraically, confirmed both symbolically
+/// and by direct numerical re-evaluation across a dense IIR noon-turn
+/// sweep (4000 points, zero activity mismatches, returned psi differing
+/// from the pre-fix value by exactly pi at every active one, to 8.88e-16) --
+/// while `frame_from_yaw`'s own x_body, fed the corrected psi, flips sign
+/// throughout the ENTIRE turn, not only at the boundary, landing on the
+/// Sun-facing convention the ideal law already uses outside it. `TYAW-A-013`
+/// is extended to check IIR (`plan`'s own x_sign=-1 case) the same way as
+/// every other block now that this is safe to test.
+[[nodiscard]] double psi_nominal(double beta, double mu) noexcept {
+    return std::atan2(-std::tan(beta), -std::sin(mu));
 }
 
 /// KOUBA09 Eq. 6, evaluated at a specific mu (not necessarily the current
@@ -173,23 +199,32 @@ struct OrbitTriad {
 }
 
 /// The ramp's own constant-rate direction for a noon/midnight-shaped turn
-/// (KOUBA09's own SIGN[R, psi_dot_n(t_s)], Eq. 15/16): algebraically,
-/// sign(psi_dot_n) = x_sign * sign(beta) * sign(cos(mu_s)), and cos(mu_s) has
-/// a FIXED sign for each turn family (negative approaching noon, positive
-/// approaching midnight, since the turn's own half-width is always < 90 deg)
-/// -- so this needs no direct, beta-near-zero-fragile evaluation of
-/// psi_dot_n itself. sign(beta) uses TYAW-R-007's own RULED convention:
-/// sign(0) := +1, the stateless tie-break for the beta-near-zero edge case
-/// (TYAW-Q-002).
+/// (KOUBA09's own SIGN[R, psi_dot_n(t_s)], Eq. 15/16, HIS OWN psi_dot_n --
+/// not this file's `psidot_nominal`, which no longer takes `x_sign` at all,
+/// see below): algebraically, in KOUBA09's own frame, sign(psi_dot_n) =
+/// x_sign * sign(beta) * sign(cos(mu_s)), and cos(mu_s) has a FIXED sign for
+/// each turn family (negative approaching noon, positive approaching
+/// midnight, since the turn's own half-width is always < 90 deg) -- so this
+/// needs no direct, beta-near-zero-fragile evaluation of psi_dot_n itself.
+/// sign(beta) uses TYAW-R-007's own RULED convention: sign(0) := +1, the
+/// stateless tie-break for the beta-near-zero edge case (TYAW-Q-002).
 ///
-/// NEGATED relative to the sign this same algebraic argument gave before
-/// `psidot_nominal`'s own fix above -- this function's own SIGN[psi_dot_n]
-/// must track `psidot_nominal`'s own sign, which flipped for the SAME
-/// psi_tree = pi - psi_KOUBA09 reason `psi_nominal` above states (PROVENANCE.md
-/// Sec.30.16), not to compensate `mu_rad` -- verified end to end against
-/// real IIF noon data, not derived symbolically alone -- without this flip
-/// the noon turn's own centre lands 180 deg from where it belongs, not
-/// merely off).
+/// STILL TAKES `x_sign`, the ONE place in this file that does (`psi_nominal`
+/// above dropped it, PROVENANCE.md Sec.30.16/30.19): this function's own
+/// job is narrower than computing a frame-correct angle -- it only has to
+/// pick the SIGN `evaluate_turn`'s own ramp advances in, matching KOUBA09's
+/// own operational rule (the ramp continues the direction the nominal law
+/// was already heading at onset). Removing `x_sign` from `psi_nominal`
+/// alone, leaving this function AS IS, was PROVED -- not assumed -- to
+/// leave `evaluate_turn`'s own `gap` sign, hence every turn's own active
+/// region and hand-over timing, EXACTLY unchanged for every block: the
+/// constant pi that `psi_s` and the nominal-law delta both pick up cancels
+/// algebraically inside `gap`, confirmed symbolically and by re-evaluating
+/// a dense IIR noon-turn sweep before this fix was trusted (4000 points,
+/// zero activity mismatches, psi differing from the pre-fix value by
+/// exactly pi at every active one, to 8.88e-16) -- while the RETURNED psi
+/// itself shifts by that same pi throughout the whole turn, which is
+/// exactly the fix `psi_nominal`'s own comment describes.
 [[nodiscard]] double turn_ramp_sign(double beta, double x_sign, bool is_noon) noexcept {
     const double sign_beta = (beta < 0.0) ? -1.0 : 1.0;
     return -(x_sign * sign_beta * (is_noon ? -1.0 : 1.0));
@@ -205,7 +240,10 @@ struct TurnResult {
 /// carries the same information a time-since-onset would, without a
 /// remembered reference epoch -- TYAW-R-007's own statelessness). `onset_rad`
 /// is beta_0 = atan(mu_dot/R) (Eq. 7); `mu_center` is pi for a noon turn, 0
-/// for a midnight/night turn.
+/// for a midnight/night turn. No `x_sign` parameter (removed here,
+/// PROVENANCE.md Sec.30.19/TYAW-Q-007, `psi_nominal`'s own comment has the
+/// full account): this function only ever needed it to pass through to
+/// `psi_nominal`, which no longer takes one.
 ///
 /// KOUBA09's own text terminates the turn operationally ("until ... the
 /// lagging angle catches up with the nominal yaw attitude"), not by a closed
@@ -227,7 +265,7 @@ struct TurnResult {
 /// unambiguous regardless of how far mu_current sits past onset, and once
 /// caught up, the ramp's own value keeps growing while the directional
 /// value stays bounded, so a finished turn stays reported finished.
-[[nodiscard]] TurnResult evaluate_turn(double beta, double mu_current, double x_sign,
+[[nodiscard]] TurnResult evaluate_turn(double beta, double mu_current,
                                         double mu_center, double onset_rad, double rate_rad_per_s,
                                         double ramp_sign) noexcept {
     const double width_sq = onset_rad * std::abs(beta) - beta * beta;
@@ -237,9 +275,9 @@ struct TurnResult {
     const double mu_q = wrap_near(mu_current, mu_center);
     if (mu_q < mu_s) return {false, 0.0};
 
-    const double psi_s = psi_nominal(beta, mu_s, x_sign);
+    const double psi_s = psi_nominal(beta, mu_s);
     const double psi_ramp = psi_s + ramp_sign * rate_rad_per_s * (mu_q - mu_s) / kMuDotRadPerS;
-    const double delta_raw = psi_nominal(beta, mu_q, x_sign) - psi_s;
+    const double delta_raw = psi_nominal(beta, mu_q) - psi_s;
     const double delta_directional = wrap_directional(delta_raw, ramp_sign > 0.0);
     const double psi_nom_directional = psi_s + delta_directional;
     const double gap = (psi_nom_directional - psi_ramp) * ramp_sign;
@@ -260,7 +298,13 @@ struct TurnResult {
 /// true time (`mu_rad`'s own fix above), so the smaller of the two boundary
 /// values is the one reached first -- this was already the code's own
 /// structure, not something this fix needed to change, only to confirm.
-[[nodiscard]] TurnResult evaluate_shadow_crossing(double beta, double mu_current, double x_sign,
+/// No `x_sign` parameter (removed here, PROVENANCE.md Sec.30.19/TYAW-Q-007,
+/// `psi_nominal`'s own comment has the full account): this function is
+/// only ever reached for II/IIA (`gps_yaw_attitude`'s own dispatch), whose
+/// x_sign was always +1, so dropping the now-unused pass-through changes
+/// nothing here -- it is removed for the same reason it was removed from
+/// `psi_nominal` and `evaluate_turn`, not carried as a vestige.
+[[nodiscard]] TurnResult evaluate_shadow_crossing(double beta, double mu_current,
                                                    double rate_rad_per_s, double rr_rad_per_s2,
                                                    double bias_rad) noexcept {
     const double width_sq = kShadowHalfAngleRad * kShadowHalfAngleRad - beta * beta;
@@ -271,7 +315,7 @@ struct TurnResult {
     const double mu_q = wrap_near(mu_current, 0.0);
     if (mu_q < mu_s || mu_q > mu_e) return {false, 0.0};
 
-    const double psi_s = psi_nominal(beta, mu_s, x_sign);
+    const double psi_s = psi_nominal(beta, mu_s);
     const double psidot_s = psidot_nominal(beta, mu_s);
     const double sign_bias = (bias_rad < 0.0) ? -1.0 : 1.0;
     const double target_rate = sign_bias * rate_rad_per_s;  // KOUBA09 SIGN(R, b)
@@ -320,9 +364,11 @@ struct TurnResult {
 /// psi_entry + swing) -- mu_dot itself cancels (a constant rate over a
 /// mu-interval, sampled at a fraction of that interval, does not need to
 /// know how fast mu itself moves), so it does not appear in the return
-/// expression at all.
-[[nodiscard]] TurnResult evaluate_shadow_constant_rate(double beta, double mu_current,
-                                                        double x_sign) noexcept {
+/// expression at all. No `x_sign` parameter (removed here, PROVENANCE.md
+/// Sec.30.19/TYAW-Q-007, `psi_nominal`'s own comment has the full account):
+/// this function is only ever reached for IIF/IIIA, whose x_sign was
+/// always +1, so dropping the now-unused pass-through changes nothing here.
+[[nodiscard]] TurnResult evaluate_shadow_constant_rate(double beta, double mu_current) noexcept {
     const double width_sq = kShadowHalfAngleRad * kShadowHalfAngleRad - beta * beta;
     if (width_sq <= 0.0) return {false, 0.0};
     const double half_width = std::sqrt(width_sq);
@@ -331,7 +377,7 @@ struct TurnResult {
     const double mu_q = wrap_near(mu_current, 0.0);
     if (mu_q < mu_entry || mu_q > mu_exit) return {false, 0.0};
 
-    const double psi_entry = psi_nominal(beta, mu_entry, x_sign);
+    const double psi_entry = psi_nominal(beta, mu_entry);
     const double tan_beta = std::tan(beta);
     const double swing = std::atan(std::sin(mu_entry) / tan_beta) - std::atan(std::sin(mu_exit) / tan_beta);
     return {true, psi_entry + swing * (mu_q - mu_entry) / (mu_exit - mu_entry)};
@@ -342,9 +388,19 @@ struct TurnResult {
 /// numerically (PROVENANCE) against `nominal_yaw_steering`'s own independent
 /// z=-r_hat/y=(z x s)/x=y x z construction, across many random geometries, to
 /// machine precision (max component error 4e-16): x_body =
-/// -cos(psi)*t_hat - sin(psi)*n_hat is the relation that reproduces it,
-/// bit-for-bit continuity at every turn hand-over (`TYAW-P-2`) following from
-/// that same identity rather than from a separate argument.
+/// -cos(psi)*t_hat - sin(psi)*n_hat is the relation that reproduces it -- for
+/// WHATEVER psi this is fed, correctly, always; this is a statement about
+/// the FRAME formula alone, not about `TYAW-P-2` continuity at hand-over
+/// (an earlier version of this comment claimed continuity followed from
+/// this identity directly -- it does not, PROVENANCE.md Sec.30.19 found:
+/// IIR's own psi WAS discontinuous at hand-over, `x_sign` bug, fixed at
+/// `psi_nominal`, not here; II/IIA's own shadow-crossing law is STILL
+/// discontinuous at exit, on KOUBA09's own terms, a documented gap,
+/// `SPEC-thrust-yaw` Sec.4.1's own "largely uncertain" post-shadow period).
+/// Continuity, where it holds, is a property of whatever function computes
+/// psi -- `evaluate_turn`'s own onset construction, `evaluate_shadow_
+/// constant_rate`'s own swing -- checked per caller, not inherited from
+/// this function alone.
 [[nodiscard]] Mat3 frame_from_yaw(const OrbitTriad& tri, double psi) noexcept {
     const Vec3 z_body = -1.0 * tri.r_hat;
     const Vec3 x_body = (-std::cos(psi)) * tri.t_hat + (-std::sin(psi)) * tri.n_hat;
@@ -388,6 +444,9 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
     // TYAW-R-004: IIIA is TYAW-R-003's own IIF law, unchanged -- not a fifth
     // implementation (TYAW-A-005 checks this is bit-identical to IIF).
     const GpsBlock effective_block = (block == GpsBlock::IIIA) ? GpsBlock::IIF : block;
+    // Fed to `turn_ramp_sign` only, below -- `psi_nominal` itself no longer
+    // takes an x_sign (PROVENANCE.md Sec.30.19/TYAW-Q-007, `psi_nominal`'s
+    // own comment has the full account of why).
     const double x_sign = (effective_block == GpsBlock::IIR_IIRM) ? -1.0 : 1.0;
 
     const OrbitTriad tri = orbit_triad(r_gcrs_m, v_gcrs_m_per_s);
@@ -410,7 +469,7 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
     // implementation of a shape IIF does not actually fly, reverted once
     // the mu bug was found, not because the implementation was wrong for
     // what it modelled).
-    TurnResult result = evaluate_turn(beta, mu, x_sign, M_PI, noon_onset, noon_rate,
+    TurnResult result = evaluate_turn(beta, mu, M_PI, noon_onset, noon_rate,
                                        turn_ramp_sign(beta, x_sign, /*is_noon=*/true));
 
     if (!result.active) {
@@ -419,7 +478,7 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
                 // TYAW-R-001: no separate beta0-based midnight turn -- the
                 // night side is the shadow-crossing regime, whenever
                 // actually eclipsed, regardless of beta.
-                result = evaluate_shadow_crossing(beta, mu, x_sign, night_rate,
+                result = evaluate_shadow_crossing(beta, mu, night_rate,
                                                    rates.spin_up_deg_per_s2 * kDegToRad,
                                                    rates.yaw_bias_deg * kDegToRad);
                 break;
@@ -427,7 +486,7 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
                 // TYAW-R-002: midnight turn, same rate-limited ramp shape as
                 // noon, IIR's own single hardware rate (identical to noon).
                 const double night_onset = std::atan(kMuDotRadPerS / night_rate);
-                result = evaluate_turn(beta, mu, x_sign, 0.0, night_onset, night_rate,
+                result = evaluate_turn(beta, mu, 0.0, night_onset, night_rate,
                                         turn_ramp_sign(beta, x_sign, /*is_noon=*/false));
                 break;
             }
@@ -435,7 +494,7 @@ gps_yaw_attitude(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& s
                 // TYAW-R-003: night side is Shape E, the shadow-crossing
                 // regime (like II/IIA's own TYAW-R-001), not a rate-limited
                 // ramp -- `rates.night_deg_per_s` is not read here.
-                result = evaluate_shadow_constant_rate(beta, mu, x_sign);
+                result = evaluate_shadow_constant_rate(beta, mu);
                 break;
             case GpsBlock::IIIA:
                 break;  // unreachable: effective_block never IIIA

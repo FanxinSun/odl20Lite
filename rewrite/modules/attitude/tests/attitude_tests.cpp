@@ -453,6 +453,115 @@ TEST_CASE("TYAW-A-005  IIIA is bit-identical to IIF at the same inputs -- the st
     }
 }
 
+TEST_CASE("TYAW-A-014  TYAW-P-2 continuity, checked one step inside and one step outside "
+          "EVERY hand-over of every block (not just at the exact onset, which TYAW-A-002's "
+          "own check sits at, and which the manager's own review found every block's turn "
+          "law can trivially match there by never actually being entered, plan rule 5). "
+          "IIR's own noon and midnight turns were shown to FAIL this on the code as it stood "
+          "before 2026-09-24 (max_component_diff 1.5-2.0, an approximately 180 deg jump, "
+          "TYAW-Q-007) -- `psi_nominal`'s own x_sign, removed the same day, PROVENANCE.md "
+          "Sec.30.19 has the full account and the fail-then-pass record this test's own git "
+          "history carries. II/IIA's own shadow EXIT is the one boundary still expected NOT "
+          "continuous, for a DIFFERENT, already-documented reason -- KOUBA09's own spin-up "
+          "law (Eq.20-22) is not constructed to land on the nominal law at its own fixed "
+          "geometric exit boundary the way a rate-limited turn's own catchup or Shape E's own "
+          "swing are, and the resulting gap is the SAME one SPEC-thrust-yaw Sec.4.1 already "
+          "names 'largely uncertain' and explicitly out of scope (the 30-minute post-shadow "
+          "recovery) -- not a coding defect, and not touched here.",
+          "[attitude][gate]") {
+    auto boundary_active = [](double beta_deg, double mu_deg, GpsBlock block,
+                               const HardwareYawRates& rates) {
+        auto f = fixture_at(beta_deg, mu_deg);
+        auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, block, rates);
+        auto nom = nominal_yaw_steering(f.r_gcrs_m, f.sun_gcrs);
+        REQUIRE(turn.has_value());
+        REQUIRE(nom.has_value());
+        return max_component_diff(*turn, *nom) > 1.0e-6;
+    };
+    // Bisection, not a closed-form onset formula: this test must find each
+    // hand-over the SAME way `gps_yaw_attitude` itself defines "active",
+    // independent of whether the onset formula and the active-region test
+    // happen to agree (they do, TYAW-A-002; this does not re-assume it).
+    auto find_boundary = [&](double beta_deg, double lo, double hi, GpsBlock block,
+                              const HardwareYawRates& rates) {
+        const bool lo_active = boundary_active(beta_deg, lo, block, rates);
+        REQUIRE(boundary_active(beta_deg, hi, block, rates) != lo_active);  // bracket sanity
+        for (int i = 0; i < 60; ++i) {
+            const double mid = (lo + hi) / 2.0;
+            if (boundary_active(beta_deg, mid, block, rates) == lo_active) lo = mid; else hi = mid;
+        }
+        return (lo + hi) / 2.0;
+    };
+    auto x_body_at = [](double beta_deg, double mu_deg, GpsBlock block,
+                         const HardwareYawRates& rates) {
+        auto f = fixture_at(beta_deg, mu_deg);
+        auto turn = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, block, rates);
+        REQUIRE(turn.has_value());
+        return Vec3{turn->r[0][0], turn->r[0][1], turn->r[0][2]};
+    };
+
+    constexpr double kStep = 0.005;  // "one rate-step": ~0.6 s of true time at mu_dot
+    struct Boundary { const char* label; double beta_deg, lo, hi; GpsBlock block; HardwareYawRates rates; bool expect_continuous; };
+    const HardwareYawRates ii_iia{0.122, 0.122, 0.5, 0.0017};
+    const HardwareYawRates iir{0.20, 0.20, 0.0, 0.0};
+    const HardwareYawRates iif{0.11, 0.06, 0.0, 0.0};
+    const Boundary boundaries[] = {
+        {"II/IIA noon onset",    1.0, 170.0, 180.0, GpsBlock::II_IIA, ii_iia, true},
+        {"II/IIA noon catchup",  1.0, 180.0, 210.0, GpsBlock::II_IIA, ii_iia, true},
+        {"II/IIA shadow entry",  4.0, -20.0,  -6.0, GpsBlock::II_IIA, ii_iia, true},
+        // Shadow EXIT: NOT expected continuous -- see the TEST_CASE's own
+        // header comment (KOUBA09's Eq.20-22 spin-up law, not constructed to
+        // land on nominal at the shadow's fixed geometric exit boundary the
+        // way entry, catchup, and Shape E all are; the post-shadow recovery
+        // that would close this gap is SPEC-thrust-yaw Sec.4.1's own named
+        // "largely uncertain", explicitly out-of-scope regime).
+        {"II/IIA shadow exit",   4.0,   6.0,  20.0, GpsBlock::II_IIA, ii_iia, false},
+        {"IIR noon onset",       1.0, 170.0, 180.0, GpsBlock::IIR_IIRM, iir, true},
+        {"IIR noon catchup",     1.0, 180.0, 210.0, GpsBlock::IIR_IIRM, iir, true},
+        {"IIR midnight onset",   1.0, -15.0,   0.0, GpsBlock::IIR_IIRM, iir, true},
+        {"IIR midnight catchup", 1.0,   0.0,  15.0, GpsBlock::IIR_IIRM, iir, true},
+        {"IIF noon onset",       1.0, 170.0, 180.0, GpsBlock::IIF, iif, true},
+        {"IIF noon catchup",     1.0, 180.0, 210.0, GpsBlock::IIF, iif, true},
+        // Shape E's own swing is CONSTRUCTED to land on the nominal law at
+        // both boundaries (attitude.cpp's own evaluate_shadow_constant_rate
+        // comment) -- unlike II/IIA's spin-up law above, both ARE expected
+        // continuous. Brackets avoid mu=0 exactly: Shape E's own linear
+        // swing and the nominal law's own atan2 branch happen to cross
+        // there for this beta, an interior coincidence, not an edge.
+        {"IIF night entry",      4.0, -20.0,  -6.0, GpsBlock::IIF, iif, true},
+        {"IIF night exit",       4.0,   6.0,  20.0, GpsBlock::IIF, iif, true},
+    };
+    for (const auto& b : boundaries) {
+        INFO(b.label);
+        const double mu_b = find_boundary(b.beta_deg, b.lo, b.hi, b.block, b.rates);
+        // Sample strictly inside and strictly outside the active region,
+        // whichever side of mu_b that is (onset: inactive->active rising as
+        // mu increases; catchup: active->inactive falling) -- both
+        // directions handled by which of lo/hi started active.
+        const bool lo_active = boundary_active(b.beta_deg, b.lo, b.block, b.rates);
+        const double mu_inside = lo_active ? mu_b - kStep : mu_b + kStep;
+        const double mu_outside = lo_active ? mu_b + kStep : mu_b - kStep;
+
+        const Vec3 x_inside = x_body_at(b.beta_deg, mu_inside, b.block, b.rates);
+        const Vec3 x_outside = x_body_at(b.beta_deg, mu_outside, b.block, b.rates);
+        const double diff = std::max({std::abs(x_inside.x - x_outside.x),
+                                       std::abs(x_inside.y - x_outside.y),
+                                       std::abs(x_inside.z - x_outside.z)});
+        INFO("mu_boundary=" << mu_b << " mu_inside=" << mu_inside << " mu_outside=" << mu_outside
+                             << " max_component_diff=" << diff);
+        if (b.expect_continuous) {
+            // A genuinely continuous law's own change over one 0.005 deg
+            // step is small but NOT zero (the law is actively ramping right
+            // at a hand-over); 0.05 sits an order of magnitude above every
+            // continuous case measured (<=0.0022) and an order of magnitude
+            // below every discontinuous one (>=0.5), not fitted to either.
+            CHECK(diff < 0.05);
+        } else {
+            CHECK(diff > 0.5);  // the near-total jump this section documents -- FIRING, not fixed
+        }
+    }
+}
+
 TEST_CASE("TYAW-A-012  mu genuinely increases with TRUE time along a REAL propagated "
           "trajectory, and a rate-limited turn's own midpoint falls AFTER the singularity "
           "in true elapsed time -- the independent-property guard against the mu-direction "
@@ -568,44 +677,66 @@ TEST_CASE("TYAW-A-013  KOUBA09's Eq.4 transcribed independently matches psi_nomi
           "output through psi_tree = pi - psi_KOUBA09 -- the guard against the wrong-reason-"
           "comment bug PROVENANCE.md Sec.30.16 corrects (an earlier version of this section's "
           "own comments attributed psi_nominal's sign flip to compensating mu_rad, when the "
-          "real cause is this tree's own yaw convention). x_sign=-1 (Eq.5, IIR) deliberately "
-          "NOT exercised here -- TYAW-Q-007 (SPEC-thrust-yaw Sec.10) records why",
+          "real cause is this tree's own yaw convention). Extended to IIR, ON- and OFF-turn "
+          "(PROVENANCE.md Sec.30.19/TYAW-Q-007): psi_nominal no longer takes an x_sign at all, "
+          "so there is no separate Eq.5 case left to test -- this checks that IIR's own output "
+          "matches Eq.4 exactly like every other block, both away from and inside a real turn",
           "[attitude][gate]") {
-    // KOUBA09's Eq.4 (x_sign=+1) exactly as printed -- written fresh here,
-    // NOT calling psi_nominal (which is unreachable from this file
-    // regardless: both live in attitude.cpp's own anonymous namespace).
-    // This is the independent transcription the manager asked for, not a
-    // restatement of production code under a different name.
+    // KOUBA09's Eq.4 exactly as printed -- written fresh here, NOT calling
+    // psi_nominal (which is unreachable from this file regardless: both
+    // live in attitude.cpp's own anonymous namespace). This is the
+    // independent transcription the manager asked for, not a restatement
+    // of production code under a different name.
     auto kouba_eq4_psi = [](double beta_rad, double mu_rad_) {
         return std::atan2(-std::tan(beta_rad), std::sin(mu_rad_));
     };
     auto wrapped_diff = [](double a, double b) { return std::atan2(std::sin(a - b), std::cos(a - b)); };
+    auto check_matches_eq4 = [&](double beta_deg, double mu_deg, const Vec3& x_body) {
+        const double psi_tree = recover_psi(x_body, mu_deg);
+        const double psi_k = kouba_eq4_psi(beta_deg * kDeg, mu_deg * kDeg);
+        return std::abs(wrapped_diff(psi_tree, std::numbers::pi - psi_k));
+    };
 
-    // Sample points well away from any turn or shadow window at every beta
-    // used (largest half-width in this grid is well under 45 deg), so
-    // gps_yaw_attitude falls through to nominal_yaw_steering -- the SAME
-    // off-turn fallthrough PROVENANCE.md Sec.30.8's own "confirmation by
-    // shared formula" already relies on. x_sign=+1 covers II/IIA, IIF and
-    // IIIA (TYAW-R-004's own bit-identical-to-IIF definition); IIR's own
-    // x_sign=-1 is deliberately left untested here (TYAW-Q-007).
+    // Off-turn: sample points well away from any turn or shadow window at
+    // every beta used (largest half-width in this grid is well under
+    // 45 deg), so gps_yaw_attitude falls through to nominal_yaw_steering --
+    // the SAME off-turn fallthrough PROVENANCE.md Sec.30.8's own
+    // "confirmation by shared formula" already relies on. Every block gets
+    // the SAME formula now (no x_sign left to vary), so all four are
+    // checked the same way, not just II/IIA.
     const HardwareYawRates ii_iia_rates{0.11, 0.10, 0.5, 0.0017};
-
+    const HardwareYawRates iir_rates{0.20, 0.20, 0.0, 0.0};
+    const HardwareYawRates iif_rates{0.11, 0.06, 0.0, 0.0};
+    struct BlockCase { const char* label; GpsBlock block; HardwareYawRates rates; };
+    const BlockCase off_turn_blocks[] = {
+        {"II/IIA", GpsBlock::II_IIA, ii_iia_rates},
+        {"IIR/IIR-M", GpsBlock::IIR_IIRM, iir_rates},
+        {"IIF", GpsBlock::IIF, iif_rates},
+        {"IIIA", GpsBlock::IIIA, iif_rates},
+    };
     double max_err_rad = 0.0;
-    for (double beta_deg : {0.5, 2.0, 5.0, 15.0}) {
-        for (double mu_deg : {45.0, 90.0, 135.0, 225.0, 270.0, 315.0}) {
-            auto f = fixture_at(beta_deg, mu_deg);
-            auto ii_iia = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs,
-                                            GpsBlock::II_IIA, ii_iia_rates);
-            REQUIRE(ii_iia.has_value());
-            const double psi_tree =
-                recover_psi(Vec3{ii_iia->r[0][0], ii_iia->r[0][1], ii_iia->r[0][2]}, mu_deg);
-            const double psi_k = kouba_eq4_psi(beta_deg * kDeg, mu_deg * kDeg);
-            const double err = std::abs(wrapped_diff(psi_tree, std::numbers::pi - psi_k));
-            max_err_rad = std::max(max_err_rad, err);
+    for (const auto& bc : off_turn_blocks) {
+        for (double beta_deg : {0.5, 2.0, 5.0, 15.0}) {
+            for (double mu_deg : {45.0, 90.0, 135.0, 225.0, 270.0, 315.0}) {
+                auto f = fixture_at(beta_deg, mu_deg);
+                auto res = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs, bc.block, bc.rates);
+                REQUIRE(res.has_value());
+                const Vec3 x_body{res->r[0][0], res->r[0][1], res->r[0][2]};
+                max_err_rad = std::max(max_err_rad, check_matches_eq4(beta_deg, mu_deg, x_body));
+            }
         }
     }
-    INFO("max wrapped |psi_tree - (pi - psi_KOUBA09_Eq4)| over the grid (rad) = " << max_err_rad);
+    INFO("max wrapped |psi_tree - (pi - psi_KOUBA09_Eq4)| off-turn, all four blocks (rad) = " << max_err_rad);
     CHECK(max_err_rad < 1.0e-9);
+    // ON-turn correctness (the case that was actually broken for IIR) is
+    // TYAW-A-014's own job, not this test's: during an active turn,
+    // evaluate_turn's own psi is a linear RAMP, not psi_nominal evaluated at
+    // the query point -- the two coincide only exactly at onset, by
+    // construction, so comparing them at any OTHER interior point would not
+    // test this function at all, only restate that the ramp and the curve
+    // it is lagging behind are different curves. TYAW-A-014 checks the
+    // property that actually matters there: continuity with the (correct,
+    // Eq.4-based) off-turn law at every hand-over, for every block.
 }
 
 TEST_CASE("TYAW-A-006  TYAW-F-001 fires at the Sun-on-zenith singularity outside any turn "
