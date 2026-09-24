@@ -5145,10 +5145,138 @@ digitization and the MSGA15/G05 frame facts stand as recorded.
 
 ---
 
+## 31. L5 step 1 — `spacecraft`: GPS, as cited data
+
+`SPEC-spacecraft.md` v1.1. Five GPS blocks built (I, II, IIA, IIR, IIR-M, IIF), one searched and
+refused (IIIA) — `modules/spacecraft`, populating `macromodel`'s own schema (§26) with published,
+per-value-cited numbers, no schema change. 189 assertions, 7 test cases, all passing.
+
+### 31.1 `RS14`'s own licence: a genuine ambiguity, escalated rather than decided alone
+
+`RS14` (Rodríguez-Solano 2014, TU München dissertation, already pinned at §26.1 as a manifest
+entry, not yet read for its own GPS tables) is retrievable with no login, but states no
+redistribution terms of its own. TU München's own publishing-policy pages were read directly
+(`ub.tum.de/en/publishing-mediatum`, `/en/theses`, `/en/copyright-law`,
+`/en/copyright-declaration`): a publication-based thesis — which `RS14` is, since it reprints
+`RHS12` in full as one chapter — does not have third-party rights cleared by TUM on the author's
+behalf, and the German §60c UrhG research exception (personal scientific reproduction, up to 15% of
+a work) is narrower than redistribution inside a software library. No statement permitting general
+redistribution was found either way — a genuine gap, not a clear yes or no, escalated to the
+manager rather than decided unilaterally in either direction. **Ruled** (`c6f6e0b`): used anyway,
+since this library states published physical parameters, the way this field's own models are
+always cited, and `RS14`'s own tables here are six or seven rows each, themselves a derivation
+(an area-weighted average, `RS14` §5.1.3) from `FLGA92`/`FLGA96`, not a transcription of either
+paper's own printed table or a compilation at the predecessor's own hundred-plus-surface scale —
+`SPEC-spacecraft.md` §2.2 records the ruling and its reasoning in full.
+
+`FLGA92`/`FLGA96` themselves were separately searched for direct access: AGU's own rolling
+24-month free-access embargo (from 1997) explicitly excludes its own pre-1997 backfile, and
+`FLGA92` (1992) sits five years outside that window — checked directly at the manager's own
+instruction to try a publisher's free-access route before concluding absence, rather than assuming
+it. A DTIC report that cites `FLGA92`, not a copy of it, returned HTTP 403. Neither paper's full
+text was obtained; both remain reached only through `RS14`'s own derived tables (`SPEC-spacecraft`
+§2.1).
+
+### 31.2 Five blocks built, then a sixth found missing on a first pass
+
+`modules/spacecraft` built `gps_block_i`, `gps_block_ii_iia`, `gps_block_iir`, `gps_block_iir_m`
+from `RS14` Tables 5.2–5.4, each face and the solar-panel row cited per value, in the IGS body
+frame (`MSGA15` Fig. 3/4, `RS14` §5.1.1 independently agreeing). `gps_block_iir_m` returns
+`gps_block_iir`'s own geometry, not a separate measurement — `MSGA15` groups IIR/IIR-M under one
+body-frame figure and distinguishes the sub-blocks only by phase-center location (antenna, not
+bus/panel), so the citation states this as an inference, not a bare shared number
+(`SPCR-R-005`). Committed `52022d3`.
+
+Block IIF — the load-bearing block, since the constellation's own G01 baseline used elsewhere in
+this tree (§30) is a IIF satellite — was found to have **no source at all** on this first pass:
+`RS14`'s own IIF table (§5.5) states its dimensions come from "an unpublished document" it does not
+reprint. §31.4 below covers the manager's later ruling to build it anyway, from that same table's
+own in-table values.
+
+### 31.3 The δ/ρ mapping: verified against a source's words, not its formula — wrong, caught, fixed
+
+Populating the four tables above, `RS14` §5.1.2's own Appendix prose was read: "α absorption
+coefficient... δ reflection coefficient... ρ diffusion coefficient." Taken at face value, this
+maps δ to this schema's `specular` and ρ to `diffuse`, and this is what the first commit
+(`52022d3`) built and tested (`SPCR-A-003` asserting exactly this mapping).
+
+**The manager caught that this was checked against words alone, never against the force equation
+itself, and required re-verification three ways: the formula, an independent physical check, and a
+check of whether the error had reached any L4 spec.** `RHS12`'s own Eq. 6, reprinted in full inside
+`RS14` as its own "P-II" chapter (pp. 85–101, §26.2) — the actual force law, not a paraphrase —
+states `f = -(A·S₀/Mc)[cosθ(1−ρ)ê_D + 2(δ/3 + ρ·cosθ)ê_N]`: ρ carries the "2·ρ·cosθ" mirror-like
+(specular) term, δ the "2·δ/3" Lambertian (diffuse) term — the OPPOSITE of §5.1.2's own prose, and
+agreeing instead with `RHS12`'s own separately-stated prose a few pages earlier in the same chapter
+and with `RS14` §4.2's own GLONASS cylindrical-surface formula (Fliegel et al. 1992's own model,
+independently restating ρ=specular/δ=diffuse). `RS14` §5.1.2 disagrees with its OWN reprinted
+primary source and its OWN §4.2 — an authorial inconsistency internal to `RS14`, not a deliberate
+alternate convention; "words can mislead; the formula can't" (the manager's own standing
+principle). Cross-confirmed by `RS14`'s own partial-derivative section (Eq. 10, a solar panel at
+cosθ=1: `∂f/∂(1+ρ+2δ/3) = -(A_SP·S₀/Mc)ê_D`), matching this tree's own already-derived flat-plate
+coefficient `1+ρ+2δ/3` (§26.2) term-for-term only under ρ=specular. The independent physical check:
+GPS solar panels are glass-covered, predominantly specular reflectors, and every block's own panel
+row in `RS14` has its ρ column an order of magnitude larger than its δ column — consistent only
+with ρ=specular. The L4 check: `SPEC-macromodel.md`'s own convention (α, ρ, δ — absorbed,
+specularly reflected, diffusely scattered) was already correct; the error was made populating
+`SPEC-spacecraft`'s own tables from `RS14`, not inherited from a wrong L4 schema, so no L4 spec
+needed correction.
+
+Fixed: `bus_face()`/`solar_panels()` in `spacecraft.cpp` swapped (`specular = cited(row.rs14_rho,
+...)`, `diffuse = cited(row.rs14_delta, ...)`), doc comments in the `.cpp`/`.hpp` rewritten to
+state the corrected mapping and `RS14`'s own internal inconsistency, `SPCR-A-003`'s own expected
+values corrected, and a new assertion added — every built block's own solar panel independently
+satisfies `specular > diffuse` — as a standing physical guard, not only a one-time check.
+
+### 31.4 Block IIF: ruled and built from `RS14` Table 5.5, two citations per surface
+
+**Ruled** (manager, 2026-09-24): `RS14` Table 5.5 itself publishes six per-surface bus rows plus a
+solar-panel row for IIF — a citable in-table source, even though the table's own two halves trace
+to different provenance. Built with two DIFFERENT citation strings per surface, not one shared
+string as the other four blocks use (their own row is one clean citation throughout): dimensions
+cited to `RS14`'s own stated chain-end, "an unpublished document" this tree does not hold and
+cannot resolve further; optical properties marked **ASSUMED** — `RS14`'s own generic assumption
+(Ziebart 2001 §7.1), stated as such rather than presented as an IIF-specific measurement. This
+required extending `bus_face()`/`solar_panels()`/`assemble()` to take separate `area_citation` and
+`optics_citation` parameters (previously one shared `table` string); the four already-built blocks
+pass the same string twice, unchanged in effect. `SPCR-A-004` (rewritten from a bare refusal check
+to a full construction check) asserts the two citations actually differ, proving the split is
+real, and separately asserts the −Z bus face's own pure-absorber row (α=1.000, δ=ρ=0.000) — a
+plausibility floor `RS14`'s own table states directly.
+
+Two aggregate cross-checks attempted on the mass, 1555 kg (`RS14` Table 5.5's own caption): a U.S.
+Space Force fact sheet's own 3439 lb = 1559.7 kg, agreeing to 0.3% (found in an earlier round); and
+`IGSMETA`'s own `SATELLITE/MASS` field for SVN63/G063/NAVSTAR-66 (fetched directly this round,
+`https://files.igs.org/pub/station/general/igs_satellite_metadata.snx`), 1633 kg, agreeing to ~5%
+— the two aggregate sources disagree with EACH OTHER by more than either does with `RS14`, read as
+the fact sheet describing an on-orbit/dry-mass-like figure and `IGSMETA`'s own field describing
+launch mass (which includes expendables `RS14`'s figure does not), not as a contradiction of
+`RS14`. Both are recorded rather than one silently preferred. A third aggregate check — a published
+panel-span figure — was sought and **not completed**: a 43.1 ft / 13.11 m figure appeared only in
+a search engine's own synthesized summary, never independently confirmed at a primary source, and
+is not used; one specific lead, "USA-66," was checked and found to be a different, unrelated
+satellite (USA-NNN and NAVSTAR-NNN are separate numbering systems; Wikipedia's own USA-66 page
+gives a 840 kg / 5.3 m satellite, physically implausible for a GPS-IIF), discarded before it could
+reach any citation. Recorded here as an incomplete check, not silently dropped or filled with an
+unverified number.
+
+### 31.5 Block IIIA: one search, refused cleanly
+
+One search performed for a citable published per-surface IIIA source. Its one plausible lead — a
+ScienceDirect paper on a GPS III box-wing model ("GPS III Vespucci: Results of half a year in
+orbit") — returned HTTP 403 to an automated fetch, the same publisher-blocking pattern this tree
+has hit repeatedly (AGU, AIAA/DTIC, IEEE Xplore, Wiley, TUM mediaTUM, web.archive.org); no
+per-surface table was independently confirmed, so `gps_block_iiia()` refuses (`SPCR-F-003`) rather
+than building from an unverified summary. No baseline consumes this function in this version — the
+refusal is recorded for completeness at this step's own close, not because it blocks anything
+currently critical.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-24 | **L5 step 1 gate: the δ/ρ mapping was backwards, caught by formula not prose; IIF ruled and built; IIIA searched and refused.** §31 added, `SPEC-spacecraft` to v1.1. `modules/spacecraft` first built five blocks (I, II, IIA, IIR, IIR-M) from `RS14`'s own Tables 5.2-5.4, `52022d3`, using `RS14` §5.1.2's own prose ("delta: reflection... rho: diffusion") to map its own delta/rho notation onto this schema's specular/diffuse. The manager caught that this was verified against WORDS, never the force equation, and required a three-part re-check: the formula, an independent physical check, and an L4-spec check. `RHS12`'s own Eq. 6, reprinted verbatim inside `RS14` as its own "P-II" chapter, carries rho in the "2 rho cos(theta)" mirror-like term and delta in the "2 delta/3" Lambertian term -- specular=rho, diffuse=delta, the OPPOSITE of Sec.5.1.2's own prose, and agreeing instead with RHS12's own separately-stated prose and with RS14 Sec.4.2's own GLONASS formula -- an inconsistency internal to RS14 itself between its own Appendix and its own reprinted primary source, not a real convention. Cross-confirmed by RS14's own partial-derivative section (matching this tree's own already-derived "1+rho+2delta/3" flat-plate coefficient only under rho=specular) and by a physical check (glass-covered GPS panels are predominantly specular; every block's own rho column is an order of magnitude above its delta column). `SPEC-macromodel.md`'s own convention was checked and found already correct -- the error was this spec's own transcription, not an inherited L4 defect. Fixed in `bus_face()`/`solar_panels()`, `SPCR-A-003`'s expected values corrected, a standing `specular > diffuse` panel guard added. Block IIF -- found to have no source at all on the first pass, `RS14` Sec.5.5 naming only "an unpublished document" -- was then ruled built anyway from that same table's own in-table values, area and optics cited SEPARATELY (dimensions ending at the unpublished-document chain-end, optics marked ASSUMED, RS14's own generic Ziebart-2001 fallback), requiring `bus_face`/`solar_panels`/`assemble` to take independent area/optics citation strings. Cross-checked in aggregate two ways: a Space Force fact sheet's 3439 lb = 1559.7 kg (0.3% of RS14's 1555 kg, found earlier) and IGSMETA's own SATELLITE/MASS for SVN63 = 1633 kg (~5%, fetched this round, read as launch vs. on-orbit mass, not a contradiction); a third check, panel span, was sought and NOT completed -- no independently-verified source found, an unconfirmed search-summary figure and a wrong-satellite lead (USA-66, a different satellite from NAVSTAR-66 despite the shared number) both discarded rather than used. Block IIIA: one search performed, its one lead (a ScienceDirect GPS-III box-wing paper) blocked at HTTP 403 like every other publisher this tree has hit, so `gps_block_iiia()` refuses (`SPCR-F-003`) rather than building from an unverified summary -- no baseline consumes it. `SPCR-F-002` retired (does not fire; IIF no longer refuses), kept documented for traceability. 189 assertions, 7 test cases, all passing. |
 | 2026-09-24 | **The frame fix wasn't the whole bug: `turn_ramp_sign`'s own `x_sign` was ALSO wrong, IIR's turns ran the long way round, and the wind-up explanation is withdrawn.** §30.20 added, `SPEC-thrust-yaw` still v1.0. The manager's own review of the entry below caught what its own 4000-point sweep had actually proved (that the frame fix left the PRE-FIX turn's own shape unchanged, shifted by pi) without ever asking whether that shape was right. It was not. `KOUBA09`'s own Eq. 15/16, read from the rendered source page (not a prior transcription -- the same discipline that caught `MSGA15`'s own dropped minus sign the same day): the two equations carry the IDENTICAL SIGN[R, psi_dot_n(t_s)] term, verbatim -- his own words, "modeled in the same fashion... except for the 180 deg reversal of X-bar", that reversal being the ATAN2 term alone. Confirmed independently: d(psi_K)/d(mu) for Eq.4/5 is x_sign-INDEPENDENT (x^2=1 cancels inside the ATAN2 derivative), checked to 2.2e-9 over 2000 random points, matching the manager's own independently-run 410-point check to the same precision. `turn_ramp_sign`'s own pre-fix formula matched sign(d(psi_K)/dmu) in 2000/2000 cases for x_sign=+1 and MISMATCHED in 2000/2000 for x_sign=-1. `TYAW-A-015` (new) checks the ramp's own sense against an independent finite difference of `nominal_yaw_steering`'s own psi at onset -- shown FIRING for IIR's noon and midnight turns on the pre-fix code (`plan` rule 5). A pointwise check against CODE's real G05 data, registered before either run (the manager's own exact numbers): residual near mid-turn should be about 180 deg pre-fix, at most about 1 deg post-fix, centres/widths matching IIF's own 0.1-0.2 deg level. Measured: 174.4 deg pre-fix, 0.053 deg post-fix -- both halves confirmed, and the manager's own quantitative prediction for the bug's shape (long way +3.43 deg/17.4 min, short way +2.17 deg/12.4 min, crossing-2 difference 0.46 deg) matched the measurement to the second decimal. Fixed: `turn_ramp_sign` drops `x_sign` entirely -- it no longer exists anywhere in this module, every block differing only by its own hardware rate. G05's own timing control, re-run a second time: both crossings now match LAG to 0.03-0.15 deg, IIF's own level (were 0.61/1.24 deg). The wind-up explanation in this file's own record of commit d7a1452 is WITHDRAWN in place, not deleted: a real, printed `KOUBA09` effect, fitted to a residual this bug produced instead. `SPEC-thrust-yaw` TYAW-P-2 also corrected: the II/IIA shadow-exit discontinuity (unrelated, unfixed, already-documented in `KOUBA09`'s own "largely uncertain" post-shadow text) is now a NAMED exception with his own quoted words, not a silent gap, with the L6/L7 integrator-event consequence recorded. 313 tests pass (`TYAW-A-015` new), all 13 `ci.sh` gates green. |
 | 2026-09-24 | **Step 6 gate closes: `TYAW-Q-007` fixed, IIR's own hand-overs continuous, timing proved unchanged.** §30.19 added, `SPEC-thrust-yaw` still v1.0. Facts established before any change, both agreeing: `MSGA15` §2.1/3.1 (re-read from the actual page image after the first pass's own text extraction silently dropped a minus sign, "keep the -x_BF-face pointing toward the Sun" read as "+x_BF") states IIR's own IGS-frame +x points TOWARD the Sun, the SAME universal rule as every other block; CODE's real G05 quaternion away from any turn confirms it directly (x_body·sun_hat = 0.985-1.000, 318 epochs). `TYAW-A-014` (new) checked continuity one step inside/outside EVERY hand-over of every block, bisecting to each one's own real boundary rather than trusting a formula -- shown FIRING on the pre-fix code at exactly IIR's noon and midnight turns (diff 1.5-2.0) and, separately, at II/IIA's own shadow exit (diff 1.899, an unrelated, already-documented gap in KOUBA09's own spin-up law, `SPEC-thrust-yaw` §4.1's own "largely uncertain" post-shadow period -- confirmed not the same bug: IIF's own Shape E shows no such gap at its own exit, and if this were general it would). Fix: `psi_nominal` loses its `x_sign` parameter entirely (KOUBA09's own Eq. 5 was IIR's angle in HIS frame, not this tree's); `turn_ramp_sign` keeps it, PROVED -- symbolically and by a 4000-point numerical re-evaluation across a real IIR noon turn, zero activity mismatches, returned psi differing from the pre-fix value by EXACTLY pi at every active point to 8.88e-16 -- to leave every turn's own timing exactly unchanged while `frame_from_yaw`'s own x_body flips to the Sun-facing convention throughout the whole turn. `evaluate_turn`/`evaluate_shadow_crossing`/`evaluate_shadow_constant_rate` lose their own now-unused `x_sign` pass-through. Audited every other existing turn test for the same fallthrough (the manager's own explicit ask): only `TYAW-A-002`'s "exact at onset" sub-check had it -- the one that originally masked this bug; every other test either doesn't claim to test "while active" or already does, correctly (dense sweeps, incremental searches, or boundary-inclusive shadow-crossing semantics), recorded test by test. `TYAW-A-013` extended to all four blocks off-turn (6.4e-16 max error, unchanged). G05's own timing control re-run against the fixed library: both crossings reproduced the pre-fix record to five significant figures, confirming the fix changed the frame, not the turn's own direction or timing. 312 tests pass (`TYAW-A-014` new), all 13 `ci.sh` gates green. |
 | 2026-09-24 | **Step 6, round two of the manager's own review: a wrong-reason comment corrected, `TYAW-Q-006` closed for real on a second, independent line of evidence, and a new, separate, OPEN finding surfaced and escalated rather than fixed.** §30.16/§30.17/§30.18 added, `SPEC-thrust-yaw` still v1.0. (1) `psi_nominal`/`psidot_nominal`/`turn_ramp_sign`'s own code comments, and §4.6's own prose, said their sign flip "compensates for `mu_rad`'s own negation" -- wrong: `mu_rad` is now genuinely KOUBA09's own μ, nothing left to compensate. The real cause, independently re-derived and checked (own script, own random seed, not taken on the manager's word): `frame_from_yaw` builds x = -cos(ψ)t̂-sin(ψ)n̂ (rotation from -t̂), KOUBA09's own ψ rotates from +t̂ -- so ψ_tree = π-ψ_KOUBA09 (mod 2π), confirmed against an independent x_body construction to <4e-15/2000 geometries and against KOUBA09's Eq.4/5 directly to 1e-15. Comments and spec corrected; `TYAW-A-013` added (KOUBA09's Eq.4 transcribed fresh, checked against the off-turn public interface, 6.4e-16 max error). (2) Building `TYAW-A-013`'s own IIR (x_sign=-1) extension surfaced an UNRELATED, real ≈180° discontinuity in `gps_yaw_attitude`'s own IIR noon-turn dispatch, one rate-step inside the turn boundary -- masked in the existing suite because `TYAW-A-002`'s own "exact at onset" check lands exactly on `evaluate_turn`'s own strict `gap>0.0` boundary, where both the turn and off-turn paths happen to fall through to the same call. Confirmed against the REAL compiled library (a standalone diagnostic, not a hand calculation), left OPEN as `TYAW-Q-007` -- more than one plausible cause, a verdict question, no production code touched. `TYAW-A-013` deliberately tests x_sign=+1 only, so as not to rest a new guard on the same masked boundary. (3) `DIL10`'s own Figure 8 (§30.12's stale by-eye "weighted LEFT, consistent with lead," corrected in place, not deleted) redone as a pixel-level digitization (600 DPI render, automated blue-marker centroid extraction, visually cross-checked) against the manager's own pre-registered lag/lead predictions: the estimate curve sits RIGHT of μ=180° in all three panels, 2.8-4.4x closer to LAG than LEAD throughout, missing LEAD's own tolerance by 5.1-7.3° in every panel (one of three panels also clears LAG's own tight quarter-tolerance; the other two miss it by under 0.12°, inside the digitization's own combined uncertainty of 0.26-0.40°). Applying the manager's own rule (lead only if it holds in >=2 panels and lag in none) to this evidence: LAG stands, unanimous with KOUBA09's own words and the mu_rad-corrected real IIF data -- no code change. 311 tests pass (`TYAW-A-013` new), all 13 `ci.sh` gates green. |

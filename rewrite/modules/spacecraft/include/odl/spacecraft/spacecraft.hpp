@@ -6,13 +6,14 @@
 // exemption to MCRM-R-004 and creates none. The body frame is the IGS
 // convention, +x towards the Sun, for every block (SPEC-spacecraft.md §3).
 //
-// RS14's own alpha/delta/rho notation is NOT this tree's own
-// absorptivity/specular/diffuse order -- RS14's delta (its own "reflection
-// coefficient") maps to this schema's specular, and RS14's rho (its own
-// "diffusion coefficient") maps to this schema's diffuse, the OPPOSITE
-// letter-to-meaning pairing from RHS12's own restated form already used
-// elsewhere in this tree. See SPEC-spacecraft.md §3 for the full statement
-// and why the swap is checked against the source directly, not assumed.
+// RS14's own alpha/delta/rho notation is mapped by the FORMULA RHS12
+// (reprinted inside RS14 as P-II) itself writes, Eq.6, not by RS14's own
+// Appendix Sec.5.1.2 prose (which is internally inconsistent with RHS12's
+// own reprinted prose a few pages earlier in the SAME document): rho ->
+// this schema's specular, delta -> this schema's diffuse. See
+// SPEC-spacecraft.md §3 for the full statement, the formula, and the
+// physical cross-check (glass-covered solar panels are predominantly
+// specular).
 
 #include <odl/core/result.hpp>
 #include <odl/macromodel/macromodel.hpp>
@@ -38,9 +39,18 @@ using SpacecraftError = odl::Diagnostic;
 /// stated limits.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError> gps_block_iir_m();
 
-/// SPCR-R-004. Refuses SPCR-F-002 unconditionally in this version: no
-/// citable published per-surface source for Block IIF was found
-/// (SPEC-spacecraft.md §2, §4).
+/// SPCR-R-004. RS14 Table 5.5's own values: dimensions cited to RS14's own
+/// stated source, "an unpublished document" this tree does not hold (the
+/// citation chain's own end, recorded rather than resolved further);
+/// optical properties marked ASSUMED, RS14's own generic (Ziebart 2001
+/// §7.1) fallback, not an IIF-specific measurement. Cross-checked in
+/// aggregate against IGS SINEX's own mass field for SVN63 (SPEC-spacecraft.md
+/// §4); the panel-span aggregate check was sought and not completed, see §4.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError> gps_block_iif();
+
+/// Refuses SPCR-F-003 unconditionally in this version: one search performed,
+/// no citable published per-surface source for Block IIIA was found
+/// (SPEC-spacecraft.md §2, §4). No baseline consumes this function yet.
+[[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError> gps_block_iiia();
 
 }  // namespace odl::spacecraft

@@ -41,13 +41,15 @@ TEST_CASE("SPCR-A-001  every surface of every built GPS block: "
     auto iia = gps_block_ii_iia(true);
     auto iir = gps_block_iir();
     auto iir_m = gps_block_iir_m();
+    auto iif = gps_block_iif();
     REQUIRE(i.has_value());
     REQUIRE(ii.has_value());
     REQUIRE(iia.has_value());
     REQUIRE(iir.has_value());
     REQUIRE(iir_m.has_value());
+    REQUIRE(iif.has_value());
 
-    for (const Macromodel* m : {&*i, &*ii, &*iia, &*iir, &*iir_m}) {
+    for (const Macromodel* m : {&*i, &*ii, &*iia, &*iir, &*iir_m, &*iif}) {
         for_each_flat_surface(*m, [](double, double a, double s, double d) {
             CHECK_THAT(a + s + d, WithinAbs(1.0, 1.0e-12));
         });
@@ -91,13 +93,18 @@ TEST_CASE("SPCR-A-002  the guard shown firing: a blank citation on one value of 
 // --- SPCR-A-003 ----------------------------------------------------------------
 
 TEST_CASE("SPCR-A-003  every value matches RS14's own printed table, cell by "
-          "cell, with the delta/rho mapping applied -- not the naive "
-          "(unswapped) reading",
+          "cell, with the delta/rho mapping RHS12's own Eq.6 formula fixes "
+          "-- not RS14's own (internally inconsistent) Appendix prose",
           "[spacecraft][gps]") {
     // GPS-I (SVN 03): RS14 Table 5.2's own +Z row is alpha=0.140,
-    // delta=0.215 ("reflection"), rho=0.645 ("diffusion"). Under this
-    // spec's own Sec.3 mapping, specular = RS14's delta = 0.215 and
-    // diffuse = RS14's rho = 0.645 -- NOT the other way around.
+    // delta=0.215, rho=0.645 (printed column order). RHS12 Eq.6 (reprinted
+    // inside RS14 as P-II) carries rho in the "2*rho*cos(theta)" mirror-like
+    // term and delta in the "2*delta/3" Lambertian term -- rho = specular,
+    // delta = diffuse. So specular = RS14's rho = 0.645, diffuse = RS14's
+    // delta = 0.215 -- the OPPOSITE of a literal reading of RS14's own
+    // Sec.5.1.2 prose ("delta: reflection... rho: diffusion"), which
+    // disagrees with RHS12's own reprinted formula a few pages earlier in
+    // the same document.
     auto i = gps_block_i(3);
     REQUIRE(i.has_value());
     bool found_plus_z = false;
@@ -109,26 +116,90 @@ TEST_CASE("SPCR-A-003  every value matches RS14's own printed table, cell by "
         if (n.z > 0.5) {
             found_plus_z = true;
             CHECK_THAT(fs.absorptivity().value(), WithinAbs(0.140, 1.0e-12));
-            CHECK_THAT(fs.specular().value(), WithinAbs(0.215, 1.0e-12));
-            CHECK_THAT(fs.diffuse().value(), WithinAbs(0.645, 1.0e-12));
+            CHECK_THAT(fs.specular().value(), WithinAbs(0.645, 1.0e-12));
+            CHECK_THAT(fs.diffuse().value(), WithinAbs(0.215, 1.0e-12));
         }
     }
     REQUIRE(found_plus_z);
 
-    // Guard: the NAIVE (unswapped) reading -- specular=rho, diffuse=delta --
-    // would have put 0.645 in specular and 0.215 in diffuse, which is NOT
-    // what was just checked above and would fail it, proving the mapping
-    // is genuinely being exercised, not accidentally symmetric.
+    // Guard: the OTHER reading -- specular=delta, diffuse=rho, i.e. RS14's
+    // own Sec.5.1.2 prose taken literally -- would have put 0.215 in
+    // specular and 0.645 in diffuse, which is NOT what was just checked
+    // above and would fail it, proving the mapping is genuinely exercised.
     CHECK(0.645 != 0.215);
+
+    // Physical cross-check, independent of both readings' own words: GPS-I's
+    // own solar panels (RS14 Table 5.2) are glass-covered and so
+    // predominantly SPECULAR, not diffuse. Its own delta=0.042, rho=0.236 --
+    // specular (rho, this mapping) is the larger of the two, matching a
+    // glass-covered panel; the other reading would have panels mostly
+    // diffuse, which glass is not.
+    for (const auto& s : i->surfaces()) {
+        if (std::get<FlatSurface>(s).normal_mode() == NormalMode::sun_pointing) {
+            const auto& panel = std::get<FlatSurface>(s);
+            CHECK(panel.specular().value() > panel.diffuse().value());
+        }
+    }
 }
 
 // --- SPCR-A-004 ----------------------------------------------------------------
 
-TEST_CASE("SPCR-A-004  gps_block_iif refuses, unconditionally, with SPCR-F-002",
+TEST_CASE("SPCR-A-004  gps_block_iif builds from RS14 Table 5.5, area and optics "
+          "cited separately (dimensions: an unpublished document, end of chain; "
+          "optics: RS14's own generic assumption, marked ASSUMED)",
           "[spacecraft][gps]") {
     auto iif = gps_block_iif();
-    REQUIRE_FALSE(iif.has_value());
-    CHECK(iif.error().id == "SPCR-F-002");
+    REQUIRE(iif.has_value());
+    CHECK_THAT(iif->mass_kg().value(), WithinAbs(1555.0, 1.0e-12));
+
+    bool found_plus_z = false, found_minus_z = false, found_panel = false;
+    for (const auto& s : iif->surfaces()) {
+        REQUIRE(std::holds_alternative<FlatSurface>(s));
+        const auto& fs = std::get<FlatSurface>(s);
+        if (fs.normal_mode() == NormalMode::sun_pointing) {
+            found_panel = true;
+            // RS14 Table 5.5's own panel row: alpha=0.770, delta=0.035, rho=0.195.
+            CHECK_THAT(fs.area_m2().value(), WithinAbs(22.250, 1.0e-12));
+            CHECK_THAT(fs.absorptivity().value(), WithinAbs(0.770, 1.0e-12));
+            CHECK_THAT(fs.specular().value(), WithinAbs(0.195, 1.0e-12));
+            CHECK_THAT(fs.diffuse().value(), WithinAbs(0.035, 1.0e-12));
+            // Physical cross-check, same as SPCR-A-003: glass-covered panels
+            // are predominantly specular.
+            CHECK(fs.specular().value() > fs.diffuse().value());
+            // Area traces to the "unpublished document" chain-end; optics are
+            // marked ASSUMED -- the two citations differ, proving the split.
+            CHECK(fs.area_m2().citation().find("unpublished document") != std::string::npos);
+            CHECK(fs.absorptivity().citation().find("ASSUMED") != std::string::npos);
+            continue;
+        }
+        const Vec3& n = fs.body_fixed_normal()->vec();
+        if (n.z > 0.5) {
+            found_plus_z = true;
+            CHECK_THAT(fs.area_m2().value(), WithinAbs(5.400, 1.0e-12));
+            CHECK_THAT(fs.absorptivity().value(), WithinAbs(0.440, 1.0e-12));
+            CHECK_THAT(fs.specular().value(), WithinAbs(0.112, 1.0e-12));
+            CHECK_THAT(fs.diffuse().value(), WithinAbs(0.448, 1.0e-12));
+        } else if (n.z < -0.5) {
+            found_minus_z = true;
+            // RS14 Table 5.5's own -Z row: a pure absorber, alpha=1.000.
+            CHECK_THAT(fs.area_m2().value(), WithinAbs(5.400, 1.0e-12));
+            CHECK_THAT(fs.absorptivity().value(), WithinAbs(1.000, 1.0e-12));
+            CHECK_THAT(fs.specular().value(), WithinAbs(0.000, 1.0e-12));
+            CHECK_THAT(fs.diffuse().value(), WithinAbs(0.000, 1.0e-12));
+        }
+    }
+    CHECK(found_plus_z);
+    CHECK(found_minus_z);
+    CHECK(found_panel);
+}
+
+// --- SPCR-A-007 ----------------------------------------------------------------
+
+TEST_CASE("SPCR-A-007  gps_block_iiia refuses, unconditionally, with SPCR-F-003",
+          "[spacecraft][gps]") {
+    auto iiia = gps_block_iiia();
+    REQUIRE_FALSE(iiia.has_value());
+    CHECK(iiia.error().id == "SPCR-F-003");
 }
 
 // --- SPCR-A-005 ----------------------------------------------------------------
