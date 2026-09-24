@@ -2,6 +2,8 @@
 
 #include <odl/ecom/ecom.hpp>
 
+#include <odl/core/units.hpp>
+
 #include <cmath>
 #include <cstddef>
 
@@ -339,7 +341,7 @@ Ecom::accel(const odl::time::Epoch& t, const frames::Position<frames::Frame::GCR
         return odl::err(dyn::DynError{"ECOM-F-004",
             "could not find the Sun's own GCRS direction: " + sun_state.error().message});
     }
-    const Vec3 sun_position_m = 1000.0 * sun_state->position();  // ephemeris km -> m
+    const Vec3 sun_position_m = odl::metres_from_km(sun_state->position());  // `Srp::accel`'s own crossing
     const Vec3 sun_direction = sun_position_m - r;
 
     auto live = read_coefficients(order_, param_ids_, params);

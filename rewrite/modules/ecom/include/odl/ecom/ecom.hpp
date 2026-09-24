@@ -50,10 +50,11 @@ struct EcomCoefficients {
 };
 
 /// D(Delta_u)/dD, B(Delta_u)/dB -- one Vec3 (a direction in GCRS) per scalar
-/// in `EcomCoefficients`, same shape, so `ECOM-R-005`'s caller can walk both
-/// in lockstep when registering parameters. This IS d(acceleration)/d(that
-/// one coefficient); the acceleration is exactly linear in each (`ECOM-A-00x`
-/// sensitivity check), so no further chain rule is needed here.
+/// in `EcomCoefficients`, same shape, so a caller can walk both in lockstep
+/// when registering parameters. This IS d(acceleration)/d(that one
+/// coefficient); the acceleration is exactly linear in each (`ECOM-R-003`'s
+/// own printed form, checked by `ECOM-A-006`), so no further chain rule is
+/// needed here.
 struct EcomSensitivities {
     Vec3 D0;
     std::vector<Vec3> D_even_c, D_even_s;
@@ -111,10 +112,10 @@ ecom_acceleration(const Vec3& r_gcrs_m, const Vec3& v_gcrs_m_per_s, const Vec3& 
 [[nodiscard]] double d_of(const EcomOrder& order, const EcomCoefficients& c, double delta_u_rad) noexcept;
 [[nodiscard]] double b_of(const EcomOrder& order, const EcomCoefficients& c, double delta_u_rad) noexcept;
 
-/// `ECOM-R-005`'s own registered-parameter surface, `EcomCoefficients`'
-/// own shape with each scalar replaced by the `ParameterId` a caller's own
-/// registry issued for it (`Drag`'s own one-`ParameterId`-per-`declare`
-/// precedent, extended to as many scalars as `order` implies).
+/// The registered-parameter surface: `EcomCoefficients`' own shape with each
+/// scalar replaced by the `ParameterId` a caller's own registry issued for
+/// it (`Drag`'s own one-`ParameterId`-per-`declare` precedent, extended to
+/// as many scalars as `order` implies).
 struct EcomParameterIds {
     dyn::ParameterId D0;
     std::vector<dyn::ParameterId> D_even_c, D_even_s;
@@ -134,8 +135,8 @@ struct EcomParameterIds {
 /// bound at construction, the same shape `Srp` already takes. No
 /// construction-time coefficient VALUES: `order`/`param_ids` are the only
 /// state this class itself owns; every `accel` call reads live values from
-/// `dyn::ParameterSet` (`ECOM-R-005`), so there is no redundant "initial
-/// value nobody reads after the first call" to keep in sync.
+/// `dyn::ParameterSet`, so there is no redundant "initial value nobody
+/// reads after the first call" to keep in sync.
 class Ecom final : public dyn::Force {
 public:
     Ecom(EcomOrder order, EcomParameterIds param_ids, const eph::Ephemeris& ephemeris,
