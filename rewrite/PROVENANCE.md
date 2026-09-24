@@ -6284,6 +6284,64 @@ manager's own instruction to include one was conditional ("if one falls within r
 pursued further. `JSAT-Q-003` closed; `JSAT-Q-001` narrowed to the fixed-yaw-specific question that
 remains.
 
+### 34.11 Third review round — the suspicious pass investigated to its real cause, spec ids made impossible to collide across files too
+
+The manager's own third review of this step named two further items, both aimed at gaps the round
+above's own passing results could still be hiding.
+
+**1. The Jason real-data control's own 0.60-1.56 deg nadir residual (~1000x this tree's own CODE/GNSS
+real-data floor, passing the 2 deg criterion but suspicious anyway) was investigated to its ACTUAL
+cause, not just its predicted signature.** The manager's own hypothesis: an unapplied 18 s GPS-UTC leap
+offset (Jason's own ~0.0534 deg/s orbital angular rate x 18 s =~ 0.96 deg, the right order of
+magnitude). Checked directly, before accepting the mechanism -- the same discipline `rule 4 before
+trial-and-error` established last round: every `TimeScale::` use in `tools/doris_jason_check.cpp` was
+already correct (GPS for the SP3, confirmed by the SP3's own `%c` header line; UTC for the quaternion
+file, per rule 4). The labelling was not the bug. Built anyway, per the manager's own explicit
+instruction: `nadir_at_shift`, decomposing the small-angle error between the predicted and real nadir
+directions onto `t_hat` (along-track) and `n_hat` (cross-track), run at shift 0 and at +/-18 s.
+Cross-track stayed flat across ALL THREE shifts (~0.01-0.15 deg throughout, 8 epochs), while along-track
+was the component that MOVED under the shift -- near zero's own order at shift 0, jumping to ~0.86-1.07
+deg at +/-18 s, sign following the shift's own sign -- the GPS-UTC-offset hypothesis's own PREDICTED
+SIGNATURE (a timing error shows up along the direction of motion, not across it), confirmed by direct
+measurement even though its specific mechanism was already ruled out. The actual mechanism, found from
+that same diagnostic: `nearest_sp3` picked the nearest whole-MINUTE SP3 sample rather than interpolating
+between the two bracketing ones, too coarse to resolve Jason's own along-track motion within a sample --
+producing an along-track-sensitive error of almost exactly the size and shape an 18 s offset would
+produce, by coincidence of scale, not by an actual unapplied offset. A
+THIRD, independent bug, on top of the two the round above already found and fixed (the spurious
+ECEF-to-GCRS step, the elapsed-vs-calendar-time match), in the same tool, found by taking a suspicious
+PASS as seriously as the round above took a suspicious near-pass. Fixed by linear interpolation between
+the two bracketing SP3 samples (`interp_ephem`/`InterpState`) in place of nearest-sample lookup, in both
+the nadir test and the registered comparison. Nadir-only residual collapsed to 0.026-0.178 deg, inside
+the manager's own predicted "~0.1-0.2 deg if fixed" range; the registered 12-epoch comparison, re-run
+with the same fix, tightened from 0.14-1.52 deg to 0.033-1.43 deg, all twelve still matched against the
+same 2 deg criterion fixed in advance. `SPEC-jason-attitude.md` (§3, §4, `JSAT-R-006`, `JSAT-P-2`,
+`JSAT-Q-003`) updated throughout to the tightened figures and this third bug's own narrative, mirroring
+how the first two are already documented there.
+
+**2. speccheck.py now also refuses the same id defined in two DIFFERENT spec files, not just within
+one -- closing the SPEC-side gap the round above's own TEST_CASE-side fix left open.** The manager's own
+question: does the checker catch a duplicate id defined across two different `.md` files, the same way
+it now catches a duplicate TEST_CASE name across two different `.cpp` files? It did not: `check_spec()`
+computes each file's own `defined` set from that file's own declared prefix alone, and nothing
+aggregated across files. A literal id string can only collide across files if both declare the SAME
+`Spec ID` prefix -- a different shape of copy-paste than the TEST_CASE one, but the same underlying gap:
+each file looks completely clean in isolation, and nothing tree-wide was watching the seam between them.
+Fixed: `check_spec()` now returns its own `defined` set (not just its count), and a new
+`check_cross_file_duplicate_definitions` aggregates every spec's own set across one `--spec-dir` run,
+refusing if any id is defined in more than one file -- the same "collect every claim, then look for one
+with more than one location" shape `check_duplicate_test_case_claims` already uses. Proven by a new,
+injected-duplicate test (`tests/test_speccheck_cross_file_duplicate.py`, wired into `ci.sh` via
+`tests/CMakeLists.txt`), the same "replay the historical shape" discipline the TEST_CASE checker's own
+test already established: catches the collision whether both files use the same definition FORM (table
+row, bulleted requirement) or different ones; does not flag the same NUMBER under two genuinely
+different prefixes (the tree's own real, legitimate shape -- 24 specs, 24 distinct prefixes, checked
+directly); does not flag a lettered-suffix split across files, the same legitimate-amendment mechanism
+already accepted within one file; and does not report false success on the new line specifically when a
+duplicate is present, not merely a nonzero exit code from an unrelated gate. Run against the real tree:
+24 specifications, all prefixes distinct, zero cross-file collisions -- the new gate is clean today, and
+now structurally cannot regress silently.
+
 ---
 
 ## Changelog

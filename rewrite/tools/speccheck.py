@@ -40,7 +40,21 @@ compiles into its own module's own test binary, so the same string name in
 two binaries collides with nothing at build or run time), would have
 caught it. This scans every `.cpp` file's own `TEST_CASE("<ID> ...")`
 invocations, tree-wide, and refuses if the SAME id is claimed by more than
-one — independent of which spec file, if any, actually defines that id."""
+one — independent of which spec file, if any, actually defines that id.
+
+DUPLICATE DEFINITIONS ACROSS SPEC FILES (added 2026-09-24, the same review
+round's own third question: does the SPEC side of this have the same gap the
+TEST_CASE side just closed?). `check_spec()` already catches a duplicate row
+WITHIN one file (`DUPLICATE definitions`, below), but until now that was the
+whole check — each file's own `defined` set is computed from ITS OWN declared
+prefix alone (`table_defs`/`bullet_defs` only ever match `{that file's own
+prefix}-...`), and nothing aggregated across files. Two literal id strings can
+only collide across files if both files declare the SAME `Spec ID` prefix in
+their own front matter — a different kind of copy-paste than the TEST_CASE
+one, but the same shape: each file looks completely clean in isolation, and
+nothing tree-wide was checking the seam between them. This aggregates every
+spec's own `defined` set across the whole `--spec-dir` run and refuses if the
+SAME id is defined in more than one file."""
 
 from __future__ import annotations
 
@@ -201,7 +215,7 @@ def check_spec(path: Path, quiet: bool) -> tuple[bool, dict]:
     stat = {
         "path": path, "prefix": prefix,
         "own": len(own_ids), "all": len(all_ids), "foreign": foreign,
-        "defined": len(defined), "reqs": len(reqs),
+        "defined": len(defined), "defined_ids": defined, "reqs": len(reqs),
         "tested": len(reqs & discharged), "excused": len(reqs & excused),
         "uncovered": uncovered, "dangling": dangling, "duplicates": dup,
         "contradictory": contradictory, "partial": partial_ok,
@@ -242,6 +256,30 @@ def check_spec(path: Path, quiet: bool) -> tuple[bool, dict]:
     return ok, stat
 
 
+def check_cross_file_duplicate_definitions(stats: list[dict], quiet: bool) -> bool:
+    """The SAME identifier defined (as a table row or a bulleted requirement)
+    in two DIFFERENT spec files. Can only happen if both files declare the
+    same `Spec ID` prefix — see the module docstring. Aggregates every spec's
+    own `defined_ids` set across the whole run, the same "collect every claim,
+    then look for one id with more than one location" shape
+    `check_duplicate_test_case_claims` already uses for TEST_CASEs."""
+    locations: dict[str, list[Path]] = defaultdict(list)
+    for s in stats:
+        for i in s["defined_ids"]:
+            locations[i].append(s["path"])
+    dupes = {i: paths for i, paths in locations.items() if len(paths) > 1}
+    if not quiet:
+        print(f"\nCross-file identifier definitions ({len(stats)} specs read as one namespace)")
+        print(f"  distinct ids defined      {len(locations):>4}")
+        print(f"  DUPLICATE definitions     {len(dupes):>4}")
+    if dupes:
+        for i, paths in sorted(dupes.items()):
+            print(f"  DUPLICATE  {i}  defined in {len(paths)} files:", file=sys.stderr)
+            for p in paths:
+                print(f"      {p}", file=sys.stderr)
+    return not dupes
+
+
 def main(argv: list[str] | None = None) -> int:
     root = Path(__file__).resolve().parent.parent
     ap = argparse.ArgumentParser(prog="speccheck.py", description=__doc__,
@@ -262,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
 
     results = [check_spec(p, args.quiet) for p in specs]
     stats = [s for _, s in results]
+    cross_file_ok = check_cross_file_duplicate_definitions(stats, args.quiet)
     test_case_ok = True if args.skip_test_case_check else check_duplicate_test_case_claims(
         args.cpp_root, args.quiet)
 
@@ -284,9 +323,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  are references and not definitions.  Counting them would inflate the")
         print(f"  denominator; that is the 121-against-128 error, printed rather than made.")
 
-    if all(ok for ok, _ in results) and test_case_ok:
+    if all(ok for ok, _ in results) and cross_file_ok and test_case_ok:
         print("\nok       every requirement and refusal is discharged by an acceptance ROW")
         print("         or individually excused, in every specification.")
+        print("ok       no id is defined in more than one specification file.")
         if not args.skip_test_case_check:
             print("ok       no id is claimed by more than one TEST_CASE, tree-wide.")
         print()

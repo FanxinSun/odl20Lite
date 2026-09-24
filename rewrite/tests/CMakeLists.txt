@@ -38,6 +38,13 @@ add_test(NAME constraint8.result_only
 add_test(NAME speccheck.catches_duplicate_test_case_ids
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_duplicate.py")
 
+# L5 step 4's own THIRD review round: the TEST_CASE check above closes the
+# .cpp side of this; this is its SPEC side -- does speccheck.py also catch
+# the same id defined in two DIFFERENT spec .md files, not just within one
+# file? Same discipline again, a third checker.
+add_test(NAME speccheck.catches_cross_file_duplicate_ids
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_cross_file_duplicate.py")
+
 # --------------------------------------------------------------------------- #
 # The module boundary is a link boundary — proved both ways.
 

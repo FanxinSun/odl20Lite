@@ -95,7 +95,7 @@ rule-4 search `SPEC-spacecraft.md`'s own `sentinel6.hpp`/`jason.hpp` header comm
   Jason-specific statement of the sign association was found this round.
 - **Yaw steering reduces to `nominal_yaw_steering` with the Sun direction NEGATED — DERIVED from
   right-handedness, and now CONFIRMED against real data (`JSAT-Q-003`, CLOSED, §4 below): all 12
-  real-data checks matched to 0.14–1.52 deg.** The source's own words, "positive X axis points away from the
+  real-data checks matched to 0.033–1.43 deg.** The source's own words, "positive X axis points away from the
   sun," state only the X-axis sign; Z (nadir) is shared with every other regime and every other law in
   this module. Given z is unchanged and x flips, RIGHT-HANDEDNESS ALONE FORCES y to flip together with
   it (the identical "pure rotation, not a reflection" argument `qzss_frame_from_native`'s own header
@@ -158,20 +158,42 @@ own first day, silently wrong on every later one, and the actual cause of an int
 wrong ~150–155 deg result the corrected FRAME/ORDER/TIME-SCALE alone did not fully resolve. Fixed by
 matching on the query's own full calendar date and time.
 
-**The registered comparison, run once both bugs were fixed: ALL TWELVE MATCHED.** Criterion (2 deg,
-matching every other real-data control in this tree) and the DIRECT sense (settled by the nadir test
-above) fixed before this mode read a single quaternion row for comparison. 12 epochs across
-2025-12-03/05, beta-prime -75.3 to -78.5 deg throughout (deep in the yaw-steering regime for this
+**A third residual remained even with both bugs fixed — 0.60–1.56 deg at the nadir test, roughly 1000x
+this tree's own CODE/GNSS real-data floor, suspicious despite passing the 2 deg criterion.** The
+manager's own hypothesis: an unapplied 18 s GPS-UTC leap offset (Jason's own ~0.0534 deg/s orbital
+angular rate x 18 s =~ 0.96 deg, the right order of magnitude). Checked directly, before accepting the
+mechanism: every `TimeScale::` use in `tools/doris_jason_check.cpp` was already correct (GPS for the
+SP3, confirmed by the SP3's own `%c` header line; UTC for the quaternion file, per rule 4 above) — the
+labelling was not the bug. The along-track/cross-track decomposition the manager asked for
+(`nadir_at_shift`, projecting the small-angle error between the predicted and real nadir directions onto
+`t_hat`/`n_hat`) was built and run regardless, at shift 0 and at +/-18 s: cross-track stayed flat across
+ALL THREE shifts (~0.01–0.15 deg throughout, 8 epochs), while along-track was the component that MOVED
+under the shift — near zero's own order at shift 0, jumping to ~0.86–1.07 deg at +/-18 s, sign following
+the shift's own sign — the GPS-UTC-offset hypothesis's own PREDICTED SIGNATURE (a timing error shows up
+along the direction of motion, not across it), confirmed by direct measurement even though its specific
+mechanism was not the cause. The actual mechanism: `nearest_sp3` picked the nearest whole-MINUTE SP3
+sample rather than interpolating between bracketing samples, too coarse to resolve Jason's own
+along-track motion within a sample — producing an along-track-sensitive error of almost exactly the size
+and shape an 18 s offset would produce, by coincidence of scale, not by an actual unapplied offset. Fixed
+by linear interpolation
+between the two bracketing SP3 samples (`interp_ephem`, `InterpState`) in place of nearest-sample lookup,
+in both the nadir test and the registered comparison below. Nadir-only residual collapsed to
+0.026–0.178 deg — within the manager's own predicted "~0.1–0.2 deg if fixed" range.
+
+**The registered comparison, re-run once all three bugs were fixed: ALL TWELVE STILL MATCHED, tighter.**
+Criterion (2 deg, matching every other real-data control in this tree) and the DIRECT sense (settled by
+the nadir test above) fixed before this mode read a single quaternion row for comparison. 12 epochs
+across 2025-12-03/05, beta-prime -75.3 to -78.5 deg throughout (deep in the yaw-steering regime for this
 particular window — no fixed-yaw epoch, `|beta-prime| < 15 deg`, fell within it; the manager's own
 instruction to include one was conditional, "if one falls within reach," and searching further for one
-was not pursued this round): every epoch matched to 0.14–1.52 deg. **This confirms
-`jason_attitude`'s own yaw-steering construction — INCLUDING the "negate the Sun direction" frame
-mapping (§3 above), previously DERIVED from right-handedness alone and explicitly flagged as
-unconfirmed — against real data, to a precision comparable with this tree's other real-data controls.**
-`JSAT-Q-003` is CLOSED on this result. The fixed-yaw regime's own construction remains UNCONFIRMED by
-real data (`JSAT-Q-001` narrowed accordingly) — built independently, from the orbital triad's own
-cyclic identity directly, not through the same Sun-negation route, so this gap is not the same open
-question as the now-closed one.
+was not pursued this round): every epoch matched, now to 0.033–1.43 deg (down from 0.14–1.52 deg before
+the interpolation fix). **This confirms `jason_attitude`'s own yaw-steering construction — INCLUDING the
+"negate the Sun direction" frame mapping (§3 above), previously DERIVED from right-handedness alone and
+explicitly flagged as unconfirmed — against real data, to a precision comparable with this tree's other
+real-data controls.** `JSAT-Q-003` is CLOSED on this result. The fixed-yaw regime's own construction
+remains UNCONFIRMED by real data (`JSAT-Q-001` narrowed accordingly) — built independently, from the
+orbital triad's own cyclic identity directly, not through the same Sun-negation route, so this gap is not
+the same open question as the now-closed one.
 
 **Sentinel-6, per the manager's own instruction: one direct-path fetch attempt, constructed from
 Jason-3's own exact naming pattern and a matching date, instead of listing the directory.**
@@ -216,7 +238,8 @@ Sentinel-6's own frame identification stays a marked assumption (`S6AT-Q-001`).
   real Jason-3 SP3 orbit data and body-attitude quaternions (`doris.ign.fr`, anonymous FTP, §4),
   compared against `jason_attitude`'s own yaw-steering prediction at 12 epochs (2025-12-03/05),
   DIRECT quaternion sense (settled by a nadir test against real nadir, §4), criterion 2 deg REGISTERED
-  before the comparison ran. Result: all twelve matched, 0.14–1.52 deg — confirming the yaw-steering
+  before the comparison ran. Result: all twelve matched, 0.033–1.43 deg (SP3 positions linearly
+  interpolated between bracketing samples, §4) — confirming the yaw-steering
   construction, including its own "negate the Sun" frame mapping, against real data. The fixed-yaw
   regime was not exercised (no `|beta-prime| < 15 deg` epoch fell within the reachable window) and
   remains unconfirmed by real data.
@@ -237,7 +260,7 @@ A stateless provider, the same shape every other attitude function in this tree 
 - **JSAT-P-1.** The fixed-yaw/yaw-steering switch (~15 deg) is APPROXIMATE, the source's own stated
   figure — no closed-form derivation the way GPS's/GLONASS-M's own rate-derived onsets are, the same
   status QZSS's own ~20 deg switch already carries (`QZSY-P` precedent).
-- **JSAT-P-2.** The yaw-steering regime's own real-data agreement: 0.14–1.52 deg across 12 epochs
+- **JSAT-P-2.** The yaw-steering regime's own real-data agreement: 0.033–1.43 deg across 12 epochs
   (§4, `JSAT-R-006`), comparable with this tree's other real-data controls (QZSS's own 0.00003–0.00019
   deg is tighter still; GPS's and Galileo's own are in a similar range to Jason's). The fixed-yaw
   regime has no real-data agreement figure — no `|beta-prime| < 15 deg` epoch fell within this round's
@@ -294,5 +317,5 @@ A stateless provider, the same shape every other attitude function in this tree 
 |---|---|
 | `JSAT-Q-001` | **NARROWED (this round's own real-data control confirmed the YAW-STEERING regime; the flight-direction/beta-sign association is specifically a FIXED-YAW question, still open).** The association (forward flying = beta-prime > 0) is carried by analogy from the SAME document's own SWOT section, not independently confirmed for Jason. No fixed-yaw epoch fell within this round's own reachable window (§4, `JSAT-R-006`) to check it against. Worth checking directly if a fixed-yaw-period real-data window is found. |
 | `JSAT-Q-002` | **Ramp/flip timing is NOT modelled** — the source states it is operational, recorded in a per-satellite ancillary file (`ja{2,3}att.txt`, found but not parsed for event timing this round), with the full derivation in the paywalled Cerri et al. 2010. Worth building if L6/L7's own integrator needs the exact transition timing rather than treating it as a discontinuity. |
-| `JSAT-Q-003` | **CLOSED (this round's own real-data control, 2026-09-24).** The yaw-steering frame mapping (negate the Sun, right-handedness forces y) was DERIVED, not independently confirmed by a second reading or a printed coordinate pair — now CONFIRMED against real data instead: `tools/doris_jason_check.cpp`'s own registered comparison, rule-4 convention (CNES's own format description, `SALP-IF-M/IDS-EA15938-CN`), 12 epochs, all matched 0.14–1.52 deg against a 2 deg criterion fixed in advance. No further action needed on this specific question. |
+| `JSAT-Q-003` | **CLOSED (this round's own real-data control, 2026-09-24).** The yaw-steering frame mapping (negate the Sun, right-handedness forces y) was DERIVED, not independently confirmed by a second reading or a printed coordinate pair — now CONFIRMED against real data instead: `tools/doris_jason_check.cpp`'s own registered comparison, rule-4 convention (CNES's own format description, `SALP-IF-M/IDS-EA15938-CN`), 12 epochs, all matched 0.033–1.43 deg against a 2 deg criterion fixed in advance (SP3 interpolated between bracketing samples, §4). No further action needed on this specific question. |
 | `JSAT-Q-004` | **The July-2017 threshold widening (15 deg to 30 deg, `SATMOD` §7.2/§12.2, Jason-2/-3 only) is NOT built.** This spec's own `kJasonFixedYawSwitchRad` is the ORIGINAL ~15 deg figure throughout. Worth adding an epoch-dependent switch if a consumer needs post-2017-07 Jason-2/-3 attitude specifically. |

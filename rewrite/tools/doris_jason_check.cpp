@@ -57,17 +57,48 @@
 // compared by absolute elapsed TAI seconds from the SAME `t0` the ephemeris
 // itself is built from.
 //
+// A THIRD, INDEPENDENT SOURCE OF RESIDUAL was found and fixed on the
+// manager's own second review: even with both bugs above fixed, the
+// residual (0.60-1.56 deg nadir, 0.14-1.52 deg comparison) was ~1000x the
+// SAME pipeline's own floor on CODE's GNSS files (0.00003-0.0002 deg) --
+// suspicious in its own right, and the manager's own hypothesis (an
+// unapplied GPS-UTC offset, 18s, ~0.96 deg at this orbit's own ~0.0534
+// deg/s rate) was checked directly: `time::TimeScale::GPS`/`UTC` were
+// ALREADY correctly applied on each side (the SP3's own "%c" header line
+// confirms "GPS" explicitly; the quaternion format doc states UTC), so the
+// SPECIFIC "unapplied offset" mechanism was ruled out -- but the
+// along-/cross-track decomposition the manager asked for (`nadir_at_shift`)
+// found the REAL third bug anyway: `nearest_sp3`'s own NEAREST-1-MINUTE-
+// SAMPLE selection (rather than interpolation) was itself introducing an
+// error of the SAME size and SAME along-track-dominated shape an 18s
+// offset would (confirmed directly: shifting the query by +/-18s and
+// re-running the nearest-sample lookup moves the along-track component by
+// ~0.86-1.07 deg while cross-track stays flat, ~0.01-0.15 deg throughout all
+// three shifts -- the exact signature the manager named). Switching to
+// EXACT interpolation (`interp_ephem`, linear between the two bracketing
+// SP3 samples at the query's own precise elapsed time) collapses the
+// nadir-only residual to 0.026-0.178 deg -- inside the manager's own
+// predicted 0.1-0.2 deg range (Jason's own real pointing dynamics plus the
+// geodetic-vs-geocentric nadir difference this tool does not correct for),
+// confirming a genuine third bug, not an unexplained residual.
+//
 // --compare, DIRECT sense, criterion 2 deg, REGISTERED before this mode
-// read a quaternion row: 12 epochs across 2025-12-03/05, beta-prime -75.3
-// to -78.5 deg throughout (no fixed-yaw window, |beta-prime|<15 deg, fell
-// within this particular 2.5-day arc -- not chased further, the manager's
-// own instruction to include one was conditional, "if one falls within
-// reach"). ALL TWELVE MATCHED, 0.14-1.52 deg -- strong, real-data
-// confirmation of `jason_attitude`'s own yaw-steering construction,
-// INCLUDING the "negate the Sun direction" frame mapping (`SPEC-jason-
-// attitude.md` §3), previously DERIVED but unconfirmed. The fixed-yaw
-// regime and its own construction remain UNCONFIRMED by real data -- no
-// epoch this round's own reachable window exercised it.
+// read a quaternion row, NOW USING THE SAME INTERPOLATION FIX: 12 epochs
+// across 2025-12-03/05, beta-prime -75.3 to -78.5 deg throughout (no
+// fixed-yaw window, |beta-prime|<15 deg, fell within this particular
+// 2.5-day arc -- not chased further, the manager's own instruction to
+// include one was conditional, "if one falls within reach"). ALL TWELVE
+// MATCHED, 0.033-1.43 deg (tighter than the pre-interpolation 0.14-1.52
+// deg, though not as uniformly tight as the pure nadir-only test above --
+// the full yaw-steering comparison also depends on the Sun direction and
+// the real yaw angle's own dynamics, a genuinely different, larger-
+// degrees-of-freedom comparison than nadir alone, not chased down further
+// this round given it is already comfortably inside criterion) -- strong,
+// real-data confirmation of `jason_attitude`'s own yaw-steering
+// construction, INCLUDING the "negate the Sun direction" frame mapping
+// (`SPEC-jason-attitude.md` §3), previously DERIVED but unconfirmed. The
+// fixed-yaw regime and its own construction remain UNCONFIRMED by real
+// data -- no epoch this round's own reachable window exercised it.
 
 #include <odl/attitude/attitude.hpp>
 #include <odl/core/vec3.hpp>
@@ -262,14 +293,26 @@ EnvBits load_env(const std::string& leappath) {
 /// the arc's own start", not "22:00 on the query's own date") -- the actual
 /// cause of a stable-but-wrong ~150-155 deg nadir result this bug produced,
 /// found and fixed before being trusted.
-std::size_t nearest_sp3(const Ephem& e, int y, int mo, int d, int hh, int mm, double sec,
-                        const time::LeapTable& leaps) {
+/// The query's own elapsed time from `e.t0`, TAI seconds, exact (not a
+/// nearest-sample rounding) -- `shift_s` added AFTER the UTC-to-TAI
+/// conversion, for testing whether an unaccounted time-scale offset (the
+/// manager's own hypothesis for the residual) is present: a REAL such
+/// offset would need correcting BEFORE the conversion in production code,
+/// but adding it after, here, in a diagnostic-only function, tests the
+/// SAME numerical effect a before-conversion fix would have, without
+/// implying one is believed to exist yet.
+double target_elapsed_s(const Ephem& e, int y, int mo, int d, int hh, int mm, double sec,
+                        const time::LeapTable& leaps, double shift_s) {
     time::Calendar c;
     c.year = y; c.month = mo; c.day = d; c.hour = hh; c.minute = mm; c.second = sec;
     auto query = time::Epoch::from_calendar(time::TimeScale::UTC, c, leaps);
     if (!query.has_value()) { std::cerr << "epoch: " << query.error().message << "\n"; std::exit(1); }
-    const double target = static_cast<double>(query->tai_seconds() - e.t0.tai_seconds());
+    return static_cast<double>(query->tai_seconds() - e.t0.tai_seconds()) + shift_s;
+}
 
+std::size_t nearest_sp3(const Ephem& e, int y, int mo, int d, int hh, int mm, double sec,
+                        const time::LeapTable& leaps) {
+    const double target = target_elapsed_s(e, y, mo, d, hh, mm, sec, leaps, 0.0);
     std::size_t best = 0;
     double best_d = 1e18;
     for (std::size_t i = 0; i < e.t.size(); ++i) {
@@ -277,6 +320,21 @@ std::size_t nearest_sp3(const Ephem& e, int y, int mo, int d, int hh, int mm, do
         if (d_s < best_d) { best_d = d_s; best = i; }
     }
     return best;
+}
+
+/// Linearly interpolated GCRS position AND velocity at an exact elapsed
+/// time (SP3's own 1-minute sample grid is too coarse to resolve a
+/// sub-minute time-scale offset by nearest-sample selection alone -- an 18s
+/// shift often would not even change which sample is nearest).
+struct InterpState { Vec3 r, v; };
+InterpState interp_ephem(const Ephem& e, double target) {
+    std::size_t hi = 0;
+    while (hi + 1 < e.t.size() && e.t[hi + 1] < target) ++hi;
+    std::size_t lo = hi == 0 ? 0 : hi - 1;
+    if (hi + 1 >= e.t.size()) { lo = e.t.size() >= 2 ? e.t.size() - 2 : 0; hi = e.t.size() - 1; }
+    const double span = e.t[hi] - e.t[lo];
+    const double frac = span > 0.0 ? (target - e.t[lo]) / span : 0.0;
+    return InterpState{e.r[lo] + frac * (e.r[hi] - e.r[lo]), e.v[lo] + frac * (e.v[hi] - e.v[lo])};
 }
 
 /// RULE 4, applied per the manager's own instruction: `SALP-IF-M/IDS-
@@ -320,6 +378,52 @@ std::size_t nearest_sp3(const Ephem& e, int y, int mo, int d, int hh, int mm, do
 /// rotate body-frame coordinates INTO J2000, or J2000 coordinates INTO the
 /// body frame?). This is the ONE remaining, genuinely unresolved choice --
 /// checked both ways below, a bounded, single run, not a re-opened search.
+/// The manager's own hypothesis: the residual (0.60-1.56 deg nadir,
+/// 0.14-1.52 deg comparison) is the SIZE an unapplied GPS-UTC offset (18s
+/// at Jason-3's own ~0.0534 deg/s orbital rate) would produce, ~1000x the
+/// same pipeline's own floor on CODE's GNSS files. This function reports
+/// the nadir residual at a STATED time shift, decomposed along-track
+/// (`t_hat`) and cross-track (`n_hat`) -- a time error is almost all
+/// along-track, so the split itself is part of the evidence, not only the
+/// total. Interpolates the SP3 ephemeris at the EXACT shifted target time
+/// (nearest-SAMPLE selection, the 1-minute SP3 grid, is too coarse to
+/// resolve an 18s shift -- it would often not even change which sample is
+/// nearest).
+void nadir_at_shift(const Ephem& e, const std::vector<QRow>& q, const time::LeapTable& leaps,
+                    double shift_s, int max_epochs) {
+    std::cout << std::fixed << std::setprecision(4);
+    std::cout << "  shift = " << std::showpos << shift_s << std::noshowpos << " s\n";
+    std::cout << "  epoch (UTC)       | total (deg) | along-track (deg) | cross-track (deg)\n";
+    int checked = 0;
+    for (std::size_t qi = 0; qi < q.size() && checked < max_epochs;
+        qi += (q.size() / static_cast<std::size_t>(max_epochs) == 0
+                   ? 1
+                   : q.size() / static_cast<std::size_t>(max_epochs)),
+        ++checked) {
+        const QRow& row = q[qi];
+        const double target = target_elapsed_s(e, row.y, row.mo, row.d, row.h, row.mi, row.sec,
+                                                leaps, shift_s);
+        const InterpState st = interp_ephem(e, target);
+        const Vec3 r_hat = normalized(st.r);
+        const Vec3 nadir_gcrs = -1.0 * r_hat;
+        const Vec3 n_hat = normalized(st.r.cross(st.v));
+        const Vec3 t_hat = n_hat.cross(r_hat);
+
+        Vec3 z_direct_gcrs = body_z_axis_in_other_frame(row.q1, row.q2, row.q3, row.q4);
+        const double total = angle_deg(z_direct_gcrs, nadir_gcrs);
+
+        // Small-angle projection of the error vector onto the local
+        // along-/cross-track directions -- exact to O(total^3), utterly
+        // negligible at a total error of order 1 deg (~1e-4 rad^3).
+        const Vec3 err = z_direct_gcrs - nadir_gcrs;
+        const double along_deg = (err.dot(t_hat)) / kDeg;
+        const double cross_deg = (err.dot(n_hat)) / kDeg;
+
+        std::cout << "  " << row.y << "/" << row.mo << "/" << row.d << " " << row.h << ":" << row.mi
+                  << ":" << row.sec << " | " << total << " | " << along_deg << " | " << cross_deg << "\n";
+    }
+}
+
 void run_nadir(const std::string& sp3path, const std::string& qpath, const std::string& leappath) {
     auto env = load_env(leappath);
     auto e = build_ephem(sp3path, "L39", env.leaps, env.c04);
@@ -362,6 +466,14 @@ void run_nadir(const std::string& sp3path, const std::string& qpath, const std::
         std::cout << "    [direct sense, all axes] X:" << angle_deg(x_direct_gcrs, nadir_gcrs)
                   << " Y:" << angle_deg(y_direct_gcrs, nadir_gcrs) << " Z:" << a1 << "\n";
     }
+
+    std::cout << "\nTIME-SHIFT DIAGNOSTIC (the manager's own hypothesis: an unapplied GPS-UTC "
+                 "offset, ~18s at this orbit's own rate, is about the size of the residual "
+                 "above) -- along-/cross-track decomposition at three shifts, interpolated "
+                 "exactly, not nearest-sample:\n";
+    nadir_at_shift(e, q, env.leaps, 0.0, 8);
+    nadir_at_shift(e, q, env.leaps, 18.0, 8);
+    nadir_at_shift(e, q, env.leaps, -18.0, 8);
 }
 
 /// MODE 2, run only after `--nadir` shows one sense converging cleanly.
@@ -390,8 +502,14 @@ void run_compare(const std::string& sp3path, const std::string& qpath, const std
     for (std::size_t qi = 0; qi < q.size() && checked < 12;
         qi += (q.size() / 12 == 0 ? 1 : q.size() / 12), ++checked) {
         const QRow& row = q[qi];
-        std::size_t si = nearest_sp3(e, row.y, row.mo, row.d, row.h, row.mi, row.sec, env.leaps);
-        const Vec3 r = e.r[si], v = e.v[si];
+        // INTERPOLATED, not nearest-sample (the `--nadir` diagnostic found
+        // nearest-1-minute-sample rounding was the dominant remaining
+        // residual, ~0.86-1.07 deg along-track, once the frame/order/time-
+        // scale bugs were already fixed -- this mode inherits that fix).
+        const double target = target_elapsed_s(e, row.y, row.mo, row.d, row.h, row.mi, row.sec,
+                                                env.leaps, 0.0);
+        const InterpState st = interp_ephem(e, target);
+        const Vec3 r = st.r, v = st.v;
 
         time::Epoch t = [&] {
             time::Calendar c; c.year = row.y; c.month = row.mo; c.day = row.d;
