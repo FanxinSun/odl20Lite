@@ -164,20 +164,27 @@ as silence to fill in.
   printed formula (Eq. 4) that does not itself mention Δu at all. `ECOM-A-005` computes *u* and
   *u*_s itself, not by calling this module's own Δu function.
 
-- **`ECOM-R-006`.** **Velocity dependence, declared, not assumed absent** (`DYN-Q-002`). Δu
-  needs the orbital plane, n̂ = r×v/|r×v|, so Δu — and through it, D(Δu), Y(Δu)=Y₀ (unaffected,
-  it carries no Δu dependence) and B(Δu) — depends on v. The D/Y/B frame vectors themselves
-  (`ECOM-R-001`) do not: Eq. 1 uses r and ŝ only. This force reports its own `StateJacobian` via
-  `no_velocity_dependence(da_dr, bound)` (`dyn::StateJacobian`, `force.hpp`), where the bound is
-  DERIVED, not guessed: |∂Δu/∂v| ≤ 1/|v| (Δu is a dimensionless angle changing by at most order
-  unity per orbital-plane rotation, and rotating the plane by an angle *θ* takes a velocity
-  perturbation of order |v|·*θ* — `ECOM-P-1`, §6, states the exact bound used), and |∂*a*/∂Δu| is
-  bounded by the Fourier series' own coefficient-weighted harmonic sum, Σ 2*i*·√(*D*₂ᵢ,c² +
-  *D*₂ᵢ,s²) for *D* and Σ (2*i*−1)·√(*B*₂ᵢ₋₁,c² + *B*₂ᵢ₋₁,s²) for *B* — a closed form in the
-  registered parameter values, not a single fixed number, since the true magnitude scales with
-  them. `ECOM-A-007` checks this bound against a central finite difference of the full
-  acceleration with respect to v, at randomized parameter sets, confirming it is a genuine upper
-  bound and not merely plausible-looking.
+- **`ECOM-R-006`.** **Velocity dependence, in closed form** (`DYN-Q-002`'s stronger path: a full
+  Jacobian rather than a declared bound, taken because one is derivable here). Δu needs the
+  orbital plane, n̂ = r×v/|r×v|, so Δu — and through it, D(Δu), Y(Δu)=Y₀ (unaffected, it carries
+  no Δu dependence) and B(Δu) — depends on v. The D/Y/B frame vectors themselves (`ECOM-R-001`)
+  do not: Eq. 1 uses r and ŝ only, so v enters the acceleration through exactly one channel, Δu.
+  This force reports its own `StateJacobian` via `with_velocity(da_dr, da_dv)`
+  (`dyn::StateJacobian`, `force.hpp`), with
+
+  ```
+  da/dv = [dD/d(Δu)·ê_D + dB/d(Δu)·ê_B] ⊗ (∂Δu/∂v)
+  ```
+
+  the outer product of the acceleration's own Δu-derivative (a Vec3; Y contributes none, `ARN15`'s
+  own printed form) and Δu's own velocity gradient (a covector, here a Vec3 standing for a 1×3
+  row), both closed-form. ∂Δu/∂v is built by mechanical chain rule through n̂'s own dependence on
+  v (∂(r×v)/∂v is the linear map x ↦ r×x, i.e. `skew(r)`), the unit-vector projector
+  (I − ûûᵀ)/|u| at each normalization the chain passes through, and the ATAN2 quotient rule —
+  the same family of primitives `ECOM-R-001`'s own position Jacobian uses, applied against v
+  instead of r. Verified against a central finite difference of Δu itself, own script, 5 random
+  geometries, ~1e-14 absolute agreement (`PROVENANCE.md` §30.21) — not assumed from the calculus
+  alone, the same discipline `mu_rad`'s own worked example used.
 
 - **`ECOM-R-007`.** **Not quadrature-blind.** `PROVENANCE.md` §22.3 found that a force whose own
   contribution to the right-hand side is a function of time alone degenerates an RKF7(8)-style
@@ -193,34 +200,46 @@ as silence to fill in.
 
 ## 5. Interfaces, stated language-free
 
-- `DybFrame`: a plain aggregate of three unit vectors (ê_D, ê_Y, ê_B) plus ê_r, returned by a
-  pure function of (r_gcrs, sun_direction_gcrs) — no velocity, matching `ECOM-R-001`'s own
-  velocity-independence exactly in the type.
-- `delta_u(r_gcrs, v_gcrs, sun_direction_gcrs) -> Result<double, EcomError>` — radians, refuses
-  per `ECOM-F-002`.
-- `EcomCoefficients`: *n*_D, *n*_B plus the (2*n*_D + 2*n*_B + 2) scalar values (*D*₀, *D*₂c,
-  *D*₂s, …, *Y*₀, *B*₀, *B*₁c, *B*₁s, …) — a caller-owned value type, not read from any library
-  (`ECOM-R-004`'s own D4B1 is a named default construction of this type, not a special case in
-  the force's own logic).
-- `EcomForce final : public dyn::Force` — constructed from an `EcomCoefficients` (or, for the
-  registered-parameter path, a `ParameterRegistry` reference plus a `subject` string, declaring
-  one `ParameterId` per scalar coefficient, `ParameterKind::empirical_acceleration`, matching
-  `drag_coefficient`'s own one-parameter-per-declare precedent extended to nine). `accel()`
-  returns the frame, Δu, the D/Y/B evaluation, the summed acceleration, the position Jacobian in
-  closed form, the velocity bound per `ECOM-R-006`, and one parameter-Jacobian column per
-  registered coefficient — each ∂*a*/∂(coefficient) is exactly the corresponding basis vector
-  times its own trig factor (§6), since the acceleration is linear in every coefficient.
+- `EcomOrder`: the truncation orders (*n*_D, *n*_B) alone. A named value, not derived from a
+  coefficient vector's own length, so the shape a force was constructed with and the shape a
+  caller's own coefficient values happen to have length-match can be checked against each other
+  rather than silently identified (`ECOM-Q-001`).
+- `EcomCoefficients`: the (2*n*_D + 2*n*_B + 2) scalar values (*D*₀, *D*₂c, *D*₂s, …, *Y*₀, *B*₀,
+  *B*₁c, *B*₁s, …) alone, sized to whatever `EcomOrder` the caller is using them with — a
+  caller-owned value type, not read from any library. `ECOM-R-004`'s own D4B1 is a named
+  construction of `EcomOrder{2,1}` plus this type, not a special case in the force's own logic.
+- `ecom_acceleration(r_gcrs, v_gcrs, sun_direction_gcrs, order, coefficients) ->
+  Result<EcomResult, EcomError>`: the free function `ECOM-R-001`–`R-003` and `R-006` describe,
+  callable without a `dyn::Force` (`ECOM-A-001`–`007` all call it directly). `EcomResult` carries
+  the acceleration, ê_D/ê_Y/ê_B, Δu, one `EcomSensitivities` (∂*a*/∂(coefficient), `ECOM-R-005`'s
+  own layout mirrored one Vec3 per scalar) and ∂*a*/∂v in closed form (`ECOM-R-006`). It does NOT
+  carry ∂*a*/∂r: that half is not analytically tractable through this same construction (n̂'s own
+  r-dependence compounds through the D/Y/B frame too), so a `dyn::Force` caller takes it by
+  central finite difference at its own call site — `Srp::accel`'s own established split
+  (`PHPR-P-6`), applied here rather than re-decided.
+- `EcomParameterIds`: `EcomCoefficients`' own shape with each scalar replaced by the
+  `ParameterId` a caller's own registry issued for it (`Drag`'s own one-`ParameterId`-per-
+  `declare` precedent, `ParameterKind::empirical_acceleration`, extended to as many scalars as
+  `EcomOrder` implies) — declared by the CALLER, not by this module, matching `ECOM-R-004`'s own
+  "nothing here reads a library" for values extended to identities. `flattened()` returns them
+  in Eq. 5's own natural order, the form `dyn::Force::consumes()` requires.
+- `Ecom final : public dyn::Force`, constructed from `(EcomOrder, EcomParameterIds, const
+  eph::Ephemeris&, odl::time::LeapTable)` — no construction-time coefficient VALUES, since every
+  `accel()` call reads live values from the registry (`ECOM-R-005`) and a stored "initial value"
+  nobody re-reads after the first call would only be a second place for them to drift out of
+  sync. `accel()` resolves the Sun via the bound ephemeris, calls `ecom_acceleration` for the
+  acceleration/Δu/coefficient- and velocity-Jacobians, takes the position Jacobian by central
+  finite difference (above), and reports both blocks via `dyn::StateJacobian::with_velocity`.
 
 ---
 
 ## 6. Precision and accuracy
 
-- **`ECOM-P-1`.** The velocity-dependence bound (`ECOM-R-006`) is a closed form in the
-  registered coefficients, not a single constant: for D4B1 at representative GNSS-orbit
-  magnitudes (Δu̇ ~ μ̇, |v| ~ 3.9 km/s at GPS altitude) and representative CODE-scale coefficients
-  (order 100 nm/s² each, `ARN15`'s own Table 9 context), the bound evaluates to order 10⁻¹³ s⁻¹ —
-  stated here as a plausibility anchor; `ECOM-A-007` computes and checks the exact figure for
-  the parameter set under test, not this illustrative one.
+- **`ECOM-P-1`.** The velocity Jacobian (`ECOM-R-006`) is exact in closed form, not a bound:
+  `ECOM-A-007` checks it against a central finite difference of the full acceleration with
+  respect to v, at randomized parameter sets and geometries, to the finite difference's own
+  truncation floor — a mismatch there is a coding defect, not a modelling one, the same
+  discipline this spec's own `ECOM-A-006` already applies to the coefficient Jacobians.
 - Every sensitivity column (`ECOM-R-005`'s own parameter Jacobians) is EXACT in closed form —
   the acceleration is linear in each coefficient by construction (Eq. 5) — so `ECOM-A-006`
   checks against finite differences to the difference's own truncation floor, not to a stated
@@ -247,7 +266,7 @@ as silence to fill in.
 | `ECOM-A-004` | B(Δu + π) − B₀ = −(B(Δu) − B₀), for random *n*_B ∈ {0,1,2,3} and random coefficients | equality | the odd-harmonic-only structure, Eq. 5 | 1e-12 | R-003 |
 | `ECOM-A-005` | The reduction at *n*_D=0, *n*_B=1: this module's own D4B1-family output at *n*_B=1 matches Eq. 4 evaluated independently at *u* = Δu + *u*_s (both computed fresh in the test, not via this module's own Δu), with *B*_c/*B*_s rotated from *B*₁c/*B*₁s by `ECOM-R-005`'s own formula | agreement | Eq. 4 vs Eq. 5, cross-checked, not the same formula twice | 1e-9 rad-equivalent | R-002, R-005 |
 | `ECOM-A-006` | Every registered parameter's own sensitivity column against a central finite difference of the full acceleration | agreement | linearity in each coefficient, Eq. 5 | finite-difference floor | R-005 |
-| `ECOM-A-007` | The declared velocity-dependence bound (`ECOM-R-006`) against a central finite difference of the acceleration w.r.t. v, at randomized coefficient sets | bound ≥ measured, never violated | `ECOM-P-1`'s own closed form | — (an inequality) | R-006 |
+| `ECOM-A-007` | The analytic velocity Jacobian (`ECOM-R-006`) against a central finite difference of the acceleration w.r.t. v, at randomized coefficient sets and geometries | agreement | `ECOM-R-006`'s own closed form | finite-difference floor | R-006 |
 | `ECOM-A-008` | `ECOM-F-001`/`ECOM-F-002` fire at their own stated degeneracies, forwarded/carrying correctly | the diagnostics | `ECOM-R-001`/`R-002` | — | F-001, F-002 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row; `ECOM-R-007`
@@ -261,7 +280,7 @@ position dependence, not a separate property needing its own row.
 - `PROVENANCE.md` records, as a new numbered section: the rule-4 search for `ARN15` (the failed
   routes and the one that worked), the frame confirmation against `FRAME-Q-002`, the gate
   replacement and its own reasoning, the Δu = μ + π cross-check, the reduction identity's own
-  derivation, and the velocity-bound derivation.
+  derivation, and the velocity-Jacobian derivation.
 - `../plan/subplan_L4/L4-7.md` already records the rule-4 search and the gate replacement
   (2026-09-24); this document does not repeat that narrative, only cites it.
 
