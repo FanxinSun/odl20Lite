@@ -150,7 +150,13 @@ TEST_CASE("SPCR-A-004  gps_block_iif builds from RS14 Table 5.5, area and optics
           "[spacecraft][gps]") {
     auto iif = gps_block_iif();
     REQUIRE(iif.has_value());
-    CHECK_THAT(iif->mass_kg().value(), WithinAbs(1555.0, 1.0e-12));
+    // 1633 kg, IGSMETA's own SATELLITE/MASS for SVN63 -- primary, per the
+    // manager's ruling that this field is documented for non-gravitational
+    // force modelling, not launch mass. RS14's own 1555 kg is the
+    // cross-check, named in the same citation, not silently dropped.
+    CHECK_THAT(iif->mass_kg().value(), WithinAbs(1633.0, 1.0e-12));
+    CHECK(iif->mass_kg().citation().find("IGSMETA") != std::string::npos);
+    CHECK(iif->mass_kg().citation().find("1555") != std::string::npos);
 
     bool found_plus_z = false, found_minus_z = false, found_panel = false;
     for (const auto& s : iif->surfaces()) {
@@ -200,6 +206,29 @@ TEST_CASE("SPCR-A-007  gps_block_iiia refuses, unconditionally, with SPCR-F-003"
     auto iiia = gps_block_iiia();
     REQUIRE_FALSE(iiia.has_value());
     CHECK(iiia.error().id == "SPCR-F-003");
+}
+
+// --- SPCR-A-008 ----------------------------------------------------------------
+
+TEST_CASE("SPCR-A-008  gps_block_iir/_iir_m's own mass is IGSMETA's own SVN50 "
+          "figure (1080 kg), not RS14's (1100 kg) -- RS14 named as the "
+          "cross-check in the same citation, not silently dropped",
+          "[spacecraft][gps]") {
+    auto iir = gps_block_iir();
+    auto iir_m = gps_block_iir_m();
+    REQUIRE(iir.has_value());
+    REQUIRE(iir_m.has_value());
+
+    CHECK_THAT(iir->mass_kg().value(), WithinAbs(1080.0, 1.0e-12));
+    CHECK(iir->mass_kg().citation().find("IGSMETA") != std::string::npos);
+    CHECK(iir->mass_kg().citation().find("1100") != std::string::npos);
+
+    CHECK_THAT(iir_m->mass_kg().value(), WithinAbs(1080.0, 1.0e-12));
+    CHECK(iir_m->mass_kg().citation().find("SVN50") != std::string::npos);
+
+    // Guard: the OLD value (RS14's, both blocks) would have been 1100, not
+    // 1080 -- distinct enough that a regression back to it would fail above.
+    CHECK(1080.0 != 1100.0);
 }
 
 // --- SPCR-A-005 ----------------------------------------------------------------

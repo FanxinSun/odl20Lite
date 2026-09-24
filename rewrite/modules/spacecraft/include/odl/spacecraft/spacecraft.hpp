@@ -31,21 +31,27 @@ using SpacecraftError = odl::Diagnostic;
 /// table); `is_iia` selects only the mass, 880 kg / 975 kg.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError> gps_block_ii_iia(bool is_iia);
 
-/// SPCR-R-003.
+/// SPCR-R-003. Mass 1080 kg, IGSMETA's own SATELLITE/MASS (SVN50, this
+/// tree's own reference IIR-M satellite's block) -- documented for
+/// non-gravitational force modelling, not launch mass; RS14's own 1100 kg
+/// is the cross-check. See SPEC-spacecraft.md §4 for the full basis.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError> gps_block_iir();
 
-/// SPCR-R-005. gps_block_iir()'s own geometry, mass unchanged -- see the
-/// header comment above and SPEC-spacecraft.md §4 for the basis and its own
-/// stated limits.
+/// SPCR-R-005. gps_block_iir()'s own geometry AND (as of this version) mass
+/// -- see the header comment above and SPEC-spacecraft.md §4 for the basis
+/// and its own stated limits.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError> gps_block_iir_m();
 
-/// SPCR-R-004. RS14 Table 5.5's own values: dimensions cited to RS14's own
-/// stated source, "an unpublished document" this tree does not hold (the
-/// citation chain's own end, recorded rather than resolved further);
-/// optical properties marked ASSUMED, RS14's own generic (Ziebart 2001
-/// §7.1) fallback, not an IIF-specific measurement. Cross-checked in
-/// aggregate against IGS SINEX's own mass field for SVN63 (SPEC-spacecraft.md
-/// §4); the panel-span aggregate check was sought and not completed, see §4.
+/// SPCR-R-004. RS14 Table 5.5's own dimensions and optics: dimensions cited
+/// to RS14's own stated source, "an unpublished document" this tree does
+/// not hold (the citation chain's own end, recorded rather than resolved
+/// further); optical properties marked ASSUMED, RS14's own generic
+/// (Ziebart 2001 §7.1) fallback, not an IIF-specific measurement. Mass
+/// 1633 kg, IGSMETA's own SATELLITE/MASS for SVN63 -- documented for
+/// non-gravitational force modelling, not launch mass (manager's ruling,
+/// 2026-09-24, after the earlier launch-vs-on-orbit hypothesis was
+/// withdrawn); RS14's own 1555 kg is the cross-check. The panel-span
+/// aggregate check was sought and not completed, see SPEC-spacecraft.md §4.
 [[nodiscard]] odl::Result<macromodel::Macromodel, SpacecraftError> gps_block_iif();
 
 /// Refuses SPCR-F-003 unconditionally in this version: one search performed,

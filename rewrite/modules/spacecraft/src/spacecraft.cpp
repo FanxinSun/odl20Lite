@@ -190,8 +190,18 @@ odl::Result<Macromodel, SpacecraftError> gps_block_iir() {
     };
     const RS14Row panels{13.920, 0.707, 0.044, 0.249};
     return assemble(faces, panels, "RS14 Table 5.4, averaged from FLGA96",
-                    "RS14 Table 5.4, averaged from FLGA96", 1100.0,
-                    "RS14 Table 5.4's own caption");
+                    "RS14 Table 5.4, averaged from FLGA96", 1080.0,
+                    "IGSMETA's own SATELLITE/MASS field, documented as \"In-orbit satellite mass\" "
+                    "(the SINEX's own header) and, in full, as intended specifically for "
+                    "non-gravitational force modelling at ~1% accuracy (Steigenberger & "
+                    "Montenbruck 2024, Metadata SINEX Description v1.10 Sec.1.1/4.3, DOI "
+                    "10.57677/metadata-sinex) -- not launch mass, per that document's own Table 5: "
+                    "\"IIR 1080 kg, Hegarty (2017)\", corroborated by SVN50's own individual row "
+                    "(1080.000 kg, ref. [MA03], the same Hegarty citation). RS14 Table 5.4's own "
+                    "1100 kg (its own caption) becomes the cross-check, ~1.8% lower -- both class "
+                    "as \"in-orbit\" mass; no source read this session distinguishes them further, "
+                    "an open gap, not resolved by assuming launch-vs-dry (manager's ruling, "
+                    "2026-09-24, following the earlier IIF finding below).");
 }
 
 odl::Result<Macromodel, SpacecraftError> gps_block_iir_m() {
@@ -212,9 +222,14 @@ odl::Result<Macromodel, SpacecraftError> gps_block_iir_m() {
         "(Fig. 4) and its own phase-center-only distinction (Table 3) -- not "
         "independently measured for IIR-M";
     return assemble(faces, panels, inherited, inherited,
-                    1100.0,
-                    "= gps_block_iir()'s own mass; no IIR-M-specific mass is published in any "
-                    "source this spec holds, assumed unchanged");
+                    1080.0,
+                    "IGSMETA's own SATELLITE/MASS row for SVN50/G050, this tree's own reference "
+                    "IIR-M satellite (= G05, PROVENANCE.md Sec.30.1): 1080.000 kg, ref. [MA03] "
+                    "(Hegarty 2017) -- matches the format description's own general Table 5 IIR-M "
+                    "figure exactly (Steigenberger & Montenbruck 2024, DOI "
+                    "10.57677/metadata-sinex), documented for non-gravitational force modelling, "
+                    "not launch mass. RS14's own 1100 kg (= gps_block_iir()'s own RS14 cross-check "
+                    "figure) becomes the cross-check here too, ~1.8% higher.");
 }
 
 odl::Result<Macromodel, SpacecraftError> gps_block_iif() {
@@ -246,17 +261,26 @@ odl::Result<Macromodel, SpacecraftError> gps_block_iif() {
                     "(full search: ~/.claude/handover/2026-09-24-odl-rewrite-L5.REPORT.md)",
                     "RS14 Table 5.5's own generic assumption, same as Ziebart (2001) Sec.7.1 -- "
                     "ASSUMED for IIF, not an IIF-specific measurement (RS14 states this itself)",
-                    1555.0,
-                    "RS14 Table 5.5's own caption (1555 kg). Aggregate cross-check: IGS Satellite "
-                    "Metadata SINEX (files.igs.org/pub/station/general/igs_satellite_metadata.snx, "
-                    "fetched 2026-09-24), SATELLITE/MASS for SVN63/G063/NAVSTAR-66, gives 1633 kg "
-                    "-- about 5% higher, consistent with launch mass (SINEX's own field) exceeding "
-                    "on-orbit dry mass (RS14's own figure) after expendables; not a contradiction. "
-                    "A second aggregate check (panel span, against a published figure) was sought "
-                    "and NOT completed: no independently verified, directly-fetched citable source "
-                    "was found for a GPS-IIF panel span figure, so none is recorded or relied on "
-                    "here (see the report file for the full account, including a wrong-satellite "
-                    "search dead-end -- USA-66 vs NAVSTAR-66 -- discarded before use).");
+                    1633.0,
+                    "IGSMETA's own SATELLITE/MASS row for SVN63/G063 (this tree's own reference "
+                    "IIF satellite, = G01, PROVENANCE.md Sec.30.1): 1633.000 kg, ref. [MA04] (a "
+                    "Boeing technical-specifications page). The SINEX's own header documents this "
+                    "field as \"In-orbit satellite mass\"; the format description (Steigenberger & "
+                    "Montenbruck 2024, Metadata SINEX Description v1.10 Sec.1.1, DOI "
+                    "10.57677/metadata-sinex) states it is required specifically \"to compute the "
+                    "acceleration caused by non-gravitational forces (such as solar radiation "
+                    "pressure...)\" at ~1% accuracy -- exactly this library's own purpose, and NOT "
+                    "launch mass. RS14 Table 5.5's own 1555 kg (its own caption) becomes the "
+                    "cross-check: ~5% lower, and an EARLIER version of this citation explained the "
+                    "gap as launch-vs-on-orbit mass -- WITHDRAWN, now that the SINEX field is "
+                    "confirmed to be in-orbit, not launch; the ~5% gap between RS14's own figure "
+                    "and IGSMETA's own is recorded as unexplained, not papered over with a "
+                    "falsified hypothesis. A second aggregate check (panel span, against a "
+                    "published figure) was sought and NOT completed: no independently verified, "
+                    "directly-fetched citable source was found for a GPS-IIF panel span figure, so "
+                    "none is recorded or relied on here (see the report file for the full account, "
+                    "including a wrong-satellite search dead-end -- USA-66 vs NAVSTAR-66 -- "
+                    "discarded before use).");
 }
 
 odl::Result<Macromodel, SpacecraftError> gps_block_iiia() {
