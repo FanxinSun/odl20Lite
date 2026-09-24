@@ -1,16 +1,19 @@
-// horizons_tests.cpp — SPEC-io-horizons.md §8, IOHZ-A-001 through IOHZ-A-007.
+// horizons_tests.cpp — SPEC-io-horizons.md §8, IOHZ-A-001 through IOHZ-A-008.
 //
-// Every fixture is HAND-BUILT at HZAPI's own documented positions/tokens,
-// verified against a real query's own output (SPEC-io-horizons.md §2) but
-// not itself a copy of that real response -- its own numeric values are
-// deliberately distinct placeholders, not the real captured ephemeris,
-// since the real response is not committed pending the manager's own
-// licence ruling (§9/§10 IOHZ-Q-002).
+// IOHZ-A-001 through IOHZ-A-007 use fixtures HAND-BUILT at HZAPI's own
+// documented positions/tokens, verified against a real query's own output
+// (SPEC-io-horizons.md §2) but not themselves a copy of that real response
+// -- their own numeric values are deliberately distinct placeholders.
+// IOHZ-A-008 reads the real thing: the manifest's own pinned ACS3 capture
+// (FACTUAL-DATA-CITED, ruled 2026-09-25, PROVENANCE.md §37.4).
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <odl/io/horizons.hpp>
+
+#include <fstream>
+#include <sstream>
 
 using namespace odl;
 using namespace odl::io;
@@ -152,6 +155,41 @@ TEST_CASE("IOHZ-A-006  a response missing its own $$EOE line entirely refuses IO
     auto eph = read_horizons(bad);
     REQUIRE_FALSE(eph.has_value());
     CHECK(eph.error().id == "IOHZ-F-001");
+}
+
+TEST_CASE("IOHZ-A-008  read_horizons on the manifest's own real, pinned ACS3 capture "
+          "(FACTUAL-DATA-CITED, PROVENANCE.md §37.4) parses cleanly: five real records, "
+          "a real target/center body name, and every position within a plausible LEO range",
+          "[io][horizons][real-data]") {
+    std::ifstream in(ODL_HORIZONS_ACS3_TXT);
+    REQUIRE(in.is_open());
+    std::stringstream ss;
+    ss << in.rdbuf();
+
+    auto eph = read_horizons(ss.str());
+    REQUIRE(eph.has_value());
+    CHECK(eph->target_body.substr(0, 4) == "ACS3");
+    CHECK(eph->center_body.substr(0, 5) == "Earth");
+    REQUIRE(eph->states.size() == 5);
+
+    for (const auto& r : eph->states) {
+        CHECK(r.time_system == HorizonsTimeSystem::Tdb);
+        CHECK(r.epoch.year == 2026);
+        CHECK(r.epoch.month == 9);
+        CHECK(r.epoch.day == 25);
+        // ACS3's own real orbit: ~994x1023 km altitude, a LEO radius comfortably
+        // inside [6871, 8000] km and a speed comfortably inside [6, 8] km/s --
+        // not a re-derivation of the real value (this file's own numbers are
+        // whatever Horizons actually returned, not asserted here field by
+        // field), a plausibility bound on real data, the same spirit
+        // IOFM-A-030/031's own held-out checks use for a different format.
+        const double r_km = r.position_km.norm();
+        CHECK(r_km > 6871.0);
+        CHECK(r_km < 8000.0);
+        const double v_km_s = r.velocity_km_s.norm();
+        CHECK(v_km_s > 6.0);
+        CHECK(v_km_s < 8.0);
+    }
 }
 
 TEST_CASE("IOHZ-A-007  to_time_scale(Tdb) succeeds with TimeScale::TDB; "

@@ -198,6 +198,7 @@ states this rather than overclaiming.
 | `IOHZ-A-005` | A header whose `Output type` line reads `ASTROMETRIC cartesian states` (a `VEC_CORR=LT` response, `HZAPI`'s own documented alternative, §3.2) instead of `GEOMETRIC cartesian states` refuses `IOHZ-F-005` | the refusal | `IOHZ-F-005` | — | R-003, F-005 |
 | `IOHZ-A-006` | A response missing its own `$$EOE` line entirely refuses `IOHZ-F-001`; ordinary header/footer prose surrounding `$$SOE`/`$$EOE` (present in every real response) is never mistaken for a malformed record | the refusal; the surrounding prose does not itself trigger a refusal | `IOHZ-F-001` | — | R-001, F-001 |
 | `IOHZ-A-007` | `to_time_scale(HorizonsTimeSystem::Tdb)` succeeds with `TimeScale::TDB`; `to_time_scale(HorizonsTimeSystem::Ut)` refuses `IOHZ-F-002` | both outcomes | §3.1 | — | F-002 |
+| `IOHZ-A-008` | **Real-data.** `read_horizons` on the manifest's own real, pinned ACS3 capture (`horizons-acs3-vectors`, `FACTUAL-DATA-CITED`, §9) parses cleanly: 5 real records, the real target/center body names, every position/velocity within a plausible LEO range (994×1023 km altitude) | 5 records parse; every value plausible | a real query, committed (§9) | plausibility bound, not exact | R-001, R-002, R-003 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row; none require excusing.
 
@@ -207,10 +208,18 @@ states this rather than overclaiming.
 
 - `PROVENANCE.md` records, as an extension of the L6 numbered section: `HZAPI` itself (fetched
   directly, hash-pinned); the real ACS3 query run to verify the documented format against real
-  output, and why its own response is not committed pending a licence ruling; the fetch/parse
-  split and why no new fetch code was written (a Horizons query is a URL like any other manifest
-  entry's); and the oracle case `T-01` provenance finding below, checked before step 3 is designed
-  rather than assumed.
+  output; the fetch/parse split and why no new fetch code was written (a Horizons query is a URL
+  like any other manifest entry's); the licence search and the manager's own ruling that resolved
+  it (`IOHZ-Q-002`, §10) — the `search_recorded` pointer this spec's own manifest entry names is
+  `PROVENANCE.md §37.4`; and the oracle case `T-01` provenance finding below, checked before step 3
+  is designed rather than assumed.
+- **The real capture is committed, `upstream_mutable: true`.** `manifest/manifest.json`'s own
+  `horizons-acs3-vectors` entry pins a real ACS3 query (`IOHZ-A-008`, §8 reads it directly).
+  Verified directly, not assumed, that this needed the mutability flag for TWO reasons: every live
+  response embeds its own request-processing wall-clock timestamp, so no two live fetches of the
+  identical query ever hash-match, even seconds apart — confirmed by a second live fetch this round
+  returning a different SHA-256 than the first within half an hour; and, more slowly, the provenance
+  finding immediately below.
 - **`T-01`'s own frozen 2.246 m is not reproducible by a fresh capture, and this round confirmed
   it rather than assumed it.** `oracle/environment.txt` (read; not `capture.sh`) records SHA-256
   hashes for the predecessor's own two `T-01` inputs: `res/teme_check/acs3.tle` and
@@ -244,4 +253,4 @@ states this rather than overclaiming.
 | id | question |
 |---|---|
 | `IOHZ-Q-001` | The header's own remaining metadata lines (`EOP file`/`EOP coverage`, `Calendar mode`, `Center geodetic`/`cylindric`/`radii`) are read opaque (§3.2); no current consumer needs them. Worth field-by-field treatment if a future caller needs, e.g., the EOP coverage bound Horizons itself states its own output is conditioned on. |
-| `IOHZ-Q-002` | **Licence basis for a committed Horizons response, unresolved this round** — see the report alongside this spec for the search performed. Blocks the `manifest/manifest.json` entry (and therefore any acceptance test built from a real, committed capture rather than a hand-built fixture) until ruled. |
+| `IOHZ-Q-002` | **Licence basis for a committed Horizons response — RESOLVED** (manager, 2026-09-25, `plan/subplan_L6/L6-2.md`). Ruled: computed positions are factual data, not an expression (RS14's own reasoning) — a new manifest licence basis, `FACTUAL-DATA-CITED`, is committed for exactly this shape, gated on a `search_recorded` pointer `fetch.py check-licences` enforces by injection (`tests/test_fetch.py`), so the basis cannot become a way round the gate. The real ACS3 capture is now pinned (`manifest/manifest.json`, id `horizons-acs3-vectors`, `upstream_mutable: true`) and read directly by `IOHZ-A-008`, §8. |

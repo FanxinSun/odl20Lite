@@ -16,4 +16,13 @@ odl_add_module(io
 if(BUILD_TESTING)
   target_compile_definitions(odl_io_tests PRIVATE
     ODL_IO_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+
+  # IOHZ-A-008 reads the manifest's own pinned, real ACS3 Horizons capture
+  # (FACTUAL-DATA-CITED, PROVENANCE.md §37.4) directly, the same
+  # manifest-supplied-path shape ODL_DE440S_BSP/ODL_LEAP_SECOND_FILE already
+  # use for l4_ranking_tests -- not a guessed path, and not a second copy of
+  # the file placed under tests/data/.
+  odl_manifest_get(horizons-acs3-vectors _horizons_acs3)
+  target_compile_definitions(odl_io_tests PRIVATE
+    ODL_HORIZONS_ACS3_TXT="${_horizons_acs3_CACHE_PATH}")
 endif()

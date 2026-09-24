@@ -654,6 +654,21 @@
       "upstream_mutable": false,
       "verify_note": "Retrieved with no account and no request form: arxiv.org/pdf/1012.3574 serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). 13 pages. Eq. (4)-(6) (p. 4-5) checked directly against the extracted text: reflected acceleration (2 eta - 1) kappa cos^2(alpha) / r^2, absorbed (1 - eta) kappa cos(alpha) / r^2, alpha = sin^-1(v_phi/c) the aberration angle from the sail's own tangential heliocentric speed -- derived for a sail whose surface directly faces the Sun throughout (pitch angle zero), the same restriction BLS79's own normal-incidence case has, not a generalisation to oblique incidence.",
       "retrieved": "2026-09-23"
+    },
+    {
+      "id": "horizons-acs3-vectors",
+      "kind": "data",
+      "role": "JPL Horizons vector-table ephemeris for ACS3 (SPK -159588), the real object oracle cases T-01/O-* use — a real-response fixture for SPEC-io-horizons.md's own acceptance test (IOHZ-A-008), alongside its hand-built ones",
+      "version": "queried 2026-09-25, geocentric, ICRF, TDB, geometric (no light-time correction), 2 h window, 30-min step",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27-159588%27&OBJ_DATA=%27YES%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27VECTORS%27&CENTER=%27500%40399%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&TIME_TYPE=%27TDB%27&VEC_CORR=%27NONE%27&START_TIME=%272026-09-25%2000%3A00%27&STOP_TIME=%272026-09-25%2002%3A00%27&STEP_SIZE=%2730%20m%27&OUT_UNITS=%27KM-S%27&VEC_TABLE=%272%27",
+      "filename": "acs3_horizons_20260925.txt",
+      "sha256": "10418b6f8f33595db55abbd6a4009e1516113a3d9b24ac8c3292aca3afeb7810",
+      "licence": "FACTUAL-DATA-CITED",
+      "licence_note": "No terms stated for Horizons output data specifically (the search: HZAPI's own manual, ssd.jpl.nasa.gov/policy.html [404], JPL's own Image Use Policy [scoped to images/video], NASA's own general content page [an images/audio/video/media list], the SSD site's own citation guidance [a request, not a stated right]) — RS14's own reasoning applies (SPEC-spacecraft.md §2.2): computed positions are factual data, not an expression, and this tree cites the source rather than claiming a grant nobody found. Attribution: \"Data: JPL Horizons System (Solar System Dynamics Group, NASA/JPL-Caltech), ssd.jpl.nasa.gov/horizons\".",
+      "search_recorded": "PROVENANCE.md §37.4",
+      "upstream_mutable": true,
+      "upstream_mutable_note": "Two SEPARATE reasons, checked directly rather than assumed. (1) Every live response embeds its own request-processing wall-clock timestamp (\"Ephemeris / API_USER <day> <time> <year> ... / Horizons\") -- confirmed empirically this round: a second live fetch of this EXACT query, minutes after the first, returned a DIFFERENT SHA-256 (7fc9d84d...) although the orbital data itself cannot plausibly have changed in minutes. This alone means NO live re-fetch of this URL will ever hash-match a prior pin, by construction -- gate 1 (\"manifest verifies offline\") still passes reliably because it only ever compares the ALREADY-CACHED file against the pin and never touches the network; the risk is confined to a genuinely EMPTY cache, which needs this exact file restored (or a new pin, a deliberate, reviewed, logged act) rather than a bare `fetch.py fetch`. (2) Separately and more slowly, Horizons' own ephemeris for an actively-tracked object with no independent high-precision solution beyond its own TLE is only as current as whichever TLE it last ingested (oracle/ORACLE.md §6, quoted in SPEC-io-horizons.md §3.2/§9) -- proved directly this round too: a fresh fetch does not hash-match oracle case T-01's own 2026-09-14 capture (PROVENANCE.md §37.3).",
+      "retrieved": "2026-09-25"
     }
   ]
 }

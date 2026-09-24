@@ -648,7 +648,33 @@ PERMISSIVE_LICENCES = {
     "NGA-PUBLIC":    "not an SPDX identifier: NGA published geospatial standards and models\n"
                      "                    (EGM2008, WGS 84). Unrestricted use; the EGM2008 README asks for a\n"
                      "                    citation, which PROVENANCE.md §4 carries. Data, never linked.",
+    "SPACETRACK-PUBLIC": "not an SPDX identifier: USSPACECOM's own express blanket approval\n"
+                     "                    for transfer/redistribution of 'basic SSA data' (Two-Line\n"
+                     "                    Elements, Orbital Mean-element Messages, SATCAT, decay/reentry data),\n"
+                     "                    conditioned on citation (space-track.org/documentation, 'Redistribution\n"
+                     "                    of Basic SSA Information', fetched and quoted directly 2026-09-25).\n"
+                     "                    A REAL, explicit, stated approval -- unlike FACTUAL-DATA-CITED below,\n"
+                     "                    this needs no search_recorded pointer.",
+    "FACTUAL-DATA-CITED": "not an SPDX identifier: computed or measured factual data (e.g. a\n"
+                     "                    position, a table of positions) from a source that states no\n"
+                     "                    redistribution terms of its own, where a search for terms was\n"
+                     "                    performed and recorded (RS14's own reasoning, SPEC-spacecraft.md\n"
+                     "                    §2.2 — a fact is not an expression, and stating where a number came\n"
+                     "                    from is not the same claim as redistributing a copyrighted work).\n"
+                     "                    Every entry using this basis MUST ALSO carry `search_recorded`,\n"
+                     "                    below — this check enforces that, so the basis itself cannot become\n"
+                     "                    a way round the gate.",
 }
+
+# An entry claiming FACTUAL-DATA-CITED must name WHERE its own search for terms
+# is written up (a PROVENANCE.md section, typically) -- the same role `terms`
+# plays for a `literature` entry, above, but as a POINTER rather than the full
+# prose, since this basis's own entries are real build inputs (cached, read by
+# a test) and the full search account belongs in PROVENANCE.md, not doubled
+# into the manifest. Checked here, not merely documented, for the identical
+# reason the `literature`/`terms` check exists: a basis nobody has to earn is
+# not a basis, it is a bypass with a label on it.
+SEARCH_RECORDED_FIELD = "search_recorded"
 
 
 def cmd_check_licences(root: Path, doc: dict, args) -> int:
@@ -681,7 +707,20 @@ def cmd_check_licences(root: Path, doc: dict, args) -> int:
             continue
         if e["licence"].upper().strip() not in PERMISSIVE_LICENCES:
             bad.append(e)
+            continue
+        if e["licence"].upper().strip() == "FACTUAL-DATA-CITED" and not e.get(SEARCH_RECORDED_FIELD):
+            bad.append(e)
     for e in bad:
+        if e["licence"].upper().strip() == "FACTUAL-DATA-CITED" and not e.get(SEARCH_RECORDED_FIELD):
+            print(
+                f"FACTUAL-DATA-CITED ENTRY WITHOUT A search_recorded POINTER  {e['id']}\n"
+                f"  This basis is earned by a recorded search, not by the label (the same rule\n"
+                f"  the `literature`/`terms` check above already enforces for a different\n"
+                f"  exemption). Add `\"{SEARCH_RECORDED_FIELD}\": \"PROVENANCE.md §<section>\"` naming\n"
+                f"  exactly where the search for this entry's own terms is written up.",
+                file=sys.stderr,
+            )
+            continue
         print(
             f"LICENCE NOT ON THE PERMISSIVE LIST  {e['id']}: {e['licence']}\n"
             f"  Plan §5 constraint 3 permits only licences on tools/fetch.py's allowlist.\n"

@@ -41,8 +41,9 @@ does not.
 |---|---|---|
 | `id` | always | unique; names the cache subdirectory and the CMake dependency |
 | `kind` | always | `code` (linked or compiled in), `data` (an input to a computation), `tool` (used at build time, ships in nothing) |
-| `licence` | always | SPDX identifier. Checked against plan §5 constraint 3 by `fetch.py check-licences`. |
+| `licence` | always | An SPDX identifier, or one of `fetch.py`'s own tree-invented ones for a public body with no SPDX-style licence of its own (`IERS-PUBLIC`, `NASA-PUBLIC`, `SPACETRACK-PUBLIC`, `FACTUAL-DATA-CITED`, …) — checked against plan §5 constraint 3 by `fetch.py check-licences`, `PERMISSIVE_LICENCES` there names what each one is and why. |
 | `licence_note` | expected | why this licence is acceptable, and the multi-licence option chosen where there is one (plan §3.11 point 4) |
+| `search_recorded` | for `FACTUAL-DATA-CITED` | **required**, not merely expected, whenever `licence` is `FACTUAL-DATA-CITED` — names exactly where the search for this entry's own terms is written up (a `PROVENANCE.md` section, typically). L6 step 2's own ruling (`plan/subplan_L6/L6-2.md`, 2026-09-25): the basis is earned by a recorded search, not by the label, the same shape a `literature` entry's own `terms` field already enforces for a different exemption — `fetch.py check-licences` refuses an entry claiming this basis without one, proved by injection in `tests/test_fetch.py`. |
 | `role` | expected | what it is for, in a few words |
 | `url`, `filename`, `sha256` | unless `provided_by_host` | the pin. `sha256` is 64 lowercase hex characters. |
 | `version` | expected | for humans and for NOTICE; **never** used to select anything |

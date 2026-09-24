@@ -134,6 +134,20 @@ def main() -> int:
         r = run(root, ok_lic, "check-licences")
         check("CeCILL-B is permitted", r.returncode, OK, r.stderr)
 
+        # FACTUAL-DATA-CITED (L6 step 2's own ruling, plan/subplan_L6/L6-2.md,
+        # 2026-09-25): earned by a recorded search, not by the label, the same
+        # "inject the historical error" proof rule 5 asks for -- an entry
+        # claiming the basis WITHOUT search_recorded is refused, so the basis
+        # itself cannot become a way round the gate.
+        no_search = write_manifest(root, [dict(entry, licence="FACTUAL-DATA-CITED")])
+        r = run(root, no_search, "check-licences")
+        check("FACTUAL-DATA-CITED without search_recorded is refused", r.returncode, MALFORMED, r.stderr)
+
+        with_search = write_manifest(root, [dict(
+            entry, licence="FACTUAL-DATA-CITED", search_recorded="PROVENANCE.md §37.4")])
+        r = run(root, with_search, "check-licences")
+        check("FACTUAL-DATA-CITED with search_recorded is permitted", r.returncode, OK, r.stderr)
+
         # A host-provided tool needs no URL or hash, but still needs a licence.
         tool = {"id": "python3", "kind": "tool", "licence": "PSF-2.0", "provided_by_host": True}
         m3 = write_manifest(root, [entry, tool])

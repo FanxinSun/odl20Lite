@@ -45,6 +45,7 @@ SUMMARY
   nrlmsise00-statsreadme 2002         NRL-PUBLIC       data
   iau2012-b2         adopted by the XXVIII General Assembly, Beijing, 30 August 2012 IAU-PUBLIC       data
   fehlberg-tr-r-287  NASA TR R-287, October 1968, 97 pages NASA-PUBLIC      data
+  horizons-acs3-vectors queried 2026-09-25, geocentric, ICRF, TDB, geometric (no light-time correction), 2 h window, 30-min step FACTUAL-DATA-CITED data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -440,6 +441,23 @@ DATA INPUTS
     sha256    5553a2a3eb53785a461762cc2b29428015f1b32c3ad0a5cb57f85a421256a0c8
     retrieved 2026-09-18
     note      NASA technical report, public domain.
+
+  horizons-acs3-vectors  queried 2026-09-25, geocentric, ICRF, TDB, geometric (no light-time correction), 2 h window, 30-min step
+    role      JPL Horizons vector-table ephemeris for ACS3 (SPK -159588), the real object oracle cases T-01/O-* use — a real-response fixture for SPEC-io-horizons.md's own acceptance test (IOHZ-A-008), alongside its hand-built ones
+    licence   FACTUAL-DATA-CITED
+    url       https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27-159588%27&OBJ_DATA=%27YES%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27VECTORS%27&CENTER=%27500%40399%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&TIME_TYPE=%27TDB%27&VEC_CORR=%27NONE%27&START_TIME=%272026-09-25%2000%3A00%27&STOP_TIME=%272026-09-25%2002%3A00%27&STEP_SIZE=%2730%20m%27&OUT_UNITS=%27KM-S%27&VEC_TABLE=%272%27
+    sha256    10418b6f8f33595db55abbd6a4009e1516113a3d9b24ac8c3292aca3afeb7810
+    retrieved 2026-09-25
+    note      No terms stated for Horizons output data specifically (the
+              search: HZAPI's own manual, ssd.jpl.nasa.gov/policy.html [404],
+              JPL's own Image Use Policy [scoped to images/video], NASA's own
+              general content page [an images/audio/video/media list], the SSD
+              site's own citation guidance [a request, not a stated right]) —
+              RS14's own reasoning applies (SPEC-spacecraft.md §2.2): computed
+              positions are factual data, not an expression, and this tree
+              cites the source rather than claiming a grant nobody found.
+              Attribution: "Data: JPL Horizons System (Solar System Dynamics
+              Group, NASA/JPL-Caltech), ssd.jpl.nasa.gov/horizons".
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS
