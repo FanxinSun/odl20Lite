@@ -70,10 +70,18 @@ struct OrbitTriad {
 /// that frame itself rotates forward by a small true angle dphi gives
 /// mu(t+dt) = mu(t) - dphi for the un-negated formula -- mu DECREASING as
 /// the satellite moves forward, for any satellite, a property of the
-/// formula, not of one trajectory. `psi_nominal`, `psidot_nominal` and
-/// `turn_ramp_sign` below are the compensating fix this negation requires,
-/// proved against real ORBEX data (PROVENANCE.md Sec.30.14), not assumed
-/// from the algebra alone.
+/// formula, not of one trajectory. This fix stands on its own: `psi_nominal`
+/// below also carries a sign flip relative to KOUBA09's Eq.4/5 as printed,
+/// but NOT to compensate for this negation -- mu_rad is now KOUBA09's own
+/// mu, with nothing left to compensate from it specifically. That flip has
+/// a separate, pre-existing cause, this tree's own yaw convention, explained
+/// at `psi_nominal` below (an earlier version of this comment, and of
+/// `psi_nominal`/`psidot_nominal`/`turn_ramp_sign`'s own, attributed it to
+/// this negation instead -- numerically harmless, since every formula below
+/// was proved against real data regardless, but the wrong causal claim, a
+/// comment-contradicts-code bug of the same class as this function's own
+/// defect, not a difference of degree -- the manager's own finding,
+/// PROVENANCE.md Sec.30.16).
 [[nodiscard]] double mu_rad(const OrbitTriad& tri, const Vec3& s_hat) noexcept {
     const Vec3 s_orb_raw = s_hat - s_hat.dot(tri.n_hat) * tri.n_hat;
     const Vec3 u_midnight = -1.0 * normalized(s_orb_raw);
@@ -108,25 +116,56 @@ struct OrbitTriad {
 }
 
 /// KOUBA09 Eq. 4 (`x_sign` = +1) / Eq. 5 (`x_sign` = -1, IIR's own 180 deg
-/// X-axis reversal): psi_n = ATAN2(-x_sign*tan(beta), x_sign*sin(mu)) -- WITH
-/// the sin(mu) term's own sign flipped relative to Eq. 4/5 as printed, to
-/// compensate for `mu_rad`'s own negation above (the manager's own finding,
-/// PROVENANCE.md Sec.30.14). PROVED against real ORBEX data, not assumed:
-/// this exact form, fed mu_rad's NEW (KOUBA09-true) output, reproduces the
-/// same psi -- to the same 0.000-0.001 deg -- that the pre-fix formula
-/// (unflipped sin term) reproduced when fed mu_rad's OLD (negated) output;
-/// checked at 21 points spread across a full real day, far from any turn.
+/// X-axis reversal), REWRITTEN for this tree's own yaw convention, not
+/// transcribed as printed (the manager's own correction of an earlier,
+/// wrong causal claim here, PROVENANCE.md Sec.30.16): `frame_from_yaw`
+/// below builds x_body = -cos(psi)*t_hat - sin(psi)*n_hat, a right-handed
+/// rotation about nadir starting from -t_hat; KOUBA09's own psi is a
+/// right-handed rotation about nadir starting from +t_hat, x = cos(psi)*
+/// t_hat - sin(psi)*n_hat. For x_sign=+1 (Eq.4) the two name the same
+/// physical x_body only at psi_tree = pi - psi_KOUBA09 (mod 2pi) -- checked
+/// against an INDEPENDENT x_body construction (`nominal_yaw_steering`'s own
+/// z=-r_hat/y=(z x s)/x=y x z build, which every block's own OFF-TURN
+/// attitude already goes through), both KOUBA09's own rotation and this
+/// tree's, agreeing with it to under 4e-15 over 2000 random geometries
+/// (PROVENANCE.md Sec.30.16). For x_sign=-1 (Eq.5, IIR) the SAME relation
+/// psi_tree = pi - psi_KOUBA09 holds too, but only checked at the FORMULA
+/// level so far (the standard identity pi - ATAN2(y,x) = ATAN2(y,-x)
+/// applied to Eq.5 as printed, verified numerically to 1e-15) -- NOT yet
+/// against an independent x_body construction the way x_sign=+1 was, since
+/// `nominal_yaw_steering` itself takes no x_sign and so cannot directly
+/// play that role for IIR (PROVENANCE.md Sec.30.16 records this gap and a
+/// separately-found, unrelated discontinuity it surfaced, left for the
+/// manager). Either way, substituting Eq. 4/5 as printed into that same
+/// identity gives exactly this function's own form: the sin(mu) term's own
+/// sign flip relative to Eq. 4/5 as printed IS that substitution -- not (an
+/// earlier version of this comment's claim, numerically harmless but
+/// factually wrong) a compensation for `mu_rad`'s own negation above, which
+/// stands on its own and needs no compensating fix elsewhere. `TYAW-A-013`
+/// transcribes Eq. 4 (x_sign=+1) independently and checks it against this
+/// relation directly, through the off-turn interface. PROVED against real
+/// ORBEX data too, not assumed: this exact form, fed mu_rad's NEW
+/// (KOUBA09-true) output, reproduces the same psi -- to the same
+/// 0.000-0.001 deg -- that the pre-fix formula (unflipped sin term)
+/// reproduced when fed mu_rad's OLD (negated) output; checked at 21 points
+/// spread across a full real day, far from any turn.
 [[nodiscard]] double psi_nominal(double beta, double mu, double x_sign) noexcept {
     return std::atan2(-x_sign * std::tan(beta), -x_sign * std::sin(mu));
 }
 
 /// KOUBA09 Eq. 6, evaluated at a specific mu (not necessarily the current
 /// query mu -- shadow crossing needs it at the entry angle specifically).
-/// NEGATED relative to Eq. 6 as printed, the compensating derivative of
-/// `psi_nominal`'s own fix above: d(psi_nominal)/d(mu), taken of the FIXED
-/// formula, is the NEGATIVE of this expression -- checked by finite
-/// difference against the fixed `psi_nominal` directly (PROVENANCE.md
-/// Sec.30.14), not assumed from the chain rule alone.
+/// NEGATED relative to Eq. 6 as printed, for the SAME reason `psi_nominal`
+/// above is (PROVENANCE.md Sec.30.16, correcting an earlier version of this
+/// comment that named `psi_nominal`'s own fix, rather than this tree's yaw
+/// convention, as the cause): psi_tree = pi - psi_KOUBA09 gives
+/// d(psi_tree)/d(mu) = -d(psi_KOUBA09)/d(mu) directly, independent of
+/// mu_rad's own sign -- this function returns d(psi_tree)/d(mu), the
+/// negative of Eq. 6 as printed (d(psi_KOUBA09)/d(mu)), because `psi_tree`
+/// and `psi_KOUBA09` are themselves related by that same negation, not
+/// because anything needs compensating. Checked by finite difference
+/// against the fixed `psi_nominal` directly (PROVENANCE.md Sec.30.14/
+/// Sec.30.16), not assumed from the chain rule alone.
 [[nodiscard]] double psidot_nominal(double beta, double mu) noexcept {
     const double t = std::tan(beta);
     const double s = std::sin(mu);
@@ -145,10 +184,12 @@ struct OrbitTriad {
 ///
 /// NEGATED relative to the sign this same algebraic argument gave before
 /// `psidot_nominal`'s own fix above -- this function's own SIGN[psi_dot_n]
-/// must track `psidot_nominal`'s own sign, which flipped, so this does too
-/// (PROVENANCE.md Sec.30.14; verified end to end against real IIF noon data,
-/// not derived symbolically alone -- without this flip the noon turn's own
-/// centre lands 180 deg from where it belongs, not merely off).
+/// must track `psidot_nominal`'s own sign, which flipped for the SAME
+/// psi_tree = pi - psi_KOUBA09 reason `psi_nominal` above states (PROVENANCE.md
+/// Sec.30.16), not to compensate `mu_rad` -- verified end to end against
+/// real IIF noon data, not derived symbolically alone -- without this flip
+/// the noon turn's own centre lands 180 deg from where it belongs, not
+/// merely off).
 [[nodiscard]] double turn_ramp_sign(double beta, double x_sign, bool is_noon) noexcept {
     const double sign_beta = (beta < 0.0) ? -1.0 : 1.0;
     return -(x_sign * sign_beta * (is_noon ? -1.0 : 1.0));

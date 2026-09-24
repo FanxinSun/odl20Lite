@@ -4474,6 +4474,18 @@ Per the manager's own decision rule, this does not change the outcome either way
 resolve it, IIF noon still becomes lead-then-merge... since no source in hand specifies the IIF's
 noon timing" — the reading here is consistent with, not required for, that outcome.
 
+**CORRECTED, 2026-09-24 (§30.18 has the full account) — this reading was taken "by eye" while the
+lead hypothesis was the one actively believed, and does not survive being redone properly.**
+Digitized by pixel position (not eye) against the manager's own pre-registered lag/lead
+predictions and quarter-separation criteria (§30.18): the blue curve's own half-flip point sits
+NOTICEABLY RIGHT of, not left of, μ = 180° in EVERY panel — the exact opposite of the "weighted
+LEFT" impression recorded above — and every panel sits several times closer to the LAG prediction
+than to LEAD's (1.7–2.6° from lag against 5.1–7.3° from lead), decisively ruling lead out even
+where a panel's own reading falls just outside its own tight quarter-tolerance. The by-eye
+impression above was wrong in DIRECTION, not merely imprecise — left uncorrected in place above,
+not deleted, per this project's own standing practice for a superseded reading (§30.14's own
+treatment of this same section's first ruling).
+
 **The G05 control, registered before its own file was read.** Date: 2023-06-19 (day 170), found by
 a sparse SP3-only β scan for G05 specifically (its own orbital plane's β cycle is independent of
 G01's; G05 sat at 43–49° through all of April 2023, the window §30.8/§30.12 already used for G01) —
@@ -4518,7 +4530,10 @@ does not cleanly show IIR leading either. This is recorded as what it is, not st
 support for a conclusion it does not clearly reach; it plays no role in the decision below, which
 `KOUBA09`'s own words already settle for IIR independent of this run.
 
-**The decision rule, applied.**
+**The decision rule, applied [WRONG for IIF below, see §30.14 and §30.18 — the mu_rad fix reverted
+`evaluate_turn_lead`, and Figure 8 properly digitized independently confirms LAG, not left, kept
+verbatim here rather than rewritten, per this project's own standing practice for a superseded
+passage].**
 
 - **IIF (`TYAW-Q-006`): LEAD.** `DIL10`'s own Figure 8, read directly (its own caption above):
   three panels' own plotted transitions (blue, estimated) sit weighted toward the LEFT of the
@@ -4694,12 +4709,211 @@ The G05/IIR-M control at β = 0.462° (§30.14) does not cleanly confirm LAG to 
 IIF crossings reached; `KOUBA09`'s own named wind-up effect is a plausible, printed reason, not
 independently confirmed here.
 
+### 30.16 `psi_nominal`, `psidot_nominal` and `turn_ramp_sign`: the real reason for their sign, corrected
+
+**What was wrong.** §30.14's own account, and the three functions' own code comments, said their
+sign flip relative to `KOUBA09`'s Eq. 4/5/6/15/16 as printed "compensates for `mu_rad`'s own
+negation." The manager's own message caught this: *"`psi_nominal`, `psidot_nominal` and
+`turn_ramp_sign` all say their flips 'compensate for `mu_rad`'s own negation'. They don't: `mu_rad`
+is now KOUBA09's mu, so there's nothing left to compensate. The flips come from this tree's yaw
+convention... `frame_from_yaw` builds x = -cos(psi) t_hat - sin(psi) n_hat. KOUBA09's yaw is a
+right-handed rotation about nadir from the velocity, x = cos(psi) t_hat - sin(psi) n_hat. So
+psi_tree = pi - psi_KOUBA09 (mod 2 pi)."* Numerically harmless — every real-data check in §4.1–4.3
+of the spec held regardless, since the CODE was never wrong, only the stated reason for it — but a
+comment-contradicts-code bug of the SAME CLASS `mu_rad`'s own defect was, per the manager's own
+ruling, not a smaller one: a future reader trusting the comment would look for a `mu_rad`-shaped
+cause and not find one.
+
+**Independently re-derived here before anything was changed** (not taken on the manager's own word
+alone, the same discipline `mu_rad`'s own worked example got). `frame_from_yaw`'s own x_body =
+−cos(ψ)·t̂ − sin(ψ)·n̂ is a right-handed rotation about z_body = −r̂, starting from −t̂ (Rodrigues'
+formula, v0 ⊥ k: v_rot = v0·cosθ + (k×v0)·sinθ, with v0 = −t̂). `KOUBA09`'s own stated convention
+("New yaw-attitude model," a right-handed rotation about nadir FROM the velocity) gives, by the
+SAME formula with v0 = +t̂: x_KOUBA(ψ) = cos(ψ)·t̂ + sin(ψ)·(z_body×t̂). With the triad's own
+r̂×t̂ = n̂ (from t̂ = n̂×r̂, BAC-CAB), z_body×t̂ = −r̂×t̂ = −n̂, so x_KOUBA(ψ) = cos(ψ)·t̂ − sin(ψ)·n̂ —
+matching the manager's own stated form exactly. Matching coefficients of t̂ and n̂ between
+x_tree(ψ_tree) and x_KOUBA(ψ_K) (−cos ψ_tree = cos ψ_K, −sin ψ_tree = −sin ψ_K, i.e. sin ψ_tree =
+sin ψ_K) is exactly the pair of identities cos(π−x) = −cos x, sin(π−x) = sin x satisfy — confirming
+ψ_tree = π − ψ_KOUBA09 algebraically, not merely by numerical coincidence.
+
+**Checked numerically too, independently of the manager's own 2000-point run** (own script, own
+random seed, general random geometry — r̂, an independent v for the triad, ŝ — not fixture-specific):
+
+| check | result |
+|---|---|
+| x_tree(π−ψ_K) vs. an independent x_body build (`nominal_yaw_steering`'s own z=−r̂/y=(z×ŝ)/x=y×z), 2000 geometries | max 3.71×10⁻¹⁵ |
+| x_KOUBA(ψ_K) [right-handed rotation about z_body from t̂] vs. the SAME independent build, 2000 geometries | max 3.37×10⁻¹⁵ |
+| `psi_nominal`'s own C++ formula (x_sign=+1) vs. π − ψ_K directly, wrapped, 2000 geometries | max 1.13×10⁻¹⁵ |
+| `psi_nominal`'s own C++ formula (x_sign=−1) vs. π − (Eq. 5 as printed), wrapped, 2000 geometries | max 1.13×10⁻¹⁵ |
+| `psidot_nominal` vs. a central finite difference of `psi_nominal` (x_sign=+1), 2000 random (β,μ) | max 1.03×10⁻¹¹ (finite-difference floor) |
+
+(The manager's own independently-run check, quoted for cross-reference: tree's frame vs. the
+independent construction 1.3×10⁻¹⁵; `KOUBA09`'s Eq. 4 with the stated yaw definition vs. the same
+construction 1.1×10⁻¹⁵; ψ_tree − (π − ψ_K) mod 2π, 8.9×10⁻¹⁶ — both runs agree to the same order of
+magnitude, independent scripts, independent random seeds.)
+
+**Substitution, not compensation.** π − ATAN2(y,x) = ATAN2(y,−x) is a standard, unconditional atan2
+identity (if θ = ATAN2(y,x) then (x,y) = r(cos θ, sin θ) for r>0; the point at angle π−θ is
+r(−cos θ, sin θ) = (−x,y), i.e. ATAN2(y,−x)). Applied to `KOUBA09`'s own Eq. 4 (y=−tan β, x=sin μ):
+π − ψ_K = ATAN2(−tan β, −sin μ) — `psi_nominal`'s own exact form (x_sign=+1). The sin(μ) term's own
+sign flip relative to Eq. 4 as printed IS this substitution; there is nothing left over for
+`mu_rad` to have caused. Differentiating ψ_tree = π − ψ_K directly gives d(ψ_tree)/dμ =
+−d(ψ_K)/dμ, independent of what convention μ itself uses — `psidot_nominal`'s own negation relative
+to Eq. 6 as printed follows from this alone, and `turn_ramp_sign`'s own negation follows in turn
+(it tracks `psidot_nominal`'s own sign, unchanged reasoning from §30.14).
+
+**Corrected**: `attitude.cpp`'s own comments for `mu_rad`, `psi_nominal`, `psidot_nominal` and
+`turn_ramp_sign`; `SPEC-thrust-yaw.md` §4.6 (the `mu_rad` paragraph's own closing sentence, and a
+new paragraph immediately after it); `TYAW-A-013` (§8 of the spec, `attitude_tests.cpp`) — `KOUBA09`
+Eq. 4 (x_sign=+1) transcribed fresh in the test file, independent of `psi_nominal` (unreachable
+from the test file regardless, both being in `attitude.cpp`'s own anonymous namespace), checked
+against `psi_nominal`'s own output — read through the public interface, off any turn, where
+`gps_yaw_attitude` reduces to `nominal_yaw_steering` — via ψ = π − ψ_K, at a 4×6 grid of β/μ (β ∈
+{0.5°, 2.0°, 5.0°, 15.0°}, μ ∈ {45°, 90°, 135°, 225°, 270°, 315°}, all comfortably outside any turn
+or shadow window regardless of rate). Verified in Python first against the EXACT planned
+construction (`fixture_at`/`recover_psi`/`nominal_yaw_steering`'s own formulas, not a generic
+stand-in) before being ported to C++: max error 6.43×10⁻¹⁶.
+
+### 30.17 `TYAW-Q-007`: an apparent IIR noon-turn discontinuity found building `TYAW-A-013`, left open
+
+**How it was found.** Extending `TYAW-A-013` (§30.16) to cover x_sign=−1 (Eq. 5, IIR) the same way
+as x_sign=+1 needed a way to reach `psi_nominal(β,μ,−1)` through the public interface (`psi_nominal`
+itself is unreachable, anonymous-namespace). `TYAW-A-002`'s own "exact at onset" block (§30.5)
+already does exactly this for both blocks — computing each block's own turn-onset μ_s directly
+(β₀ = atan(μ̇/R), half_width = √(β₀|β|−β²), μ_s = μ_center − half_width) and checking
+`gps_yaw_attitude`'s own turn output there against `nominal_yaw_steering`'s — so the same technique
+was tried here, transcribing `KOUBA09`'s Eq. 5 fresh and checking it against the recovered ψ at
+μ_s, for IIR.
+
+**The result did not match — off by exactly π, at every β tried**, first suspected as a bug in the
+verification script's own onset formula (an early draft used √(β₀²−β²) instead of the correct
+√(β₀|β|−β²) and was fixed), but the mismatch persisted after that fix, and persisted even when
+checked against the REAL compiled library directly (a standalone diagnostic linked against
+`libodl_attitude.a`, not a Python reproduction — `/tmp/.../scratchpad/noon/psi_convention_check.cpp`
+and `psi_inside_check.cpp` this session, not committed to the tree):
+
+```
+beta=1.00 mu_s=178.8195  (at onset)      psi_turn=-139.7272  psi_nom=-139.7272  diff=0.000e+00
+beta=1.00 mu=178.8295 (mu_s + 0.01 deg)  psi_turn=  40.0337  psi_nom=-139.4867  diff=1.526e+00
+```
+
+**Root cause, traced in the code, not guessed at.** `evaluate_turn`'s own `gap` check
+(`attitude.cpp`) is a STRICT inequality, `if (gap > 0.0) return {true, psi_ramp}; return {false,
+0.0};`. Exactly AT μ_q = μ_s, `delta_raw = psi_nominal(β,μ_q,x_sign) − psi_s = 0` (since μ_q=μ_s
+makes the two identical arguments), so `gap = 0` exactly — NOT `> 0` — so `result.active = false`
+AT the onset point itself, and `gps_yaw_attitude` falls through to `nominal_yaw_steering` instead of
+evaluating the turn law at all. `TYAW-A-002`'s own "exact at onset" check, and its own "well past
+the turn" check (25° past centre, where the turn has already caught up and `gap` is again ≤ 0 for
+the SAME reason), both land on this same fallthrough for EVERY block — meaning, for IIR specifically,
+no existing registered test has ever compared `psi_nominal(β,μ,−1)`'s own frame against an
+independent construction while the turn law is actually ACTIVE. One hardware-rate-step INSIDE the
+boundary (μ_s + 0.01°), where `gap > 0` genuinely holds and the ramp law IS evaluated, the returned
+attitude jumps by ≈180° from the off-turn value at μ_s itself — a real discontinuity, not a
+verification artefact (confirmed against the compiled library, not a hand calculation; `diff` above
+is `max_component_diff`, not a derived quantity).
+
+**Left OPEN, not fixed.** This is outside `TYAW-Q-007`'s [see spec §10] own scope for this round
+(comment-wording and Figure 8, not IIR's own turn law), and more than one cause is plausible, which
+makes it a verdict question rather than a mechanical fix: (1) `nominal_yaw_steering` takes no
+`x_sign` at all, yet `SPEC-thrust-yaw.md` §4.2 states IIR's own NOMINAL law (not just its turn law)
+as ψ_n = ATAN2(tan β, −sin μ), Eq. 16 — so the off-turn fallthrough, shared by every block
+unconditionally, may itself be wrong for IIR specifically, independent of anything checked this
+round; (2) alternatively, `psi_nominal`'s own x_sign=−1 branch or its pairing with `frame_from_yaw`
+may not carry "IIR's own 180° X-axis reversal" into the shared frame the way `TYAW-R-002`'s own text
+intends; (3) either way, `TYAW-A-002`'s own boundary needs strengthening to an interior point, not
+the exact onset, to stop masking whichever of (1)/(2) is the cause. No production code changed for
+this while it is open — `mu_rad`, `psi_nominal`, `psidot_nominal`, `turn_ramp_sign`, `frame_from_yaw`
+and `nominal_yaw_steering` are all UNCHANGED by this section; `TYAW-A-013` (§30.16) deliberately
+tests x_sign=+1 only, so as not to rest a new permanent guard on the same masked boundary. Recorded
+here, and as `TYAW-Q-007` in the spec's own §10, for the manager.
+
+### 30.18 `DIL10`'s Figure 8, digitized rather than read by eye, closes `TYAW-Q-006` for real
+
+**Why the §30.12 reading needed redoing.** It was taken "by eye" ("weighted LEFT of μ=180,
+consistent with lead") WHILE the lead hypothesis (`evaluate_turn_lead`) was the one this tree
+actively believed and had just implemented — exactly the condition `plan` rule 7 exists for: a
+reading taken with the answer already suspected is not a check. The manager's own instruction for
+this correction was explicit: redo it as a falsifiable digitization, against predictions
+REGISTERED BEFORE the figure was read again, not a second look with the same eyes.
+
+**Source, fetched fresh from the already-sanctioned URL** (`spec/SPEC-thrust-yaw.md` §2's own
+`DIL10` locator, `https://www.insidegnss.com/auto/sep10-Dilssner.pdf`, not a new source): the PDF
+downloaded to the scratch directory, page 5 (printed p.63, Figure 8) rendered at 600 DPI
+(`pdftoppm`, 4800×6450 px) — high enough that the plot's own black axis frame, at ~852 px across
+36° of μ, gives 23.67 px/degree of horizontal resolution, far finer than needed to separate lag
+(≈183–185°) from lead (≈175–177°), a ~8° gap at every β.
+
+**Method, falsifiable and reproducible, not eyeballed:**
+
+1. The three panels' own axis frames (black rectangle borders) located by pixel search (rows/
+   columns where >80% of pixels are near-black), not estimated by eye: top/bottom rows 739.5/1588.5
+   px (ψ = 45°/−225°), panel columns [567.5, 1419.5]/[1772.5, 2624.5]/[2977.5, 3829.5] px (μ =
+   162°/198° each) — giving 23.667 px/deg (μ) and 3.1444 px/deg (ψ), identical across all three
+   panels (checked, not assumed: each panel's own column span differs by <1 px from the others).
+2. The blue marker colour identified by sampling the plot region's own actual pixels (not a
+   guessed RGB triple): blue-toned pixels (B > R+25, B > G+8, B > 150) isolated from the red dashed
+   curve (237,28,36), the grey gridlines, and the pale-yellow panel background.
+3. For every pixel COLUMN inside each panel, the blue pixels' own row-centroid gives one ψ(μ)
+   sample of the ESTIMATED (blue) curve — 846 of 852 columns had at least one blue pixel, in every
+   panel.
+4. The flip's own two plateau levels read from the DATA itself, not assumed to be exactly 0°/−180°:
+   mean ψ for μ ∈ (163°,172°) and μ ∈ (190°,197°) respectively. Measured pre/post plateaus: β≈1.16°
+   −4.17°/−182.80°; β≈0.755° −3.54°/−180.88°; β≈0.35° +2.08°/−180.05° — close to the theoretical
+   0°/−180° (confirming the flip IS what it's supposed to be) but not exactly on it, so the
+   half-flip level used is each panel's own empirical (pre+post)/2, not a blanket −90°.
+5. The μ where the digitized blue curve crosses that empirical half-flip level, found by linear
+   interpolation between the two bracketing column-centroids.
+6. Uncertainty from TWO sources, combined in quadrature, not asserted: (a) the blue marker's own
+   footprint (median row-span 24–30 px, i.e. 7.6–9.5° of ψ — a real marker SIZE, not noise) divided
+   by the locally-fitted slope dψ/dμ near the crossing (−13.0 to −16.0 °/°, fitted by least squares
+   to the columns with ψ ∈ (−110°,−70°)); (b) the RMS scatter of those same columns about that local
+   linear fit, similarly converted through the slope. Both are sub-half-degree at every β — small
+   against the ~8° lag/lead gap and against the registered tolerances themselves (1.72–2.48°).
+7. Sanity-checked visually, not trusted blind: the computed crossing point and half-flip level
+   overlaid on the actual image (green crosshairs) land exactly on the blue curve's own visible
+   crossing in all three panels, and the blue curve visibly crosses right of, not left of, the red
+   nominal-law reference curve in every panel — the qualitative LAG signature, legible by eye once
+   correctly marked, the opposite of what the original by-eye pass reported.
+
+**Result, against the manager's own pre-registered predictions** (β=1.16°: lag 183.45°/lead
+176.55°/tol ±1.72°; β=0.755°: lag 184.09°/lead 175.91°/tol ±2.04°; β=0.35°: lag 184.96°/lead
+175.04°/tol ±2.48° — computed and fixed before this digitization, `plan/subplan_L4/L4-6.md`):
+
+| β | digitized μ (half-flip) | combined σ | vs. LAG | vs. LEAD | verdict |
+|---|---|---|---|---|---|
+| 1.16° | 181.64° | 0.26° | miss 1.81° (tol 1.72°) | miss 5.09° | **neither** (closer to lag by 2.8×) |
+| 0.755° | 182.43° | 0.30° | miss 1.66° (tol 2.04°) | miss 6.52° | **MATCHES LAG** |
+| 0.35° | 182.37° | 0.40° | miss 2.59° (tol 2.48°) | miss 7.33° | **neither** (closer to lag by 2.8×) |
+
+Read honestly: only ONE of three panels clears its own tight quarter-tolerance for lag, and the
+other two miss it narrowly (by 0.09°/0.11°, both well within their own combined measurement
+uncertainty of 0.26–0.40°, i.e. NOT a resolved miss either). But LEAD is not close in ANY panel —
+every panel sits 2.8–4.4 times closer to the lag prediction than to the lead prediction, and every
+lead-distance (5.1–7.3°) vastly exceeds that panel's own tolerance. This is a clean, unambiguous
+picture for the question the decision rule actually asks.
+
+**The decision rule, applied exactly as given** (`plan/subplan_L4/L4-6.md`, quoted in §30.12
+above): *lead wins only if it holds in ≥2 panels and lag holds in none; otherwise lag stands.*
+LEAD holds in **zero** panels — the rule's own bar for lead is not met, regardless of lag's own
+narrow misses in two panels. **LAG STANDS.** `TYAW-Q-006` is now closed on Figure 8 too, not only
+on the mu_rad-corrected real IIF data (§30.14): three independent lines of evidence — `KOUBA09`'s
+own explicit words for the related II/IIA and IIR blocks (§4.2), CODE's own real IIF ORBEX data
+once `mu_rad` was fixed (§30.14, miss 0.097°/0.081° against LAG), and `DIL10`'s own Figure 8
+properly digitized here — agree. **No code change**: `evaluate_turn` (Shape F) remains IIF's own
+noon-side law, `evaluate_turn_lead` stays reverted (§30.14), `TYAW-R-004`/IIIA inherits unchanged.
+
+**Digitization script and annotated figure** kept in the scratch directory (not committed to the
+tree, reproducible from the cited URL and the method above):
+`/tmp/.../scratchpad/dil10/` (`page5_600dpi-5.png`, the digitization script, `fig8_annotated.png`
+with the crosshair overlay described in step 7).
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-24 | **Step 6, round two of the manager's own review: a wrong-reason comment corrected, `TYAW-Q-006` closed for real on a second, independent line of evidence, and a new, separate, OPEN finding surfaced and escalated rather than fixed.** §30.16/§30.17/§30.18 added, `SPEC-thrust-yaw` still v1.0. (1) `psi_nominal`/`psidot_nominal`/`turn_ramp_sign`'s own code comments, and §4.6's own prose, said their sign flip "compensates for `mu_rad`'s own negation" -- wrong: `mu_rad` is now genuinely KOUBA09's own μ, nothing left to compensate. The real cause, independently re-derived and checked (own script, own random seed, not taken on the manager's word): `frame_from_yaw` builds x = -cos(ψ)t̂-sin(ψ)n̂ (rotation from -t̂), KOUBA09's own ψ rotates from +t̂ -- so ψ_tree = π-ψ_KOUBA09 (mod 2π), confirmed against an independent x_body construction to <4e-15/2000 geometries and against KOUBA09's Eq.4/5 directly to 1e-15. Comments and spec corrected; `TYAW-A-013` added (KOUBA09's Eq.4 transcribed fresh, checked against the off-turn public interface, 6.4e-16 max error). (2) Building `TYAW-A-013`'s own IIR (x_sign=-1) extension surfaced an UNRELATED, real ≈180° discontinuity in `gps_yaw_attitude`'s own IIR noon-turn dispatch, one rate-step inside the turn boundary -- masked in the existing suite because `TYAW-A-002`'s own "exact at onset" check lands exactly on `evaluate_turn`'s own strict `gap>0.0` boundary, where both the turn and off-turn paths happen to fall through to the same call. Confirmed against the REAL compiled library (a standalone diagnostic, not a hand calculation), left OPEN as `TYAW-Q-007` -- more than one plausible cause, a verdict question, no production code touched. `TYAW-A-013` deliberately tests x_sign=+1 only, so as not to rest a new guard on the same masked boundary. (3) `DIL10`'s own Figure 8 (§30.12's stale by-eye "weighted LEFT, consistent with lead," corrected in place, not deleted) redone as a pixel-level digitization (600 DPI render, automated blue-marker centroid extraction, visually cross-checked) against the manager's own pre-registered lag/lead predictions: the estimate curve sits RIGHT of μ=180° in all three panels, 2.8-4.4x closer to LAG than LEAD throughout, missing LEAD's own tolerance by 5.1-7.3° in every panel (one of three panels also clears LAG's own tight quarter-tolerance; the other two miss it by under 0.12°, inside the digitization's own combined uncertainty of 0.26-0.40°). Applying the manager's own rule (lead only if it holds in >=2 panels and lag in none) to this evidence: LAG stands, unanimous with KOUBA09's own words and the mu_rad-corrected real IIF data -- no code change. 311 tests pass (`TYAW-A-013` new), all 13 `ci.sh` gates green. |
 | 2026-09-24 | **Correction: the entry immediately below is WRONG about IIF's noon turn, and `mu_rad` was the reason.** §30.14 added (full account); §4.2/§4.3/§4.6 rewritten again, `TYAW-A-004c` removed, `TYAW-A-012` added, `SPEC-thrust-yaw` still v1.0. `mu_rad` returned the angle from the satellite forward to midnight -- minus `KOUBA09`'s own μ, which runs WITH the motion -- confirmed by an independent worked example (θ=170°/190°, hand-computed) and a general derivation (a fixed external direction's own components in a self-rotating (r̂,t̂) frame), not taken on the manager's own word alone. In true time every turn not symmetric under time-reversal had been running backwards; nothing already in place could see it (nominal law: instantaneous geometry; night side: a straight line run either way; every synthetic test: internally consistent with `mu_rad`'s own reversed convention, not with `KOUBA09`). Fixed: `mu_rad` negated; `psi_nominal`/`psidot_nominal`/`turn_ramp_sign` (its three direct consumers) carry the compensating sign, PROVED against real data at each step (real-data match unchanged at 0.00083°/0.030-0.038°, not merely re-asserted); `evaluate_turn`/`evaluate_shadow_crossing`/`frame_from_yaw` needed NO change -- literal transcriptions of `KOUBA09`'s own equations, correct once fed his own μ, confirmed by the full pre-existing test suite passing UNMODIFIED (85466 assertions) once only the four functions above were fixed. Re-verified against real data: IIF noon now matches Shape F (`evaluate_turn`, unchanged code) directly, 0.097°/0.081° miss, not the mirror-imaged "lead" match the entry below reports; IIF night unchanged (0.049°, the bug is symmetric under it); the G05/IIR-M control now reads consistently with LAG (one crossing clean, one close). `evaluate_turn_lead` REVERTED -- a real, working implementation of a shape IIF does not fly, not left in as a landmine. `TYAW-A-012` is the permanent guard: checked to FAIL on the reverted code (`t_mid=190 < t_true_noon=240`, the turn centred 50s before true noon) before being trusted to PASS on the fix -- caught its own bug the same way (a backwards alignment sign in the guard's own first draft). 310 tests pass (`TYAW-A-004c` removed, `TYAW-A-012` added -- net unchanged), all 13 `ci.sh` gates green. |
 | 2026-09-24 | **Step 6 closes: IIF's noon turn leads, not lags; IIR checked and unchanged.** [**WRONG, see the correction above** -- the "lead" was `mu_rad`'s own reversed sign, not a property of CODE's data] §30.12 extended, §4.2/§4.3/§4.6-adjacent text updated, `SPEC-thrust-yaw` unchanged at v1.0. The manager's own ruling on `TYAW-Q-005`'s mirror (`plan/subplan_L4/L4-6.md`, pushed as 79b9ff7): the same rate-limited turn run backwards in time, not a sign error. `KOUBA09`'s own words ("the actual yaw angle to temporarily lag behind the nominal yaw attitude," p.2) settle `TYAW-R-002` (II/IIA, IIR) as LAG, unchanged, independent of a G05/IIR-M control run at a real low-β date (2023-06-19) that turned out INCONCLUSIVE on its own terms -- reported honestly as such, not smoothed into false confirmation either way. `DIL10`'s own Figure 8 (his reverse-kinematic yaw estimates, read directly) is consistent with lead for IIF; `TYAW-R-003`'s own noon side changes to `evaluate_turn_lead` (`attitude.cpp`), the merge point `TYAW-P-1`'s own β₀ relation reflected to the far side of noon (|psi_dot_n|'s own exact symmetry about the noon point checked, not assumed), the "leaves early" boundary found the same search-free, single-directional-branch way `evaluate_turn`'s own catch-up is, both senses reversed -- verified against an independent ground-truth walk across four beta including a negative one (`TYAW-A-004c`, new) and against CODE's own real IIF data directly, both crossings now matching to <0.1 deg (was ~8x outside tolerance before the fix). The turn's own width as a function of beta turned out numerically IDENTICAL between lag and lead (checked, not assumed), so `TYAW-A-004`'s own 27.14-minute noon target needed no change, only its own search direction. Two record corrections from the manager's own review, both applied: (1) `TYAW-A-009`'s own 0.15 deg bound restated as a REGRESSION bound set FROM the first run's own result (2.3x it), not a tolerance stated before the measurement -- the measurement itself (0.0488 deg max, 0.0269 deg RMS, n=209) is now what the spec states as the evidence; (2) a ~0.04 deg "offset" reported in the post-shadow-exit residual check was found, on review, to be a STALE-BETA BUG in the verification script itself (comparing each point against the crossing's own fixed beta_mid rather than that point's own actual, slowly-drifting beta), not a real residual or a "noise floor" -- corrected figure 0.0013 deg max, consistent with the ~0.001 deg already established elsewhere. `tools/orbex_shape_e_check.cpp` and `orbex_noon_check.cpp` (new, the noon-side sibling) both given compile-only CMake targets (`tools/CMakeLists.txt`) so an API drift is caught by the ordinary build gate without either program running in CI. Tree-wide: 310 tests pass (`TYAW-A-004c` new), all 13 `ci.sh` gates green. |
 | 2026-09-24 | **Step 6, `thrust-yaw`, real-data verdicts.** §30.8 extended and §30.10-30.12 added, `SPEC-thrust-yaw` unchanged at v1.0 (same draft cycle): `TYAW-R-003`'s own IIF night-side law changes from Shape F to Shape E, on `DIL10`'s own text, with real CODE ORBEX/SP3 data (G01/SVN63) as `plan` rule 8 corroboration -- two independent midnight crossings match Shape E's own closed-form swing (found while implementing: `d(psi_n)/d(mu)` integrates exactly to ATAN(sin(mu)/tan(beta)), no numerical walk) to 0.049 deg max residual, two orders of magnitude tighter than Shape F's own 20-23 deg miss over its own claimed window. `TYAW-P-1`/`A-001` lose the now-meaningless IIF-night beta0 check; `TYAW-A-004` rebuilt against `DIL10`'s own literal ceilings (27 min noon, 55 min shadow) instead of a noon/midnight ratio; `TYAW-A-004b` added, the closed form verified against an independent numerical integration to 1e-9 deg. A precision-correction found while writing this up: the ORIGINAL Shape E registration's own illustrative "55.4 min" used the raw point-source shadow angle, not the widened `kShadowHalfAngleRad` = 13.5 deg the code actually uses (53.8 min) -- both cited, not conflated. `TYAW-A-009` rebuilt as a frozen, REPRODUCIBLE (not gated into `manifest.json`/`ci.sh`) agreement check, `tools/orbex_shape_e_check.cpp`, calling `gps_yaw_attitude` itself rather than a second reimplementation -- IGS's own open-data terms researched and quoted verbatim as the licence basis, the reproducible-not-gated choice made on scope and closure grounds independent of that licence question. A second real-data check, `TYAW-Q-005` (a genuine low-beta noon date, registered before the file was read), found a real, precise, UNRESOLVED discrepancy: the real noon turn's own width matches `TYAW-R-002`'s prediction to 2-3%, but its centre is mirror-imaged about the noon point at both crossings checked -- five candidate causes (quaternion, mu-sign, velocity-sign, onset/catchup labelling, fixture/production consistency) ruled out directly before concluding this is real; left unresolved as `TYAW-Q-006`, the noon-turn LAW unchanged, per `plan` rule 8 (`KOUBA09`'s law is a specification, not itself in question) and the standing rule that a verdict of this kind is the manager's, not the executor's. A background-agent process fault during this same investigation (§30.9) was diagnosed and corrected by the manager mid-session: hidden background agents are for research only, never handed-over work a user must be able to watch; the remainder of this step's own real-data work was run directly, in-session. Tree-wide: 309 tests pass, all 13 `ci.sh` gates green. |

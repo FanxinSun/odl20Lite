@@ -564,6 +564,50 @@ TEST_CASE("TYAW-A-012  mu genuinely increases with TRUE time along a REAL propag
     }
 }
 
+TEST_CASE("TYAW-A-013  KOUBA09's Eq.4 transcribed independently matches psi_nominal's own "
+          "output through psi_tree = pi - psi_KOUBA09 -- the guard against the wrong-reason-"
+          "comment bug PROVENANCE.md Sec.30.16 corrects (an earlier version of this section's "
+          "own comments attributed psi_nominal's sign flip to compensating mu_rad, when the "
+          "real cause is this tree's own yaw convention). x_sign=-1 (Eq.5, IIR) deliberately "
+          "NOT exercised here -- TYAW-Q-007 (SPEC-thrust-yaw Sec.10) records why",
+          "[attitude][gate]") {
+    // KOUBA09's Eq.4 (x_sign=+1) exactly as printed -- written fresh here,
+    // NOT calling psi_nominal (which is unreachable from this file
+    // regardless: both live in attitude.cpp's own anonymous namespace).
+    // This is the independent transcription the manager asked for, not a
+    // restatement of production code under a different name.
+    auto kouba_eq4_psi = [](double beta_rad, double mu_rad_) {
+        return std::atan2(-std::tan(beta_rad), std::sin(mu_rad_));
+    };
+    auto wrapped_diff = [](double a, double b) { return std::atan2(std::sin(a - b), std::cos(a - b)); };
+
+    // Sample points well away from any turn or shadow window at every beta
+    // used (largest half-width in this grid is well under 45 deg), so
+    // gps_yaw_attitude falls through to nominal_yaw_steering -- the SAME
+    // off-turn fallthrough PROVENANCE.md Sec.30.8's own "confirmation by
+    // shared formula" already relies on. x_sign=+1 covers II/IIA, IIF and
+    // IIIA (TYAW-R-004's own bit-identical-to-IIF definition); IIR's own
+    // x_sign=-1 is deliberately left untested here (TYAW-Q-007).
+    const HardwareYawRates ii_iia_rates{0.11, 0.10, 0.5, 0.0017};
+
+    double max_err_rad = 0.0;
+    for (double beta_deg : {0.5, 2.0, 5.0, 15.0}) {
+        for (double mu_deg : {45.0, 90.0, 135.0, 225.0, 270.0, 315.0}) {
+            auto f = fixture_at(beta_deg, mu_deg);
+            auto ii_iia = gps_yaw_attitude(f.r_gcrs_m, f.v_gcrs_m_per_s, f.sun_gcrs,
+                                            GpsBlock::II_IIA, ii_iia_rates);
+            REQUIRE(ii_iia.has_value());
+            const double psi_tree =
+                recover_psi(Vec3{ii_iia->r[0][0], ii_iia->r[0][1], ii_iia->r[0][2]}, mu_deg);
+            const double psi_k = kouba_eq4_psi(beta_deg * kDeg, mu_deg * kDeg);
+            const double err = std::abs(wrapped_diff(psi_tree, std::numbers::pi - psi_k));
+            max_err_rad = std::max(max_err_rad, err);
+        }
+    }
+    INFO("max wrapped |psi_tree - (pi - psi_KOUBA09_Eq4)| over the grid (rad) = " << max_err_rad);
+    CHECK(max_err_rad < 1.0e-9);
+}
+
 TEST_CASE("TYAW-A-006  TYAW-F-001 fires at the Sun-on-zenith singularity outside any turn "
           "window, forwarded with ATTD-F-001's own id unchanged",
           "[attitude][gate]") {
