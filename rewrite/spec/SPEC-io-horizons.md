@@ -213,13 +213,23 @@ states this rather than overclaiming.
   it (`IOHZ-Q-002`, §10) — the `search_recorded` pointer this spec's own manifest entry names is
   `PROVENANCE.md §37.4`; and the oracle case `T-01` provenance finding below, checked before step 3
   is designed rather than assumed.
-- **The real capture is committed, `upstream_mutable: true`.** `manifest/manifest.json`'s own
-  `horizons-acs3-vectors` entry pins a real ACS3 query (`IOHZ-A-008`, §8 reads it directly).
-  Verified directly, not assumed, that this needed the mutability flag for TWO reasons: every live
-  response embeds its own request-processing wall-clock timestamp, so no two live fetches of the
-  identical query ever hash-match, even seconds apart — confirmed by a second live fetch this round
-  returning a different SHA-256 than the first within half an hour; and, more slowly, the provenance
-  finding immediately below.
+- **The real capture is committed, `vendored: true`, not merely `upstream_mutable: true`.**
+  `manifest/manifest.json`'s own `horizons-acs3-vectors` entry pins a real ACS3 query (`IOHZ-A-008`,
+  §8 reads it directly). Verified directly, not assumed, that `upstream_mutable` alone was not
+  enough: every live response embeds its own request-processing wall-clock timestamp, so no two
+  live fetches of the identical query ever hash-match, even seconds apart — confirmed when a routine
+  `fetch.py fetch` mismatched against an earlier `curl` fetch of the same query on its own FIRST
+  attempt, not eventually. That means `data/cache/` (gitignored, populated by a live fetch) could
+  never hold the pinned bytes on a fresh clone — nothing could re-fetch them — so gate 1 and
+  `IOHZ-A-008` would fail for anyone, always, not merely until a deliberate re-pin.
+  `manager's own second ruling` (`plan/subplan_L6/L6-2.md`): the bytes are committed as a TRACKED
+  file, `data/vendored/horizons-acs3-vectors/`, never `data/cache/`; `fetch`/`fetch --refresh` never
+  attempt to re-acquire a vendored entry (proved refusing to, by injection, `tests/test_fetch.py`),
+  and `verify` (and `odl_manifest_get` in CMake) check the tracked copy directly — proved where it
+  has to work (rule 5): `data/cache/horizons-acs3-vectors/` was deleted entirely and `ci.sh` re-run,
+  passing on the tracked copy alone. `upstream_mutable: true` is KEPT alongside `vendored: true` as
+  the documented reason vendoring was needed, not redundant with it — and, more slowly, the
+  provenance finding immediately below is a second, independent reason the same flag states.
 - **`T-01`'s own frozen 2.246 m is not reproducible by a fresh capture, and this round confirmed
   it rather than assumed it.** `oracle/environment.txt` (read; not `capture.sh`) records SHA-256
   hashes for the predecessor's own two `T-01` inputs: `res/teme_check/acs3.tle` and

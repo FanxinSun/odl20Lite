@@ -6959,14 +6959,23 @@ chasing a second live fetch's own necessarily-different hash. The manifest entry
 `upstream_mutable_note` records both mechanisms (the timestamp, and the slower orbital-solution
 drift §37.3 already proved) so a future reader is not left to re-discover either by surprise.
 
+**CORRECTED, not merely superseded, next round (§37.8): placing the file in `data/cache/` was not
+enough.** That directory is gitignored — it holds MY OWN local population of the pin, not anything
+the repository itself carries. The manager's own review caught what this round's own account left
+unstated: on a genuinely fresh clone, `data/cache/horizons-acs3-vectors/` starts empty, and — this
+round's own finding above already proves it — NOTHING can ever fetch its way back to the pinned
+bytes, since no live re-fetch of the same query ever reproduces them. `IOHZ-A-008` and gate 1 would
+both fail for anyone starting from a clean checkout, not just until a re-pin. §37.8 is the real fix.
+
 ### 37.7 The TLE's own terms, searched as asked — found stated, and stronger than Horizons'
 
 `plan/subplan_L6/L6-2.md`'s own closing instruction: "The TLE step 3 needs takes the same basis
 once its own source's terms are searched." Searched this round (not deferred to step 3, since the
 instruction was to search now): `celestrak.org`'s own GP-data-formats page and usage-policy page
-name no redistribution terms directly, pointing to the underlying data's own source instead. That
-source's own real, current terms — fetched directly and confirmed against the raw page text, not
-an AI-summarised paraphrase — are unambiguous and considerably stronger than Horizons' own silence:
+name no redistribution terms of their own, pointing to the underlying data's own source instead.
+That source's own real, current terms — fetched directly and confirmed against the raw page text,
+not an AI-summarised paraphrase — are unambiguous and considerably stronger than Horizons' own
+silence:
 
 > "USSPACECOM has provided express blanket approval for transfer/redistribution of basic SSA data
 > and services accessed via www.Space-Track.org conditioned on appropriate citation... Basic SSA
@@ -6977,14 +6986,77 @@ an AI-summarised paraphrase — are unambiguous and considerably stronger than H
 This is a REAL, EXPLICIT, stated approval, not an absence of terms — a different case from
 `FACTUAL-DATA-CITED` entirely, needing no `search_recorded` obligation (that field exists
 specifically for a basis earned by an absence, not a grant). `tools/fetch.py` gains a second new
-`PERMISSIVE_LICENCES` entry, `SPACETRACK-PUBLIC`, for this. No TLE manifest entry is added yet —
-step 3 pins its own fresh 5 h-window capture when it builds `T-01`'s own gate (§37.3, `plan/
-subplan_L6/L6-3.md`) — but the search itself, and the basis it earns, are settled now rather than
-left for step 3 to redo. An early search summary surfaced a 2004 pilot-program statute (Public Law
-108-136 §913) restricting redistribution of a NAMED, now-superseded distribution service without
-Secretary of Defense approval — checked directly and set aside: it governs a specific, dated
-pilot channel, not the modern, current, standing Space-Track.org blanket approval quoted above,
-which is the operative source both this tree and Celestrak's own public mirror actually draw from.
+`PERMISSIVE_LICENCES` entry, `SPACETRACK-PUBLIC`, for this.
+
+**Correction, this round: whose terms govern is not the same question as which mechanism fetches
+it.** The manager's own review caught what the account above left unstated: `space-track.org`
+itself requires an account to download anything, and the handover's own standing rule forbids using
+any account or login — so this tree can never fetch the TLE from Space-Track directly, REGARDLESS
+of how permissive its own terms are. `celestrak.org` is the actual, no-login-required fetch point
+(already used successfully this round for `SPEC-io-formats.md`'s own TLE work and for the earlier
+hash-comparison check, §37.3) — and its OWN page states directly, in its own words, that it is a
+redistributor rather than an independent source: discussing a 2025-08-21–24 outage, "we got hammered
+by users repeatedly accessing CelesTrak trying to get fresh GP data **(which we get from Space
+Track)**" (`celestrak.org/NORAD/documentation/gp-data-formats.php`, fetched directly 2026-09-25).
+So both are cited, per the manager's own instruction: `celestrak.org` as the source actually
+fetched from (no account, no login), `space-track.org` as the source whose own express blanket
+approval is the operative permission Celestrak's own redistribution rests on — the SAME
+`SPACETRACK-PUBLIC` basis, not a separate Celestrak-specific one, since Celestrak states no broader
+or narrower terms of its own.
+
+No TLE manifest entry is added yet — step 3 pins its own fresh 5 h-window capture, from
+`celestrak.org`, when it builds `T-01`'s own gate (§37.3, `plan/subplan_L6/L6-3.md`) — but the
+search itself, and the basis it earns, are settled now rather than left for step 3 to redo. A TLE
+for a SPECIFIC, already-issued epoch does not itself change once captured (unlike a live Horizons
+query's own embedded timestamp), but `celestrak.org`'s own "current GP data for this catalogue
+number" endpoint returns whichever TLE is MOST RECENT at request time, which a real LEO object's
+own re-issue cadence (every one to a few days) makes just as non-reproducible on a later re-fetch —
+so step 3's own capture needs the SAME vendoring treatment (§37.6/`MANIFEST.md`'s own "Vendoring"
+section) as the Horizons capture, not a plain `url`+`sha256` pin. An early search summary surfaced a
+2004 pilot-program statute (Public Law 108-136 §913) restricting redistribution of a NAMED,
+now-superseded distribution service without Secretary of Defense approval — checked directly and
+set aside: it governs a specific, dated pilot channel, not the modern, current, standing
+Space-Track.org blanket approval quoted above.
+
+### 37.8 Vendoring: a general manifest mechanism, not a one-off workaround
+
+The manager's own review of §37.6's own closing paragraph: a manifest entry pinned only to
+`data/cache/` (gitignored) is not actually reproducible for anyone but the machine that happened to
+populate it, and this entry's own defining property — no live re-fetch of its `url` ever reproduces
+its pinned bytes, proved directly in §37.6, not merely occasional drift `upstream_mutable` alone
+already covers — means a fresh clone can NEVER repair a missing or cleared cache the normal way.
+Every other manifest entry survives a fresh clone because its own URL serves stable bytes; this one
+structurally cannot.
+
+**The fix, general rather than entry-specific** (`MANIFEST.md`'s own new "Vendoring" section states
+it for the next upstream with this shape, so it is not rediscovered by a second failed fresh clone):
+a new manifest field, `vendored: true`. The bytes move from `data/cache/` to a NEW, TRACKED
+directory, `data/vendored/<id>/<filename>` — checked directly against `.gitignore` before relying on
+it: neither `/data/cache/` nor `data/literature/`'s own rules match `data/vendored/`, so it is
+tracked by default, no `.gitignore` edit needed. `tools/fetch.py` gains `is_vendored`/`vendored_dir`,
+`entry_path` routes a vendored entry there instead of the cache, `cmd_fetch` skips a vendored entry
+entirely — BEFORE any `--refresh` branching, so a refresh cannot re-acquire it either — and
+`cmd_verify`'s own generic, unmodified loop (it already resolves every entry through `entry_path`)
+therefore checks the tracked copy correctly with no further change. `cmake/OdlManifest.cmake` gains
+the matching `ODL_VENDORED_DIR`; `odl_manifest_get`'s own `_CACHE_PATH` branches the same way, so
+`modules/io/CMakeLists.txt`'s own existing `odl_manifest_get(horizons-acs3-vectors ...)` call needed
+no change at all once the manifest entry itself gained `vendored: true`.
+
+**Proved by injection AND proved where it has to work — both halves of rule 5, not one.**
+`tests/test_fetch.py` gains seven isolated cases against a synthetic manifest: a vendored entry
+whose tracked file matches verifies clean; `fetch` and `fetch --refresh` both report it "vendored"
+without dialing out (a `.invalid` URL that CANNOT resolve is the same proof-by-construction the
+existing plain-cache tests already use — a command that tried to fetch it would fail `NETWORK`, not
+the codes checked); a missing tracked file refuses `MISSING` from both `verify` and `fetch`, naming
+"restore from git", never suggesting a re-fetch; a tampered tracked file refuses `MISMATCH` the same
+way a corrupted cache entry already does. Then proved on the real entry, not only a synthetic one:
+`data/cache/horizons-acs3-vectors/` (already absent from an earlier round of this same session's own
+testing) was confirmed absent, and a full `ci.sh` run — 13 gates, 445 tests, 740 artefacts
+byte-identical — passed with it still absent throughout, on the tracked copy alone.
+
+`horizons-acs3-vectors` now carries both `vendored: true` (why its bytes live in the tree) and
+`upstream_mutable: true` (why they had to — kept, not redundant: one states the mechanism, the other
+states the underlying cause).
 
 ---
 
@@ -6992,6 +7064,7 @@ which is the operative source both this tree and Celestrak's own public mirror a
 
 | date | change |
 |---|---|
+| 2026-09-25 | **A manifest entry pinned only to the gitignored cache is not reproducible on a fresh clone, and this Horizons capture's own defining property (no live re-fetch ever reproduces it) meant nothing could ever repair a cleared cache for it: a new, general `vendored: true` manifest mechanism tracks the bytes in the repository itself instead, proved by injection AND proved by deleting the cache and re-running the full suite on the tracked copy alone. The TLE's own terms, re-examined: Space-Track's own grant is real but requires a login the handover forbids, so CelesTrak — which states directly, in its own words, that it sources GP data from Space-Track — is the actual no-login fetch point, and both are now cited.** `tools/fetch.py` gains `is_vendored`/`vendored_dir`; `entry_path` routes a vendored entry to `data/vendored/<id>/<filename>` (checked against `.gitignore` first: untouched by its existing rules, tracked by default); `cmd_fetch` skips a vendored entry entirely, before any `--refresh` branching, so a refresh cannot re-acquire it either; `cmd_verify`'s own already-generic loop needed no change, since it already resolves every entry through `entry_path`. `cmake/OdlManifest.cmake` gains the matching `ODL_VENDORED_DIR`, and `odl_manifest_get`'s own `_CACHE_PATH` branches the same way — `modules/io/CMakeLists.txt`'s own existing call needed no change once the manifest entry itself gained the flag. `tests/test_fetch.py` gains seven isolated cases against a synthetic manifest (a `.invalid` URL proves no command dials out, matching the existing plain-cache tests' own proof shape): verify accepts a matching vendored file, fetch and fetch --refresh both report it vendored without touching the network, a missing tracked file refuses MISSING naming "restore from git" rather than suggesting a re-fetch, a tampered one refuses MISMATCH. Then proved on the real entry: `data/cache/horizons-acs3-vectors/` confirmed absent, a full ci.sh run (13 gates, 445 tests, 740 artefacts byte-identical) passed throughout with it still absent. `MANIFEST.md` gains a "Vendoring" section stating the general rule for the next upstream with this shape: if a live re-fetch cannot be relied on to reproduce its own pinned bytes -- not occasional drift, but structural -- vendor it from the start. Separately: CelesTrak's own GP-data-formats page states directly, discussing a recent outage, "we got hammered by users... trying to get fresh GP data (which we get from Space Track)" -- confirming it is a redistributor, not an independent source, so `SPACETRACK-PUBLIC` remains the operative basis for a CelesTrak-fetched TLE, with both sources now cited; a TLE capture will need the same vendoring treatment when step 3 pins one, since CelesTrak's own "current" endpoint drifts for an actively-tracked object the same way a live Horizons query does. Tree-wide: 445 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
 | 2026-09-25 | **L6 step 2's own licence question ruled and implemented: a new manifest licence basis, FACTUAL-DATA-CITED, earned by a recorded search and proved refusing an entry that claims it without one; the real ACS3 Horizons capture pinned and read by a real acceptance test; the TLE's own terms searched as asked and found stronger — an explicit, stated blanket approval, not an absence.** `tools/fetch.py` gains two new tree-invented licence identifiers: `FACTUAL-DATA-CITED` (RS14's own reasoning — computed positions are factual data, not an expression — gated on a new, required `search_recorded` field naming where the search is written up, `PROVENANCE.md` §37.4, enforced by `check-licences` and proved by injection in `tests/test_fetch.py`, the same "inject the historical error" discipline two other checkers in this tree already use) and `SPACETRACK-PUBLIC` (a real, explicit, current statement, fetched and quoted directly: "USSPACECOM has provided express blanket approval for transfer/redistribution of basic SSA data... conditioned on appropriate citation," `space-track.org`, covering TLEs directly — considerably stronger than Horizons' own silence, and needing no `search_recorded` obligation since it is a stated grant, not an earned absence). `manifest/manifest.json` gains `horizons-acs3-vectors`, a real, pinned ACS3 vector-table capture, `upstream_mutable: true`; `IOHZ-A-008` (`SPEC-io-horizons.md`) reads it directly, real data alongside the seven hand-built fixtures. A genuine, previously-unknown wrinkle surfaced while establishing the pin: every live Horizons response embeds its own request-processing wall-clock timestamp, so no two live fetches of the identical query ever hash-match, even minutes apart — confirmed directly when a routine `fetch.py fetch` mismatched against an earlier `curl` fetch of the same query on the first attempt. Gate 1 ("manifest verifies offline") is unaffected in practice, since it never touches the network; resolved by placing the already-fetched, already-hashed file directly into the cache rather than chasing a second live fetch's own necessarily-different hash. An early TLE-terms search surfaced a 2004 pilot-program statute restricting a specific, now-superseded distribution channel — checked directly and set aside, since it does not govern the modern, standing Space-Track.org approval this tree and Celestrak's own public mirror actually draw from. Tree-wide: 444 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
 | 2026-09-25 | **L6 step 2: a Horizons vector-table reader built, requiring no new fetch code (a query is a URL like any manifest entry's); a real query run to verify the documented format, finding an unscoped light-time-correction trap along the way; and oracle case T-01 checked, not assumed — its own frozen 2.246 m is conditioned on a specific historical TLE and Horizons capture neither of which today's data reproduces, a hash comparison proves.** `SPEC-io-horizons.md` v1.0 (new, `IOHZ`) adopted; `modules/io` gains `read_horizons`, 7 acceptance rows against hand-built fixtures (verified separately, locally, against a real uncommitted response). No fetch utility was written: a Horizons query is a fully-parameterised URL, so `manifest/manifest.json` plus the tree's own existing `tools/fetch.py` is the whole mechanism once a licence question (below) is ruled; CI would then read a pinned capture exactly like any SPK kernel, never the live API — marked `upstream_mutable: true` in the manifest schema's own existing field for this, since JPL revises orbit solutions for actively-tracked objects (proved, not assumed, by this round's own hash comparison, below). `TIME_TYPE=TDB` is requested explicitly and checked on every printed record, not trusted from the request alone; running a real query (ACS3, the same object oracle cases `T-01`/`O-*` use) surfaced a second, unscoped trap the original design missed — `VEC_CORR` selects geometric vs. light-time/aberration-corrected output, and only the geometric form is the same physical quantity SGP4's own TEME state is, so `Output type` is now checked too, refusing a corrected table outright. A first test draft asserted a stripped `target_body` string, failing immediately against the interface's own stated "verbatim" contract — the test was wrong, not the parser, fixed in place. Oracle case `T-01`'s own two recorded input hashes (`oracle/environment.txt`, read; `capture.sh` was not, per `ORACLE.md` §1's own explicit rule) do not match a fresh TLE (`celestrak.org`) or a fresh Horizons capture fetched this round — expected, since `ORACLE.md` §6 itself states the Horizons side "is" the TLE for an object like this, and a LEO TLE is reissued every few days; the ~2.2 m required-disagreement assertion is a property of the frame-conversion models and can still be gated on fresh data, but the literal 2.246 m must not be asserted as its expected value — reported before step 3 is designed, per the manager's own explicit instruction. The manifest entry itself is not yet added: JPL's own redistribution terms for Horizons OUTPUT DATA specifically (distinct from the API documentation, which this spec cites the same clean-room way every other format's own source is) were searched (the API manual, a 404'd policy page, JPL's own image-specific policy, NASA's own general content page, the SSD site's own citation guidance) and found genuinely unstated — escalated, not decided, the same shape RS14's own licence question took at L5. Tree-wide: 444 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
 | 2026-09-25 | **L6 step 1 closes: SP3 interpolation built as one tree-wide facility (an 11-point Lagrange fit, three independent real-data sources converging on that order for both a 15-min GNSS file and a 60 s LEO file), measured directly against real held-out samples (1.5 mm / 4.4 mm max on two fresh real files), and the six comparison tools re-pointed at it — finding, along the way, a genuine day-rollover bug in three tools' own hand-rolled epoch arithmetic, and a real, mixed-direction movement in Galileo's own small real-data residual.** `SPEC-io-formats` §3.8/§4/§5/§7/§8 extended (`IOFM-R-003`–`007`, `IOFM-F-009`–`012`, `IOFM-A-023`–`032`), `plan/subplan_L6/L6-1.md` carries the manager's own ruling. `Sp3Ephemeris::position_km_at` (order 10 default, reduced gracefully on a short file, never extrapolating) and the free function `central_difference_velocity_km_s` (velocity is explicitly NOT the class's own scope, per the ruling's literal words) are `modules/io`'s only new public surface; `lagrange_interpolate`, the raw fit with no refusal policy, is exposed separately because the accuracy self-check's own "delete a real sample and interpolate it back" methodology would otherwise collide with the SAME gap refusal it is trying to measure around. The order (11 points / 10th) is not asserted: Schenewerk (2003) and Horemuž & Andersson (2006), two independent papers each using a real IGS 15-minute file, and Zeitlhöfler et al. (2024), using real Jason-2-class LEO orbits at 30-120s, all converge on essentially this same range despite very different orbital dynamics — corroborated directly on two FRESH real files this round fetched itself (IGS rapid GPS G01, `igs.bkg.bund.de`; Jason-3 L39, `doris.ign.fr` anonymous FTP), holding out 13 real samples each and measuring 1.07/2.23 mm RMS, 1.47/4.43 mm max against real withheld values — a test-harness off-by-one that first produced a spurious 129 mm outlier was caught by its own bounds assertion before being trusted. Re-pointing `orbex_galileo_check.cpp` onto the new facility crashed on the REAL, re-fetched, hash-confirmed control file: its last epoch is genuinely stamped at the next day's 00:00:00, which a hand-rolled `epoch_at` (reconstructing hour/minute/second from elapsed seconds assuming one fixed calendar day) cannot represent — a real, previously-latent bug, fixed the same way `doris_jason_check.cpp` already fixed it in an earlier round (store an absolute `Epoch`, use `Epoch::add`), applied to all three sibling GNSS-comparison tools. The SAME real Galileo control file, re-run baseline-then-after per rule 5: IOV unchanged (position is exact at its own sample nodes by construction, so only velocity could move, and IOV was not velocity-sensitive here); FOC's own two crossings moved ~0.03 deg in OPPOSITE directions (0.0615->0.0917, 0.0997->0.0702), both still comfortably inside the 2-deg criterion — confirming velocity was a real contributor to `GALY-Q-002`'s own named residual, at roughly this scale, but not shown to be its sole or dominant cause, since a genuine fix would be expected to move both consistently rather than in opposite directions; left open, narrowed rather than closed. `doris_jason_check.cpp` itself lost BOTH of its own remaining interpolation paths (`nearest_sp3`, still used by `--nadir` alone, and `interp_ephem`, a linear blend) to one shared function, `state_at`, and its own precomputed per-sample array trio is gone entirely, replaced by the ephemeris itself plus one absolute reference epoch; a live real-quaternion re-run could not be completed this round (`doris.ign.fr`'s own FTP service stopped completing transfers partway through, after the real SP3 arc for `IOFM-A-031` had already been fetched successfully) — verified instead by a clean compile, a structural smoke test against a clearly-labelled synthetic quaternion fixture (every mode ran end to end, correctly refusing where the cached EOP series' own real coverage ends, never crashing), and the fact that its own core composition is line-for-line what was already proved to move a real number correctly on the Galileo file. Tree-wide: 437 tests, all 13 `ci.sh` gates green, 738 artefacts byte-identical. |

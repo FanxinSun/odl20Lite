@@ -121,12 +121,38 @@ def literature_dir(root: Path, doc: dict) -> Path:
     return root / doc.get("literature", "data/literature")
 
 
+def vendored_dir(root: Path, doc: dict) -> Path:
+    """Where a `vendored` entry's own bytes live -- TRACKED in the repository,
+    unlike `data/cache/` (gitignored, re-fetched) and `data/literature/`
+    (also gitignored, fetched but kept off the build path). L6 step 2's own
+    finding (`PROVENANCE.md` §37.8): an upstream whose own responses are not
+    byte-stable -- Horizons embeds its own request-processing timestamp in
+    every reply, so no two live fetches of the identical query ever
+    hash-match -- cannot be re-fetched into the (gitignored) cache on a fresh
+    clone at all; the pinned bytes exist nowhere unless the repository itself
+    holds them. Vendoring is the general answer, not a one-off: the manifest
+    still names the URL the bytes originally came from and the licence basis
+    that permits redistributing them, but `fetch`/`fetch --refresh` never try
+    to re-acquire them, and `verify` checks the TRACKED copy directly.
+    """
+    return root / doc.get("vendored", "data/vendored")
+
+
 def is_literature(e: dict) -> bool:
     return e.get("kind") == "literature"
 
 
+def is_vendored(e: dict) -> bool:
+    return bool(e.get("vendored"))
+
+
 def entry_path(root: Path, doc: dict, e: dict) -> Path:
-    base = literature_dir(root, doc) if is_literature(e) else cache_dir(root, doc)
+    if is_vendored(e):
+        base = vendored_dir(root, doc)
+    elif is_literature(e):
+        base = literature_dir(root, doc)
+    else:
+        base = cache_dir(root, doc)
     return base / e["id"] / e["filename"]
 
 
@@ -467,13 +493,24 @@ def cmd_verify(root: Path, doc: dict, args) -> int:
             excl = (e.get("columns") or {}).get("excluded") or {}
             print(f"  consumes {e['consumes']}, {len(cols)} column(s) declared, "
                   f"{len(excl)} excluded by name")
+    vendored_missing = [e for e in missing if is_vendored(e)]
     for e in fetchable(doc):
         if e in missing:
-            print(f"MISSING  {e['id']:<16} {e['url']}", file=sys.stderr)
+            if is_vendored(e):
+                print(f"MISSING  {e['id']:<16} vendored -- restore from git, do not fetch: "
+                      f"{entry_path(root, doc, e).relative_to(root)}", file=sys.stderr)
+            else:
+                print(f"MISSING  {e['id']:<16} {e['url']}", file=sys.stderr)
     for e in doc["entries"]:
         if e.get("provided_by_host"):
             print(f"host     {e['id']:<16} {e.get('version', '')}  (not fetched: provided by the build host)")
 
+    if vendored_missing and len(vendored_missing) == len(missing):
+        print(
+            f"\n{len(missing)} vendored entr{'y is' if len(missing) == 1 else 'ies are'} missing their own "
+            f"tracked file(s). `fetch.py fetch` will not help -- restore from git.",
+            file=sys.stderr)
+        return MISSING
     if missing:
         print(
             f"\n{len(missing)} entr{'y is' if len(missing) == 1 else 'ies are'} not in the cache. "
@@ -488,6 +525,22 @@ def cmd_fetch(root: Path, doc: dict, args) -> int:
     results = []
     for e in fetchable(doc):
         p = entry_path(root, doc, e)
+        if is_vendored(e):
+            # NEVER re-fetched, NOT EVEN under --refresh: the whole reason an
+            # entry is vendored is that a live re-fetch cannot reproduce its
+            # own pinned bytes (vendored_dir's own docstring). The tracked
+            # file IS the source of truth from here on.
+            if not p.exists():
+                die(MISSING,
+                    f"{e['id']} is vendored but its tracked file is missing: {p}\n"
+                    f"  A vendored entry is never fetched. Restore the file from git "
+                    f"(git checkout -- {p.relative_to(root)}) rather than re-fetching it.")
+            got = sha256_file(p)
+            if got != e["sha256"].lower():
+                mismatch(e, got, f"{p} (vendored -- not re-fetched, the tracked copy itself has changed)")
+            print(f"vendored {e['id']:<16} {got[:16]}…  (tracked in the repository, never fetched)")
+            results.append((e["id"], e.get("url", "(vendored)"), got))
+            continue
         if p.exists() and not args.refresh:
             got = sha256_file(p)
             if got != e["sha256"].lower():

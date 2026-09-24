@@ -44,12 +44,20 @@ def write_manifest(d: Path, entries: list) -> Path:
     global _seq
     _seq += 1
     m = d / f"manifest-{_seq}.json"
-    m.write_text(json.dumps({"schema": 1, "cache": "cache", "entries": entries}, indent=2))
+    m.write_text(json.dumps(
+        {"schema": 1, "cache": "cache", "vendored": "vendored", "entries": entries}, indent=2))
     return m
 
 
 def make_blob(d: Path, eid: str, name: str, content: bytes) -> str:
     p = d / "cache" / eid / name
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(content)
+    return hashlib.sha256(content).hexdigest()
+
+
+def make_vendored_blob(d: Path, eid: str, name: str, content: bytes) -> str:
+    p = d / "vendored" / eid / name
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_bytes(content)
     return hashlib.sha256(content).hexdigest()
@@ -87,6 +95,47 @@ def main() -> int:
         # --- verify never touches the network -------------------------------
         # The URL is .invalid, which cannot resolve.  A verify that tried to
         # fetch would fail with NETWORK, not MISSING.  The line above proves it.
+
+        # --- vendored entries: never fetched, checked against the TRACKED
+        # path (L6 step 2's own second ruling, plan/subplan_L6/L6-2.md,
+        # 2026-09-25) -- an upstream whose own responses are not byte-stable
+        # (Horizons embeds a request-processing timestamp in every reply)
+        # cannot be re-fetched into the gitignored cache on a fresh clone at
+        # all, so it is committed as a tracked file instead, and fetch.py
+        # must never try to re-acquire it, not even under --refresh.
+        vdigest = make_vendored_blob(root, "vthing", "vthing.bin", b"vendored bytes, tracked in git")
+        ventry = {"id": "vthing", "kind": "data", "licence": "CC0-1.0", "vendored": True,
+                  # .invalid cannot resolve -- the SAME proof-by-URL the plain
+                  # cache case above already uses: a command that tried to
+                  # dial out would fail NETWORK, not the codes checked below.
+                  "url": "https://example.invalid/never-reached.bin",
+                  "filename": "vthing.bin", "sha256": vdigest}
+        vm = write_manifest(root, [ventry])
+
+        r = run(root, vm, "verify")
+        check("verify accepts a vendored entry whose tracked file matches", r.returncode, OK,
+              r.stdout + r.stderr)
+
+        r = run(root, vm, "fetch")
+        check("fetch does not try to re-acquire a vendored entry", r.returncode, OK, r.stdout + r.stderr)
+        check("fetch reports it as vendored, not downloaded", "vendored" in r.stdout, True, r.stdout)
+
+        r = run(root, vm, "fetch", "--refresh")
+        check("fetch --refresh ALSO never re-acquires a vendored entry", r.returncode, OK,
+              r.stdout + r.stderr)
+
+        (root / "vendored" / "vthing" / "vthing.bin").unlink()
+        r = run(root, vm, "verify")
+        check("verify reports a MISSING vendored entry distinctly", r.returncode, MISSING,
+              r.stdout + r.stderr)
+        r = run(root, vm, "fetch")
+        check("fetch on a missing vendored entry refuses rather than downloading it",
+              r.returncode, MISSING, r.stdout + r.stderr)
+
+        make_vendored_blob(root, "vthing", "vthing.bin", b"vendored bytes, tracked in git")
+        (root / "vendored" / "vthing" / "vthing.bin").write_bytes(b"tampered")
+        r = run(root, vm, "verify")
+        check("verify REFUSES a tampered vendored file", r.returncode, MISMATCH, r.stdout + r.stderr)
 
         # --- malformed manifests --------------------------------------------
         make_blob(root, "thing", "thing.bin", good)
