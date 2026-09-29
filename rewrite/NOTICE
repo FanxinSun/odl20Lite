@@ -45,6 +45,7 @@ SUMMARY
   nrlmsise00-statsreadme 2002         NRL-PUBLIC       data
   iau2012-b2         adopted by the XXVIII General Assembly, Beijing, 30 August 2012 IAU-PUBLIC       data
   fehlberg-tr-r-287  NASA TR R-287, October 1968, 97 pages NASA-PUBLIC      data
+  vallado-sgp4-verification-vectors as distributed in AIAA-2006-6753.zip, sgp4/cpp/testsgp4/TestSGP4/ VALLADO-UNRESTRICTED data
   horizons-acs3-vectors queried 2026-09-25, geocentric, ICRF, TDB, geometric (no light-time correction), 2 h window, 30-min step FACTUAL-DATA-CITED data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
@@ -441,6 +442,28 @@ DATA INPUTS
     sha256    5553a2a3eb53785a461762cc2b29428015f1b32c3ad0a5cb57f85a421256a0c8
     retrieved 2026-09-18
     note      NASA technical report, public domain.
+
+  vallado-sgp4-verification-vectors  as distributed in AIAA-2006-6753.zip, sgp4/cpp/testsgp4/TestSGP4/
+    role      The published SGP4 verification test cases distributed with AIAA 2006-6753 -- SGP4-VER.TLE (26 TLEs) and one STK .e ephemeris per satellite (32 files, TEME, position+velocity) -- L6 step 3's own gate against 'the published SGP4 verification vectors to their stated tolerance'.
+    licence   VALLADO-UNRESTRICTED
+    url       https://celestrak.org/publications/AIAA/2006-6753/AIAA-2006-6753.zip
+    sha256    3642043b706c76be87cf012db3f22e04da6b80498d00f515e51879e0ffadc115
+    retrieved 2026-09-29
+    note      Quoted directly from the RAW bytes of the primary source's own
+              FAQ (.../faq.php, fetched and tags-stripped 2026-09-29, not a
+              summarising fetch): "Are there any Licenses required to use the
+              SGP4 code? There is no license associated with the code and you
+              may use it for any purpose—personal or commercial—as you wish.
+              We ask only that you include citations in your documentation and
+              source code to show the source of the code and provide links to
+              the main page..." This tree deliberately cites the PRIMARY
+              distribution's own stated grant rather than the companion GitHub
+              repository (github.com/CelesTrak/fundamentals-of-astrodynamics),
+              whose top-level AGPL-3.0 is carved out only for "The C++ SGP4
+              implementation (software/cpp/SGP4/)" -- leaving open whether
+              that carve-out also covers this archive's own test data. The
+              primary source's own grant is not so scoped: it covers exactly
+              what this entry redistributes.
 
   horizons-acs3-vectors  queried 2026-09-25, geocentric, ICRF, TDB, geometric (no light-time correction), 2 h window, 30-min step
     role      JPL Horizons vector-table ephemeris for ACS3 (SPK -159588), the real object oracle cases T-01/O-* use — a real-response fixture for SPEC-io-horizons.md's own acceptance test (IOHZ-A-008), alongside its hand-built ones

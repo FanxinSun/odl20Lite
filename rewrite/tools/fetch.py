@@ -708,6 +708,13 @@ PERMISSIVE_LICENCES = {
                      "                    of Basic SSA Information', fetched and quoted directly 2026-09-25).\n"
                      "                    A REAL, explicit, stated approval -- unlike FACTUAL-DATA-CITED below,\n"
                      "                    this needs no search_recorded pointer.",
+    "VALLADO-UNRESTRICTED": "not an SPDX identifier: the primary distribution's own stated grant\n"
+                     "                    for AIAA 2006-6753's SGP4 code and test data (celestrak.org, .../faq.php,\n"
+                     "                    quoted from raw bytes in the entry's own licence_note) -- 'no license\n"
+                     "                    associated with the code and you may use it for any purpose...as you\n"
+                     "                    wish', attribution requested only. A REAL, explicit, stated approval,\n"
+                     "                    the same shape as SPACETRACK-PUBLIC above -- needs no search_recorded\n"
+                     "                    pointer either.",
     "FACTUAL-DATA-CITED": "not an SPDX identifier: computed or measured factual data (e.g. a\n"
                      "                    position, a table of positions) from a source that states no\n"
                      "                    redistribution terms of its own, where a search for terms was\n"

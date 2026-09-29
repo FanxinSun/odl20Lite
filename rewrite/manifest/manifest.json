@@ -656,6 +656,251 @@
       "retrieved": "2026-09-23"
     },
     {
+      "id": "vallado-2006-revisiting-str3",
+      "kind": "literature",
+      "role": "Vallado, D. A., Crawford, P., Hujsak, R., Kelso, T. S. (2006), 'Revisiting Spacetrack Report #3', AIAA/AAS Astrodynamics Specialist Conference, AIAA 2006-6753 Rev 2. Cited at L1 since step 4 for TEME<->PEF (FRAME-R-030, eq. (1)/(2)) and FRAME-A-001/-A-009/-A-010's own published worked examples; primary source, with STR3, for L6 step 3's sgp4 port.",
+      "version": "AIAA 2006-6753, Rev 2",
+      "url": "https://celestrak.org/publications/AIAA/2006-6753/AIAA-2006-6753-Rev2.pdf",
+      "filename": "AIAA-2006-6753-Rev2.pdf",
+      "sha256": "538a5c0ea174eb569bbc258011717142a26d72871ab07cc64ee5fa3773164b16",
+      "terms": "The paper itself carries no separate statement from the code/test-data grant recorded on vallado-sgp4-verification-vectors below -- searched directly, not assumed to inherit it: the FAQ's own grant (.../faq.php, quoted there) is stated as being about 'the SGP4 code'. No 'creative commons', 'CC BY' or explicit copyright statement was found in the PDF's own extracted text either. Treated the same as this tree's other literature entries: a provenance record, not a dependency, not redistributed.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY, the same reasoning as this tree's other literature entries: nothing derived from this paper is a copy of it, and it is pinned so a future reader can fetch the same hash and get the same bytes L1's TEME<->PEF equations and L6 step 3's sgp4 corrections were read from. Backfills a hash this tree's own citations of VAL06 (SPEC-frames.md Sec.2, PROVENANCE.md's citation register) have carried since L1 without one -- found and closed at L6 step 3, 2026-09-29.",
+      "upstream_mutable": false,
+      "verify_note": "Retrieved with no account and no request form: celestrak.org serves the PDF directly over HTTPS (HTTP 200, no authentication challenge). Fetched twice, minutes apart, 2026-09-29: identical hash both times, unlike horizons-acs3-vectors's own live query above -- this is a static file, not a generated response.",
+      "retrieved": "2026-09-29"
+    },
+    {
+      "id": "hoots-roehrich-1980-spacetrack-report-3",
+      "kind": "literature",
+      "role": "Hoots, F. R., Roehrich, R. L. (1980), 'Spacetrack Report No. 3: Models for Propagation of NORAD Element Sets', US Air Force Aerospace Defense Command. Already hash-pinned at spec/SPEC-io-formats.md Sec.2 (step 1, TLE reader background); primary source, with VAL06's own corrections, for L6 step 3's sgp4 port -- WGS-72 physical constants (Sec.11/12) and the original sample test case (Sec.13, satellite 88888).",
+      "version": "December 1980; this scan compiled by T.S. Kelso, 31 December 1988",
+      "url": "https://celestrak.org/NORAD/documentation/spacetrk.pdf",
+      "filename": "spacetrk.pdf",
+      "sha256": "0ac48df7724b857c14431764a7baa0bf9aa64e570e3941b7244a15cdaea708bd",
+      "terms": "No redistribution statement found for the document itself (recorded at L6 step 1, spec/SPEC-io-formats.md Sec.2, not reopened here): a 1980 USAF Aerospace Defense Command technical report, 'APPROVED FOR PUBLIC RELEASE; DISTRIBUTION UNLIMITED' printed on its own title page -- a release statement, not a stated redistribution licence for this document's own bytes, so treated the same as this tree's other literature entries rather than assumed to be public domain.",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY, the same reasoning as this tree's other literature entries: nothing derived from this report is a copy of it. Backfills this hash into the manifest now that L6 step 3 actually transcribes numbers from it (the WGS-72 constants and the 88888 test case); the hash matches spec/SPEC-io-formats.md Sec.2's own step-1 pin exactly.",
+      "upstream_mutable": false,
+      "verify_note": "Same hash as spec/SPEC-io-formats.md Sec.2's own step-1 pin, re-fetched and re-verified 2026-09-29 (identical). Sections 5-10 present the SGP/SGP4/SDP4/SGP8/SDP8 models as prose and typeset equations interleaved with their own FORTRAN IV listings, section by section -- unlike this tree's other 'implement from equations' sources, there is no equations-only edition of this algorithm. How this source is read for the port is recorded in PROVENANCE.md's own account of L6 step 3.",
+      "retrieved": "2026-09-29"
+    },
+    {
+      "id": "vallado-sgp4-verification-vectors",
+      "kind": "data",
+      "role": "The published SGP4 verification test cases distributed with AIAA 2006-6753 -- SGP4-VER.TLE (26 TLEs) and one STK .e ephemeris per satellite (32 files, TEME, position+velocity) -- L6 step 3's own gate against 'the published SGP4 verification vectors to their stated tolerance'.",
+      "version": "as distributed in AIAA-2006-6753.zip, sgp4/cpp/testsgp4/TestSGP4/",
+      "url": "https://celestrak.org/publications/AIAA/2006-6753/AIAA-2006-6753.zip",
+      "filename": "AIAA-2006-6753.zip",
+      "sha256": "3642043b706c76be87cf012db3f22e04da6b80498d00f515e51879e0ffadc115",
+      "unpack": "zip",
+      "licence": "VALLADO-UNRESTRICTED",
+      "licence_note": "Quoted directly from the RAW bytes of the primary source's own FAQ (.../faq.php, fetched and tags-stripped 2026-09-29, not a summarising fetch): \"Are there any Licenses required to use the SGP4 code? There is no license associated with the code and you may use it for any purpose—personal or commercial—as you wish. We ask only that you include citations in your documentation and source code to show the source of the code and provide links to the main page...\" This tree deliberately cites the PRIMARY distribution's own stated grant rather than the companion GitHub repository (github.com/CelesTrak/fundamentals-of-astrodynamics), whose top-level AGPL-3.0 is carved out only for \"The C++ SGP4 implementation (software/cpp/SGP4/)\" -- leaving open whether that carve-out also covers this archive's own test data. The primary source's own grant is not so scoped: it covers exactly what this entry redistributes.",
+      "upstream_mutable": false,
+      "verify_note": "Fetched twice, minutes apart, 2026-09-29: identical hash both times -- a static archive, not a generated response, so pinned as an ordinary URL+hash entry rather than vendored, unlike horizons-acs3-vectors above.",
+      "consumes": "declared-members",
+      "consumes_note": "The archive also contains Vallado's own C++/C#/FORTRAN SGP4 implementations (sgp4/cpp/SGP4, sgp4/cs, sgp4/for) -- not extracted and not opened, per D4 and the eclips.f precedent (PROVENANCE.md Sec.30.3): a reference implementation with no licence of its own is for cross-checking numbers, never a template. Only SGP4-VER.TLE and its 32 matching .e files are consumed.",
+      "members": [
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/SGP4-VER.TLE",
+          "sha256": "d246d1d9d768ace445a38a965713fa9ba52d80fd8a41a0502ff83d7acffe2881",
+          "role": "the 26 published verification TLEs; each line 2 carries its own start/stop/step-MFE trailer (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/00005.e",
+          "sha256": "5fd9b6dedbd755f0f336b143a076bbe6308e22c2f79f21910367963868b64869",
+          "role": "expected TEME state, satellite 00005 -- Near Earth: TEME example satellite (VAL06 Table 1) -- also FRAME-A-009's own published-example case",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/04632.e",
+          "sha256": "b9eae62f83659ee2a25668f7ca0b1e62cff3c368248332102335a9629001f14f",
+          "role": "expected TEME state, satellite 04632 -- Synchronous: Lyddane choice near MFE -5000, paired with 14128 (VAL06 Table 1 cont.)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/06251.e",
+          "sha256": "d806df44648b1009dfd0ba7d8ff5348638c35255df94945299ce7b29cb1718aa",
+          "role": "expected TEME state, satellite 06251 -- Near Earth: normal drag equation, moderate-drag case, perigee ~377 km (SGP4-VER.TLE's own comment)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/08195.e",
+          "sha256": "627eb33a5a1c68287122ff29c0e2f08a4908e4bba3c38ed517e79e26e209a710",
+          "role": "expected TEME state, satellite 08195 -- Resonant: Molniya launch, 0.65-0.7 eccentricity branches of the deep-space code (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/09880.e",
+          "sha256": "5b66c54d946b3d4a664e6d8491fcd0d3d27ff42918518f80ddb82b6814578a11",
+          "role": "expected TEME state, satellite 09880 -- Resonant: Molniya launch, 0.7-0.715 eccentricity branches of the deep-space code (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/09998.e",
+          "sha256": "69341c1cdd3cff9aa1f3ac696556a9f4cb4632136e3f6fc88ad3ea2d89a170d4",
+          "role": "expected TEME state, satellite 09998 -- Synchronous: relatively high eccentricity for GEO (e=0.027), secular integrator problem (VAL06 Table 1 cont.)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/11801.e",
+          "sha256": "dadb42bca89ce0c4dd921f654334978c423a7665ea5518edef8fa7d49c78fd5f",
+          "role": "expected TEME state, satellite 11801 -- Original Spacetrack Report #3 SDP4 test case, kept for continuity (SGP4-VER.TLE's own comment)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/14128.e",
+          "sha256": "df4ae5a7bd8eddd110e8dab671b8c0a7a6ba6e63e5f074da5c413d034cf4516c",
+          "role": "expected TEME state, satellite 14128 -- Synchronous: ~0.2 rad inclination, Lyddane choice near MFE 2080 (VAL06 Table 1 cont.)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/16925.e",
+          "sha256": "d7e6a2c8fec8122d58daa1f659990536f4bf67f5cc71686630ffe1d69de47a68",
+          "role": "expected TEME state, satellite 16925 -- Deep Space: very low perigee (82.48 km), exercises the second s4 branch (VAL06 Table 1 cont.)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/20413.e",
+          "sha256": "ca30b8cd862d476eb5a9942d03c8d96ec752eaddee5fae57973c13443b792cd3",
+          "role": "expected TEME state, satellite 20413 -- Deep Space: long-period (~4 day) orbit, Lyddane choice near MFE 1860; crosses a leap second in its own MFE span (VAL06 Table 1 cont.)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/21897.e",
+          "sha256": "e52489a158a4f16d6e4cd915a51986eb57e26c1601cc8629ada32bcc592b4922",
+          "role": "expected TEME state, satellite 21897 -- Resonant: Molniya launch, eccentricity branches above 0.715, negative Bstar (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/22312.e",
+          "sha256": "1887dbb63c6171764cb11ce491677fc9ef2310743be940ee6c9a707ef471425e",
+          "role": "expected TEME state, satellite 22312 -- Last TLE issued before this object decayed 2006-04-04 (SGP4-VER.TLE's own comment)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/22674.e",
+          "sha256": "ac59cb3b1d2aab07181cf7025f31f4e6416df0c8ab6ccf4c8bc5f3ac9ef2159f",
+          "role": "expected TEME state, satellite 22674 -- Resonant: rocket body, similar to 21897 (e>0.715) but positive Bstar (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/23177.e",
+          "sha256": "e03bed7346ce9795a01257d7af178da533fe9d956e2e9f811f04d18da5a8e449",
+          "role": "expected TEME state, satellite 23177 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/23333.e",
+          "sha256": "725487e20516a629b9b06f43eaf6cbade398b162e287e1a1feabaec2216cedde",
+          "role": "expected TEME state, satellite 23333 -- Deep Space: very high eccentricity, Kepler-solution problems in the original Report #3 code (VAL06 Table 1 cont.)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/23599.e",
+          "sha256": "cdf93aa80bc5fb1b63b7abdc1979f7281b3a4c6dd50b9620d14d08bd97b746de",
+          "role": "expected TEME state, satellite 23599 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/24208.e",
+          "sha256": "102bbf36cff1b68b69f54b52fbf508c4a4db7a839cf43262b5090a1473573cf4",
+          "role": "expected TEME state, satellite 24208 -- Synchronous: geostationary orbit above 3 deg inclination (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/25954.e",
+          "sha256": "678befb5a56a32a740baee8264c33255e715cbc02828c84a619675a231018240",
+          "role": "expected TEME state, satellite 25954 -- Synchronous: low-inclination GEO, negative-inclination problem near MFE 274 (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/26900.e",
+          "sha256": "e3f8e55257c0c8fd1795018bf4bc598fa79fa0255269634aa9cf97aebcb90c88",
+          "role": "expected TEME state, satellite 26900 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/26975.e",
+          "sha256": "617393b9e22fd79335790280968e3837752b9fd93a55356b25bffbf8d2946adc",
+          "role": "expected TEME state, satellite 26975 -- Resonant: Molniya-style debris launch, exercises the 0.5-0.65 eccentricity branches in deep space (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/28057.e",
+          "sha256": "d58b215fe5b8f7366932039dd2b8045b2fd0e124ff4bbb3f96ce011e300c1953",
+          "role": "expected TEME state, satellite 28057 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/28129.e",
+          "sha256": "bf7129f4785eb875284f814ea5fee72baf778dfbed6176ab92408734b5b06fd5",
+          "role": "expected TEME state, satellite 28129 -- Deep Space: GPS navigation satellite, near-circular 12h orbit (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/28350.e",
+          "sha256": "b0c4f0f8469a5a1ae5f5d8f83a4391fa304f57e38c0644c9b1d2425f75cbbd3b",
+          "role": "expected TEME state, satellite 28350 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/28623.e",
+          "sha256": "987d28628c587b4bcdb0fd06b517d5b82392739550a480f46c9595699a58776e",
+          "role": "expected TEME state, satellite 28623 -- Deep Space: low perigee (135.75 km), exercises the s4 drag-coefficient branch for perigee<156 km (VAL06 Table 1 cont.)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/28626.e",
+          "sha256": "19785693be0f9f3a568ef2efc3900d9e9f28017769a640f03558029e4867accd",
+          "role": "expected TEME state, satellite 28626 -- Synchronous: low-inclination (<3 deg) GEO, premature negative-inclination correction near MFE 1130 (VAL06 Table 1)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/28872.e",
+          "sha256": "2f55c5c3e41937e6ff1b0ce864d763fadc0166d54db71bc1da70cd31855a5b06",
+          "role": "expected TEME state, satellite 28872 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/29141.e",
+          "sha256": "417301ee82439ecd6417ef24d753e87654f41accdffd327b84761e4c89a049c7",
+          "role": "expected TEME state, satellite 29141 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/29238.e",
+          "sha256": "407799532017eaab9041d6bb6db623e865e80e6b9b08dd2b4ce0160da3431288",
+          "role": "expected TEME state, satellite 29238 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/33333.e",
+          "sha256": "ec6aa49734108a7eea88f224a3d48cd22f9b30bdacbe01d316ebd60edb28e65c",
+          "role": "expected TEME state, satellite 33333 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/33334.e",
+          "sha256": "0156704a2f6ecbb608cf1ddf1577aba481575a879793958eef3e8378eb2cf766",
+          "role": "expected TEME state, satellite 33334 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/33335.e",
+          "sha256": "2ee8943f5a904781aa8ea92dcfeb02d37cc5de3bffb88c4fd97724a63a1acc7f",
+          "role": "expected TEME state, satellite 33335 -- one of SGP4-VER.TLE's own 26 published verification cases (VAL06 Appendix D)",
+          "extract": true
+        },
+        {
+          "member": "sgp4/cpp/testsgp4/TestSGP4/88888.e",
+          "sha256": "a1549d80a97e13bb1195c399197abb2e13947bb6be889fa17ab4576bd540d671",
+          "role": "expected TEME state, satellite 88888 -- STR3 section 13's own original 1980 sample satellite -- also this tree's own step-1 TLE-reader fixture",
+          "extract": true
+        }
+      ],
+      "retrieved": "2026-09-29"
+    },
+    {
       "id": "horizons-acs3-vectors",
       "kind": "data",
       "vendored": true,

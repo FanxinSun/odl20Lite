@@ -7060,10 +7060,95 @@ states the underlying cause).
 
 ---
 
+## 38. L6 step 3 — `sgp4`: sources backfilled and pinned; the port itself not yet begun
+
+Rule-4 report (previous round) covered the two sources per D4 — `STR3`, `VAL06` — and escalated a
+hash gap and a licence question. Both ruled (`plan/subplan_L6/L6-3.md`, pushed `ad9d362`). This
+round closes both, pins the published verification vectors, and finds a third thing while reading
+`STR3` for the port itself, reported rather than resolved alone.
+
+### 38.1 `VAL06`'s own hash, missing since L1, backfilled
+
+Checked directly, not assumed from its absence: neither `SPEC-frames.md` §2's own sources table nor
+`PROVENANCE.md`'s own citation register (§9, `| VAL06 | ... |`) has ever carried a hash for `VAL06`,
+unlike every manifest-pinned source cited there. Both tables' own convention, confirmed by their
+other rows (`TN36-5`, `TN36-1`, `ERFA`), is to state the hash in `manifest.json` and not duplicate it
+inline — so the fix is a manifest entry, not a table edit. Fetched `AIAA-2006-6753-Rev2.pdf` twice,
+minutes apart, both fetches identical: `538a5c0ea174eb569bbc258011717142a26d72871ab07cc64ee5fa3773164b16`.
+Added as `vallado-2006-revisiting-str3`, `kind: literature` — a provenance record, not a dependency,
+the same shape this tree's six existing literature entries already use, `terms` recording that the
+paper's own text carries no separate statement from the code/test-data grant below (checked, not
+assumed to inherit it). `hoots-roehrich-1980-spacetrack-report-3` added the same way, reusing the
+hash `SPEC-io-formats.md` §2 already pinned at step 1 (`0ac48df7...`, re-fetched and re-verified
+identical) — the manifest now carries what the spec already cited. Neither needs (or has) a
+`licence` field: `cmd_check_licences` exempts `kind: literature` entirely, checked directly in
+`tools/fetch.py` rather than assumed from the other six entries' own shape.
+
+### 38.2 The published verification vectors — the authors' own distribution, quoted from raw bytes
+
+Ruled: use the primary distribution (`celestrak.org/publications/AIAA/2006-6753/`), not the
+companion GitHub repository, so the licence basis is the primary source's own unscoped grant rather
+than a repository carve-out that names only "the C++ SGP4 implementation." Quoted from the RAW BYTES
+of `.../faq.php` (`curl`, HTML tags stripped with a script, not a summarising fetch — the previous
+round's own flagged gap): *"Are there any Licenses required to use the SGP4 code? There is no
+license associated with the code and you may use it for any purpose—personal or commercial—as you
+wish. We ask only that you include citations in your documentation and source code to show the
+source of the code and provide links to the main page..."* New licence identifier
+`VALLADO-UNRESTRICTED` in `tools/fetch.py`, the same shape as `SPACETRACK-PUBLIC` — a real, stated
+grant, no `search_recorded` needed.
+
+`AIAA-2006-6753.zip`'s own URL fetched twice, minutes apart: identical hash
+(`3642043b706c76be87cf012db3f22e04da6b80498d00f515e51879e0ffadc115`) both times — a static archive,
+unlike Horizons' own generated response, so pinned as an ordinary manifest entry, not vendored.
+`consumes: declared-members` (the `EGM2008` pattern): `SGP4-VER.TLE` (26 published TLEs) and all 32
+matching `.e` files (STK ephemeris, `CoordinateSystem TEME` stated explicitly in each one's own
+header), each member individually hashed. The archive also contains Vallado's own C++/C#/FORTRAN
+SGP4 implementations — not extracted, not opened, `consumes_note` states why (D4, `eclips.f`,
+§30.3). `python3 tools/fetch.py fetch` and `check-licences` both run clean on the real entries, not
+merely inspected: all three fetched fresh, every one of the 33 members' hashes verified individually
+by `fetch.py` itself, `check-licences` reports 8 literature entries (six prior, two new) and 32
+licensed entries all on the allowlist.
+
+### 38.3 What `STR3` actually is, found reading it for the port, not assumed from D4's own phrasing
+
+D4 says "port from Spacetrack Report #3 and Vallado et al. 2006" — read as meaning two *papers*,
+the same shape as every other "implement from the printed mathematics" source in this tree. Reading
+`STR3` itself for the port (this round's own first attempt) found that shape does not quite hold.
+`STR3`'s own abstract states it plainly: *"Equations for five compatible models are given here
+**along with corresponding FORTRAN IV computer code**."* Sections 5–10 (the SGP, SGP4, SDP4, SGP8,
+SDP8 models, and the shared deep-space subroutine) print typeset mathematical notation and its own
+FORTRAN IV realisation interleaved, statement by statement, section by section. There is no
+equations-only edition of the original 1980 algorithm — unlike, say, the IERS Conventions, where the
+printed tables and the separately-distributed Fortran are two different files this tree can choose
+between, `STR3`'s own FORTRAN *is* part of the primary, normative 1980 publication of SGP4, not a
+separate reference implementation of some other equations-only specification.
+
+`VAL06` does not resolve this by substitution: its own section titles ("III. Computer Code
+Development," "VI. Expected Code Updates") and its own low density of freestanding numbered
+equations (mostly in Appendix C's TEME↔J2000 example, already this tree's `FRAME-A-009`) show it is
+a corrections-and-errata paper against `STR3`'s own baseline, not a from-scratch equations-only
+restatement of the whole algorithm. Between the two papers named by D4, there is no clean,
+code-free equations edition of SGP4/SDP4 to port from.
+
+**Not resolved here.** Whether "derive from the printed mathematics, never the FORTRAN's own
+structure" (the discipline this tree already applies to `RKF7(8)`'s tableau and, differently, to
+`eclips.f`) is the right reading when the mathematics and the FORTRAN are the same interleaved
+document, or whether this source's shape needs its own ruling, is put to the manager rather than
+decided alone — the stakes (getting the port right the first time, against a tolerance-gated
+published test battery) are exactly the ones rule 4 exists for. No SGP4/SDP4 code has been written
+this round.
+
+ci.sh: 13 gates green, tree-wide test count unchanged from the last verified run (no code added yet).
+Committed as the paths touched this round: `manifest/manifest.json`, `manifest/MANIFEST.md`,
+`tools/fetch.py`, `PROVENANCE.md`.
+
+---
+
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-29 | **L6 step 3 opens: VAL06's own hash, missing since L1, backfilled; the published SGP4 verification vectors pinned from the authors' own distribution under a new stated-grant licence quoted from raw bytes; and a real question found reading STR3 for the port itself — its own equations and FORTRAN are one interleaved document, not two, escalated before any propagator code is written.** §38 added. `manifest.json` gains three entries: `vallado-2006-revisiting-str3` and `hoots-roehrich-1980-spacetrack-report-3` (`kind: literature`, the six-entry-strong existing pattern, STR3 reusing its already-pinned step-1 hash and VAL06 closing a gap that predates this round), and `vallado-sgp4-verification-vectors` (`kind: data`, SGP4-VER.TLE plus all 32 matching STK `.e` files, `consumes: declared-members`, the EGM2008 pattern). `tools/fetch.py` gains `VALLADO-UNRESTRICTED`, the same shape as `SPACETRACK-PUBLIC` — a real, stated grant ("no license associated with the code... use it for any purpose"), quoted from the raw HTML bytes of the primary distribution's own FAQ rather than a summarising fetch, deliberately preferring it over the companion GitHub repository's own narrower AGPL carve-out (scoped textually to "the C++ SGP4 implementation" alone). All three entries fetch, verify and pass `check-licences` for real, including all 33 individual member hashes. Reading `STR3` itself for the port (not assumed from D4's own two-papers phrasing) found its own abstract states plainly that it prints "equations... along with corresponding FORTRAN IV computer code" — sections 5-10 interleave typeset mathematics and its own FORTRAN realisation, with no equations-only edition anywhere, and VAL06 does not substitute (its own section titles and low equation density show it is a corrections paper against STR3's own baseline, not a from-scratch restatement). Put to the manager rather than decided alone, matching D4/eclips.f's own "derive from mathematics, never a reference implementation's structure" discipline to a source where the two are not separable the way they are everywhere else in this tree. No SGP4/SDP4 code written yet. |
 | 2026-09-25 | **A manifest entry pinned only to the gitignored cache is not reproducible on a fresh clone, and this Horizons capture's own defining property (no live re-fetch ever reproduces it) meant nothing could ever repair a cleared cache for it: a new, general `vendored: true` manifest mechanism tracks the bytes in the repository itself instead, proved by injection AND proved by deleting the cache and re-running the full suite on the tracked copy alone. The TLE's own terms, re-examined: Space-Track's own grant is real but requires a login the handover forbids, so CelesTrak — which states directly, in its own words, that it sources GP data from Space-Track — is the actual no-login fetch point, and both are now cited.** `tools/fetch.py` gains `is_vendored`/`vendored_dir`; `entry_path` routes a vendored entry to `data/vendored/<id>/<filename>` (checked against `.gitignore` first: untouched by its existing rules, tracked by default); `cmd_fetch` skips a vendored entry entirely, before any `--refresh` branching, so a refresh cannot re-acquire it either; `cmd_verify`'s own already-generic loop needed no change, since it already resolves every entry through `entry_path`. `cmake/OdlManifest.cmake` gains the matching `ODL_VENDORED_DIR`, and `odl_manifest_get`'s own `_CACHE_PATH` branches the same way — `modules/io/CMakeLists.txt`'s own existing call needed no change once the manifest entry itself gained the flag. `tests/test_fetch.py` gains seven isolated cases against a synthetic manifest (a `.invalid` URL proves no command dials out, matching the existing plain-cache tests' own proof shape): verify accepts a matching vendored file, fetch and fetch --refresh both report it vendored without touching the network, a missing tracked file refuses MISSING naming "restore from git" rather than suggesting a re-fetch, a tampered one refuses MISMATCH. Then proved on the real entry: `data/cache/horizons-acs3-vectors/` confirmed absent, a full ci.sh run (13 gates, 445 tests, 740 artefacts byte-identical) passed throughout with it still absent. `MANIFEST.md` gains a "Vendoring" section stating the general rule for the next upstream with this shape: if a live re-fetch cannot be relied on to reproduce its own pinned bytes -- not occasional drift, but structural -- vendor it from the start. Separately: CelesTrak's own GP-data-formats page states directly, discussing a recent outage, "we got hammered by users... trying to get fresh GP data (which we get from Space Track)" -- confirming it is a redistributor, not an independent source, so `SPACETRACK-PUBLIC` remains the operative basis for a CelesTrak-fetched TLE, with both sources now cited; a TLE capture will need the same vendoring treatment when step 3 pins one, since CelesTrak's own "current" endpoint drifts for an actively-tracked object the same way a live Horizons query does. Tree-wide: 445 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
 | 2026-09-25 | **L6 step 2's own licence question ruled and implemented: a new manifest licence basis, FACTUAL-DATA-CITED, earned by a recorded search and proved refusing an entry that claims it without one; the real ACS3 Horizons capture pinned and read by a real acceptance test; the TLE's own terms searched as asked and found stronger — an explicit, stated blanket approval, not an absence.** `tools/fetch.py` gains two new tree-invented licence identifiers: `FACTUAL-DATA-CITED` (RS14's own reasoning — computed positions are factual data, not an expression — gated on a new, required `search_recorded` field naming where the search is written up, `PROVENANCE.md` §37.4, enforced by `check-licences` and proved by injection in `tests/test_fetch.py`, the same "inject the historical error" discipline two other checkers in this tree already use) and `SPACETRACK-PUBLIC` (a real, explicit, current statement, fetched and quoted directly: "USSPACECOM has provided express blanket approval for transfer/redistribution of basic SSA data... conditioned on appropriate citation," `space-track.org`, covering TLEs directly — considerably stronger than Horizons' own silence, and needing no `search_recorded` obligation since it is a stated grant, not an earned absence). `manifest/manifest.json` gains `horizons-acs3-vectors`, a real, pinned ACS3 vector-table capture, `upstream_mutable: true`; `IOHZ-A-008` (`SPEC-io-horizons.md`) reads it directly, real data alongside the seven hand-built fixtures. A genuine, previously-unknown wrinkle surfaced while establishing the pin: every live Horizons response embeds its own request-processing wall-clock timestamp, so no two live fetches of the identical query ever hash-match, even minutes apart — confirmed directly when a routine `fetch.py fetch` mismatched against an earlier `curl` fetch of the same query on the first attempt. Gate 1 ("manifest verifies offline") is unaffected in practice, since it never touches the network; resolved by placing the already-fetched, already-hashed file directly into the cache rather than chasing a second live fetch's own necessarily-different hash. An early TLE-terms search surfaced a 2004 pilot-program statute restricting a specific, now-superseded distribution channel — checked directly and set aside, since it does not govern the modern, standing Space-Track.org approval this tree and Celestrak's own public mirror actually draw from. Tree-wide: 444 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
 | 2026-09-25 | **L6 step 2: a Horizons vector-table reader built, requiring no new fetch code (a query is a URL like any manifest entry's); a real query run to verify the documented format, finding an unscoped light-time-correction trap along the way; and oracle case T-01 checked, not assumed — its own frozen 2.246 m is conditioned on a specific historical TLE and Horizons capture neither of which today's data reproduces, a hash comparison proves.** `SPEC-io-horizons.md` v1.0 (new, `IOHZ`) adopted; `modules/io` gains `read_horizons`, 7 acceptance rows against hand-built fixtures (verified separately, locally, against a real uncommitted response). No fetch utility was written: a Horizons query is a fully-parameterised URL, so `manifest/manifest.json` plus the tree's own existing `tools/fetch.py` is the whole mechanism once a licence question (below) is ruled; CI would then read a pinned capture exactly like any SPK kernel, never the live API — marked `upstream_mutable: true` in the manifest schema's own existing field for this, since JPL revises orbit solutions for actively-tracked objects (proved, not assumed, by this round's own hash comparison, below). `TIME_TYPE=TDB` is requested explicitly and checked on every printed record, not trusted from the request alone; running a real query (ACS3, the same object oracle cases `T-01`/`O-*` use) surfaced a second, unscoped trap the original design missed — `VEC_CORR` selects geometric vs. light-time/aberration-corrected output, and only the geometric form is the same physical quantity SGP4's own TEME state is, so `Output type` is now checked too, refusing a corrected table outright. A first test draft asserted a stripped `target_body` string, failing immediately against the interface's own stated "verbatim" contract — the test was wrong, not the parser, fixed in place. Oracle case `T-01`'s own two recorded input hashes (`oracle/environment.txt`, read; `capture.sh` was not, per `ORACLE.md` §1's own explicit rule) do not match a fresh TLE (`celestrak.org`) or a fresh Horizons capture fetched this round — expected, since `ORACLE.md` §6 itself states the Horizons side "is" the TLE for an object like this, and a LEO TLE is reissued every few days; the ~2.2 m required-disagreement assertion is a property of the frame-conversion models and can still be gated on fresh data, but the literal 2.246 m must not be asserted as its expected value — reported before step 3 is designed, per the manager's own explicit instruction. The manifest entry itself is not yet added: JPL's own redistribution terms for Horizons OUTPUT DATA specifically (distinct from the API documentation, which this spec cites the same clean-room way every other format's own source is) were searched (the API manual, a 404'd policy page, JPL's own image-specific policy, NASA's own general content page, the SSD site's own citation guidance) and found genuinely unstated — escalated, not decided, the same shape RS14's own licence question took at L5. Tree-wide: 444 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
