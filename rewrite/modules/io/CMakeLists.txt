@@ -1,10 +1,10 @@
 odl_add_module(io
   SOURCES      src/sp3.cpp src/tle.cpp src/crd.cpp src/cpf.cpp src/iod.cpp src/sinex.cpp src/antex.cpp
-               src/sp3_ephemeris.cpp src/horizons.cpp
-  DEPENDS      odl::core odl::time
+               src/sp3_ephemeris.cpp src/horizons.cpp src/sgp4.cpp
+  DEPENDS      odl::core odl::time odl::frames
   TEST_SOURCES tests/sp3_tests.cpp tests/tle_tests.cpp tests/crd_tests.cpp tests/cpf_tests.cpp
                tests/iod_tests.cpp tests/sinex_tests.cpp tests/antex_tests.cpp
-               tests/sp3_ephemeris_tests.cpp tests/horizons_tests.cpp)
+               tests/sp3_ephemeris_tests.cpp tests/horizons_tests.cpp tests/sgp4_tests.cpp)
 
 # IOFM-A-030/031's own real-data holdout accuracy checks read two real SP3
 # excerpts from disk rather than carrying them as string-literal fixtures --
@@ -25,4 +25,13 @@ if(BUILD_TESTING)
   odl_manifest_get(horizons-acs3-vectors _horizons_acs3)
   target_compile_definitions(odl_io_tests PRIVATE
     ODL_HORIZONS_ACS3_TXT="${_horizons_acs3_CACHE_PATH}")
+
+  # L6 step 3's own gate: the published SGP4 verification vectors
+  # (SGP4-VER.TLE plus 32 .e files), extracted members of
+  # vallado-sgp4-verification-vectors -- the same manifest-supplied-path
+  # shape as ODL_HORIZONS_ACS3_TXT above, one directory rather than 33
+  # separate definitions since the test reads every member by its own
+  # already-known filename.
+  target_compile_definitions(odl_io_tests PRIVATE
+    ODL_SGP4_VECTORS_DIR="${ODL_CACHE_DIR}/vallado-sgp4-verification-vectors/extracted")
 endif()

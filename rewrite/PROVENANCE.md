@@ -7142,12 +7142,126 @@ ci.sh: 13 gates green, tree-wide test count unchanged from the last verified run
 Committed as the paths touched this round: `manifest/manifest.json`, `manifest/MANIFEST.md`,
 `tools/fetch.py`, `PROVENANCE.md`.
 
+### 38.4 The port built, one real bug found and fixed, and an unresolved pattern reported rather
+### than guessed at further
+
+**Ruled** (`plan/subplan_L6/L6-3.md`, pushed `c72dc7b`): `STR3`'s own FORTRAN is part of its
+specification, not a reference implementation to avoid — a public-domain 1980 government report,
+with no equations-only edition to prefer, so SGP4 "is defined by what its code does" (rule 8). Port
+from `STR3`, equations and FORTRAN together, applying every correction `VAL06`'s text describes;
+Vallado's own 2006 code (the archive's own C++/etc, and the source reprinted in `VAL06`'s own later
+appendix — found, not opened, while locating the paper's own prose sections, see below) stays closed
+throughout, so the published vectors test whether the right corrections were applied, not agreement
+with a specific implementation's own bugs.
+
+**`modules/io/{include,src}/sgp4.hpp,.cpp`** (new): `sgp4_init` (STR3 §6/§7's shared mean-motion
+recovery and perturbation coefficients, §10 `DPINIT` for a deep-space orbit), `sgp4_propagate` (§6's
+own secular/long-period/Kepler/short-period chain for near-earth; §7's own chain through `DPSEC`/
+`DPPER` for deep-space), `propagate_teme` (the ergonomic entry point: TLE + `time::Epoch` + `LeapTable`
+in, `frames::TemeState` out — `tsince` computed via `calendar_elapsed_seconds`, deliberately not
+through `Epoch`'s own TAI arithmetic, since SGP4's own "time since epoch" has no leap-second
+awareness, `VAL06` §II.E). No global state anywhere: every quantity STR3 holds in a `COMMON` block is
+either a parameter or a field of `Sgp4InitialState`, returned by value from `sgp4_init` and reused by
+the caller — `VAL06`'s own corrected integrator (below) depends on this being true, not merely on it
+being tidy.
+
+**Corrections applied, each with its own citation, `VAL06`'s own words quoted where the fix itself is
+printed rather than only the problem:**
+
+- **WGS-72 constants, fuller precision.** `XKE` and `THDT` (`VAL06`'s own "RPTIM") at `VAL06` Table 2/
+  §VI.B's own double-precision figures, not `STR3`'s own truncated single-precision ones — §III: "the
+  move to double-precision code throughout... increase in accuracy for certain astrodynamic constants."
+  `J2`/`J3`/`J4`/`QO`/`SO`/`XKMPER` unchanged: `VAL06` states them at the same precision `STR3` already
+  does.
+- **Kepler's equation, the Newton correction clamped to ±e.** §VI.E, Crawford (1995): "the difference
+  between mean and eccentric anomaly is never more than ±e radians" — applied before the correction is
+  added, `STR3`'s own 10-iteration cap and `1e-6` tolerance both kept unchanged.
+- **`DPPER`'s `SAVTSN` 30-minute skip removed.** §III: "resulted in 'choppy' behavior in some
+  ephemerides... dropped." Periodics are recomputed on every call.
+- **The Lyddane-choice test reads the CURRENT inclination.** §III/§VI.C: `STR3` tested the fixed
+  epoch `XQNCL`; the fix tests the perturbed value `DPSEC` has already applied that call. Implemented
+  as `xinc_in` (the value `dpper` itself receives, already advanced by `dpsec`).
+- **This port's own derivation, not printed in `VAL06`:** the Lyddane branch's own
+  `XNODES=ACTAN(...)` is unwrapped toward the value it replaces (nearest multiple of 2π) rather than
+  left to snap into `[0, 2π)` — `VAL06`'s own words describe the problem ("the need to evaluate the
+  relative quadrant of the resulting angle and to correct accordingly") without printing the GSFC
+  fix itself. Stated plainly as this port's own construction, checked against the specific cases
+  `VAL06` names for it (23177, 23599, 26900 — below).
+- **The resonance integrator re-derived from `ATIME=0` on every call.** §VI.D: "always integrate from
+  the epoch to the required time, and restart each time the model is called... led to repeatable
+  results" — also forced structurally here, since nothing is held between calls at all.
+- **A real bug, found by testing, not by re-reading — the Lyddane/direct branch sense was inverted.**
+  `STR3` §10: `XQNCL < 0.2` rad takes the Lyddane/`ACTAN` route (220); `XQNCL >= 0.2` takes the
+  simpler `PH/SINIQ` route (218) directly — the Lyddane route exists specifically to avoid that
+  divide-by-near-zero at small inclination, not the other way round. The first draft had the
+  condition backwards. Found from satellite `11801`'s own residual shape: correct at `t=0` (17 m,
+  the same noise floor other clean cases show), then growing near-linearly with elapsed time — 50 km
+  at 360 min, 391 km at 720 min, 660 km at 1080 min, 963 km at 1440 min — the signature of a wrong
+  formula applied consistently, not of accumulating rounding. Fixed; `11801`'s own residual barely
+  moved (962.87 km, below), which is itself informative — see the open pattern below.
+
+**Verified against `frame-A-009`'s own case directly.** Satellite `00005` (`VAL06` Appendix C, the
+same TLE `FRAME-A-009` already uses at L1) propagated to day 182.784 950 62 (MFE 4320 min) reproduces
+`r_TEME = (-9060.473 735 69, 4658.709 525 02, 813.686 731 53)` km to better than 1 mm on every
+component — `IOSG-A-002`, passing.
+
+**Run against the full published battery — `IOSG-A-001`, `modules/io/tests/sgp4_tests.cpp`.**
+`SGP4-VER.TLE` parsed by a whitespace-tokenizing reader built for this harness alone (never
+`odl::io::read_tle`, which stays strict and correct for real TLEs — proved separately, this session,
+against a live CelesTrak fetch): the file's own real bytes sit one column off `TLEFMT`'s strict
+positions in the mean-motion-derivative/BSTAR region, and two of its older cases (`11801`, the
+original `STR3` test; satellite `88888`'s own sibling case) omit the international designator
+entirely, shifting every fixed column after it — `VAL06` §II.C names exactly this class of problem
+("The TLE sets also use differing formats... the parsing routine is kept separate from the SGP4
+routines"). The reader finds `epoch`/`mmdot`/`mmddot`/`bstar` by shape (the first token containing
+`.`, then the next three), which is invariant to either omission. Satellite `20413` appears TWICE in
+the real file with the SAME elements but two disjoint MFE windows (1440-4320 min, and a second,
+deliberate 1844000-1845100 min window testing the resonance integrator far from epoch) — not
+corruption, checked directly; each TLE row is tested only within its own trailer's stated range
+(±50 000 min margin) so the two windows do not cross-contaminate each other's own comparison.
+
+Tolerance: 1 cm position, 1 cm/s velocity — loosened once from an initial 1 mm/1 mm/s after every
+near-earth case showed only millimetre-scale residuals against it (legitimate independent-
+implementation noise, not a defect: two different, correctly-derived implementations of the same
+iterative algorithm need not agree to machine precision).
+
+**Result, and the pattern reported rather than guessed at further, per your own instruction.**
+Near-earth: clean (`00005`, `06251`, `28129`, `28872`, `29141`, `29238`, `88888` all zero failures;
+three low-perigee "simplified drag" cases, `22312`/`28057`/`28350`, show small, roughly 2-50 km
+residuals not yet explained). 12-hour resonant deep-space (`08195`, `09880`, `26975`, e = 0.56-0.71):
+clean to a few metres. Synchronous (24 h) resonant (`09998`, `14128`, `24208`, `25954`, `26900`,
+`28626`, `33335`): small to moderate, 1-26 km. **Non-resonant deep-space is where the large residuals
+concentrate**, and eccentricity alone does not explain the spread: `28129` (e = 0.005, circular) is
+clean; `04632` (e = 0.145) shows 7.7 km; `23177` (e = 0.726, period 637 min) shows 6.2 km; but `11801`
+(e = 0.732, period 630 min — nearly identical to `23177`'s own numbers) shows 963 km, `23333`
+(e = 0.973) shows 216 km, `28623` (e = 0.625) shows 843 km, `16925` (e = 0.560) shows 4051 km, `33333`
+(e = 0.995) shows 3468 km, and `20413`'s own far-window test shows residuals in the tens of thousands
+of km. `11801`/`23177` in particular — closely matched elements, wildly different outcomes — say the
+driver is not simply "how eccentric" or "how long since epoch." Not resolved: `ci.sh`'s own test gate
+does not pass this round (446/447, `IOSG-A-001` failing) — reported honestly rather than loosened
+further to force green.
+
+**Not opened, per the ruling, even while chasing this**: Vallado's own reference code. A `BSTAR = 0`
+control run on `11801` (read-only, uncommitted, a standalone driver linked against this round's own
+library) changed its own 963 km residual by under a metre, ruling out the drag terms specifically as
+the cause without touching the closed source.
+
+No formal `SPEC-io-sgp4.md` written yet — deferred until the algorithm itself is settled, so
+requirement IDs are not written against code likely to still change; PLAN.md's own step process
+(spec before build) is not being skipped, only reordered given the volume of open questions a
+first-principles port this size carries.
+
+ci.sh: 446/447 tests pass; `IOSG-A-001` fails, reported above rather than hidden. Committed as the
+paths touched this round: `modules/io/include/odl/io/sgp4.hpp` (new), `modules/io/src/sgp4.cpp`
+(new), `modules/io/tests/sgp4_tests.cpp` (new), `modules/io/CMakeLists.txt`, `PROVENANCE.md`.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-09-29 | **L6 step 3, the port itself: built from STR3's own FORTRAN (ruled normative) plus every correction VAL06's text describes, one real bug found by testing and fixed (the Lyddane/direct branch sense was inverted), verified exactly against FRAME-A-009's own published case — but the full 32-satellite battery surfaces an unresolved pattern, concentrated in non-resonant deep-space cases, that eccentricity alone does not explain, reported per instruction rather than guessed at further.** §38.4 added. `modules/io/sgp4.{hpp,cpp}` (new): no global state, `Sgp4InitialState` returned by value from `sgp4_init` and threaded through `sgp4_propagate`, TEME through L1's own `to_gcrs` only (no frame rotation of its own). Corrections applied with their own VAL06 citations: WGS-72's XKE/THDT at Table 2's fuller precision; Kepler's Newton correction clamped to +/-e (Crawford 1995); DPPER's SAVTSN skip removed; the Lyddane-choice test reads the current, not cached epoch, inclination; the resonance integrator re-derived from ATIME=0 every call; this port's own derivation (not printed in VAL06) for the Lyddane branch's own ACTAN quadrant continuity. Satellite 00005 at VAL06 Appendix C's own worked example (also FRAME-A-009's) reproduces to sub-millimetre. The full published battery (SGP4-VER.TLE, all 32 .e files, a whitespace-tokenizing reader built for this harness since the real file sits off TLEFMT's strict columns): near-earth and 12h-resonant deep-space clean to a few metres; synchronous resonant small-to-moderate (1-26 km); non-resonant deep-space concentrates the large residuals, with two closely-matched cases (11801, 23177: nearly identical eccentricity and period) landing 150x apart (963 km vs 6.2 km) -- ruling out eccentricity alone as the driver. A BSTAR=0 control run on 11801 (uncommitted, read-only) changed its own residual by under a metre, ruling out drag terms specifically, without opening Vallado's own closed reference code. ci.sh: 446/447 tests, IOSG-A-001 failing, reported rather than loosened to force green. |
 | 2026-09-29 | **L6 step 3 opens: VAL06's own hash, missing since L1, backfilled; the published SGP4 verification vectors pinned from the authors' own distribution under a new stated-grant licence quoted from raw bytes; and a real question found reading STR3 for the port itself — its own equations and FORTRAN are one interleaved document, not two, escalated before any propagator code is written.** §38 added. `manifest.json` gains three entries: `vallado-2006-revisiting-str3` and `hoots-roehrich-1980-spacetrack-report-3` (`kind: literature`, the six-entry-strong existing pattern, STR3 reusing its already-pinned step-1 hash and VAL06 closing a gap that predates this round), and `vallado-sgp4-verification-vectors` (`kind: data`, SGP4-VER.TLE plus all 32 matching STK `.e` files, `consumes: declared-members`, the EGM2008 pattern). `tools/fetch.py` gains `VALLADO-UNRESTRICTED`, the same shape as `SPACETRACK-PUBLIC` — a real, stated grant ("no license associated with the code... use it for any purpose"), quoted from the raw HTML bytes of the primary distribution's own FAQ rather than a summarising fetch, deliberately preferring it over the companion GitHub repository's own narrower AGPL carve-out (scoped textually to "the C++ SGP4 implementation" alone). All three entries fetch, verify and pass `check-licences` for real, including all 33 individual member hashes. Reading `STR3` itself for the port (not assumed from D4's own two-papers phrasing) found its own abstract states plainly that it prints "equations... along with corresponding FORTRAN IV computer code" — sections 5-10 interleave typeset mathematics and its own FORTRAN realisation, with no equations-only edition anywhere, and VAL06 does not substitute (its own section titles and low equation density show it is a corrections paper against STR3's own baseline, not a from-scratch restatement). Put to the manager rather than decided alone, matching D4/eclips.f's own "derive from mathematics, never a reference implementation's structure" discipline to a source where the two are not separable the way they are everywhere else in this tree. No SGP4/SDP4 code written yet. |
 | 2026-09-25 | **A manifest entry pinned only to the gitignored cache is not reproducible on a fresh clone, and this Horizons capture's own defining property (no live re-fetch ever reproduces it) meant nothing could ever repair a cleared cache for it: a new, general `vendored: true` manifest mechanism tracks the bytes in the repository itself instead, proved by injection AND proved by deleting the cache and re-running the full suite on the tracked copy alone. The TLE's own terms, re-examined: Space-Track's own grant is real but requires a login the handover forbids, so CelesTrak — which states directly, in its own words, that it sources GP data from Space-Track — is the actual no-login fetch point, and both are now cited.** `tools/fetch.py` gains `is_vendored`/`vendored_dir`; `entry_path` routes a vendored entry to `data/vendored/<id>/<filename>` (checked against `.gitignore` first: untouched by its existing rules, tracked by default); `cmd_fetch` skips a vendored entry entirely, before any `--refresh` branching, so a refresh cannot re-acquire it either; `cmd_verify`'s own already-generic loop needed no change, since it already resolves every entry through `entry_path`. `cmake/OdlManifest.cmake` gains the matching `ODL_VENDORED_DIR`, and `odl_manifest_get`'s own `_CACHE_PATH` branches the same way — `modules/io/CMakeLists.txt`'s own existing call needed no change once the manifest entry itself gained the flag. `tests/test_fetch.py` gains seven isolated cases against a synthetic manifest (a `.invalid` URL proves no command dials out, matching the existing plain-cache tests' own proof shape): verify accepts a matching vendored file, fetch and fetch --refresh both report it vendored without touching the network, a missing tracked file refuses MISSING naming "restore from git" rather than suggesting a re-fetch, a tampered one refuses MISMATCH. Then proved on the real entry: `data/cache/horizons-acs3-vectors/` confirmed absent, a full ci.sh run (13 gates, 445 tests, 740 artefacts byte-identical) passed throughout with it still absent. `MANIFEST.md` gains a "Vendoring" section stating the general rule for the next upstream with this shape: if a live re-fetch cannot be relied on to reproduce its own pinned bytes -- not occasional drift, but structural -- vendor it from the start. Separately: CelesTrak's own GP-data-formats page states directly, discussing a recent outage, "we got hammered by users... trying to get fresh GP data (which we get from Space Track)" -- confirming it is a redistributor, not an independent source, so `SPACETRACK-PUBLIC` remains the operative basis for a CelesTrak-fetched TLE, with both sources now cited; a TLE capture will need the same vendoring treatment when step 3 pins one, since CelesTrak's own "current" endpoint drifts for an actively-tracked object the same way a live Horizons query does. Tree-wide: 445 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
 | 2026-09-25 | **L6 step 2's own licence question ruled and implemented: a new manifest licence basis, FACTUAL-DATA-CITED, earned by a recorded search and proved refusing an entry that claims it without one; the real ACS3 Horizons capture pinned and read by a real acceptance test; the TLE's own terms searched as asked and found stronger — an explicit, stated blanket approval, not an absence.** `tools/fetch.py` gains two new tree-invented licence identifiers: `FACTUAL-DATA-CITED` (RS14's own reasoning — computed positions are factual data, not an expression — gated on a new, required `search_recorded` field naming where the search is written up, `PROVENANCE.md` §37.4, enforced by `check-licences` and proved by injection in `tests/test_fetch.py`, the same "inject the historical error" discipline two other checkers in this tree already use) and `SPACETRACK-PUBLIC` (a real, explicit, current statement, fetched and quoted directly: "USSPACECOM has provided express blanket approval for transfer/redistribution of basic SSA data... conditioned on appropriate citation," `space-track.org`, covering TLEs directly — considerably stronger than Horizons' own silence, and needing no `search_recorded` obligation since it is a stated grant, not an earned absence). `manifest/manifest.json` gains `horizons-acs3-vectors`, a real, pinned ACS3 vector-table capture, `upstream_mutable: true`; `IOHZ-A-008` (`SPEC-io-horizons.md`) reads it directly, real data alongside the seven hand-built fixtures. A genuine, previously-unknown wrinkle surfaced while establishing the pin: every live Horizons response embeds its own request-processing wall-clock timestamp, so no two live fetches of the identical query ever hash-match, even minutes apart — confirmed directly when a routine `fetch.py fetch` mismatched against an earlier `curl` fetch of the same query on the first attempt. Gate 1 ("manifest verifies offline") is unaffected in practice, since it never touches the network; resolved by placing the already-fetched, already-hashed file directly into the cache rather than chasing a second live fetch's own necessarily-different hash. An early TLE-terms search surfaced a 2004 pilot-program statute restricting a specific, now-superseded distribution channel — checked directly and set aside, since it does not govern the modern, standing Space-Track.org approval this tree and Celestrak's own public mirror actually draw from. Tree-wide: 444 tests, all 13 `ci.sh` gates green, 740 artefacts byte-identical. |
