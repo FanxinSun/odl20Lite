@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L5 closed; **L6 open** — steps 1–2 done, steps 3–4 to come; L7–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L5 closed; **L6 open** — steps 1–3 done, step 4 to come; L7–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -265,6 +265,29 @@ to reassign. That is the answer to the risk flagged at L0, and it is the second 
 > a pin made without checking it was the revision the layer had read, in a layer whose exit gate
 > the manager verified.
 
+> **Second correction found at L6 step 3, 2026-10-06: the TEME residual against Horizons is the
+> difference between two named conventions, not a floor.** `FRAME-R-033` and `FRAME-P-5` call the
+> ≈ 3 m by which this tree's TEME result differs from Horizons' an irreducible floor of TEME's
+> definition, "measured … 2–3 m flat" — the manager's determination of 2026-09-18 — and
+> `FRAME-Q-001`'s amendment the same day explained the predecessor's 2.2 m as the IAU-76 versus
+> IAU-2006 precession difference, 0.064″, appearing undiluted because TEME has no pole-offset
+> series; §4 rule 1 repeats it. T-01 measured it instead: Horizons' conversion of a TLE's TEME
+> state applies no celestial-pole offsets, and against that convention this tree's chain differs by
+> a 50.2 mas tilt of the pole — 1.72 m mean, 1.77 m max on ACS3's orbit on 2026-10-05, as the frame
+> models predicted to the millimetre — while a chain with Horizons' convention reproduces its output
+> to 2 mm, and Revision 3's own example carries the offsets through TEME. **What stands is the
+> requirement:** TEME's definition does not say which pole a conversion assumes, and a TLE's
+> producer does not document its choice, so a TEME state carries a floor for it. **What falls** is
+> that no care removes it — against a comparator whose convention is named, the difference is
+> predicted and removed — and the precession explanation: T-01 measured 0.050″, a tilt, and the
+> frozen 2.246 m it was matched to by size has the structure of a rotation about the pole and stays
+> unexplained with its input gone. One defect surfaced in the review: the requirement states an
+> angle, of order 0.1″, and the code carries 3 m for every TEME state — a low-orbit figure, where
+> the angle gives 20 m at geostationary radius; the floor becomes 0.1″ times the state's radius,
+> with a test the constant fails. Each statement resting on the old reading is corrected where it
+> stands, its first text kept. What was wrong was a residual against a comparator whose convention
+> was unknown, called a property of the frame and then given a mechanism by its size alone.
+
 **Specification amendments this layer required — all applied 2026-09-18, specs at v1.3.**
 
 - `SPEC-eop` EOP-A-003 now takes TN36 §8.2's own bound (1 µas, 0.05 µs) instead of "the last
@@ -475,7 +498,7 @@ serves at baseline; and a sail's own macromodel (§3.9).
 
 ---
 
-### 3.7 L6 `io-measurements` — 2 of 4 done; **the open layer**
+### 3.7 L6 `io-measurements` — 3 of 4 done; **the open layer**
 
 Formats in, measurements out. Public specifications throughout — nothing here is anyone's
 intellectual property but the format authors'.
@@ -484,7 +507,7 @@ intellectual property but the format authors'.
 
 1. **DONE** — Formats → [`subplan_L6/L6-1.md`](subplan_L6/L6-1.md)
 2. **DONE** — Horizons client → [`subplan_L6/L6-2.md`](subplan_L6/L6-2.md)
-3. **TODO** — `sgp4` → [`subplan_L6/L6-3.md`](subplan_L6/L6-3.md)
+3. **DONE** — `sgp4` → [`subplan_L6/L6-3.md`](subplan_L6/L6-3.md)
 4. **TODO** — `measmod` → [`subplan_L6/L6-4.md`](subplan_L6/L6-4.md)
 
 **Exit gate:** every format round-trips, and a measurement model returns residual and partials
@@ -662,6 +685,18 @@ governs. Three rules apply to all of them:
    (FRAME-A-009's pattern), at the ≈ 2.2 m the precession difference predicts. L1 step 4's gate
    is what the oracle actually supports on its own path: magnitudes agree, separation bounded,
    round trip better than the predecessor's closure.
+
+   > **Correction found at L6 step 3, 2026-10-06 (T-01): the TEME path is no exception.** A TEME
+   > chain can carry the celestial-pole offsets as well — Revision 3 of Vallado et al. 2006 does in
+   > its own worked example, and this tree's chain does — and then the model difference cancels
+   > there by the same construction: a self-consistent pole-corrected legacy chain agrees with this
+   > tree's to about 1 mm. The disagreement exists only against a chain that applies no offsets,
+   > and Horizons' conversion of a TLE is one: T-01 measured a 50.2 mas tilt of the pole, 1.72 m
+   > mean on ACS3's orbit, matching that model to the millimetre — not the 0.064″ precession
+   > difference this paragraph matched by size to T-01's frozen 2.2 m, whose structure is a rotation
+   > about the pole and which stays unexplained with its input gone. So the mechanism above holds
+   > on both paths; the gate at T-01 was classified by named conventions before the capture was
+   > compared, and passed naming Horizons' (`subplan_L6/L6-3.md`; §3.2's second correction note).
 
 2. **An oracle comparison is never a gate on its own** — it ranks last among acceptance-value
    sources per `SPEC-template.md`. Published worked examples and published test cases are the
