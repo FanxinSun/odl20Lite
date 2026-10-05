@@ -248,16 +248,20 @@ algebraically identical, so a time at an exact multiple of 720 minutes carries n
   `THETAG` — §3.8.
 - **IOSG-R-011.** The `e <= 0.65` branch of the 12-hour resonance takes `G520`'s e^2 coefficient as
   5740.032 — §3.8 (determined by the vectors, one satellite).
-- **IOSG-R-012.** **`T-01`'s required-disagreement gate.** This tree's SGP4 → TEME → GCRS chain, applied to a fresh
-  ACS3 element set, is compared with a JPL Horizons vector table of the same object; the difference, fitted as a
-  rotation vector Ω (GCRS axes) and a time shift τ, MUST land within the pre-registered **2.0 mas** band (§9.3,
-  `PROVENANCE.md` §38.12) of one of four predicted cases — **A** (agreement: a legacy chain whose pole is observed), **B** (a
-  50 mas tilt of the pole: no offsets), **C** (a 113 mas rotation about the pole: offsets in the nutation, the equation of the
-  equinoxes from the model) or **D** (the manual's own −53 mas at face value: a 53 mas rotation about the pole, westward — **the documented
-  case, the one asserted**) — the cases and their numbers having been frozen (`IOSG-A-010`) before either table was
-  compared with anything. Which table, the validity of the fit and the meaning of each outcome are fixed by the rules of
-  `PROVENANCE.md` §38.12. Matching B or C instead of D is a finding, not a pass; agreement (A) where a disagreement was required is a failure of the required
-  disagreement; both are reported as that to the manager, not absorbed into the band.
+- **IOSG-R-012.** **`T-01`'s gate.** This tree's SGP4 → TEME → GCRS chain, applied to a fresh ACS3 element set, is compared with a JPL
+  Horizons vector table of the same object; the difference, fitted as a rotation vector Ω (GCRS axes) and a time shift τ, is
+  classified against four cases predicted, and frozen (`IOSG-A-010`), before either table was compared with anything: **A** (agreement:
+  a consistent, pole-corrected legacy chain), **B** (a 50 mas tilt of the pole: no offsets), **C** (a 113 mas rotation about the pole:
+  offsets in the nutation, the equation of the equinoxes from the model) and **D** (the manual's own −53 mas at face value: a 53 mas
+  rotation about the pole, westward, which follows from no consistent chain). **A match within the pre-registered 2.0 mas band (§9.3,
+  `PROVENANCE.md` §38.12) to A, B or C passes** — the tree's pipeline has predicted Horizons' output and the capture names Horizons' chain;
+  **a match to D, or to none, is a finding** reported to the manager; **a fit residual above 0.25 m rms is inconclusive**. Which table, and
+  τ (reported, not gated), are as `PROVENANCE.md` §38.12 fixes them. The committed comparison pins the observed case by name, as a
+  regression test; the verdict is the classification, in the report.
+  > *Superseded by the manager's ruling `e49b33b` (2026-10-06, before any state vector was compared), kept visible — the requirement as first
+  > frozen (`a862214`):* "MUST land within the pre-registered 2.0 mas band of one of four predicted cases — A …, B …, C … or D (… — the
+  > documented case, the one asserted) — … Matching B or C instead of D is a finding, not a pass; agreement (A) where a disagreement was
+  > required is a failure of the required disagreement; both are reported as that to the manager, not absorbed into the band."
 
 ---
 
