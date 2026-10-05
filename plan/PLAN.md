@@ -245,21 +245,25 @@ template parameter**, so `State<Gcrs>` and `State<Teme>` are unrelated types and
 to reassign. That is the answer to the risk flagged at L0, and it is the second time a C++20
 "optional at implementation" hazard was closed by making the compiler the enforcer.
 
-> **Correction found at L6 step 3, 2026-10-06: TEME to PEF carries no kinematic term, and two of
-> this layer's references were not what they were called.** `FRAME-R-030` rotated TEME to PEF by
-> GMST plus the 1982 equation of the equinoxes' kinematic term, citing Vallado et al. 2006's (C-1);
-> the pinned Rev 2 prints the GMST polynomial as (C-1) and the rotation as (C-2) — GMST alone, then
-> polar motion — and TEME, referred to the mean equinox, takes no term of the equation of the
-> equinoxes, which is what separates the true equinox from the mean. `FRAME-A-001`'s "published"
-> TEME vector is not the pinned paper's: the two differ by exactly that term's rotation, 8.96e-9
-> rad, and where the recorded numbers came from was never written down. `FRAME-A-009`'s expected
-> vector, labelled IAU-76/FK5, is reproduced by this tree's own IAU 2006/2000A chain to 2 mm — a
-> check against itself. So the chain follows the pinned paper, GMST alone; `FRAME-A-001` asserts the
-> paper's printed vector; `FRAME-A-009`'s expected vector is replaced by the paper's printed one,
-> under a disagreement predicted before it is compared; and the retired numbers stay visible with
-> their status. Found by the executor settling an equation citation for T-01. What was wrong was a
-> citation never checked against the pinned page and two references whose provenance nobody asked
-> for, in a layer whose exit gate the manager verified.
+> **Correction found at L6 step 3, 2026-10-06: the pin was the wrong revision, not the chain.**
+> L1's TEME chain — GMST, then the 1982 equation of the equinoxes' kinematic rotation — and its
+> reference vectors were read from Revision 3 of Vallado et al. 2006, the latest, whose Appendix C
+> adds that rotation and prints `FRAME-A-001`'s and `FRAME-A-009`'s numbers word for word; the
+> manifest pinned Revision 2, whose Appendix C is GMST alone and whose example numbers differ by
+> exactly that rotation. So the chain and both vectors stand, now sourced: Revision 3 is pinned
+> beside Revision 2, which is identical in every section SGP4 cites, and `FRAME-R-030` cites
+> Revision 3's own numbering — its kinematic rotation is the unnumbered second relation under
+> (C-1). Revision 3 does not agree with itself — its §II.D eq. (1) is GMST alone — and this tree
+> follows its Appendix C, the authors' deliberate change between revisions and the form their own
+> example reproduces. `FRAME-A-009`'s claim of a 3–5 m disagreement is retired: Revision 3's J2000
+> example applies the IERS celestial-pole offsets, so it and this tree's chain sit on the same
+> observed pole and agree to 2 mm, and the disagreement T-01 asks for exists only against a legacy
+> chain without those offsets. A first reading of this finding, hours earlier, took the vectors for
+> unsourced and the chain for wrong, and the manager ruled to drop the term on it, arguing from
+> TEME's mean equinox; that ruling is withdrawn — TEME's definition is ambiguous by the paper's own
+> account, and an argument does not outrank the authors' latest worked example. What was wrong was
+> a pin made without checking it was the revision the layer had read, in a layer whose exit gate
+> the manager verified.
 
 **Specification amendments this layer required — all applied 2026-09-18, specs at v1.3.**
 
