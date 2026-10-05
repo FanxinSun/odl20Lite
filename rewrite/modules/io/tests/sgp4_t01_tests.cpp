@@ -19,6 +19,7 @@
 #include <odl/core/vec3.hpp>
 #include <odl/eop/series.hpp>
 #include <odl/frames/transform.hpp>
+#include <odl/io/horizons.hpp>
 #include <odl/io/sgp4.hpp>
 #include <odl/io/tle.hpp>
 #include <odl/time/epoch.hpp>
@@ -164,8 +165,7 @@ struct Prediction {
     double mean_radius_km = 0.0;
 };
 
-Prediction predict() {
-    const odl::io::Tle tle = t01_tle();
+Prediction predict(const odl::io::Tle& tle) {
     odl::eop::EopPolicy policy;
     policy.max_quality = odl::eop::Quality::Predicted;   // the epochs lie past finals2000A's observed data: predictions
 
@@ -262,6 +262,8 @@ Prediction predict() {
     return p;
 }
 
+Prediction predict() { return predict(t01_tle()); }
+
 }  // namespace
 
 // ----------------------------------------------------------------------------------------------------------
@@ -354,4 +356,182 @@ TEST_CASE("IOSG-A-010: T-01's prediction, frozen BEFORE either Horizons table is
     CHECK(sep(a, d) > 10.0 * kBandMas);
     CHECK(sep(b, d) > 10.0 * kBandMas);
     CHECK(sep(c, d) > 10.0 * kBandMas);
+}
+
+// ----------------------------------------------------------------------------------------------------------
+// IOSG-A-011: THE COMPARISON. The two Horizons tables are read here for the first time in this tree's
+// history. What they are compared with was frozen by IOSG-A-010 two commits earlier (PROVENANCE.md §38.12):
+// the four cases' centres below are COPIED from that section, not recomputed, and the rules are its rules.
+// ----------------------------------------------------------------------------------------------------------
+namespace {
+
+struct FrozenCase {
+    const char* name;
+    double omega_mas[3];     // GCRS x, y, z
+};
+constexpr FrozenCase kFrozenCases[] = {
+    {"A  (documented chain taken whole: agreement)", {0.00, 0.00, -0.03}},
+    {"A' (A with the kinematic terms in TEME -> TOD)", {0.00, 0.00, -1.51}},
+    {"B  (no pole offsets: a tilt)", {-10.60, 49.03, 0.00}},
+    {"C  (offsets in the nutation only: about the pole, eastward)", {0.30, 0.01, 112.98}},
+    {"D  (the manual's -53 mas at face value: about the pole, westward)", {0.00, 0.00, -53.00}},
+};
+constexpr double kBandMas = 2.0;              // §38.12: 1.5 kinematic + 0.3 EOP + 0.2 axes
+constexpr double kIdentityThresholdM = 1.0;   // rule 1: object table vs user-input-TLE table
+constexpr double kValidityRmsM = 0.25;        // rule 3
+
+std::vector<odl::io::HorizonsStateRecord> read_table(const char* path) {
+    auto e = odl::io::read_horizons(slurp(path));
+    if (!e.has_value()) FAIL(path << ": " << e.error().message);
+    return e->states;
+}
+
+}  // namespace
+
+TEST_CASE("IOSG-A-011: T-01's comparison, by the rules frozen with the prediction", "[sgp4][t01][comparison]") {
+    const Prediction p = predict();    // this tree's own GCRS positions and velocities at the grid
+    const auto object = read_table(ODL_T01_OBJECT_TXT);
+    const auto usertle = read_table(ODL_T01_USERTLE_TXT);
+    REQUIRE(object.size() == static_cast<std::size_t>(kEpochs));
+    REQUIRE(usertle.size() == static_cast<std::size_t>(kEpochs));
+    for (int k = 0; k < kEpochs; ++k) {                       // the tables' own epochs must equal the grid
+        const odl::time::Calendar g = grid_calendar(k);
+        for (const auto* tab : {&object, &usertle}) {
+            const auto& c = (*tab)[static_cast<std::size_t>(k)].epoch;
+            REQUIRE(((*tab)[static_cast<std::size_t>(k)].time_system == odl::io::HorizonsTimeSystem::Tdb));
+            REQUIRE((c.year == g.year && c.month == g.month && c.day == g.day && c.hour == g.hour && c.minute == g.minute));
+            REQUIRE(std::fabs(c.second - g.second) < 1.0e-6);
+        }
+    }
+
+    // RULE 1 -- which table: Horizons against Horizons, no output of this tree involved
+    double identity_m = 0.0;
+    for (int k = 0; k < kEpochs; ++k)
+        identity_m = std::max(identity_m, (object[static_cast<std::size_t>(k)].position_km -
+                                           usertle[static_cast<std::size_t>(k)].position_km).norm() * 1000.0);
+    const bool object_is_input = identity_m <= kIdentityThresholdM;
+    const auto& input = object_is_input ? object : usertle;
+
+    // RULE 2 -- the fit, for the input table and (reported alongside) for the other one
+    const auto fit_table = [&](const std::vector<odl::io::HorizonsStateRecord>& tab) {
+        std::vector<Vec3> d;
+        for (int k = 0; k < kEpochs; ++k)
+            d.push_back(tab[static_cast<std::size_t>(k)].position_km - p.r_l1[static_cast<std::size_t>(k)]);
+        return fit_rotation_and_shift(p.r_l1, p.v_l1, d);
+    };
+    const Fit f = fit_table(input);
+    const Fit f_other = fit_table(object_is_input ? usertle : object);
+
+    // RULES 3 and 4 -- validity, then the nearest frozen case
+    const double fitted_mas[3] = {f.omega[0] / kMas, f.omega[1] / kMas, f.omega[2] / kMas};
+    const bool valid = f.rms_m <= kValidityRmsM;
+    int best = -1;
+    double best_mas = 1.0e300;
+    std::ostringstream dist;
+    for (std::size_t i = 0; i < std::size(kFrozenCases); ++i) {
+        const double d0 = fitted_mas[0] - kFrozenCases[i].omega_mas[0], d1 = fitted_mas[1] - kFrozenCases[i].omega_mas[1],
+                     d2 = fitted_mas[2] - kFrozenCases[i].omega_mas[2];
+        const double dd = std::sqrt(d0 * d0 + d1 * d1 + d2 * d2);
+        dist << "\n    " << kFrozenCases[i].name << ": " << dd << " mas";
+        if (dd < best_mas) {
+            best_mas = dd;
+            best = static_cast<int>(i);
+        }
+    }
+    const bool matched = best_mas <= kBandMas;
+
+    std::ostringstream report;
+    report << "\n  rule 1: object table vs user-TLE table, largest difference " << identity_m << " m -> the input is the "
+           << (object_is_input ? "OBJECT" : "USER-TLE") << " table"
+           << "\n  rule 2: fitted Omega = (" << fitted_mas[0] << ", " << fitted_mas[1] << ", " << fitted_mas[2] << ") mas, |Omega| "
+           << std::sqrt(fitted_mas[0] * fitted_mas[0] + fitted_mas[1] * fitted_mas[1] + fitted_mas[2] * fitted_mas[2])
+           << " mas, tau " << f.tau * 1.0e6 << " us; |d| mean " << f.mean_m << " m, max " << f.max_m << " m (frozen T-01 2.246 m mean, "
+           << "T-02 3.553 m max, recorded beside, not asserted)"
+           << "\n  rule 3: residual rms after the fit " << f.rms_m << " m (limit " << kValidityRmsM << " m) -> "
+           << (valid ? "valid" : "INCONCLUSIVE")
+           << "\n  rule 4: distances of the fitted Omega from the frozen cases (band " << kBandMas << " mas):" << dist.str()
+           << "\n          nearest: " << kFrozenCases[static_cast<std::size_t>(best)].name << " at " << best_mas << " mas -> "
+           << (matched ? "MATCHED" : "UNEXPLAINED")
+           << "\n  the other table, for the record: Omega = (" << f_other.omega[0] / kMas << ", " << f_other.omega[1] / kMas << ", "
+           << f_other.omega[2] / kMas << ") mas, tau " << f_other.tau * 1.0e6 << " us, rms " << f_other.rms_m << " m";
+    INFO(report.str());
+
+    // WHAT THE COMPARISON SHOWED (PROVENANCE.md §38.13), pinned by name as a regression test. The VERDICT is the
+    // classification the manager ruled (e49b33b) and it is in the report: a match within the band to A, B or C passes,
+    // naming Horizons' chain; this run matched B. These assertions pin what was observed, not the verdict.
+    constexpr std::size_t kCaseB = 2;
+    CHECK(!object_is_input);                               // rule 1: the tables differ by more than 1 m, so the control is the input
+    CHECK(std::fabs(identity_m - 1.455) < 0.005);          // ... by 1.455 m (the object table's own finding, IOSG-A-012)
+    CHECK(valid);                                          // rule 3: rms 2.2 mm against the 0.25 m limit
+    CHECK(f.rms_m < 0.005);
+    REQUIRE(matched);                                      // rule 4 ...
+    CHECK(static_cast<std::size_t>(best) == kCaseB);       // ... and the case is B: no pole offsets, a tilt
+    CHECK(best_mas < 0.2);                                 // observed 0.142 mas against the 2.0 mas band
+    CHECK(std::fabs(fitted_mas[0] - (-10.592)) < 0.05);    // the fitted rotation, reproducible to the data's own digits
+    CHECK(std::fabs(fitted_mas[1] - 49.054) < 0.05);
+    CHECK(std::fabs(fitted_mas[2] - (-0.140)) < 0.05);
+    CHECK(std::fabs(f.tau * 1.0e6 - 21.76) < 0.2);         // tau, reported not gated: ~16 cm along-track
+    CHECK(std::fabs(f.mean_m - 1.873) < 0.005);            // raw |d| beside B's predicted 1.716 / 1.774 m, the rest being tau
+    CHECK(std::fabs(f.max_m - 1.925) < 0.005);
+}
+
+// ----------------------------------------------------------------------------------------------------------
+// IOSG-A-012: the OBJECT table's finding. Horizons' record for -159588 is not the same propagation as a direct SGP4 of the
+// vendored element set: it differs by up to 1.455 m, purely in the orbital plane and periodically (an eccentricity-vector
+// signature), and equals this tree's SGP4 of the same element set with the eccentricity ONE UNIT HIGHER in its last digit
+// (0.0044709, not 0.0044708): CelesTrak's OMM gives 0.00447087, which a 7-digit field rounds to ...09 and CelesTrak's TLE text
+// truncates to ...08. Horizons against Horizons first (no output of this tree), then this tree's SGP4 with e + 1.0e-7.
+// ----------------------------------------------------------------------------------------------------------
+TEST_CASE("IOSG-A-012: Horizons' object record is SGP4 of the same element set with e one unit higher in the last digit",
+          "[sgp4][t01][finding]") {
+    const auto object = read_table(ODL_T01_OBJECT_TXT);
+    const auto usertle = read_table(ODL_T01_USERTLE_TXT);
+    REQUIRE(object.size() == static_cast<std::size_t>(kEpochs));
+    REQUIRE(usertle.size() == static_cast<std::size_t>(kEpochs));
+
+    // (1) object minus control, in the control's own radial / along-track / cross-track frame, metres
+    double max_r = 0.0, max_t = 0.0, max_n = 0.0;
+    for (int k = 0; k < kEpochs; ++k) {
+        const auto& u = usertle[static_cast<std::size_t>(k)];
+        const Vec3 d = object[static_cast<std::size_t>(k)].position_km - u.position_km;
+        const Vec3 rh = u.position_km * (1.0 / u.position_km.norm());
+        const Vec3 nv = u.position_km.cross(u.velocity_km_s);
+        const Vec3 nh = nv * (1.0 / nv.norm());
+        const Vec3 th = nh.cross(rh);
+        max_r = std::max(max_r, std::fabs(d.dot(rh)) * 1000.0);
+        max_t = std::max(max_t, std::fabs(d.dot(th)) * 1000.0);
+        max_n = std::max(max_n, std::fabs(d.dot(nh)) * 1000.0);
+    }
+    INFO("object - control: max |R| " << max_r << " m, max |T| " << max_t << " m, max |N| " << max_n << " m");
+    CHECK(max_n < 0.001);                       // no cross-track difference at all
+    CHECK(std::fabs(max_r - 0.728) < 0.01);     // an eccentricity-vector signature: radial amplitude a*de ...
+    CHECK(std::fabs(max_t - 1.455) < 0.01);     // ... and twice that along-track, at the orbital period
+
+    // (2) this tree's SGP4 of the vendored element set, and of it with the eccentricity one unit (1e-7) higher
+    odl::io::Tle higher = t01_tle();
+    higher.eccentricity += 1.0e-7;
+    const Prediction as_text = predict();
+    const Prediction e_higher = predict(higher);
+    const auto fit_table = [&](const Prediction& p, const std::vector<odl::io::HorizonsStateRecord>& tab) {
+        std::vector<Vec3> d;
+        for (int k = 0; k < kEpochs; ++k)
+            d.push_back(tab[static_cast<std::size_t>(k)].position_km - p.r_l1[static_cast<std::size_t>(k)]);
+        return fit_rotation_and_shift(p.r_l1, p.v_l1, d);
+    };
+    const Fit control_vs_text = fit_table(as_text, usertle);
+    const Fit object_vs_text = fit_table(as_text, object);
+    const Fit object_vs_higher = fit_table(e_higher, object);
+    INFO("control vs the element set as served: rms " << control_vs_text.rms_m << " m; object vs it: rms " << object_vs_text.rms_m
+         << " m; object vs it with e + 1e-7: rms " << object_vs_higher.rms_m << " m");
+    CHECK(control_vs_text.rms_m < 0.005);       // the control IS the element set as served (2.2 mm after the frame fit)
+    CHECK(object_vs_text.rms_m > 1.0);          // the object record is NOT (1.125 m): the claim is not vacuous
+    CHECK(object_vs_higher.rms_m < 0.005);      // ... and it IS the same element set with e one unit higher (2.2 mm)
+    // the same frame content in both tables once the element set is right: the fitted rotations agree
+    const double dox = (object_vs_higher.omega[0] - control_vs_text.omega[0]) / kMas;
+    const double doy = (object_vs_higher.omega[1] - control_vs_text.omega[1]) / kMas;
+    const double doz = (object_vs_higher.omega[2] - control_vs_text.omega[2]) / kMas;
+    INFO("rotation difference between the two tables' fits: (" << dox << ", " << doy << ", " << doz << ") mas");
+    CHECK(std::sqrt(dox * dox + doy * doy + doz * doz) < 0.5);
+    // no other single TLE field's last-digit quantum explains it (IOSG-A-012's own control, argp, mean anomaly,
+    // inclination: each leaves the object record at about a metre; see PROVENANCE.md §38.13 for the scan)
 }

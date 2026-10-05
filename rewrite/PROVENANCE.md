@@ -7897,12 +7897,70 @@ C-like as by the reverse, and the frozen input cannot be re-run, so this is not 
 **What is frozen.** `IOSG-A-010` (`modules/io/tests/sgp4_t01_tests.cpp`) computes all of the above from the element set, the EOP and leap-second pins and the time grid, and asserts
 each case's Ω (A, A′, B, C, D) to ±0.05 mas and its sizes to ±5 mm; the build gives that test no path to either table. The comparison (`IOSG-A-011`) is a later commit and reads these numbers.
 
+### 38.13 T-01: the comparison — Horizons' conversion of a TLE's TEME state matches case B, no celestial-pole offsets; the object table is a different element set (2026-10-06)
+
+**Order of events.** Data `f7ac53e`; prediction frozen `a862214`; classification restated `df4bea7` on the manager's `e49b33b`; the comparison
+(`IOSG-A-011`) was written and then **run once**, by the rules as frozen, after `df4bea7` and not before. Nothing about the cases, the band or the rules was
+changed after that run. (The comparison test had been written, unbuilt and unrun, when `e49b33b` arrived: it was set aside outside the tree, the
+classification committed, and it was restored.) What was found afterwards — the epoch time of the element set, `1bfffc0` — touches no number the comparison used.
+
+**The result, rule by rule** (the rules frozen in §38.12):
+
+| rule | outcome |
+|---|---|
+| 1 — which table | the object table (`-159588`) and the user-input-TLE table differ by **1.455 m** at most, more than 1.0 m, so **the input is the user-input-TLE table**; the object table is reported alongside |
+| 2 — the fit | Ω = (−10.592, +49.054, −0.140) mas, \|Ω\| = 50.185 mas; τ = +21.76 µs; \|d\| mean 1.873 m, max 1.925 m |
+| 3 — validity | residual rms after the fit **2.2 mm** against the 0.25 m limit: valid |
+| 4 — the case | distances of the fitted Ω from A 50.19, A′ 50.20, **B 0.142**, C 123.77, D 72.89 mas; nearest B, inside the 2.0 mas band: **matched B** |
+| classification (`e49b33b`) | a match to B **passes**: the capture names Horizons' chain — **its TLE → TEME → ICRF conversion applies no celestial-pole offsets** (the legacy model precession-nutation, `Pᵀ Nᵀ R₃(−Eqe)` with model nutation), whatever its manual says of its general frame |
+
+**Observed against predicted (case B).** The rotation part of the fit alone: \|d\| mean 1.716 m, max 1.773 m, against B's predicted 1.716 and 1.774 m — to the
+millimetre. The raw 1.873 / 1.925 m adds the time shift: τ = 21.8 µs × 7.4 km/s = **0.161 m along-track**, a difference in time handling between this tree and
+Horizons, reported and not gated, and **not explained** (it is not the rounding of the epoch's Julian date to a double: that would be a constant 14.9 µs and would
+add ±20 µs of per-epoch noise, which the 2.2 mm residual excludes; this tree's TDB − TT is `eraDtdb`, the full series).
+
+**The Ω_y / τ degeneracy, as the manager asked** (post hoc, from the fit's formal covariance). For this near-polar orbit the normal is ≈ +y, so a rotation about y
+is nearly an along-track shift: the fit's correlation between Ω_y and τ is −1.000 (1 µs ↔ 0.2 mas of Ω_y). Formal 1σ: Ω = (0.082, 0.658, 0.085) mas, τ = 3.2 µs.
+**Projected onto the A–B separation (50.16 mas) the formal σ is 0.63 mas**: the fitted Ω lies +50.18 mas along it, 80σ from A, at B. Forcing τ = 0 moves Ω to
+(−10.04, +53.54, −0.72) mas, 4.6 mas from B; forcing τ = 10 µs, 2.5 mas. Along B–C (123.64 mas) σ = 0.33 mas; B–D (72.97 mas) 0.37 mas; A–C and A–D ≤ 0.09 mas.
+A few mas of correlated uncertainty cannot move a 50 mas decision; the band (2.0 mas) and the rules were not touched.
+
+**The frozen 2.246 m / 3.553 m, beside it.** Matched in neither size (observed 1.873 / 1.925 m) nor structure: mean/max 0.973, a tilt about an equatorial axis (nearly
+constant), against the frozen 0.632 (|d| following the cosine of latitude, a rotation about the pole — case C's shape). Whether Horizons' conversion changed between the two
+captures, or the predecessor's chain was the C-like one, cannot be determined: `T-01`'s original input is gone. The plan's "≈ 0.064″, about the pole": against a pole-corrected
+Horizons it was never going to be 0.064″, and the capture shows 0.050″, a tilt (B) — not the figure the plan carried.
+
+**The object table is a finding in its own right** (all of this post hoc; none of it is part of the frozen rules). Horizons' record for `-159588` differs from a direct SGP4 of
+the same element set by up to 1.455 m, and fits this tree's chain at 1.125 m rms (inconclusive as an input, rule 3).
+- *What the difference is* (Horizons against Horizons, in the control's own radial / along-track / cross-track frame): **cross-track exactly zero** (max 0.17 mm); radial and
+  along-track purely **periodic at the orbital period**, amplitudes 0.728 m and 1.455 m (ratio 2.00), constants ≤ 3 mm, trends ≤ 0.3 mm/h, residual 2–3 mm — the signature of a
+  difference in the **eccentricity vector** alone, δe ≈ 0.728 m / a = 1.0 × 10⁻⁷.
+- *What it is:* this tree's SGP4 of the same element set with the **eccentricity one unit higher in its last digit — 0.0044709, not 0.0044708** — reproduces the object table to
+  2.2 mm after the frame fit, exactly as the unchanged element set reproduces the control. The rms is V-shaped in δe with its minimum at +1.0 × 10⁻⁷ (as served 1.125 m; +5 × 10⁻⁸
+  0.562 m; **+1 × 10⁻⁷ 0.0022 m**; +2 × 10⁻⁷ 1.125 m; −1 × 10⁻⁷ 2.25 m), and no other field's last-digit quantum helps (argument of perigee ±10⁻⁴°: 1.10–1.15 m; mean anomaly
+  ±10⁻⁴°: 1.125; mean motion ±10⁻⁸ rev/day: 1.12–1.13; inclination ±10⁻⁴°: 1.12–1.13; B* ±10⁻⁵: 1.11–1.16). With that correction the two tables carry the same frame content
+  (their fitted rotations agree to < 5 × 10⁻⁵ mas).
+- *Where the digit comes from:* CelesTrak's OMM for the same element set (fetched 2026-10-05T21:14:54Z, read only) gives `ECCENTRICITY` **0.00447087** — which a 7-digit field
+  **rounds** to 0.0044709 and CelesTrak's TLE text **truncates** to 0.0044708. The object record is therefore consistent with an SGP4 of an element set whose eccentricity was
+  rounded, the way Space-Track's own TLE text — which Horizons ingests — would be, rather than truncated. Space-Track itself cannot be read here (it needs a login), so this last
+  step is an **inference**. It does not point to Horizons fitting an orbit of its own.
+- *What it does to the oracle:* `oracle/ORACLE.md`'s "Horizons' ephemeris for that object forward of a TLE epoch **is that TLE**" holds for `-159588` as of 2026-10-05 only to 1.5 m,
+  and only for the text Horizons ingested, which differs from CelesTrak's by one digit of e; whether it held at `T-01`'s original capture is unknown. A dated note is appended to
+  `ORACLE.md`. `IOSG-A-012` pins the finding.
+
+**Rule 5.** With a 5 mas error injected into this tree's CIP x offset (the file restored after), the comparison fails — `REQUIRE(matched)`, the nearest case still B but at 4.98 mas, outside the band, UNEXPLAINED — and so does the prediction test (9 of its 352 assertions), because the prediction is computed from the same chain: the pins detect an error of a few mas, a tenth of the 50 mas that separates A from B. Log kept with the round's report.
+
+**What the comparison does to step 3.** It leaves nothing open. This tree's SGP4 → TEME → GCRS pipeline predicted a direct Horizons propagation of the identical element set to
+2.2 mm after a 50 mas rotation and a 22 µs time shift, and the rotation was predicted in size and direction before the capture was read. What Horizons' TEME → ICRF conversion
+*is* — the legacy model chain without pole offsets — is measured rather than assumed, to 0.14 mas, with A, C and D excluded by more than 50 mas.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-06 | **T-01 compared, once, by the rules frozen before it: Horizons' TLE -> TEME -> ICRF conversion matches case B (no celestial-pole offsets) to 0.14 mas -- a pass naming Horizons' chain -- and the object table is SGP4 of a different element set.** §38.13: the object and user-TLE tables differ by 1.455 m, so by rule 1 the control is the input; fitted Omega = (-10.592, +49.054, -0.140) mas, tau = +21.8 us, rms 2.2 mm; nearest case B (A 50.2, C 123.8, D 72.9 mas away; band 2.0); the rotation part's sizes equal B's predicted 1.716/1.774 m to the millimetre, the raw 1.873/1.925 m adding 0.16 m of time shift (unexplained, not gated); formal sigma along the A-B separation 0.63 mas of 50.16. The frozen 2.246/3.553 m matched in neither size nor structure. The object table equals this tree's SGP4 of the same TLE with the eccentricity one unit higher in the last digit (0.0044709 for 0.0044708; CelesTrak's OMM has 0.00447087, its TLE text truncates) to 2.2 mm, and differs from the control by a pure in-plane periodic eccentricity-vector signature up to 1.455 m. `IOSG-A-011` pins B by name, `IOSG-A-012` the finding; `SPEC-io-sgp4.md` v1.4; a dated note appended to `ORACLE.md`. |
 | 2026-10-06 | **T-01's classification updated to the manager's ruling `e49b33b`, before any state vector was compared; the four cases, their numbers and the band are unchanged.** §38.12 rule 5: a match within the band to A, B or C PASSES (the pipeline predicted Horizons' output and the capture names its chain: A consistent and pole-corrected, B no offsets, C offsets in the nutation only); a match to D (the face-value −53 mas, which follows from no consistent chain) or to none is a finding; a fit residual above 0.25 m is inconclusive; the plan's "agreement is the failure" is retired (Horizons' manual documents daily pole corrections, against which agreement is the physically expected result). The first-frozen rule is kept visible, marked superseded. `SPEC-io-sgp4.md` v1.3 `IOSG-R-012` restated. |
 | 2026-10-06 | **T-01's prediction frozen before either Horizons table is compared with anything.** §38.12: Horizons' manual says nothing of how an SGP4/TEME state becomes ICRF and says its ICRF↔TOD transformation is "IAU76/80 ... corrected daily by GPS measurements", so three readings are predicted, each with its size and direction: **A** agreement (Ω ≈ 0), **B** a 50 mas pole tilt (no offsets; mean 1.72 m, max 1.77 m), **C** a 113 mas rotation about the pole (offsets in the nutation, Eqe from the model; mean 2.58 m, max 4.00 m) -- the plan's "about the pole" is C, at 0.113" not 0.064"; band 2.0 mas from the named smaller terms; rules for which table, the fit's validity and what each case means; the frozen 2.246/3.553 m beside it. `IOSG-A-010` freezes the numbers in a test that has no path to either table; `SPEC-io-sgp4.md` v1.3 adds `IOSG-R-012`. The comparison is the next commit. |
 | 2026-10-05 | **T-01's inputs pinned and vendored, before any prediction or comparison.** §38.11: ACS3's CelesTrak element set (epoch 2026-10-05 06:30:03.72 UTC [first written 06:30:12, corrected 2026-10-06], `SPACETRACK-PUBLIC`, cited to CelesTrak and Space-Track), the Horizons table of the object `-159588` and a Horizons table of that exact element set sent as a user-input TLE (the control for which element set the object table used); 5 h window, 5-minute step, ICRF/TDB/geometric. Only headers and row counts were looked at -- no state vector read. Three manifest entries, `NOTICE` regenerated. |

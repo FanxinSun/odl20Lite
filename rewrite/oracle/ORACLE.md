@@ -102,6 +102,10 @@ both instances were small enough to read as rounding disagreements rather than a
 - **`T-*` TEME** — the SGP4 frame-conversion check against a JPL Horizons table. Bounded above by
   the ~3 m definitional floor of TEME itself, and the comparison ephemeris is *not* independent:
   Horizons' ephemeris for that object forward of a TLE epoch **is that TLE**.
+  *Recorded 2026-10-06:* the sentence above holds for ACS3 (`-159588`) only to about 1.5 m, and only for the element set Horizons ingested: on 2026-10-05 its object table
+  equals a direct SGP4 of CelesTrak's TLE text with the eccentricity one unit higher in the last digit (0.0044709 for 0.0044708 — CelesTrak's OMM gives 0.00447087, its TLE text
+  truncates), a difference of up to 1.455 m, purely in the orbital plane and periodic (`PROVENANCE.md` §38.13, `IOSG-A-012`). Whether it held at `T-01`'s original capture is unknown;
+  that input cannot be recovered. The frozen `T-01`/`T-02` are the predecessor's values for it; a fresh capture is compared with them in §38.12–38.13 and they are never asserted.
 - **`G-*` GNSS** — three seven-parameter fit residuals against IGS final orbits. The strongest
   cases here, because IGS orbits are independent truth rather than predecessor output.
   *Recorded 2026-09-24:* the fits are **cannonball** fits — `validate_sp3.sh` asserts that the

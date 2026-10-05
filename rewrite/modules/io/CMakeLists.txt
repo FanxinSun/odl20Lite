@@ -37,17 +37,22 @@ if(BUILD_TESTING)
     ODL_SGP4_VECTORS_DIR="${ODL_CACHE_DIR}/vallado-sgp4-verification-vectors/extracted")
 
   # L6 step 3's T-01 gate (SPEC-io-sgp4.md IOSG-R-012, tests/sgp4_t01_tests.cpp): the vendored ACS3
-  # element set, the EOP pin (finals2000A holds predictions for the capture's epochs) and the
-  # leap-second file. The two Horizons tables are NOT wired in here, on purpose: the prediction test
-  # (IOSG-A-010) is committed before either table is compared with anything, and the build gives it no
-  # path to open one. The comparison's own commit adds them.
+  # element set, the EOP pin (finals2000A holds predictions for the capture's epochs), the
+  # leap-second file and, for the comparison (IOSG-A-011/-A-012), the two vendored Horizons tables.
+  # The tables were NOT wired in when the prediction (IOSG-A-010) was committed, on purpose: the build
+  # gave that test no path to open one, so the numbers it froze cannot have seen them. The commit that
+  # added the comparison added them here.
   odl_manifest_get(celestrak-acs3-tle-20261005 _t01_tle)
   odl_manifest_get(eop-finals2000a _t01_finals)
   odl_manifest_get(iers-leap-seconds _t01_leap)
+  odl_manifest_get(horizons-acs3-t01-object-20261005 _t01_object)
+  odl_manifest_get(horizons-acs3-t01-usertle-20261005 _t01_usertle)
   target_compile_definitions(odl_io_tests PRIVATE
     ODL_T01_TLE_FILE="${_t01_tle_CACHE_PATH}"
     ODL_FINALS2000A_FILE="${_t01_finals_CACHE_PATH}"
-    ODL_LEAP_SECOND_FILE="${_t01_leap_CACHE_PATH}")
+    ODL_LEAP_SECOND_FILE="${_t01_leap_CACHE_PATH}"
+    ODL_T01_OBJECT_TXT="${_t01_object_CACHE_PATH}"
+    ODL_T01_USERTLE_TXT="${_t01_usertle_CACHE_PATH}")
   # the legacy IAU-76/80 chain the prediction needs is ERFA's; PRIVATE, as in the frames tests
   target_link_libraries(odl_io_tests PRIVATE erfa)
 endif()
