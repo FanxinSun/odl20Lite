@@ -7780,12 +7780,48 @@ chain from ERFA as witness: with the offsets within 2 cm of the printed vector, 
 in the CIP offset fed to this tree's chain fails it (position 0.883 m, velocity 0.373 mm/s). The row's v1.9 text and its note are retired
 with their text kept; §5's row above is marked retired in place. `SPEC-frames.md` v1.10. **Not changed:** the chain, `FRAME-A-001`.
 
+### 38.11 T-01: the fresh element set and the two Horizons tables, pinned and vendored before anything is predicted or compared (2026-10-05)
+
+**Why a fresh capture** (§37.3, `plan/subplan_L6/L6-3.md`): the oracle's `T-01` input — a 2026-09-14 ACS3 element set and its
+Horizons table — cannot be recovered, because a TLE is reissued every few days and Horizons' ephemeris for the object is whichever
+TLE it last ingested. So the required-disagreement gate runs on a fresh pinned capture; the frozen `T-01` (2.246 m mean) and `T-02`
+(3.553 m max) of `oracle/cases.tsv` are the predecessor's values for an input that cannot be re-run, recorded beside the result,
+compared and never asserted.
+
+**What was fetched** (all UTC, no login):
+
+| item | source | fetched | sha256 | notes |
+|---|---|---|---|---|
+| ACS3 element set | `celestrak.org/NORAD/elements/gp.php?CATNR=59588&FORMAT=TLE` | 2026-10-05T20:56:03Z | `c6dae02fb7cef3455499e13df064997cdc645bc5d1a37525baa690f47e60982d` | 168 bytes, CRLF, name line `ACS3`; epoch 2026 day 278.270 876 40 = **2026-10-05 06:30:12 UTC** |
+| Horizons table, the **object** (`-159588`) | `ssd.jpl.nasa.gov/api/horizons.api`, `COMMAND='-159588'` | 2026-10-05T20:56:15Z | `3ae6c478ea13cf207066af533325d12d680427411d147d900d05464f65a255be` | header `Revised: Oct 05, 2026`; `EOP file: eop.261002.p261229` (data-based to 2026-Oct-02, predicts to 2026-Dec-28); 61 rows, 07:30–12:30 TDB, 5-minute step |
+| Horizons table, a **user-input TLE** | same, `COMMAND='TLE'` with the TLE above as the `TLE` parameter | 2026-10-05T20:56:16Z | `0e96cadc24a7b416660c99fe19df0ab898b9e771c73fe2636ec1af5ccedbbb45` | target `ACS3 (-859588) {source: USER-INPUT TLE}`; same window, step and settings; 61 rows |
+
+Settings of both tables, identical to the 2026-09-25 capture (`horizons-acs3-vectors`) but for the window and step: geocentric
+(`CENTER='500@399'`), `REF_SYSTEM='ICRF'`, `REF_PLANE='FRAME'`, `TIME_TYPE='TDB'`, `VEC_CORR='NONE'` (geometric, no light-time),
+`OUT_UNITS='KM-S'`, `VEC_TABLE='2'`. The window starts 1 h after the element set's epoch and runs 5 h; the step is whole minutes, so the
+printed calendar epochs (0.1 ms resolution) are exact.
+
+**Why two tables.** The object table is what the oracle's `T-01` used, and the manual says that for such an object Horizons is "only as current
+as whichever TLE it last ingested" — its header's `Revised: Oct 05, 2026` is the same day as the CelesTrak element set's epoch, which is suggestive
+and not proof. The user-input table propagates *exactly* the vendored element set, so it identifies which element set the object table used.
+The rule for using it is fixed in the prediction commit, before either table is compared with anything.
+
+**What was and was not read.** Only each table's header lines and its row count (61 each) were looked at. **No state vector was read, compared with
+anything, or used in any computation.** The prediction (next commit) is computed from the element set, the EOP and leap-second pins and the time grid
+alone, by a test that does not open either table; the comparison is a later commit still. That order — data, prediction, comparison — is the point.
+
+**Licences.** The element set: `SPACETRACK-PUBLIC` (USSPACECOM's own express blanket approval for redistribution of basic SSA data, conditioned on
+citation; fetched from CelesTrak, which states itself to be a redistributor of Space-Track data — §37.7); cited here to **CelesTrak (celestrak.org),
+data originating from USSPACECOM via Space-Track.org**. The tables: `FACTUAL-DATA-CITED`, search recorded at §37.4. All three vendored under
+`data/vendored/` (§37.8: no live re-fetch can reproduce them). `NOTICE` regenerated (44 entries).
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-05 | **T-01's inputs pinned and vendored, before any prediction or comparison.** §38.11: ACS3's CelesTrak element set (epoch 2026-10-05 06:30:12 UTC, `SPACETRACK-PUBLIC`, cited to CelesTrak and Space-Track), the Horizons table of the object `-159588` and a Horizons table of that exact element set sent as a user-input TLE (the control for which element set the object table used); 5 h window, 5-minute step, ICRF/TDB/geometric. Only headers and row counts were looked at -- no state vector read. Three manifest entries, `NOTICE` regenerated. |
 | 2026-10-06 | **`FRAME-A-009`'s "3-5 m / 0.06 arcsec disagreement" retired; the test is now an agreement test with the legacy chain as witness.** §38.10: the recorded vector is Revision 3's printed (C-3) number, from an IAU-76/FK5 chain run with the example's IERS pole offsets; this tree agrees with it to 1.1 mm, the legacy chain with the offsets to 1.56 cm, without them 0.817 m -- so the premise (a disagreement of the epoch-2026 size, on a no-offsets chain) was wrong on both counts and the vector was not circular. `SPEC-frames.md` v1.10 qualifies §3.3's "on the TEME path it does not cancel" (true only against a legacy chain without the offsets), keeps the old text visible, and §5's row here is marked retired. Rule 5 with a 20 mas CIP-offset error. The chain and `FRAME-A-001` unchanged. |
 | 2026-10-06 | **The GMST equation citation settled from the paper: eq. (2) §II.F is the polynomial, eq. (1) §II.D the TEME↔PEF relation (GMST alone), and the kinematic rotation is Revision 3's Appendix C, the unnumbered relation under (C-1); the frames layer's "VAL06 Appendix C" is Revision 3's and the pin was Revision 2.** §38.9: the four versions CelesTrak publishes with their hashes and Appendix C side by side; Rev 2 against Rev 3 compared word by word (88 differences, 48 in Appendix C, §II.D/§II.F/Table 1/§III identical, so every sgp4 citation stands); the recorded vectors traced with `git log -S` to the 2026-09-18 merge and the L1 commit, their source otherwise unrecorded; the paper's internal inconsistency (Rev 3's eq. (1) is GMST alone, its Appendix C adds the kinematic term) and why Appendix C is followed; `FRAME-A-001`'s 13.3 mm explained as the example's own one-part Julian-date arithmetic (0.06 mm match; bound 23.4 mm) with a witness in the test. Manifest: Revision 3 pinned beside Revision 2, Revision 2's role text corrected in place. Register rows corrected. No behaviour, value or tolerance changed. |
 | 2026-10-06 | **§38.7: two statements made exact, the wrong text left visible.** "Four of the eight match to 2-10%" -> five of the eight within 0.5-8 % and the three 12 h ones 13-25 % off (the table's own figures); and the "Rule 5, shown" run was made before the §38.8 fixes were in -- re-run at the committed state with the same injection: three of nine tests fail again, `IOSG-A-001` on exactly the eight glued satellites (144 of 640 rows over the 2 cm gate, 174 over their regression bounds). Both found by the executor while writing the round-5 report; the manager's ruling asked for them as visible corrections. |
