@@ -181,6 +181,83 @@ TEST_CASE("FRAME-A-001: PRIMARY FRAMES GATE — Vallado's published ITRS/TEME wo
     REQUIRE(sep_m(back->position(), itrs.position()) < 1e-6);   // round trip: exact
 }
 
+TEST_CASE("FRAME-A-009: TEME -> GCRS on VAL06 Rev 3's TLE-00005 example — an AGREEMENT test, "
+          "with the legacy chain as witness",
+          "[frames][spec][gate][published]") {
+    // AIAA 2006-6753 Revision 3, Appendix C, eq. (C-3): TLE 00005 propagated to day
+    // 182.784 950 62 of 2000 (2000-06-30 18:50:19.733568 UTC), TEME -> "J2000" by the
+    // IAU-76/FK5 chain -- which the example runs WITH the IERS celestial-pole offsets it
+    // states (dpsi = -0.052 195", deps = -0.003 875").
+    //
+    // Those offsets bring the 1980 theory onto the observed pole, as C04's dX, dY bring
+    // IAU 2006/2000A onto the same pole, so the two chains must AGREE here. SPEC-frames
+    // v1.9 and earlier expected a 3-5 m DISAGREEMENT "of 0.06 arcsec about the pole": that
+    // is the epoch-2026 size of a legacy chain WITHOUT the offsets, which is not this
+    // example's chain. The witness shows both: without the offsets the legacy chain is
+    // 0.82 m away from the printed vector, with them 1.6 cm. PROVENANCE.md Sec. 38.10.
+    const Epoch when = [] {
+        odl::time::Calendar c{2000, 6, 30, 18, 50, 19.733568};
+        auto e = Epoch::from_calendar(TimeScale::UTC, c, leaps());
+        REQUIRE(e.has_value());
+        return *e;
+    }();
+    const auto eop = c04().at(when, {});
+    REQUIRE(eop.has_value());
+
+    double r_teme[3] = {-9060.47373569, 4658.70952502, 813.68673153};
+    const Vec3 v_teme{-2.232832783, -4.110453490, -3.157345433};
+    const Vec3 r_pub{-9059.9415541, 4659.6971990, 813.9569402};    // (C-3), IAU-76/FK5 with offsets
+    const Vec3 v_pub{-2.233347413, -4.110136158, -3.157394560};
+
+    // --- this tree's chain
+    const auto gcrs = to_gcrs(TemeState{when, Vec3{r_teme[0], r_teme[1], r_teme[2]}, v_teme}, *eop, leaps());
+    REQUIRE(gcrs.has_value());
+    const double l1_m = sep_m(gcrs->position(), r_pub);
+    const double l1_v = (gcrs->velocity() - v_pub).norm();   // km/s
+
+    // --- the witness: the legacy chain from ERFA, r_J2000 = P^T N^T R3(-EqEquinox_geo) r_TEME,
+    //     with and without the example's own offsets
+    double u1 = 0.0, u2 = 0.0, a1 = 0.0, a2 = 0.0, t1 = 0.0, t2 = 0.0;
+    REQUIRE(eraDtf2d("UTC", 2000, 6, 30, 18, 50, 19.733568, &u1, &u2) == 0);
+    REQUIRE(eraUtctai(u1, u2, &a1, &a2) == 0);
+    REQUIRE(eraTaitt(a1, a2, &t1, &t2) == 0);
+    double rp[3][3], rpt[3][3];
+    eraPmat76(t1, t2, rp);
+    eraTr(rp, rpt);
+    double dpsi80 = 0.0, deps80 = 0.0;
+    eraNut80(t1, t2, &dpsi80, &deps80);
+    const double epsa = eraObl80(t1, t2);
+    const auto legacy = [&](double offset_psi, double offset_eps) {
+        const double dpsi = dpsi80 + offset_psi, deps = deps80 + offset_eps;
+        double rn[3][3], rnt[3][3], rz[3][3];
+        eraNumat(epsa, dpsi, deps, rn);
+        eraTr(rn, rnt);
+        eraIr(rz);
+        eraRz(-dpsi * std::cos(epsa), rz);                    // the geometric part of the equation of the equinoxes
+        double tod[3], mod[3], j2000[3];
+        eraRxp(rz, r_teme, tod);
+        eraRxp(rnt, tod, mod);
+        eraRxp(rpt, mod, j2000);
+        return Vec3{j2000[0], j2000[1], j2000[2]};
+    };
+    const double with_offsets_m = sep_m(legacy(-0.052195 * kArcsec, -0.003875 * kArcsec), r_pub);
+    const double no_offsets_m = sep_m(legacy(0.0, 0.0), r_pub);
+    INFO("this tree vs printed: " << l1_m * 1000.0 << " mm, " << l1_v * 1e6 << " mm/s; legacy chain with the "
+         "example's offsets: " << with_offsets_m * 100.0 << " cm; legacy chain without: " << no_offsets_m << " m");
+
+    // TOLERANCE, REASONED. The witness reproduces the printed vector to 1.6 cm: that is the
+    // spread between two implementations of the same legacy chain (ERFA's and the authors'),
+    // so an agreement tighter than ~2 cm would be a coincidence, not a requirement. 2 cm in
+    // position; the velocity bound follows from it, since a rotation error of angle d moves
+    // position by d*|r| and velocity by d*|v|.
+    constexpr double kAgreeM = 0.02;
+    const double v_tol_kms = (kAgreeM / 1000.0) * v_teme.norm() / Vec3{r_teme[0], r_teme[1], r_teme[2]}.norm();
+    CHECK(l1_m < kAgreeM);
+    CHECK(l1_v < v_tol_kms);
+    CHECK(with_offsets_m < kAgreeM);   // the witness reproduces the paper's own computation
+    CHECK(no_offsets_m > 0.5);         // and the offsets are what carries the agreement
+}
+
 TEST_CASE("FRAME-A-003: ITRS -> GCRS -> ITRS closes to well under a millimetre",
           "[frames][spec][gate]") {
     double worst_pos_mm = 0.0, worst_vel = 0.0;

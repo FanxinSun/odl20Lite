@@ -270,7 +270,7 @@ predecessor; they are the strongest class of acceptance value per `SPEC-template
 | `UTLIBR` (`UTLIBR.F` header) | MJD 44239.1 | ΔUT1 = 2.441 143 834 386 761 746 µs; ΔLOD = −14.789 712 473 494 494 92 µs/day |
 | `UTLIBR` (`UTLIBR.F` header) | MJD 55227.4 | ΔUT1 = −2.655 705 844 335 680 244 µs; ΔLOD = 27.394 458 265 998 469 67 µs/day |
 | `VAL06` Rev 3 Appendix C | 2004-04-06T07:51:28.386 UTC; ΔUT1 = −0.439 961 s; ΔAT = 32 s; *x*_p = −0.140 682″; *y*_p = 0.333 309″; `r_ITRF` = (−1033.479 383 00, 7901.295 275 40, 6380.356 595 80) km; `v_ITRF` = (−3.225 636 520, −2.872 451 450, 5.531 924 446) km/s | `r_TEME` = (5094.180 107 20, 6127.644 705 20, 6380.344 532 70) km; `v_TEME` = (−4.746 131 494, 0.785 817 998, 5.531 931 288) km/s |
-| `VAL06` Rev 3 Appendix C | TLE `00005`, day 182.784 950 62, TEME → J2000 (IAU-76/FK5) | `r_J2000` = (−9059.941 554 1, 4659.697 199 0, 813.956 940 2) km — **expected to differ from this tree's IAU 2006/2000A result by ≈ 3 m; see `FRAME-A-009`** |
+| `VAL06` Rev 3 Appendix C | TLE `00005`, day 182.784 950 62, TEME → J2000 (IAU-76/FK5) | `r_J2000` = (−9059.941 554 1, 4659.697 199 0, 813.956 940 2) km — **expected to differ from this tree's IAU 2006/2000A result by ≈ 3 m; see `FRAME-A-009`** **[RETIRED 2026-10-06: the vector is Revision 3's printed (C-3) number, from an IAU-76/FK5 chain run with the example's IERS offsets; this tree agrees with it to 1.1 mm, and a legacy chain without the offsets is 0.82 m away — §38.10]** |
 | `VAL06` Rev 3 Appendix C | "of date" vs "of epoch" over 3 days, same example | 23.6 m |
 | `C04` | first row of the series | 1962-01-01, MJD 37665.00, *x* = −0.012 700″, *y* = 0.213 000″, UT1−UTC = 0.032 633 8 s |
 | `ERFA` test suite (`t_erfa_c.c`) | per-routine | ERFA's own published expected values for `eraXy06`, `eraS06`, `eraC2ixys`, `eraEra00`, `eraSp00`, `eraPom00`, `eraC2tcio`, `eraGmst82`, `eraDtdb` |
@@ -7739,12 +7739,54 @@ here, and left to the next commit: `FRAME-A-009`, whose expected vector this sec
 one and not a self-referential number, and whose "3–5 m / 0.06″ disagreement" claim does not survive the revision
 mapping.
 
+### 38.10 `FRAME-A-009`: the printed J2000 vector is a legacy-chain-with-offsets result, and this tree agrees with it (2026-10-06)
+
+**What the specification said (v1.9 and earlier).** "`VAL06` publishes `r_J2000 = (−9059.941 554 1, 4659.697 199 0,
+813.956 940 2)` km using the IAU-76/FK5 chain. This implementation uses IAU 2006/2000A, so the expected result is
+Vallado's vector displaced by the known model difference … agreement to 3–5 m, and the residual direction consistent with a
+rotation of ≈ 0.06 arcsec about the pole. A residual below 1 m or above 10 m is a failure, in both directions."
+
+**What was found.** The vector is Revision 3's eq. (C-3) (§38.9 §1). Measured with ERFA outside the tree, then in the test,
+for TLE `00005` at day 182.784 950 62 of 2000 = 2000-06-30 18:50:19.733 568 UTC:
+
+| chain | `r_J2000`, km | from the printed vector |
+|---|---|---|
+| legacy IAU-76/80 (106-term nutation), **no** offsets | (−9059.941 468 5, 4659.697 223 5, 813.957 752 5) | **0.817 m** |
+| the same, **with the example's own offsets** δΔΨ₁₉₈₀ = −0.052 195″, δΔε₁₉₈₀ = −0.003 875″ | (−9059.941 550 5, 4659.697 208 2, 813.956 928 1) | **1.56 cm** |
+| this tree, IAU 2006/2000A, zero EOP | (−9059.941 554 6, 4659.697 198 4, 813.956 938 2) | 2.1 mm |
+| this tree, the `C04` record of the day (dX 0.061 mas, dY −0.009 mas) | (−9059.941 554 3, 4659.697 198 4, 813.956 941 1) | **1.1 mm**; velocity 0.003 mm/s |
+| the printed vector, Revision 3 (C-3) | (−9059.941 554 1, 4659.697 199 0, 813.956 940 2) | — |
+
+**Reading.** The printed vector is the IAU-76/FK5 chain **run with the IERS celestial-pole offsets**, which the example states.
+Those offsets exist to bring the 1980 theory onto the observed pole; IAU 2006/2000A with `C04`'s dX, dY is brought onto the same
+observed pole; two chains each corrected onto the same physical pole agree — here to 1–2 mm — and `SPEC-frames.md` §3.3 gives exactly
+that mechanism for the ITRF path. Without the offsets the legacy chain is 0.82 m away, and that, the offsets, is the whole model
+difference at 2000.5 (≈ 1.5 mas of precession-rate error plus the frame bias), not 3–5 m. The "3–5 m / 0.06″" is the epoch-2026 size of
+a legacy chain *without* the offsets, which is T-01's quantity, applied to a year-2000 example that is neither: the premise of
+`FRAME-A-009`'s disagreement was wrong on both counts. The recorded vector was **not** circular, as was first read from its 2 mm
+agreement: it is Revision 3's printed number (§38.9), and the agreement is between two chains, not between this tree and itself.
+The 1.56 cm between ERFA's legacy chain with the offsets and the printed vector is unexplained and not pursued: it is the spread between
+two implementations of the same legacy chain (ERFA's, and the authors' own arithmetic), and the test's 2 cm tolerance is reasoned from it.
+
+**What this does to `SPEC-frames.md` §3.3.** It says the model difference "does not appear on the ITRF path … and does on the TEME path,
+undiluted". The second half holds only for a legacy chain that applies no pole offsets: this example is a TEME path, and the difference
+is gone once the offsets are applied. Qualified in place (v1.10), the earlier text left visible. For T-01 (L6 step 3) the consequence is
+that the required disagreement exists against a legacy chain **without** the celestial-pole offsets, and whether Horizons applies them is
+what its prediction has to state and what its capture can decide.
+
+**What changed in the tree.** `FRAME-A-009` is a test now (`frames_tests.cpp`), asserting agreement to 2 cm in position and 0.011 mm/s in
+velocity (the position bound times |v|/|r|, since a rotation error of angle d moves position by d|r| and velocity by d|v|), with the legacy
+chain from ERFA as witness: with the offsets within 2 cm of the printed vector, without them more than 0.5 m away. Rule 5: a 20 mas error
+in the CIP offset fed to this tree's chain fails it (position 0.883 m, velocity 0.373 mm/s). The row's v1.9 text and its note are retired
+with their text kept; §5's row above is marked retired in place. `SPEC-frames.md` v1.10. **Not changed:** the chain, `FRAME-A-001`.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-06 | **`FRAME-A-009`'s "3-5 m / 0.06 arcsec disagreement" retired; the test is now an agreement test with the legacy chain as witness.** §38.10: the recorded vector is Revision 3's printed (C-3) number, from an IAU-76/FK5 chain run with the example's IERS pole offsets; this tree agrees with it to 1.1 mm, the legacy chain with the offsets to 1.56 cm, without them 0.817 m -- so the premise (a disagreement of the epoch-2026 size, on a no-offsets chain) was wrong on both counts and the vector was not circular. `SPEC-frames.md` v1.10 qualifies §3.3's "on the TEME path it does not cancel" (true only against a legacy chain without the offsets), keeps the old text visible, and §5's row here is marked retired. Rule 5 with a 20 mas CIP-offset error. The chain and `FRAME-A-001` unchanged. |
 | 2026-10-06 | **The GMST equation citation settled from the paper: eq. (2) §II.F is the polynomial, eq. (1) §II.D the TEME↔PEF relation (GMST alone), and the kinematic rotation is Revision 3's Appendix C, the unnumbered relation under (C-1); the frames layer's "VAL06 Appendix C" is Revision 3's and the pin was Revision 2.** §38.9: the four versions CelesTrak publishes with their hashes and Appendix C side by side; Rev 2 against Rev 3 compared word by word (88 differences, 48 in Appendix C, §II.D/§II.F/Table 1/§III identical, so every sgp4 citation stands); the recorded vectors traced with `git log -S` to the 2026-09-18 merge and the L1 commit, their source otherwise unrecorded; the paper's internal inconsistency (Rev 3's eq. (1) is GMST alone, its Appendix C adds the kinematic term) and why Appendix C is followed; `FRAME-A-001`'s 13.3 mm explained as the example's own one-part Julian-date arithmetic (0.06 mm match; bound 23.4 mm) with a witness in the test. Manifest: Revision 3 pinned beside Revision 2, Revision 2's role text corrected in place. Register rows corrected. No behaviour, value or tolerance changed. |
 | 2026-10-06 | **§38.7: two statements made exact, the wrong text left visible.** "Four of the eight match to 2-10%" -> five of the eight within 0.5-8 % and the three 12 h ones 13-25 % off (the table's own figures); and the "Rule 5, shown" run was made before the §38.8 fixes were in -- re-run at the committed state with the same injection: three of nine tests fail again, `IOSG-A-001` on exactly the eight glued satellites (144 of 640 rows over the 2 cm gate, 174 over their regression bounds). Both found by the executor while writing the round-5 report; the manager's ruling asked for them as visible corrections. |
 | 2026-10-06 | **L6 step 3, second pass the same day: the "unexplained residual" was the test's own reader plus resonance; the reader is fixed and tested, the resonance branch is fixed (one fix cited to VAL06 §II.F, one determined by the vectors), and the 2 cm gate is met by all 31 comparable satellites.** §38.7: eight verification lines have the revolution number glued to the mean motion, and the reader took the glued digits as decimals (a 7e-11..1.1e-9 relative error) -- the "1e-10 to 1e-9 mean-motion drift" the previous row reported; line 2 is now read by the format's own columns, IOSG-A-009 tests it on the eight lines and shows the old reading fail (rule 5, with the old behaviour injected: A-001, A-002 and A-009 fail). 5 of the 11 "tier-B" satellites were exact all along. §38.8: the 6 that were real were resonance -- the Greenwich angle at epoch is VAL06 §II.F's 1970-epoch form (differs from STR3's by 6.75e-6 rad; fitted independently to twelve satellites at four epochs, ratio 1.0000-1.0007) and G520's e^2 coefficient is 5740.032 where STR3 prints 5740 (blind scan, V-shaped, one satellite). Corrected table, per-satellite residuals (all <= 4.1 mm; 29 of 31 <= 71 µm), the floor/AODP/low-e-term alternatives with their effects. §38.6 annotated, wrong versions left visible. `sgp4.cpp`: THGR formula, G520, comments; `sgp4_tests.cpp`: gate + regression bounds, reader, A-009; `SPEC-io-sgp4.md` v1.2 (R-010/011, A-009, P-2 rewritten, Q-001 resolved, Q-002/003 alternatives, Q-004 ruled, Q-006/007). |

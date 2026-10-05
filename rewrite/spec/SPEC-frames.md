@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `FRAME` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.9 |
+| **Version** | 1.10 |
 | **Date** | 2026-10-06 |
 | **Layer** | `frames` (`../plan/PLAN.md` §2) |
 | **Feature** | F3 (plan §3) |
@@ -135,6 +135,13 @@ narrowed:
 - **On the TEME path it does not.** TEME is referred to the **mean equinox of date**, which is a
   model construct with no correction series to reconcile two precession models against an
   observation. The difference therefore appears undiluted, and T-01's 2.2 m is it.
+  *[v1.10 qualification, found at L6 step 3 while retiring `FRAME-A-009`'s disagreement: "it does not" holds for a
+  legacy chain that applies **no celestial-pole offsets**. Vallado's own TEME example (`FRAME-A-009`, TLE `00005`,
+  2000-06-30) runs its IAU-76/FK5 chain **with** the observed offsets, and there the two chains agree to 1–2 mm;
+  without them the legacy chain is 0.82 m away (≈ 1.5 mas of precession-rate error plus the frame bias, at that
+  epoch). So the required disagreement exists against a legacy chain without the offsets and nowhere else, and
+  whether a given legacy implementation applies them is a fact about that implementation, to be read from its
+  documentation or measured. `PROVENANCE.md` §38.10.]*
 
 The consequence for anyone setting a threshold: a required-disagreement test belongs on the TEME
 path and **not** on the ITRF path, where agreement is correct and a test demanding disagreement
@@ -649,7 +656,7 @@ catches a large class of implementation errors cheaply, and because the predeces
 | `FRAME-A-006` | the CIP coordinates at J2000.0 TT, with all periodic terms and offsets zero | *X* = −0.016 617″, *Y* = −0.006 951″ | `TN36-5` eq. (5.16) — **published series constant terms**; these are the frame bias in the pole direction | 1 µas | R-025 |
 | `FRAME-A-007` | *s′* at 2026.0 | ≈ −12 µas | `TN36-5` eq. (5.13), *s′* = −47 µas·*t* | within 1 µas | R-015 |
 | `FRAME-A-008` | ω⃗ magnitude with LOD = 0 | 7.292 115 146 706 979 × 10⁻⁵ rad s⁻¹ | `TN36-5` eq. (5.14), differentiated | exact to f64 | S-021 |
-| `FRAME-A-009` | **TEME → GCRS on Vallado's TLE example.** TLE `00005`, propagated to day 182.784 950 62, `r_TEME = (−9060.473 735 69, 4658.709 525 02, 813.686 731 53)` km. | `VAL06` publishes `r_J2000 = (−9059.941 554 1, 4659.697 199 0, 813.956 940 2)` km using the **IAU-76/FK5** chain. This implementation uses IAU 2006/2000A, so the expected result is Vallado's vector **displaced by the known model difference**. | `VAL06` Appendix C eq. (C-3) | agreement to **3–5 m**, *and* the residual direction consistent with a rotation of ≈ 0.06 arcsec about the pole. A residual below 1 m or above 10 m is a **failure**, in both directions — see note below. | R-031, P-5 |
+| `FRAME-A-009` | **TEME → GCRS on Revision 3's TLE-`00005` example — an agreement test.** TLE `00005`, propagated to day 182.784 950 62 of 2000 (2000-06-30 18:50:19.733 568 UTC), `r_TEME = (−9060.473 735 69, 4658.709 525 02, 813.686 731 53)` km, `v_TEME = (−2.232 832 783, −4.110 453 490, −3.157 345 433)` km s⁻¹; the `C04` EOP record of the day. | `VAL06` Revision 3 eq. (C-3): `r_J2000 = (−9059.941 554 1, 4659.697 199 0, 813.956 940 2)` km, `v_J2000 = (−2.233 347 413, −4.110 136 158, −3.157 394 560)` km s⁻¹ — the **IAU-76/FK5** chain **run with the observed IERS offsets** δΔΨ₁₉₈₀ = −0.052 195″, δΔε₁₉₈₀ = −0.003 875″ that the example states. | `VAL06` Revision 3 Appendix C eq. (C-3) | **agreement to 2 cm** in position — the spread between two implementations of the legacy chain (an ERFA reconstruction with the example's offsets is 1.6 cm from the printed vector) — and 0.011 mm s⁻¹ in velocity (that bound times *v*/*r*); **witness:** the same legacy chain *without* the offsets is **> 0.5 m** away (0.82 m measured), so the agreement is the offsets' doing and not an accident. Measured: this tree 1.1 mm, 0.003 mm s⁻¹. | R-031, P-5 |
 | `FRAME-A-010` | "of date" vs "of epoch" on the same example | the two differ by ≈ 23.6 m over three days | `VAL06` Appendix C, which states that figure | within 20 % | R-031 |
 | `FRAME-A-011` | RTN basis orthonormality and handedness on 10⁴ random states | ê_R·ê_T = ê_T·ê_N = ê_N·ê_R = 0; det = +1 | closed-form identity | 1e-15 | R-040 |
 | `FRAME-A-012` | RTN on a circular orbit: angle between ê_T and v̂ | 0 | closed-form identity | 1e-12 rad | R-042 |
@@ -692,12 +699,14 @@ spacing each — 40.2 µs, **23.4 mm** at this radius — so the 25 mm tolerance
 measurement plus margin. The paragraph above, which calls the remainder unexplained, was written before anyone had
 tried a one-part date; it is left visible. `PROVENANCE.md` §38.9.
 
-**Note on `FRAME-A-009`.** This test is unusual and deliberately so: it asserts a
+**Note on `FRAME-A-009`.** *[RETIRED v1.10, left visible. The v1.9 row read: "`VAL06` publishes `r_J2000 = (−9059.941 554 1, 4659.697 199 0, 813.956 940 2)` km using the **IAU-76/FK5** chain. This implementation uses IAU 2006/2000A, so the expected result is Vallado's vector **displaced by the known model difference**", with the tolerance "agreement to **3–5 m**, *and* the residual direction consistent with a rotation of ≈ 0.06 arcsec about the pole. A residual below 1 m or above 10 m is a **failure**, in both directions", and the note that follows.]* This test is unusual and deliberately so: it asserts a
 *disagreement* of a predicted size. Vallado's published J2000 vector was computed with
 IAU-76/FK5; this tree uses IAU 2006/2000A; the two must differ, and the size and direction of
 the difference are predictable from §3.3. A result that agreed to a millimetre would mean the
 implementation had silently reproduced the older model — which is the failure this test
 exists to catch, and which no "agrees with the published value" test could detect.
+
+**Why the claim was retired (v1.10).** At the example's epoch (2000.5) the printed vector agrees with this tree's chain to 1–2 mm, so it cannot be a "displacement by the known model difference" of 3–5 m. The example's IAU-76/FK5 chain is run with the observed IERS celestial-pole offsets, which bring the 1980 theory onto the observed pole as `C04`'s dX, dY bring IAU 2006/2000A onto the same one: two chains corrected onto the same physical pole agree — the mechanism of §3.3's ITRF bullet, here on a TEME path. Measured outside the tree and now in the test as a witness (ERFA's legacy chain): without the offsets 0.82 m from the printed vector, with them 1.6 cm, this tree 1.1 mm. The 0.82 m is the whole model difference at that epoch (≈ 1.5 mas of precession-rate error plus the frame bias), not 3–5 m, because the precession-rate error had had half a year to accumulate and not twenty-six. The "3–5 m / 0.06″" is the epoch-2026 size of a legacy chain *without* the offsets — T-01's quantity — applied to an example that is neither. The recorded vector was not circular (it is Revision 3's printed number, `PROVENANCE.md` §38.9): it is a legacy-chain-with-offsets result, and its agreement with this tree is a check between two chains and not of this tree against itself. What a required-disagreement gate needs is a legacy chain *without* the offsets, which is T-01's, and `PROVENANCE.md` §38.10.
 
 **Coverage.** Every requirement and refusal in this spec is discharged by at least one row
 above, except the following, listed in full:
@@ -749,6 +758,7 @@ cases rather than runtime ones.
 
 | version | date | change |
 |---|---|---|
+| 1.10 | 2026-10-06 | **`FRAME-A-009` retired as a disagreement claim and rebuilt as an agreement test.** Its recorded vector is Revision 3's printed (C-3) number (not circular; `PROVENANCE.md` §38.9), computed by an IAU-76/FK5 chain *run with* the example's observed IERS offsets, and this tree agrees with it to 1.1 mm; the legacy chain without the offsets is 0.82 m away and with them 1.6 cm. The "3–5 m / 0.06″ disagreement" claim is retired with its text kept; the test asserts agreement to 2 cm (two legacy implementations' spread) with the legacy chain as witness. §3.3's "on the TEME path it does not [cancel]" is qualified: the model difference appears undiluted only against a legacy chain that applies no pole offsets. The chain and `FRAME-A-001` are unchanged. `PROVENANCE.md` §38.10. |
 | 1.9 | 2026-10-06 | **Citations corrected against the pinned page; no requirement, value or tolerance changed.** Found at L6 step 3 settling which equation of `VAL06` the GMST polynomial and the TEME rotation are: this specification's Appendix C material (`FRAME-R-030`'s kinematic rotation, `FRAME-A-001`'s and `FRAME-A-009`'s vectors) is **Revision 3's**, and §2 named Revision 2, whose Appendix C prints GMST alone with different example numbers. §2's row now names both; `FRAME-R-030` cites Revision 3's numbering (the kinematic rotation is the unnumbered relation under (C-1), not (C-1)) and records the paper's internal inconsistency and why Appendix C is followed; `FRAME-A-001`'s source is named and its 13.3 mm, recorded as unexplained, is explained (the example's one-part Julian-date arithmetic) with a witness in the test. The earlier text is left visible in each place. `PROVENANCE.md` §38.9. |
 | 1.8 | 2026-09-24 | **`FRAME-Q-002` CLOSED.** `ARN15` obtained in primary form (authors' accepted manuscript, green OA via CORE — `PROVENANCE.md`'s rule-4 register), after the publisher, BORIS itself, ResearchGate and ADS all refused automated access. His own Eq. 1 CONFIRMS §4.7's from-first-principles DYB frame exactly: ê_D's own sense matches, and ê_Y matches once cross-product anti-commutativity is applied to his own −(e_r×e_D) form. No requirement changed — the conventions fixed without the source were already right. |
 | 1.7 | 2026-09-18 | **`FRAME-Q-006`'s *L*_B figure was wrong by a factor of a thousand**: 1.550 519 768 × 10⁻⁸ × 1.495 978 707 × 10¹¹ m is **2.3195 km** on an astronomical unit, not 2.3 m. Found while `SPEC-perturbations` `PERT-Q-010` required the translation's omissions to be stated with their arithmetic rather than asserted from memory. It sat in prose from v1.0, where gate 8 cannot reach it — the fifth instance of the family `budgetcheck.py` exists for, and the first outside a budget row. Both occurrences now carry the multiplication. |
