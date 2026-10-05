@@ -305,6 +305,10 @@ to reassign. That is the answer to the risk flagged at L0, and it is the second 
   one product (SPEC-eop §4.6, SPEC-time §4.9, TIME-R-056/057, EOP-R-054/056).
 - FRAME-Q-001 corrected from "convention" to **model difference**, carrying the arithmetic and
   the observation that a gate set from the kinematic terms would have been 25× too small.
+  *Superseded 2026-10-06 (the second correction note below):* T-01 showed the residual to be a
+  difference of convention after all — whether a chain applies the celestial-pole offsets — so
+  v1.2's reading stands and the precession arithmetic is withdrawn; that the kinematic terms are
+  far too small to set a gate from still holds.
 
 Two new tests were needed to discharge the new requirements, and writing one of them taught
 something: built as a UTC calendar epoch, a request past the leap horizon is refused by
