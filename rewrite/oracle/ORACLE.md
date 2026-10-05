@@ -64,6 +64,8 @@ size. Concretely, the accumulated IAU-76 precession rate error is ≈ 3 mas/yr, 
 `T-01`. A rewrite that reproduced `T-01` to the millimetre would have silently reimplemented the
 older model, and no "matches the oracle" test can catch that.
 
+*Recorded 2026-10-06 (round 8):* the attribution above — 0.064″, 2.17 m, "essentially the whole of case `T-01`" — is withdrawn. A fresh capture measured the TEME difference against Horizons: a 50.2 mas tilt of the pole, 1.72 m mean on ACS3's orbit, because Horizons' conversion of a TLE applies no celestial-pole offsets; a TEME chain carrying the offsets agrees with a pole-corrected legacy chain to ≈ 1 mm (`PROVENANCE.md` §38.13–38.14). The frozen `T-01`/`T-02` have the structure of a rotation about the pole and stay unexplained with their input gone.
+
 Consequently, and this is the standing rule from `SPEC-template.md`: **oracle comparison ranks
 last among acceptance-value sources and is never a gate on its own.** Its job is to catch gross
 error — a sign, an axis, a factor of two — not to certify correctness. Published worked examples
@@ -106,6 +108,7 @@ both instances were small enough to read as rounding disagreements rather than a
   equals a direct SGP4 of CelesTrak's TLE text with the eccentricity one unit higher in the last digit (0.0044709 for 0.0044708 — CelesTrak's OMM gives 0.00447087, its TLE text
   truncates), a difference of up to 1.455 m, purely in the orbital plane and periodic (`PROVENANCE.md` §38.13, `IOSG-A-012`). Whether it held at `T-01`'s original capture is unknown;
   that input cannot be recovered. The frozen `T-01`/`T-02` are the predecessor's values for it; a fresh capture is compared with them in §38.12–38.13 and they are never asserted.
+  *Recorded 2026-10-06 (round 8):* the "~3 m definitional floor of TEME itself" above is withdrawn as a description of this comparison: the 2–3 m between an SGP4-TEME chain and Horizons is the difference between two named conventions (Horizons' applies no pole offsets), 50.2 mas, and is predicted and removed against a named one; `SPEC-frames.md` `FRAME-R-033` keeps the requirement as a bound, 0.1″ × the state's radius (v1.11, `PROVENANCE.md` §38.14).
 - **`G-*` GNSS** — three seven-parameter fit residuals against IGS final orbits. The strongest
   cases here, because IGS orbits are independent truth rather than predecessor output.
   *Recorded 2026-09-24:* the fits are **cannonball** fits — `validate_sp3.sh` asserts that the

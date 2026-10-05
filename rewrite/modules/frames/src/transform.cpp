@@ -156,8 +156,15 @@ odl::Result<Rotation, FrameError> teme_to_itrs(const Epoch& when,
     // PEF is identified with TIRS, which is unavoidable if TEME is to reach a
     // modern frame at all, and imports the difference between the IAU-76/80
     // realisation of the true pole and the IAU 2006/2000A CIP — of order
-    // 0.1 arcsec, about 3 m at 7000 km. That floor is a property of TEME, not of
-    // this implementation, and State<TEME> carries it (FRAME-R-033).
+    // 0.1 arcsec, 3.39 m at 7000 km. TEME's definition does not say which pole a
+    // conversion assumes (observed, with the IERS offsets, or the model's), and a
+    // TLE's producer does not document its choice, so State<TEME> carries 0.1
+    // arcsec times its radius as a floor (FRAME-R-033). It is a bound for an
+    // unknown convention, not an irreducible property: T-01 (IOSG-A-011) measured
+    // Horizons' conversion to apply no offsets, 50.2 mas from this chain's, and a
+    // chain with its convention reproduces it to 2 mm.
+    // [Superseded 2026-10-06, kept visible: "About 3 m at 7000 km. That floor is a
+    // property of TEME, not of this implementation."]
     //
     // The angle used below is eq. (1)'s GMST PLUS the kinematic part of the equation
     // of the equinoxes. That is Revision 3's Appendix C, the UNNUMBERED relation

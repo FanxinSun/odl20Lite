@@ -446,11 +446,36 @@ TEST_CASE("L1 exit gate, structural: a state cannot be reinterpreted between fra
     // And no state exists without an epoch, which carries its scale by construction.
     STATIC_REQUIRE_FALSE(std::is_default_constructible_v<GcrsState>);
     STATIC_REQUIRE(std::is_constructible_v<GcrsState, Epoch, Vec3, Vec3>);
-    // FRAME-R-033: TEME carries its definitional floor.
+    // FRAME-R-033: TEME carries a floor for the pole its conversion assumes (0.1 arcsec times the state's
+    // radius; the radius dependence is FRAME-A-020 below). [Superseded 2026-10-06, kept visible: this
+    // comment first read "TEME carries its definitional floor".]
     const TemeState t{utc_mjd(58000.0), Vec3{7000, 0, 0}, Vec3{0, 7.5, 0}};
     REQUIRE(t.frame_uncertainty_floor_m() > 1.0);
     REQUIRE(GcrsState{utc_mjd(58000.0), Vec3{7000, 0, 0}, Vec3{0, 7.5, 0}}
                 .frame_uncertainty_floor_m() == 0.0);
+}
+
+TEST_CASE("FRAME-A-020: a TEME state carries a floor of 0.1 arcsec times its own radius, and no other frame does",
+          "[frames][spec]") {
+    // FRAME-R-033 (v1.11): the floor is an ANGLE times the state's radius, not one constant. The accessor returned
+    // 3.0 m for every TEME state until 2026-10-06 — a low-orbit figure; the stated 0.1 arcsec is 20.4 m at
+    // geostationary radius. Asserted at two radii, the second being where the constant was wrong by a factor of 6.8.
+    constexpr double kFloorRad = 0.1 * kArcsec;
+    const TemeState leo{utc_mjd(58000.0), Vec3{7000.0, 0.0, 0.0}, Vec3{0.0, 7.5, 0.0}};
+    const TemeState geo{utc_mjd(58000.0), Vec3{0.0, 42164.0, 0.0}, Vec3{-3.07, 0.0, 0.0}};
+    CHECK_THAT(leo.frame_uncertainty_floor_m(), WithinRel(kFloorRad * 7000.0e3, 1.0e-12));    // 3.394 m
+    CHECK_THAT(geo.frame_uncertainty_floor_m(), WithinRel(kFloorRad * 42164.0e3, 1.0e-12));   // 20.44 m
+    CHECK_THAT(leo.frame_uncertainty_floor_m(), WithinAbs(3.39, 0.01));
+    CHECK_THAT(geo.frame_uncertainty_floor_m(), WithinAbs(20.4, 0.05));
+    // it is the NORM of the position, not a component: the same radius off every axis gives the same floor
+    const double c = 7000.0 / std::sqrt(3.0);
+    const TemeState oblique{utc_mjd(58000.0), Vec3{c, c, c}, Vec3{0.0, 0.0, 7.5}};
+    CHECK_THAT(oblique.frame_uncertainty_floor_m(), WithinRel(leo.frame_uncertainty_floor_m(), 1.0e-12));
+    // T-01 measured 50.2 mas against Horizons' conversion (PROVENANCE.md §38.13): half the bound, covered by it
+    CHECK(50.2e-3 * kArcsec * 7000.0e3 < leo.frame_uncertainty_floor_m());
+    // no other frame carries a floor
+    CHECK(GcrsState{utc_mjd(58000.0), Vec3{7000, 0, 0}, Vec3{0, 7.5, 0}}.frame_uncertainty_floor_m() == 0.0);
+    CHECK(ItrsState{utc_mjd(58000.0), Vec3{7000, 0, 0}, Vec3{0, 7.5, 0}}.frame_uncertainty_floor_m() == 0.0);
 }
 
 TEST_CASE("L1 step 4 gate: the REQUIRED DISAGREEMENT with the predecessor, oracle F-01..F-04",
@@ -470,13 +495,21 @@ TEST_CASE("L1 step 4 gate: the REQUIRED DISAGREEMENT with the predecessor, oracl
     // physical pole must agree and the model difference cancels by construction.
     // Rule 1 ignored the correction series.
     //
-    // TEME is different because it is referred to the mean equinox of date, a
-    // model construct with no correction series, so the difference appears
-    // undiluted: oracle T-01's 2.2 m at 7234 km is 0.0627 arcsec, and the
-    // IAU-76-versus-IAU-2006 precession difference of 0.064 arcsec is 2.245 m
-    // there. The kinematic equation-of-equinoxes terms are 95 mm at that radius,
-    // 4% of it, and are NOT the cause. The required-disagreement gate therefore
-    // belongs at L6 on T-01, at about 2.2 m.
+    // [SUPERSEDED 2026-10-06, kept visible — T-01 (IOSG-A-011, PROVENANCE.md §38.13) measured it; the next
+    // seven lines are withdrawn:]
+    // | TEME is different because it is referred to the mean equinox of date, a
+    // | model construct with no correction series, so the difference appears
+    // | undiluted: oracle T-01's 2.2 m at 7234 km is 0.0627 arcsec, and the
+    // | IAU-76-versus-IAU-2006 precession difference of 0.064 arcsec is 2.245 m
+    // | there. The kinematic equation-of-equinoxes terms are 95 mm at that radius,
+    // | 4% of it, and are NOT the cause. The required-disagreement gate therefore
+    // | belongs at L6 on T-01, at about 2.2 m.
+    // The cancellation above holds on the TEME path too: a TEME chain can carry the pole offsets (Revision 3's
+    // own example does, and this tree's does), and then agrees with a pole-corrected legacy chain to about 1 mm.
+    // The disagreement exists only against a chain that applies NONE, and Horizons' conversion of a TLE is one:
+    // T-01 measured a 50.2 mas tilt of the pole, 1.72 m mean on ACS3's orbit — not the 0.064 arcsec (2.245 m)
+    // precession difference. The predecessor's frozen 2.2 m has the structure of a rotation about the pole and
+    // stays unexplained with its input gone.
     //
     // So this gate asserts what the oracle actually supports: the magnitude is
     // preserved, the two agree closely, and the round trip beats the

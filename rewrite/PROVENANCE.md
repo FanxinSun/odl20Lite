@@ -133,6 +133,8 @@ construct with no correction series, so the difference appears undiluted — whi
 T-01's 2.2 m is. See §12.5. Any comparison against a pre-upgrade
 baseline must record both model versions.
 
+> **[Superseded 2026-10-06, kept visible: "TEME is different because it is referred to the mean equinox of date, a model construct with no correction series, so the difference appears undiluted — which is what oracle T-01's 2.2 m is."]** T-01 (§38.13, `IOSG-A-011`) measured it: a TEME chain can carry the pole offsets (this tree's does) and then agrees with a pole-corrected legacy chain to ≈ 1 mm; the difference exists only against a chain that applies none, and Horizons' conversion of a TLE is one — a 50.2 mas tilt, 1.72 m mean on ACS3's orbit, not 0.064″. The mechanism of the ITRF paragraph above holds on both paths. §38.14.
+
 ---
 
 ## 2. Parameter register
@@ -309,14 +311,14 @@ are not mistaken for targets measured by this tree:
 |---|---|---|---|
 | ITRF ↔ GCRF round trip, LEO state | 1.29 × 10⁻⁷ km | IAU-76/80 | informative. This tree's gate is < 1 × 10⁻⁶ km, and the test is self-consistency, which proves nothing about accuracy (`FRAME-P-1`). |
 | SGP4 TEME vs JPL Horizons, 5 h arc | 2.2 m mean / 3.6 m max | IAU-76/80 | informative. The gate is < 20 m. The plan's expectation of "< 1 m post-IAU2006" is **questioned** — see `FRAME-Q-001`. |
-| attributed IAU-76/80 vs IAU-2006/2000A difference | ≈ 0.064 arcsec | — | **corroborated independently**: the IAU-76 precession rate error accumulates at ≈ 3 mas yr⁻¹, giving 0.06–0.08 arcsec by the mid-2020s, i.e. ≈ 2.2 m at 7000 km — which is the whole of the observed residual. |
+| attributed IAU-76/80 vs IAU-2006/2000A difference | ≈ 0.064 arcsec | — | **corroborated independently**: the IAU-76 precession rate error accumulates at ≈ 3 mas yr⁻¹, giving 0.06–0.08 arcsec by the mid-2020s, i.e. ≈ 2.2 m at 7000 km — which is the whole of the observed residual. *[Superseded 2026-10-06, kept visible: T-01 measured a 50.2 mas pole tilt against Horizons' no-offset convention (§38.13); the 0.064″ attribution is withdrawn, and the frozen 2.2 m has the structure of a rotation about the pole and stays unexplained (§38.14).]* |
 
 **Determination about a third-party product, from public data** (manager, 2026-09-18), recorded
 because it changes what one of the acceptance tests means:
 
 | finding | evidence | consequence |
 |---|---|---|
-| The JPL Horizons ephemeris for the TEME comparison object, forward of a TLE epoch, **is that TLE**. | Kernel coverage ends at the TLE epoch + 15.000 days, matching to the millisecond; it tracks an independently-run SGP4 to 2–3 m flat, with no growth over five days. | `FRAME-A-017` measures the difference between two TEME→inertial **conventions**, not orbit accuracy. The 2–3 m observed is `FRAME-P-5`'s ≈ 3 m definitional floor, measured. "Expect < 1 m" struck from the plan; `FRAME-A-001` promoted to primary frames gate. |
+| The JPL Horizons ephemeris for the TEME comparison object, forward of a TLE epoch, **is that TLE**. | Kernel coverage ends at the TLE epoch + 15.000 days, matching to the millisecond; it tracks an independently-run SGP4 to 2–3 m flat, with no growth over five days. | `FRAME-A-017` measures the difference between two TEME→inertial **conventions**, not orbit accuracy. The 2–3 m observed is `FRAME-P-5`'s ≈ 3 m definitional floor, measured. "Expect < 1 m" struck from the plan; `FRAME-A-001` promoted to primary frames gate. *[Corrected 2026-10-06, the text above kept: "is that TLE" holds to ≈ 1.5 m for an object's record (the eccentricity's seventh decimal rounded where CelesTrak's text truncates, `IOSG-A-012`) and exactly for a user-input TLE; the 2–3 m is the difference between two conventions — Horizons' applies no pole offsets, this tree's does — 50.2 mas, 1.72 m mean on ACS3's orbit (§38.13), inside `FRAME-P-5`'s 0.1″ × |r| bound, not "the same quantity" as a predicted floor; "measured" stands as a measurement of a convention difference.]* |
 
 ---
 
@@ -564,7 +566,7 @@ writing the parser is why it does not trust one.
 | id | decision | date | recorded at |
 |---|---|---|---|
 | `EOP-Q-004` | **Resolved** — EOP pinning split by purpose; now plan rule **R11**. | 2026-09-18 | `SPEC-eop.md` `EOP-R-005`, `-R-006`, `-R-009`, `EOP-F-010`, `EOP-A-022`, `EOP-A-023`; §8.6 above |
-| `FRAME-Q-001` | **Resolved** — the Horizons comparison ephemeris *is* the TLE, so the test is convention-matching, not accuracy. "< 20 m" retained as the gate; "expect < 1 m" struck; `FRAME-A-001` promoted to primary frames gate; the "assert a disagreement of a predicted size" pattern adopted as standing. | 2026-09-18 | `SPEC-frames.md` §4.5, `FRAME-P-6`, `FRAME-A-001`, `FRAME-A-009`, `FRAME-A-017`; §6 above |
+| `FRAME-Q-001` | **Resolved** — the Horizons comparison ephemeris *is* the TLE, so the test is convention-matching, not accuracy. "< 20 m" retained as the gate; "expect < 1 m" struck; `FRAME-A-001` promoted to primary frames gate; the "assert a disagreement of a predicted size" pattern adopted as standing. *[Corrected 2026-10-06, the text kept: the comparison ephemeris is the TLE to ≈ 1.5 m for an object's record and exactly for a user-input TLE; the v1.3 amendment of the same day (a model difference, 0.064″) is superseded by T-01 — `SPEC-frames.md` v1.11, §38.14.]* | 2026-09-18 | `SPEC-frames.md` §4.5, `FRAME-P-6`, `FRAME-A-001`, `FRAME-A-009`, `FRAME-A-017`; §6 above |
 | `FRAME-Q-005` | **Decided** — shape the ITRS type for a realisation tag now, carry the tag before P6. A live hazard: 20 C04 is ITRF2020 where 14 C04 was ITRF2014. | 2026-09-18 | `SPEC-frames.md` `FRAME-R-026` |
 | `EOP-Q-002` | **Escalated to the owner** — resolving it means asking the IERS, which no session here may do. No code change needed either way: record as-found. | 2026-09-18 | `SPEC-eop.md` `EOP-R-023`, `EOP-Q-002` |
 | `TIME-Q-001` | **Confirmed** — refuse UTC and UT1 before 1972; accept the uniform scales. | 2026-09-18 | `SPEC-time.md` §4.6 |
@@ -736,6 +738,8 @@ The step-4 gate was specified as a required-disagreement test on the ITRF path a
 restated as what the oracle actually supports: magnitudes agree, the separation is bounded well
 above the measurement so a gross error still fails, and the round trip beats the predecessor's
 closure. The required-disagreement gate moves to T-01 at L6, at **≈ 2.2 m**.
+
+> **[Superseded 2026-10-06 (round 8), kept visible: the bullet "TEME has no such series … undiluted … 0.0627 arcsec … 2.245 m … essentially all of it" above, its 4 % / twenty-five-times arithmetic, and the closing "at ≈ 2.2 m".]** T-01 (§38.13) measured a 50.2 mas tilt against Horizons' conversion, which applies no pole offsets — 1.72 m mean, 1.77 m max on ACS3's orbit — not 0.064″ and not about the pole; a TEME chain carrying the offsets agrees with a pole-corrected legacy chain to ≈ 1 mm. The first bullet (the mechanism on the ITRF path) holds on both paths. The kinematic terms are 1.5 mas (52 mm here), 3 % of the measured tilt, and are still not the cause. The required-disagreement gate was run at T-01 and passed, classified by named conventions (`plan/subplan_L6/L6-3.md`). §38.14.
 
 ---
 
@@ -6880,6 +6884,8 @@ be built and gated on freshly-captured data. The literal frozen figure, 2.246 m,
 predecessor's own 2026-09-14 capture specifically and must not be asserted as the expected value
 against a new one.
 
+> **[Superseded 2026-10-06 (round 8), kept visible: the paragraph above's account of what T-01's gate tests — "the accumulated IAU-76-vs-IAU-2006 precession difference … the ~2.2 m size-and-direction assertion".]** The gate ran on a fresh capture (§38.11–38.13) and measured something else: the difference between this tree's convention and Horizons' (no pole offsets), a 50.2 mas tilt, 1.72 m mean — not a precession difference, not 2.2 m. §38.14.
+
 ### 37.4 The licence question, escalated rather than decided — the manifest entry not yet added
 
 The manager's own first required addition: a committed, manifest-pinned Horizons response is data
@@ -7933,7 +7939,7 @@ Horizons it was never going to be 0.064″, and the capture shows 0.050″, a ti
 **The object table is a finding in its own right** (all of this post hoc; none of it is part of the frozen rules). Horizons' record for `-159588` differs from a direct SGP4 of
 the same element set by up to 1.455 m, and fits this tree's chain at 1.125 m rms (inconclusive as an input, rule 3).
 - *What the difference is* (Horizons against Horizons, in the control's own radial / along-track / cross-track frame): **cross-track exactly zero** (max 0.17 mm); radial and
-  along-track purely **periodic at the orbital period**, amplitudes 0.728 m and 1.455 m (ratio 2.00), constants ≤ 3 mm, trends ≤ 0.3 mm/h, residual 2–3 mm — the signature of a
+  along-track purely **periodic at the orbital period**, amplitudes 0.728 m and 1.455 m (ratio 2.00), constants ≤ 3 mm *[CORRECTED 2026-10-06 (round 8): the fit gives 3.5 mm (radial), 0.8 mm (along-track); written "≤ 3 mm" — a record states what was measured; same treatment as `1bfffc0`]*, trends ≤ 0.3 mm/h, residual 2–3 mm — the signature of a
   difference in the **eccentricity vector** alone, δe ≈ 0.728 m / a = 1.0 × 10⁻⁷.
 - *What it is:* this tree's SGP4 of the same element set with the **eccentricity one unit higher in its last digit — 0.0044709, not 0.0044708** — reproduces the object table to
   2.2 mm after the frame fit, exactly as the unchanged element set reproduces the control. The rms is V-shaped in δe with its minimum at +1.0 × 10⁻⁷ (as served 1.125 m; +5 × 10⁻⁸
@@ -7954,12 +7960,72 @@ the same element set by up to 1.455 m, and fits this tree's chain at 1.125 m rms
 2.2 mm after a 50 mas rotation and a 22 µs time shift, and the rotation was predicted in size and direction before the capture was read. What Horizons' TEME → ICRF conversion
 *is* — the legacy model chain without pole offsets — is measured rather than assumed, to 0.14 mas, with A, C and D excluded by more than 50 mas.
 
+### 38.14 L1's account of the TEME residual corrected, and the sweep of everything that rested on it (2026-10-06, round 8)
+
+**What was found.** T-01 (§38.13, `IOSG-A-011`) measured the TEME residual against Horizons instead of attributing it: Horizons' conversion of a TLE's TEME state applies **no** celestial-pole offsets;
+this tree's chain differs from it by a **50.2 mas tilt of the pole** (1.72 m mean, 1.77 m max on ACS3's orbit on 2026-10-05, the frame models' prediction to the millimetre); and a chain with Horizons'
+convention reproduces its output to 2 mm. That falsified four things L1 recorded on 2026-09-18 and the plan repeated: (1) that the ≈ 3 m is an *irreducible floor of TEME's definition* that "no amount of
+care removes"; (2) that the "2–3 m flat" of the manager's determination was "the same quantity" as a predicted ≈ 3 m; (3) `FRAME-Q-001`'s v1.3 amendment — the residual "is a genuine model difference, the
+0.064 arcsec IAU-76 versus IAU-2006 precession difference", appearing "undiluted" because "TEME has no pole-offset series"; (4) §3.3's mechanism for TEME. **What stands:** `FRAME-R-033`'s requirement — TEME's
+definition does not say which pole a conversion assumes, and a TLE's producer does not document its choice — and v1.2's reading of the residual as a difference of *convention*, which the 2026-09-18
+determination had right in kind.
+
+**A defect found in review (the manager's).** The requirement states an angle, "of order 0.1″", and `State<TEME>::frame_uncertainty_floor_m()` returned **3.0 m for every TEME state** — a low-orbit figure;
+the stated angle is 20.4 m at geostationary radius. The floor is now **0.1″ × |r|** (3.39 m at 7000 km); the 0.1″ is the requirement's own figure and **not** one chosen from T-01, whose 50.2 mas is written
+beside it in `FRAME-R-033` as what the bound covers. `FRAME-A-020` asserts it at two radii. **Rule 5:** with the old constant restored, `FRAME-A-020` fails (4 of its 10 assertions, at both radii: 3.0 m against 3.39 m and
+against 20.4 m); log kept with the round's report.
+
+**`FRAME-A-017`, as the manager asked** (reported; no new test written): **no test carries the id** — it exists as a specification row (and §6's note), acceptance rows being outside `speccheck`'s denominator.
+`IOSG-A-011` realises its substance: a 5-hour Horizons table of a TLE object against this tree's SGP4 → TEME → GCRS chain; the raw difference is pinned (1.873 m mean, 1.925 m max, far under 20 m); it is **flat** in the
+sense the row means — a constant rotation and a constant time shift leave 2.2 mm over the arc, a growing residual would fail the rule-3 limit and the pins; the table's time scale is established, not assumed (every
+record's tag is checked TDB and its epoch equals the grid; τ = 21.8 µs is reported). **Not covered:** the row says "same object": the object table is not asserted against the 20 m bound or flatness — `IOSG-A-012` pins
+its 1.455 m difference from the control, and it fits the chain at 1.125 m rms, inconclusive as an input under rule 3 (the 20 m bound would hold: its raw difference from this tree's chain is 1.99 m mean, 3.32 m max).
+
+**The sweep.** Terms: floor, irreducible, undiluted, 0.064, 2–3 m, 2.2 m, 2.17 / 2.245 m, definitional, "cannot be rid of", "no amount of care", "no pole-offset series", "same quantity", `FRAME-R-033` / `-P-5` /
+`-P-6` / `-A-017` / `-A-020` / `-Q-001`; over `spec/`, `PROVENANCE.md`, `oracle/ORACLE.md`, the comments and tests under `modules/`, `plan/` and `doc/`. Line numbers are those before this round's edits.
+
+| where | what it said | what was done |
+|---|---|---|
+| `SPEC-frames.md` §3.3, paragraphs 2–3 (l. 117–123) | the IAU-76 precession-rate error gives 0.06–0.08″, ≈ 2.2 m; "0.064 arcsec … 2.245 m … essentially the whole of it" | superseded note, text kept |
+| §3.3, the TEME bullet (l. 135–137, with the v1.10 qualification) | "On the TEME path it does not … undiluted, and T-01's 2.2 m is it" | superseded note, text kept |
+| §3.3, closing paragraph (l. 139–144) | a required-disagreement test belongs on TEME; "4 % of T-01 … twenty-five times too small" | superseded note, text kept; the kinematic terms restated (1.5 mas, 3 % of 50.2) |
+| `FRAME-R-033` (l. 474–488) | "definitional ambiguity … of order 3 m at 7000 km … no amount of care removes it"; "measured … 2–3 m flat … the same quantity" | restated (the requirement stands; 0.1″ × \|r\|; T-01's 50.2 mas beside it); first text quoted, marked superseded |
+| `FRAME-P-5` (l. 619) | "definitional floor", "≈ 3 m at 7000 km", "irreducible" | restated, first text kept |
+| `FRAME-P-6` (l. 621) | "the Horizons ephemeris is the same TLE … expected residual is `FRAME-P-5`'s ≈ 3 m floor" | corrected note appended, text kept |
+| `FRAME-A-017` (l. 667) | same object / ≈ 3 m floor expected | corrected note appended; coverage by `IOSG-A-011` stated |
+| `FRAME-A-020` (l. 671) | "≈ 3 m at 7000 km … order of magnitude" | restated at two radii, exact formula; first text kept |
+| `FRAME-Q-001` (l. 748) | the v1.3 amendment: model difference, 0.064″, 2.245 m, "no pole-offset series" | correction appended, text kept |
+| `SPEC-frames.md` §9 "Oracle log" (l. 738) | "the 2.2 m predecessor TEME residual … prior behavioural observations … measured under IAU-76/80" | **examined, unchanged**: a record that it was measured under the older model; asserts no mechanism |
+| `SPEC-frames.md` changelog v1.1, v1.3, v1.10 | "convention", "undiluted", the amendment | **history, unchanged** (as instructed); v1.11 added |
+| `PROVENANCE.md` l. 72 | the handover supplied "TEME residual 2.2 m / 3.6 m; the ≈ 0.064 arcsec attribution" | **examined, unchanged**: a dated record of what was supplied |
+| `PROVENANCE.md` l. 122–134 | "TEME is different … undiluted — which is what oracle T-01's 2.2 m is" | superseded note appended |
+| `PROVENANCE.md` l. 311–312 | the 0.064″ attribution "corroborated independently … the whole of the observed residual" | row 3 superseded note; row 2 unchanged |
+| `PROVENANCE.md` l. 319 | "is that TLE … 2–3 m … `FRAME-P-5`'s ≈ 3 m definitional floor, measured" | corrected note appended |
+| `PROVENANCE.md` l. 567 | `FRAME-Q-001` "Resolved — … is the TLE" | note appended |
+| `PROVENANCE.md` §12.5 (l. 706–738) | "TEME has no such series … undiluted … 0.0627″ … 2.245 m"; "gate at ≈ 2.2 m" | dated correction block appended |
+| `PROVENANCE.md` §37 (l. 6872–6881) | T-01 "tests the accumulated IAU-76-vs-IAU-2006 precession difference … ~2.2 m" | superseded note appended |
+| `PROVENANCE.md` §38.12 (l. 7821–7822) | the plan's premise ("because TEME has no pole-offset series"), described as a premise | **examined, unchanged**: states what the plan expected, which §38.13 and `plan/PLAN.md` correct |
+| `PROVENANCE.md` §38.13 | "constants ≤ 3 mm" | visible correction: 3.5 mm (radial), same treatment as `1bfffc0` |
+| `oracle/ORACLE.md` §4 (l. 58–66) | "≈ 0.064 arcsec, or 2.17 m at 7000 km — essentially the whole of case T-01" | dated note appended (the text otherwise frozen) |
+| `oracle/ORACLE.md` `T-*` bullet (l. 102–103) | "Bounded above by the ~3 m definitional floor of TEME itself" | dated note appended |
+| `SPEC-io-horizons.md` (l. 246–258) | T-01 "tests the accumulated IAU-76-vs-IAU-2006 precession difference … ~2.2 m" | dated note appended |
+| `SPEC-io-sgp4.md` §9.3 | the design text (~2.2 m, precession difference) | **unchanged**: already inside "Earlier text of this section, left visible" |
+| `state.hpp` (l. 73–79) | "an uncertainty floor it cannot be rid of"; 3.0 m for every TEME state | corrected: 0.1″ × \|r\|, comment with the superseded text kept |
+| `transform.cpp` (l. 156–160) | "about 3 m at 7000 km. That floor is a property of TEME, not of this implementation" | corrected comment, superseded text kept |
+| `frames_tests.cpp` (l. 449) | "TEME carries its definitional floor" | corrected comment; `FRAME-A-020` added |
+| `frames_tests.cpp` (l. 474–480) | "TEME is different … undiluted … 0.0627″ … 2.245 m … at about 2.2 m" | superseded note, text kept |
+| `plan/PLAN.md` l. 306 and l. 665–679 | "FRAME-Q-001 corrected from \"convention\" to **model difference**"; rule 1's 0.064″ text | **not edited — the manager's file**; l. 665–679 already carry the manager's correction note (`3e06ed2`); l. 306 (the L1 amendments list) is reported for the manager |
+| `rewrite/doc/` | — | no hit |
+
+**What this does not change.** The chain, `FRAME-A-001`, `FRAME-A-009`, T-01's verdict (a pass naming Horizons' chain), and the requirement itself.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-06 | **L1's account of the TEME residual corrected after T-01, and the floor's value fixed.** §38.14: `FRAME-R-033`'s requirement stands; "no amount of care removes it", the "2–3 m flat … the same quantity" paragraph, `FRAME-Q-001`'s 0.064″ precession amendment and §3.3's "undiluted" mechanism for TEME are superseded where they stand, first text kept and dated (`SPEC-frames.md` v1.11, here, `ORACLE.md`, `SPEC-io-horizons.md`, three code comments); `frame_uncertainty_floor_m()` returned 3.0 m for every TEME state where the stated 0.1″ is 20.4 m at geostationary radius -- now 0.1″ x |r| (3.39 m at 7000 km), `FRAME-A-020` at two radii, the old constant failing it (rule 5); `FRAME-A-017` reported (no test of its own; `IOSG-A-011` realises its substance); every swept hit listed; §38.13's "constants ≤ 3 mm" corrected to 3.5 mm. |
 | 2026-10-06 | **T-01 compared, once, by the rules frozen before it: Horizons' TLE -> TEME -> ICRF conversion matches case B (no celestial-pole offsets) to 0.14 mas -- a pass naming Horizons' chain -- and the object table is SGP4 of a different element set.** §38.13: the object and user-TLE tables differ by 1.455 m, so by rule 1 the control is the input; fitted Omega = (-10.592, +49.054, -0.140) mas, tau = +21.8 us, rms 2.2 mm; nearest case B (A 50.2, C 123.8, D 72.9 mas away; band 2.0); the rotation part's sizes equal B's predicted 1.716/1.774 m to the millimetre, the raw 1.873/1.925 m adding 0.16 m of time shift (unexplained, not gated); formal sigma along the A-B separation 0.63 mas of 50.16. The frozen 2.246/3.553 m matched in neither size nor structure. The object table equals this tree's SGP4 of the same TLE with the eccentricity one unit higher in the last digit (0.0044709 for 0.0044708; CelesTrak's OMM has 0.00447087, its TLE text truncates) to 2.2 mm, and differs from the control by a pure in-plane periodic eccentricity-vector signature up to 1.455 m. `IOSG-A-011` pins B by name, `IOSG-A-012` the finding; `SPEC-io-sgp4.md` v1.4; a dated note appended to `ORACLE.md`. |
 | 2026-10-06 | **T-01's classification updated to the manager's ruling `e49b33b`, before any state vector was compared; the four cases, their numbers and the band are unchanged.** §38.12 rule 5: a match within the band to A, B or C PASSES (the pipeline predicted Horizons' output and the capture names its chain: A consistent and pole-corrected, B no offsets, C offsets in the nutation only); a match to D (the face-value −53 mas, which follows from no consistent chain) or to none is a finding; a fit residual above 0.25 m is inconclusive; the plan's "agreement is the failure" is retired (Horizons' manual documents daily pole corrections, against which agreement is the physically expected result). The first-frozen rule is kept visible, marked superseded. `SPEC-io-sgp4.md` v1.3 `IOSG-R-012` restated. |
 | 2026-10-06 | **T-01's prediction frozen before either Horizons table is compared with anything.** §38.12: Horizons' manual says nothing of how an SGP4/TEME state becomes ICRF and says its ICRF↔TOD transformation is "IAU76/80 ... corrected daily by GPS measurements", so three readings are predicted, each with its size and direction: **A** agreement (Ω ≈ 0), **B** a 50 mas pole tilt (no offsets; mean 1.72 m, max 1.77 m), **C** a 113 mas rotation about the pole (offsets in the nutation, Eqe from the model; mean 2.58 m, max 4.00 m) -- the plan's "about the pole" is C, at 0.113" not 0.064"; band 2.0 mas from the named smaller terms; rules for which table, the fit's validity and what each case means; the frozen 2.246/3.553 m beside it. `IOSG-A-010` freezes the numbers in a test that has no path to either table; `SPEC-io-sgp4.md` v1.3 adds `IOSG-R-012`. The comparison is the next commit. |

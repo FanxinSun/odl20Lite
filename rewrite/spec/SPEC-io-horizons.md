@@ -256,6 +256,10 @@ states this rather than overclaiming.
   specific to the predecessor's own 2026-09-14 capture and must not be asserted as the expected
   value for a new one.
 
+  > **[Superseded 2026-10-06 (round 8), kept visible: the account above of what `T-01`'s gate tests — "the accumulated IAU-76-vs-IAU-2006 precession difference … the ~2.2 m size-and-direction assertion".]**
+  > The gate ran on a fresh capture (`PROVENANCE.md` §38.11–38.13) and measured something else: the difference between this tree's convention and Horizons' (no pole offsets), a 50.2 mas tilt, 1.72 m mean on ACS3's
+  > orbit — not a precession difference, not 2.2 m. The frozen 2.246 m still must not be asserted for a new capture, for the reason given.
+
 ---
 
 ## 10. Open questions for the manager

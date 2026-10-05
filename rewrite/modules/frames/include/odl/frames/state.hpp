@@ -20,12 +20,19 @@
 // displacement at 7000 km, so by now a TEME state mistaken for a GCRS one is
 // displaced by tens of kilometres with nothing in its magnitude to show it.
 
+#include <odl/core/units.hpp>
 #include <odl/core/vec3.hpp>
 #include <odl/time/epoch.hpp>
 
 #include <string_view>
 
 namespace odl::frames {
+
+/// FRAME-R-033's own bound on the pole angle a TEME conversion may be wrong by: 0.1 arcsec, the
+/// difference between the IAU-76/80 realisation of the true pole and the IAU 2006/2000A CIP that
+/// identifying PEF with TIRS imports. The requirement's figure, not one fitted to T-01 (which
+/// measured 50.2 mas against Horizons' conversion, inside it).
+inline constexpr double kTemeFloorRad = 0.1 * 3.14159265358979323846 / (180.0 * 3600.0);
 
 enum class Frame {
     BCRS,   ///< Barycentric Celestial Reference System: ICRS axes, solar-system
@@ -71,10 +78,19 @@ public:
     static constexpr Frame frame = F;
     static constexpr std::string_view frame_name = name_of(F);
 
-    /// A TEME state carries an uncertainty floor it cannot be rid of
-    /// (FRAME-R-033); see transform.hpp.
+    /// FRAME-R-033 (v1.11). A TEME state carries a floor for the one thing the frame's definition
+    /// leaves open: WHICH POLE a conversion assumes -- the observed one (with the IERS celestial-pole
+    /// offsets) or the model's (without) -- a choice a TLE's producer does not document. The floor is
+    /// the spec's own angle, 0.1 arcsec, times THIS state's radius: 3.39 m at 7000 km, 20.4 m at
+    /// geostationary radius. It is a bound for a comparator whose convention is unknown, not an
+    /// irreducible property: against a named convention the difference is predicted and removed (T-01,
+    /// IOSG-A-011: Horizons' conversion of a TLE applies no offsets, this tree's chain differs from it by
+    /// 50.2 mas, and a chain with its convention reproduces it to 2 mm).
+    /// [Superseded 2026-10-06, kept visible: "A TEME state carries an uncertainty floor it cannot be rid
+    /// of", and a constant 3.0 m for every TEME state -- a low-orbit figure the stated angle gives as
+    /// 20.4 m at geostationary radius.]
     [[nodiscard]] double frame_uncertainty_floor_m() const noexcept {
-        return F == Frame::TEME ? 3.0 : 0.0;
+        return F == Frame::TEME ? kTemeFloorRad * odl::metres_from_km(r_.norm()) : 0.0;
     }
 
     /// FRAME-R-028.  The BCRS <-> GCRS step is a translation and says so: it
