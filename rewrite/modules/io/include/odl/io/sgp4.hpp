@@ -122,7 +122,11 @@ struct Sgp4InitialState {
 /// equations, and, when the orbit is deep-space, §10's `DPINIT`). Refuses
 /// (`IOSG-F-001`) an inclination within a small tolerance of 180 degrees --
 /// `1/sin(i)` and `1/(1+cos(i))` terms are undefined there, `VAL06` §VI.A's
-/// own named fix.
+/// own named fix. Corrections to `STR3` applied here and in `sgp4_propagate`
+/// are listed in SPEC-io-sgp4.md §3.3, §3.5-3.7 with their locations in
+/// `STR3`/`VAL06`; two are determined by the published vectors alone, not by
+/// either text (the eccentricity floor, and `AODP` as the Kepler-consistent
+/// axis) -- PROVENANCE.md §38.6.
 [[nodiscard]] odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle);
 
 /// Whether `sgp4_init` classified this TLE as a deep-space (SDP4) orbit --
@@ -157,9 +161,25 @@ struct Sgp4RawState {
 /// led to repeatable results" -- also forced by this module carrying no
 /// state between calls at all, never mind between two different `tsince`).
 ///
-/// Refuses `IOSG-F-002` ("decayed") when the computed radius drops below
-/// Earth's own surface (`VAL06` §VI.A: "the decay condition simply checks
-/// the position magnitude on each step").
+/// Refusals (SPEC-io-sgp4.md §7; every call returns a fully finite state or
+/// one of these, never a NaN as success):
+///   `IOSG-F-001`  the PERTURBED inclination is within ~0.086 deg of 180 deg
+///                 (deep space; `sgp4_init` refuses the TLE's own value);
+///   `IOSG-F-002`  "decayed": the computed radius dropped below Earth's own
+///                 surface (`VAL06` §VI.A: "the decay condition simply checks
+///                 the position magnitude on each step");
+///   `IOSG-F-003`  "modified eccentricity too low": the drag-modified
+///                 eccentricity is below -0.001 (`VAL06` Table 1, satellites
+///                 28350 and 22312). Between -0.001 and 1e-6 it is held at
+///                 1e-6;
+///   `IOSG-F-004`  the periodics-perturbed eccentricity left [0, 1)
+///                 (verification file's own "error code 3" case, 33334);
+///   `IOSG-F-005`  the semi-latus rectum is not positive (verification
+///                 file's own "error code 4" case, 33333).
+///
+/// Accuracy against the published verification rows: see SPEC-io-sgp4.md
+/// IOSG-P-2 -- 2 cm for 20 of the 31 comparable satellites, 1 m for the other
+/// 11 (an unexplained residual, IOSG-Q-001); velocity 1 cm/s throughout.
 [[nodiscard]] odl::Result<Sgp4RawState, Sgp4Error> sgp4_propagate(
     const Sgp4InitialState& state, double tsince_minutes);
 

@@ -29,17 +29,67 @@ constexpr double kXj4 = -1.65597e-6;
 constexpr double kQo = 120.0;
 constexpr double kSo = 78.0;
 constexpr double kXmnpda = 1440.0;
-constexpr double kTothrd = 0.66666667;
+// CORRECTION, VAL06 §III second bullet ("the move to double-precision code
+// throughout... corresponding increase in accuracy for certain astrodynamic
+// constants"): STR3's own TOTHRD=.66666667 is a rounding of 2/3, carried
+// here at full double precision. Its effect is invisible in a low orbit and
+// ~0.4 m at geostationary radius (a ~ (xke/n)^TOTHRD, a 3.3e-9 exponent
+// error times ln(xke/n) ~ 2.8): every near-GEO case in the verification
+// battery carried exactly that 0.4 m constant offset until this changed
+// (PROVENANCE.md §38.6's own table).
+constexpr double kTothrd = 2.0 / 3.0;
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kTwopi = 2.0 * kPi;
 constexpr double kDe2ra = kPi / 180.0;
-constexpr double kE6a = 1.0e-6;
+// CORRECTION, VAL06 §III third bullet: "Spacetrack Report Number 6 changed
+// the tolerance to 10-12 (commensurate with double-precision work)". STR3's
+// own E6A=1.E-6 stopped Newton's iteration one step before its answer was
+// good (the FORTRAN exits to the sines/cosines of the PREVIOUS iterate), an
+// up-to-1e-6-rad error in E -- metres in a low orbit, tens of metres at
+// GEO.
+constexpr double kKeplerTol = 1.0e-12;
+// CORRECTION, VAL06 §VI.E: "an even simpler option fixes a limit of 0.9 -
+// 1.0 for the maximum correction" to each Newton step (Crawford 1995's own
+// +/-e bound is the other option VAL06 names). 0.95 here; 0.9 and 1.0 give
+// bit-identical results over the whole verification battery. The +/-e
+// option was tried first and is WRONG as written here: SGP4's `e` at that
+// point is the drag-decayed eccentricity, but the quantity Crawford's bound
+// belongs to is the EFFECTIVE eccentricity sqrt(axn^2+ayn^2), which the
+// long-period term `aynl` can push above `e` -- near-circular decaying
+// satellites (28350, 22312, 28057) then got a clamp tighter than their own
+// true Newton step.
+constexpr double kKeplerStepLimit = 0.95;
 constexpr double kXke = 0.0743669161331734;   // STR3: 0.743669161E-1. VAL06 Table 2: fuller.
 constexpr double kThdt = 0.00437526908802;    // STR3 THDT=4.3752691E-3. VAL06 "RPTIM": fuller.
 constexpr double kXpdotp = kXmnpda / kTwopi;  // VAL06 §VI.B: rev/day -> rad/min
 
 constexpr double kCk2 = 0.5 * kXj2 * kAe * kAe;
 constexpr double kCk4 = -0.375 * kXj4 * kAe * kAe * kAe * kAe;
+
+// IOSG-F-001: VAL06 §VI.A, "inclination values near 180.0 degrees can cause
+// divide-by-zero problems in the initialization and the routine operation...
+// fixed by setting a tolerance in both routines." Checked at init on the
+// TLE's own inclination and again in operation on the perturbed one.
+constexpr double kInclTolRad = 1.5e-3;  // ~0.086 deg
+
+// Eccentricity limits. VAL06 Table 1 states the error trap for satellites
+// 28350 and 22312 ("modified eccentricity too low"); the published .e files
+// for both end one step before the drag-modified eccentricity reaches
+// -0.001 (28350: -9.2e-4 at the last row, 1440 min, crossing -1e-3 near 1470;
+// Table 1: "approximately 1460 minutes"), which fixes the trap at -0.001.
+// Between 0 and the trap the vectors fix the eccentricity at a floor of
+// 1.0e-6: 22312's last row (e = -2.6e-5 unfloored) and 33335 (TLE e =
+// 4.0e-7) agree with the published rows only at 1.0e-6, and the agreement
+// is V-shaped and sharp -- 5% either side is 4 m off at 33335 (PROVENANCE.md
+// §38.6). No text states the floor's value; it is determined by the
+// vectors.
+constexpr double kEccTrap = -0.001;  // NOT-A-UNIT-CROSSING: a dimensionless eccentricity bound, VAL06 Table 1's error trap
+constexpr double kEccFloor = 1.0e-6;
+// VAL06 Table 1, satellite 28057 ("certain drag terms are set to zero to
+// avoid math errors / loss of precision"), and the verification file's own
+// comment on that case ("ecc = 8.84E-5 (< 1.0e-4) / drop certain normal drag
+// terms").
+constexpr double kLowEccTol = 1.0e-4;
 
 double qoms2t_const() { return std::pow((kQo - kSo) * kAe / kXkmper, 4); }
 double s_const() { return kAe * (1.0 + kSo / kXkmper); }
@@ -182,10 +232,6 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
     Sgp4InitialState st;
     const double xincl = tle.inclination_deg * kDe2ra;
 
-    // IOSG-F-001: VAL06 §VI.A, "inclination values near 180.0 degrees can
-    // cause divide-by-zero problems in the initialization and the routine
-    // operation... fixed by setting a tolerance."
-    constexpr double kInclTolRad = 1.5e-3;  // ~0.086 deg
     if (std::abs(kPi - xincl) < kInclTolRad) {
         return odl::err(Sgp4Error{"IOSG-F-001", "inclination within 0.086 deg of 180 deg"});
     }
@@ -219,7 +265,20 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
     const double ao = a1 * (1.0 - del1_mm * (0.5 * kTothrd + del1_mm * (1.0 + 134.0 / 81.0 * del1_mm)));
     const double delo_mm = 1.5 * kCk2 * x3thm1 / (ao * ao * betao * betao2);
     const double xnodp = xno_radpm / (1.0 + delo_mm);
-    const double aodp = ao / (1.0 - delo_mm);
+    // DEVIATION FROM STR3 -- determined by the vectors, not stated in either
+    // text. STR3 §6/§7 write AODP=AO/(1.-DELO). Here AODP is instead the
+    // Kepler-consistent axis (xke/xnodp)^(2/3) of the same recovered mean
+    // motion. The two agree to ~1e-13 for every ordinary orbit (verified
+    // for 88888, 00005, 06251, 11801 and a GEO case) and differ at O(DELO^2)
+    // only when the J2 correction is large: satellite 33333 (e = 0.995,
+    // DELO = -0.108) has them 0.064% apart, i.e. PINVSQ 0.142% apart, and
+    // PINVSQ multiplies every J2/J4 secular rate. A fit of free factors on
+    // the three secular-rate terms to 33333's rows returned (1.001423,
+    // 1.001421, 1.002847) -- exactly PINVSQ scaled by 1.001421, with
+    // nothing else altered -- and PINVSQ from this definition is 1.001422.
+    // With it, 33333 agrees to 7 micrometres at all five rows; with STR3's
+    // AO/(1-DELO), by 3398 km at the last (PROVENANCE.md §38.6).
+    const double aodp = std::pow(kXke / xnodp, kTothrd);
 
     st.deep_space = (kTwopi / xnodp) >= 225.0;  // STR3 §11's own period dispatch
     st.xnodp = xnodp;
@@ -279,6 +338,15 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
     const double xnodcf = 3.5 * betao2 * xhdot1 * c1;
     const double xlcof = 0.125 * a3ovk2 * sinio * (3.0 + 5.0 * cosio) / (1.0 + cosio);
     const double aycof = 0.25 * a3ovk2 * sinio;
+    // T2COF: STR3 §6 AND §7 both compute it (SGP4's own listing states it right
+    // after XNODCF; SDP4's own listing does too, identically) -- shared, like
+    // XNODCF/XLCOF/AYCOF above, NOT near-earth-only. A first draft scoped it
+    // inside the near-earth branch below; every deep-space case defaulted it
+    // to 0, zeroing TEMPL and silently dropping SGP4/SDP4's own drag
+    // contribution to mean longitude for every deep-space orbit. Found by an
+    // independent Python re-derivation of the full DPSEC/DPPER chain for
+    // satellite 11801 disagreeing with this port only in TEMPL.
+    const double t2cof = 1.5 * c1;
 
     st.c1 = c1;
     st.c2 = c2;
@@ -290,17 +358,26 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
     st.a3ovk2 = a3ovk2;
     st.xlcof = xlcof;
     st.aycof = aycof;
+    st.t2cof = t2cof;
 
     if (!st.deep_space) {
         // -- near-earth only: STR3 §6's own C3/C5 and ISIMP-gated terms --
-        st.c3 = coef * tsi * a3ovk2 * xnodp * kAe * sinio / eo;
+        // C3 (and OMGCOF through it) divide by EO, XMCOF by EETA = EO*ETA:
+        // below kLowEccTol those are the "certain drag terms" VAL06 Table 1
+        // and the verification file's own comment on 28057 say are set to
+        // zero. WHICH terms is this port's reading ("to avoid math errors /
+        // loss of precision" names the two that divide by the eccentricity);
+        // the vectors cannot discriminate it (28057's residual moves by
+        // <1% whichever of C3/XMCOF/C5 are zeroed).
+        if (eo >= kLowEccTol) {
+            st.c3 = coef * tsi * a3ovk2 * xnodp * kAe * sinio / eo;
+            st.omgcof = tle.bstar * st.c3 * std::cos(omegao);
+            st.xmcof = -kTothrd * coef * tle.bstar * kAe / eeta;
+        }
         st.c5 = 2.0 * coef1 * aodp * betao2 * (1.0 + 2.75 * (etasq + eeta) + eeta * etasq);
-        st.omgcof = tle.bstar * st.c3 * std::cos(omegao);
-        st.xmcof = -kTothrd * coef * tle.bstar * kAe / eeta;
         st.eta = eta;
         st.delmo = std::pow(1.0 + eta * std::cos(xmo), 3);
         st.sinmo = std::sin(xmo);
-        st.t2cof = 1.5 * c1;
 
         st.isimp = (aodp * (1.0 - eo) / kAe) < (220.0 / kXkmper + kAe);
         if (!st.isimp) {
@@ -549,6 +626,17 @@ struct DpsecResult { double xll, omgasm, xnodes, em, xinc, xn; };
 /// restart each time the model is called... led to repeatable results") --
 /// this module also carries no state between calls at all, so there is
 /// nothing to persist regardless.
+///
+/// CORRECTION, VAL06 §VI.C: STR3's own `IF(XINC .GE. 0.) ... XINC=-XINC,
+/// XNODES+PI, OMGASM-PI` negative-inclination swap sat right here, on the
+/// SECULAR inclination alone. VAL06: "we corrected this by removing the
+/// quadrant check from DSINIT before the 'initialize resonance terms'
+/// section, but kept the check in SGP4 before the 'long period periodics'
+/// section" -- i.e. the swap moves to AFTER the lunar-solar periodics, on
+/// the fully perturbed inclination (`sgp4_propagate`, below). Swapping early
+/// is what VAL06 calls "correcting negative inclination prematurely" (its
+/// satellites 25954 and 28626): the periodic `pinc` is then added to the
+/// flipped, positive inclination instead of the true negative one.
 DpsecResult dpsec(const Sgp4InitialState& st, double xll_in, double omgasm_in, double xnodes_in, double t) {
     DpsecResult r{};
     r.xll = xll_in + st.ssl * t;
@@ -556,11 +644,6 @@ DpsecResult dpsec(const Sgp4InitialState& st, double xll_in, double omgasm_in, d
     r.xnodes = xnodes_in + st.ssh * t;
     r.em = st.eq + st.sse * t;
     r.xinc = st.xqncl + st.ssi * t;
-    if (r.xinc < 0.0) {
-        r.xinc = -r.xinc;
-        r.xnodes += kPi;
-        r.omgasm -= kPi;
-    }
     r.xn = st.xnodp;
     if (!st.iresfl) return r;
 
@@ -589,18 +672,19 @@ DpsecResult dpsec(const Sgp4InitialState& st, double xll_in, double omgasm_in, d
 
 struct DpperResult { double em, xinc, omgasm, xnodes, xll; };
 
-/// STR3 §10 `DPPER`, with three corrections applied (see sgp4.hpp's own
-/// note on `propagate_teme` for the citations): (1) the SAVTSN 30-minute
-/// skip removed, so periodics are recomputed every call; (2) the Lyddane
-/// test uses the CURRENT inclination (`xinc_in`, already secularly
-/// perturbed by `dpsec`), not a cached epoch value; (3) this port's own
-/// derivation for the quadrant/continuity fix VAL06 describes but does not
-/// print: `xnodes` is unwrapped toward the value it replaces.
+/// STR3 §10 `DPPER`, with these corrections (each cited where it is made):
+/// the SAVTSN 30-minute skip removed (VAL06 §III fourth bullet); the
+/// inclination-dependent quantities taken from the PERTURBED inclination
+/// (VAL06 §III seventh bullet); the Lyddane test on the perturbed
+/// inclination (VAL06 §III fifth bullet / "Option (b)"); the node reduced
+/// mod 2*pi and the result placed in the quadrant nearest the original
+/// (VAL06 §III fifth bullet and its "intrinsic functions" bullet).
 DpperResult dpper(const Sgp4InitialState& st, double em_in, double xinc_in, double omgasm_in,
                   double xnodes_in, double xll_in, double t) {
-    const double sinis = std::sin(xinc_in);
-    const double cosis = std::cos(xinc_in);  // fixed at the PRE-perturbation xinc throughout
-
+    // SAVTSN removed -- CORRECTION, VAL06 §III fourth bullet: "The practice of
+    // only computing the lunar-solar terms if propagation time changes by
+    // more than 30 minutes to save CPU effort was dropped... This was the
+    // only function of the SAVTSN variable in the original DPPER subroutine."
     const double zm_s = st.zmos + 1.19459e-5 * t;
     double zf = zm_s + 2.0 * 0.01675 * std::sin(zm_s);
     double sinzf = std::sin(zf);
@@ -629,44 +713,88 @@ DpperResult dpper(const Sgp4InitialState& st, double em_in, double xinc_in, doub
     const double pgh = sghs + sghl;
     double ph = shs + shl;
 
-    double xinc = xinc_in + pinc;
-    double em = em_in + pe;
+    const double xinc = xinc_in + pinc;
+    const double em = em_in + pe;
     double omgasm = omgasm_in;
     double xnodes = xnodes_in;
     double xll = xll_in;
 
-    // CORRECTION (VAL06 §III/§VI.C's own point about the Lyddane choice):
-    // test the CURRENT (just-perturbed) inclination, not STR3's own cached
-    // XQNCL. STR3's own branch sense (§10, labels 218/220): SMALL
+    // CORRECTION, VAL06 §III seventh bullet: "The second difficulty with the
+    // lunar-solar perturbations was the initialization of deep-space terms
+    // based on perturbed values. This was corrected in the DPPER and SGP4
+    // routines of the Dundee and GSFC versions. In STR#3, the terms computed
+    // during initialization assumed fixed epoch values for inclination,
+    // etc., but of course they are perturbed by the deep-space terms. The
+    // approach used by the Dundee and GSFC versions includes any terms based
+    // on the Keplerian orbit being re-computed based on the new perturbed
+    // values." Here: STR3's DPPER takes SINIS/COSIS from the inclination
+    // BEFORE `XINC=XINC+PINC` and, in its direct branch, SINIQ/COSIQ from the
+    // fixed epoch inclination; both use the perturbed one instead. Evidence
+    // that this is the reading: with this change alone (Lyddane branch;
+    // PROVENANCE.md §38.6's own table) satellites 25954/26900/28626, whose
+    // perturbed inclination is several times the epoch one, went from
+    // 4.1/2.4/1.2 km out to 4.6/2.4/1.7 m, and 04632/14128 from 7.7/1.7 km
+    // to 4.5/5.3 m (mm once the other corrections below were in).
+    const double sinip = std::sin(xinc);
+    const double cosip = std::cos(xinc);
+
+    // The Lyddane choice, VAL06 §III fifth bullet and its "Option (b)": the
+    // test is on the PERTURBED inclination at each call (not STR3's cached
+    // epoch XQNCL). STR3's own branch sense (§10, labels 218/220): SMALL
     // inclination (< 0.2 rad) takes the LYDDANE/ACTAN route -- it exists
     // specifically to avoid the direct route's own PH/SINIQ divide-by-near-
-    // zero there; LARGE inclination takes the direct route.
+    // zero there; LARGE inclination takes the direct route. "Perturbed"
+    // includes the periodic PINC: tested both ways, the secular-only and the
+    // epoch inclination put 04632 and 14128 (whose inclinations straddle
+    // 0.2 rad) 7.7 km and 1.7 km out.
     if (xinc >= 0.2) {
-        ph = ph / st.sinio;  // SINIQ: the fixed epoch sin(i), per STR3's own DPPER
-        const double pgh_corr = pgh - st.cosio * ph;
+        ph = ph / sinip;
+        const double pgh_corr = pgh - cosip * ph;
         omgasm = omgasm + pgh_corr;
         xnodes = xnodes + ph;
         xll = xll + pl;
     } else {
-        const double sinok = std::sin(xnodes);
-        const double cosok = std::cos(xnodes);
-        double alfdp = sinis * sinok;
-        double betdp = sinis * cosok;
-        const double dalf = ph * cosok + pinc * cosis * sinok;
-        const double dbet = -ph * sinok + pinc * cosis * cosok;
+        // CORRECTION, VAL06 §III fifth bullet: "The GSFC code (the IF
+        // statements at the end of the 'apply periodics' section in DPPER)
+        // confirmed the suspicions of several researchers about the need to
+        // evaluate the relative quadrant of the resulting angle and to
+        // correct accordingly. A similar problem exists with the modulo 2pi
+        // reduction of the XNODE variable." and its "intrinsic functions"
+        // bullet: "the MOD function modifies a variable that is then used
+        // outside a trigonometric expression. In this case, we opted to
+        // retain the modern MOD function, but simply add an IF statement to
+        // check if the result is less than zero. The ATAN2 function a few
+        // lines later may also require a similar modification". Read here as:
+        // reduce XNODES into [0, 2*pi) FIRST (so the `COSIS*XNODES` and
+        // `PINC*XNODES*SINIS` terms, which use it outside a trigonometric
+        // expression, see the same node on both sides of ACTAN), take the
+        // new node from ATAN2 into [0, 2*pi), then move it by +/-2*pi to the
+        // representation nearest the reduced original. With the node left
+        // unreduced (an earlier draft of this port) 16 rows of the battery
+        // sat up to 0.96 km out; satellite 23599, whose node crosses 0/2*pi
+        // at ~400 min, steps by ~0.9 km there.
+        double xnoh = std::fmod(xnodes, kTwopi);
+        if (xnoh < 0.0) xnoh += kTwopi;
+        const double sinok = std::sin(xnoh);
+        const double cosok = std::cos(xnoh);
+        double alfdp = sinip * sinok;
+        double betdp = sinip * cosok;
+        const double dalf = ph * cosok + pinc * cosip * sinok;
+        const double dbet = -ph * sinok + pinc * cosip * cosok;
         alfdp += dalf;
         betdp += dbet;
-        double xls = xll + omgasm + cosis * xnodes;
-        const double dls = pl + pgh - pinc * xnodes * sinis;
+        double xls = xll + omgasm + cosip * xnoh;
+        const double dls = pl + pgh - pinc * xnoh * sinip;
         xls += dls;
-        // CORRECTION (this port's own derivation, VAL06's prose without a
-        // printed fix -- see the function's own doc comment): unwrap toward
-        // the value ACTAN replaces, instead of snapping into [0, 2*pi).
-        const double xnodes_raw = actan(alfdp, betdp);
-        const double k = std::round((xnodes - xnodes_raw) / kTwopi);
-        xnodes = xnodes_raw + k * kTwopi;
+        double xnodes_new = std::atan2(alfdp, betdp);
+        if (xnodes_new < 0.0) xnodes_new += kTwopi;
+        if (std::abs(xnoh - xnodes_new) > kPi) {
+            if (xnodes_new < xnoh) xnodes_new += kTwopi;
+            else xnodes_new -= kTwopi;
+        }
+        xnodes = xnodes_new;
         xll = xll + pl;
-        omgasm = xls - xll - std::cos(xinc) * xnodes;  // cos(UPDATED xinc), per STR3's own final line
+        omgasm = xls - xll - cosip * xnodes;  // cos of the PERTURBED xinc, as STR3's own final line
     }
 
     return {em, xinc, omgasm, xnodes, xll};
@@ -676,34 +804,42 @@ DpperResult dpper(const Sgp4InitialState& st, double em_in, double xinc_in, doub
 
 namespace {
 
+/// The inclination-dependent coefficients the shared tail uses. Near-earth:
+/// STR3's own fixed epoch values. Deep space: re-computed from the perturbed
+/// inclination (VAL06 §III seventh bullet, "in the DPPER and SGP4 routines").
+struct TailCoeffs {
+    double cosio, sinio, x3thm1, x1mth2, x7thm1, xlcof, aycof;
+};
+
 /// STR3 §6/§7's SHARED tail, identical text in both: long-period periodics,
 /// Kepler's equation, short-period periodics, orientation vectors,
 /// position/velocity -- from `AXN=E*COS(OMEGA)` (or `OMGADF`, SDP4's own
 /// name for the same slot) onward. `incl_base` is `XINCL` for near-earth
-/// (fixed) or DPPER's own perturbed `XINC` for deep-space -- STR3's own
-/// `XINCK` line uses the caller's base inclination but ALWAYS `st.cosio`/
-/// `st.sinio` (the fixed epoch values) for the correction term itself, in
-/// both SGP4 and SDP4 alike.
+/// (fixed) or DPPER's own perturbed `XINC` for deep-space; `k` carries the
+/// coefficients STR3's own text takes from the fixed epoch inclination in
+/// both SGP4 and SDP4 (its `XINCK` correction term, `X3THM1`, `X1MTH2`,
+/// `X7THM1`, `XLCOF`, `AYCOF`).
 ///
-/// CORRECTION (Crawford 1995, cited VAL06 §VI.E): the Kepler-equation
-/// Newton correction is clamped to +/- e before being applied -- "the
-/// difference between mean and eccentric anomaly is never more than +/- e
-/// radians" -- so a high-eccentricity case cannot diverge within the
-/// (unchanged, STR3's own) 10-iteration budget.
+/// CORRECTIONS to the Kepler solve (VAL06 §III third bullet, §VI.E): the
+/// tolerance is 1e-12 not STR3's 1e-6, and each Newton correction is limited
+/// to +/-0.95 -- see `kKeplerTol` and `kKeplerStepLimit` for what each fixes
+/// and what was tried first. The 10-iteration budget is STR3's own.
 ///
 /// Refuses IOSG-F-002 ("decayed") when the computed radius drops below one
 /// Earth radius -- VAL06 §VI.A: "the decay condition simply checks the
-/// position magnitude on each step."
+/// position magnitude on each step." Refuses IOSG-F-005 when the semi-latus
+/// rectum is not positive -- the verification file's own comment on
+/// satellite 33333 ("check error code 4"): its published rows stop at 20 min
+/// and this port's own `pl` goes negative between 20 and 21.
 odl::Result<Sgp4RawState, Sgp4Error> final_position_velocity(
-    const Sgp4InitialState& st, double a, double e, double xl, double xnode, double omega,
-    double incl_base) {
+    const TailCoeffs& k, double a, double e, double xl, double xnode, double omega, double incl_base) {
     const double beta = std::sqrt(1.0 - e * e);
     const double xn = kXke / std::pow(a, 1.5);
 
     const double axn = e * std::cos(omega);
     const double temp0 = 1.0 / (a * beta * beta);
-    const double xll = temp0 * st.xlcof * axn;
-    const double aynl = temp0 * st.aycof;
+    const double xll = temp0 * k.xlcof * axn;
+    const double aynl = temp0 * k.aycof;
     const double xlt = xl + xll;
     const double ayn = e * std::sin(omega) + aynl;
 
@@ -718,10 +854,10 @@ odl::Result<Sgp4RawState, Sgp4Error> final_position_velocity(
         temp5 = axn * cosepw;
         temp6 = ayn * sinepw;
         double delta = (capu - temp4 + temp3 - temp2) / (1.0 - temp5 - temp6);
-        if (delta > e) delta = e;
-        if (delta < -e) delta = -e;
+        if (delta > kKeplerStepLimit) delta = kKeplerStepLimit;
+        if (delta < -kKeplerStepLimit) delta = -kKeplerStepLimit;
         const double epw = temp2 + delta;
-        const bool converged = std::abs(epw - temp2) <= kE6a;
+        const bool converged = std::abs(epw - temp2) <= kKeplerTol;
         temp2 = epw;
         if (converged) break;
     }
@@ -731,6 +867,9 @@ odl::Result<Sgp4RawState, Sgp4Error> final_position_velocity(
     const double elsq = axn * axn + ayn * ayn;
     const double temp_1mel = 1.0 - elsq;
     const double pl = a * temp_1mel;
+    if (!(pl > 0.0)) {
+        return odl::err(Sgp4Error{"IOSG-F-005", "semi-latus rectum not positive"});
+    }
     const double r = a * (1.0 - ecose);
     const double rinv = 1.0 / r;
     const double rdot = kXke * std::sqrt(a) * esine * rinv;
@@ -747,15 +886,15 @@ odl::Result<Sgp4RawState, Sgp4Error> final_position_velocity(
     const double temp1c = kCk2 * templ;
     const double temp2c = temp1c * templ;
 
-    const double rk = r * (1.0 - 1.5 * temp2c * betal * st.x3thm1) + 0.5 * temp1c * st.x1mth2 * cos2u;
+    const double rk = r * (1.0 - 1.5 * temp2c * betal * k.x3thm1) + 0.5 * temp1c * k.x1mth2 * cos2u;
     if (rk < 1.0) {
         return odl::err(Sgp4Error{"IOSG-F-002", "decayed: computed radius below one Earth radius"});
     }
-    const double uk = u - 0.25 * temp2c * st.x7thm1 * sin2u;
-    const double xnodek = xnode + 1.5 * temp2c * st.cosio * sin2u;
-    const double xinck = incl_base + 1.5 * temp2c * st.cosio * st.sinio * cos2u;
-    const double rdotk = rdot - xn * temp1c * st.x1mth2 * sin2u;
-    const double rfdotk = rfdot + xn * temp1c * (st.x1mth2 * cos2u + 1.5 * st.x3thm1);
+    const double uk = u - 0.25 * temp2c * k.x7thm1 * sin2u;
+    const double xnodek = xnode + 1.5 * temp2c * k.cosio * sin2u;
+    const double xinck = incl_base + 1.5 * temp2c * k.cosio * k.sinio * cos2u;
+    const double rdotk = rdot - xn * temp1c * k.x1mth2 * sin2u;
+    const double rfdotk = rfdot + xn * temp1c * (k.x1mth2 * cos2u + 1.5 * k.x3thm1);
 
     const double sinuk = std::sin(uk), cosuk = std::cos(uk);
     const double sinik = std::sin(xinck), cosik = std::cos(xinck);
@@ -779,6 +918,17 @@ odl::Result<Sgp4RawState, Sgp4Error> final_position_velocity(
     raw.ydot_km_s = (rdotk * uy + rfdotk * vy) * v_scale;
     raw.zdot_km_s = (rdotk * uz + rfdotk * vz) * v_scale;
     return raw;
+}
+
+/// The drag-modified mean eccentricity, `E=EO-TEMPE` (SGP4) / `E=EM-TEMPE`
+/// (SDP4), with the two behaviours STR3 does not have -- both fixed by the
+/// constants' own comments above: refuse IOSG-F-003 ("modified eccentricity
+/// too low", VAL06 Table 1) below `kEccTrap`; hold it at `kEccFloor` between.
+odl::Result<double, Sgp4Error> drag_modified_eccentricity(double e) {
+    if (e < kEccTrap) {
+        return odl::err(Sgp4Error{"IOSG-F-003", "modified eccentricity too low"});
+    }
+    return e < kEccFloor ? kEccFloor : e;
 }
 
 }  // namespace
@@ -811,9 +961,11 @@ odl::Result<Sgp4RawState, Sgp4Error> sgp4_propagate(const Sgp4InitialState& st, 
             templ = templ + st.t3cof * tcube + tfour * (st.t4cof + t * st.t5cof);
         }
         const double a = st.aodp * tempa * tempa;
-        const double e = st.eo - tempe;
+        const auto e = drag_modified_eccentricity(st.eo - tempe);
+        if (!e) return odl::err(e.error());
         const double xl = xmp + omega + xnode + st.xnodp * templ;
-        return final_position_velocity(st, a, e, xl, xnode, omega, st.xincl_saved);
+        const TailCoeffs k{st.cosio, st.sinio, st.x3thm1, st.x1mth2, st.x7thm1, st.xlcof, st.aycof};
+        return final_position_velocity(k, a, *e, xl, xnode, omega, st.xincl_saved);
     }
 
     // -- STR3 §7's own secular update, through DPSEC/DPPER --
@@ -828,12 +980,55 @@ odl::Result<Sgp4RawState, Sgp4Error> sgp4_propagate(const Sgp4InitialState& st, 
 
     const DpsecResult sec = dpsec(st, xmdf, omgadf, xnode0, t);
     const double a = std::pow(kXke / sec.xn, kTothrd) * tempa * tempa;
-    const double e0 = sec.em - tempe;
+    const auto e0 = drag_modified_eccentricity(sec.em - tempe);
+    if (!e0) return odl::err(e0.error());
     const double xmam = sec.xll + st.xnodp * templ;
 
-    const DpperResult per = dpper(st, e0, sec.xinc, sec.omgasm, sec.xnodes, xmam, t);
-    const double xl = per.xll + per.omgasm + per.xnodes;
-    return final_position_velocity(st, a, per.em, xl, per.xnodes, per.omgasm, per.xinc);
+    const DpperResult per = dpper(st, *e0, sec.xinc, sec.omgasm, sec.xnodes, xmam, t);
+
+    // IOSG-F-004: the periodics-perturbed eccentricity left [0, 1). The
+    // verification file's own comment on satellite 33334 ("try to check error
+    // code 3 looks like ep never goes below zero, tied close to ecc"): at
+    // n = 1e-5 rev/day the lunar-solar periodics, which scale with 1/n, drive
+    // it to -122 here. No published row can be matched -- 33334.e's one row is
+    // 33333.e's last row copied verbatim (checked to all 8 decimals), i.e. what
+    // the reference run printed after the case failed.
+    if (per.em < 0.0 || per.em >= 1.0) {
+        return odl::err(Sgp4Error{"IOSG-F-004", "perturbed eccentricity outside [0, 1)"});
+    }
+
+    // CORRECTION, VAL06 §VI.C (see `dpsec`'s own note): the negative-
+    // inclination swap, here, on the fully perturbed inclination, "before the
+    // 'long period periodics' section".
+    double xinc = per.xinc;
+    double xnodes = per.xnodes;
+    double omgasm = per.omgasm;
+    if (xinc < 0.0) {
+        xinc = -xinc;
+        xnodes += kPi;
+        omgasm -= kPi;
+    }
+    // VAL06 §VI.A's tolerance "in both routines": the perturbed inclination
+    // can reach 180 degrees in operation as well as at epoch.
+    if (std::abs(kPi - xinc) < kInclTolRad) {
+        return odl::err(Sgp4Error{"IOSG-F-001", "inclination within 0.086 deg of 180 deg"});
+    }
+
+    // CORRECTION, VAL06 §III seventh bullet: the coefficients STR3's own SDP4
+    // takes from the fixed epoch inclination are re-computed from the
+    // perturbed one ("in the DPPER and SGP4 routines").
+    const double cosip = std::cos(xinc);
+    const double sinip = std::sin(xinc);
+    const double th2 = cosip * cosip;
+    const TailCoeffs k{cosip,
+                       sinip,
+                       3.0 * th2 - 1.0,
+                       1.0 - th2,
+                       7.0 * th2 - 1.0,
+                       0.125 * st.a3ovk2 * sinip * (3.0 + 5.0 * cosip) / (1.0 + cosip),
+                       0.25 * st.a3ovk2 * sinip};
+    const double xl = per.xll + omgasm + xnodes;
+    return final_position_velocity(k, a, per.em, xl, xnodes, omgasm, xinc);
 }
 
 odl::Result<frames::TemeState, Sgp4Error> propagate_teme(
