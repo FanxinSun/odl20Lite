@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `IOSG` |
-| **Status** | **draft** 2026-09-29, revised 2026-10-06, for review — written after the port (plan §3 step 1's own order reordered, not skipped: requirements describe behaviour, not code structure, and a first-principles port this size carried too many open questions to write requirement IDs against in advance; manager's own instruction, `plan/subplan_L6/L6-3.md`). The 2026-10-06 revision records the branch-by-branch fixes the manager's later ruling asked for (§9.2) and what they did not resolve (§10). **Second revision, 2026-10-06, same day:** the comparison reader was found defective — eight revolution numbers glued to their mean-motion field were read as extra decimals of it (§9.2, `IOSG-A-009`) — which removed five of the eleven "unexplained" residuals and let the six that were real be worked; they were resonance, now fixed (§3.8). The gate is met; what stays open is §10 |
-| **Version** | 1.2 |
+| **Status** | **draft** 2026-09-29, revised 2026-10-06, for review — written after the port (plan §3 step 1's own order reordered, not skipped: requirements describe behaviour, not code structure, and a first-principles port this size carried too many open questions to write requirement IDs against in advance; manager's own instruction, `plan/subplan_L6/L6-3.md`). The 2026-10-06 revision records the branch-by-branch fixes the manager's later ruling asked for (§9.2) and what they did not resolve (§10). **Second revision, 2026-10-06, same day:** the comparison reader was found defective — eight revolution numbers glued to their mean-motion field were read as extra decimals of it (§9.2, `IOSG-A-009`) — which removed five of the eleven "unexplained" residuals and let the six that were real be worked; they were resonance, now fixed (§3.8). The gate is met; what stays open is §10. **Third revision, 2026-10-06:** `T-01`'s gate (§9.3, `IOSG-R-012`) — the element set and the two Horizons tables vendored, the prediction written and frozen (`IOSG-A-010`) before either table is compared with anything; the comparison is the next commit |
+| **Version** | 1.3 |
 | **Date** | 2026-10-06 |
 | **Layer** | L6 `io-measurements` (`../plan/PLAN.md` §3.7), step 3 (`sgp4`) |
 | **Depends on** | `core` (`odl::Result`, `Vec3`), `time` (`Calendar`, `Epoch`, `LeapTable`), `frames` (`TemeState`, `to_gcrs` — TEME conversion is L1's, never this module's own) |
@@ -248,6 +248,16 @@ algebraically identical, so a time at an exact multiple of 720 minutes carries n
   `THETAG` — §3.8.
 - **IOSG-R-011.** The `e <= 0.65` branch of the 12-hour resonance takes `G520`'s e^2 coefficient as
   5740.032 — §3.8 (determined by the vectors, one satellite).
+- **IOSG-R-012.** **`T-01`'s required-disagreement gate.** This tree's SGP4 → TEME → GCRS chain, applied to a fresh
+  ACS3 element set, is compared with a JPL Horizons vector table of the same object; the difference, fitted as a
+  rotation vector Ω (GCRS axes) and a time shift τ, MUST land within the pre-registered **2.0 mas** band (§9.3,
+  `PROVENANCE.md` §38.12) of one of four predicted cases — **A** (agreement: a legacy chain whose pole is observed), **B** (a
+  50 mas tilt of the pole: no offsets), **C** (a 113 mas rotation about the pole: offsets in the nutation, the equation of the
+  equinoxes from the model) or **D** (the manual's own −53 mas at face value: a 53 mas rotation about the pole, westward — **the documented
+  case, the one asserted**) — the cases and their numbers having been frozen (`IOSG-A-010`) before either table was
+  compared with anything. Which table, the validity of the fit and the meaning of each outcome are fixed by the rules of
+  `PROVENANCE.md` §38.12. Matching B or C instead of D is a finding, not a pass; agreement (A) where a disagreement was required is a failure of the required
+  disagreement; both are reported as that to the manager, not absorbed into the band.
 
 ---
 
@@ -339,6 +349,7 @@ published row (`IOSG-A-001`).
 | `IOSG-A-007` | The traps the sources name: `28350` accepted at its last published time (1440 min) and refused `IOSG-F-003` first between 1455 and 1480 min; `22312` accepted at 474.2 and refused `-003` at 500; `33333` accepted at 20 min and refused `-005` at 21, 25, 30; `33334` refused `-004` at t=0, and its `.e` row byte-identical to `33333`'s last | the refusals at those times | `VAL06` Table 1; `SGP4-VER.TLE`'s own comments | — | F-003, F-004, F-005, R-008 |
 | `IOSG-A-008` | Every TLE in the verification file at t = -20000, -5000, -1440, -1, 0, 1, 20, 100, 1440, 5000, 20000 min | a fully finite state, or a refusal whose id begins `IOSG-F-` | — | — | R-009 |
 | `IOSG-A-009` | The verification-file reader, on the eight line 2s whose five-digit revolution number abuts the mean motion with no space (`00005 08195 09880 16925 21897 23599 28057 28350`): mean motion (F11.8), revolution number (I5) and checksum recovered separately; the line's own mod-10 checksum, which covers the revolution digits, valid; and the old whitespace-token reading shown to differ from the published mean motion on all eight, by 7e-11 to 1.1e-9 relative. Also: every line 2 carries exactly eight decimals, and every checksum holds but `33333`'s and `33335`'s (the authors' hand-edited variants) | the published fields, hand-transcribed from the file | `SGP4-VER.TLE` itself; the TLE format's own column definitions | exact | — |
+| `IOSG-A-010` | **`T-01`'s prediction, frozen before either Horizons table is compared with anything.** This tree's chain against three readings of a legacy IAU-76/80 chain, and the manual's own quoted number, (ERFA: `eraPmat76`, `eraNut80`, `VAL06` Rev 3's (C-3)) at the capture's 61 epochs (2026-10-05 07:30–12:30 TDB, 5 min), from the vendored element set, the EOP and leap-second pins and a time grid alone — the test's build supplies no path to either table. Each case's difference fitted as Ω × r + τ v. | **A** Ω = (0.00, 0.00, −0.03) mas, \|d\| ≤ 1.1 mm (with the kinematic terms in TEME → TOD: Ω_z = −1.51 mas, mean 34 mm, max 53 mm); **B** Ω = (−10.60, +49.03, +0.00) mas, \|d\| mean 1.716 m, max 1.774 m; **C** Ω = (+0.30, +0.01, +112.98) mas, \|d\| mean 2.580 m, max 4.001 m; **D** (the manual's −53 mas at face value) Ω = (0.00, 0.00, −53.00) mas, \|d\| mean 1.210 m, max 1.877 m; band 2.0 mas (70.6 mm at 7279 km); τ < 0.2 µs and fit rms < 0.3 mm in every case | computed from the two frame models alone, never from any table (`PROVENANCE.md` §38.12) | ±0.05 mas in each frozen rotation component, ±5 mm in the sizes | `IOSG-R-012` |
 
 **Coverage.** `IOSG-R-005` (TEME-only output) is discharged by review — every acceptance row's own
 expected value is stated in TEME, and no function in §5 returns any other frame — not by a
@@ -412,15 +423,17 @@ exact (< 0.05 mm) at once; the six that remained were all resonance, §3.8.
 > `> tol` is false, so non-finite rows passed silently. Both fixed — §6, §8 `IOSG-A-008`.)"* Correct
 > as far as it went; the third defect, above, was not yet known.
 
-### 9.3 `T-01`'s own gate — design ruled, not yet built
+### 9.3 `T-01`'s own gate — the data pinned, the prediction frozen, the comparison next
 
-`../plan/PLAN.md` §4 rule 1 and `plan/subplan_L6/L6-3.md`: a fresh TLE (CelesTrak, no login, cited
-to both CelesTrak and Space-Track) and a matching-window Horizons capture, both vendored; the
-predicted size (~2.2 m, from the accumulated IAU-76-vs-IAU-2006 precession difference — not
-Vallado's own kinematic equation-of-equinoxes terms, ~95 mm, ~4% of it) and direction registered
-BEFORE the comparison runs, from the two frame models' own evaluation at the capture's own epochs,
-never from the residual itself; the frozen 2.246 m recorded beside the result, compared, not
-asserted. Not started — gated on the manager's own ruling on §10.
+**Status (2026-10-06).** The element set (CelesTrak, no login, cited to CelesTrak and Space-Track) and two Horizons tables of it — the object `-159588` and a user-input TLE, the control for which element set the object table used — are vendored (`PROVENANCE.md` §38.11, committed first, data only). The prediction is `IOSG-A-010` and `PROVENANCE.md` §38.12: three cases, each with its size and direction, a 2.0 mas band built from the named smaller contributions, and the rules for choosing the table and judging the fit — frozen in a commit that gives the test no path to either table. The comparison, with its own acceptance row, is the next commit. Two things the plan's earlier design did not have: the prediction states its **condition** (the required disagreement exists only against a legacy chain without the celestial-pole offsets, `SPEC-frames.md` §3.3 v1.10), and it is made for each reading of what Horizons does, because its manual does not say how an SGP4 state is converted to ICRF.
+
+> *Earlier text of this section, left visible (design ruled, not yet built):* `../plan/PLAN.md` §4 rule 1 and `plan/subplan_L6/L6-3.md`: a fresh TLE (CelesTrak, no login, cited
+> to both CelesTrak and Space-Track) and a matching-window Horizons capture, both vendored; the
+> predicted size (~2.2 m, from the accumulated IAU-76-vs-IAU-2006 precession difference — not
+> Vallado's own kinematic equation-of-equinoxes terms, ~95 mm, ~4% of it) and direction registered
+> BEFORE the comparison runs, from the two frame models' own evaluation at the capture's own epochs,
+> never from the residual itself; the frozen 2.246 m recorded beside the result, compared, not
+> asserted. Not started — gated on the manager's own ruling on §10.
 
 ---
 

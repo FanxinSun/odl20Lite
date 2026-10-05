@@ -7815,12 +7815,93 @@ citation; fetched from CelesTrak, which states itself to be a redistributor of S
 data originating from USSPACECOM via Space-Track.org**. The tables: `FACTUAL-DATA-CITED`, search recorded at §37.4. All three vendored under
 `data/vendored/` (§37.8: no live re-fetch can reproduce them). `NOTICE` regenerated (44 entries).
 
+### 38.12 T-01's prediction, written and frozen before either Horizons table is compared with anything (2026-10-06)
+
+**What `T-01` asks** (`plan/subplan_L6/L6-3.md`): this tree's TEME → GCRS, applied to SGP4's own output for a fresh ACS3 element set, against a
+Horizons table of that object. The plan expected a *required disagreement* — about 0.064″, 2.2 m at ACS3's radius, "a rotation about the pole" —
+because TEME has no pole-offset series to reconcile two precession models, ruled that agreement below the band is the failure, and ruled that the
+frozen predecessor value (2.246 m) is recorded beside the result, compared and not asserted. The manager's ruling of 2026-10-06 added that the
+prediction must state its **condition** — the disagreement exists only against a legacy chain without the celestial-pole offsets — read from Horizons'
+own documentation or, where that is silent, made for each case so that the capture decides.
+
+**What Horizons' own documentation says.** The manual, the API document, the FAQ and the application page were fetched 2026-10-05 and searched for
+TEME, SGP4, TLE, two-line, EOP, Earth orientation, nutation, precession, polar motion, celestial pole, dψ/dε, UT1, IAU 76 / 2000 / 2006, FK5 and
+equinox (sha256 of the four pages: manual `5c5100b08abeb10f4a6074e02102e4fe5d915203eed360bb4dd839a77210ddcc`, API
+`6ca45d9c222d6e5c425ae3e0a3c44225cf8b6d30c4a14892b0f1157b0ab4cfe4`, FAQ `0809862934c17e2f8d5ceee58b1518ad27f240b9ab5482c97e95d5e6f7f4aff6`,
+application `83c63ca17fcb4f21bbb7046c135c35a3032cc2835e46b2408bf4ea0cb7802b53`).
+- It does **not** say how an SGP4/TEME state is converted to ICRF. "TEME" occurs on none of the four pages; "SGP4" only in "Geocentric SGP4/SDP4
+  Two-Line Element (TLE) format data can be specified by users" and "TLE-based orbits from the US Space Command" (manual).
+- Of the ICRF ↔ Earth true-of-date transformation: "Horizons currently uses the IAU76/80 precession-nutation theory, **corrected daily by GPS measurements
+  over the modern era**, to transform from ICRF to the 'true-of-date' reference frame. Due to different adopted ecliptics, the origin of RA (x-axis) in
+  this intermediate reference frame differs by about −53 mas from the IAU2006/00A of-date system." (manual, "Earth true equator and equinox of date
+  (TOD)"); and for Earth-based sites "EOP-corrected IAU76/80 precession and nutation of the spin-pole".
+- "All underlying calculations in Horizons are done in the reference frame of the planetary ephemeris (DE440/441), taken to be indistinguishable from the
+  ICRF", the planetary ephemeris being "thought to differ [from ICRF-3] by at most 0.0002 arcseconds".
+
+So where it transforms ICRF ↔ TOD the documented chain **applies** celestial-pole corrections. **Whether the conversion of a TLE's TEME state goes
+through that machinery, and whether its equation of the equinoxes uses the corrected or the model nutation, is not documented.** Three readings are
+therefore predicted, each with its size, and the capture decides. A fourth is the documentation's own number, taken at face value (**D**).
+
+**The two models.** *This tree:* SGP4 → TEME (`odl::io::propagate_teme`) → GCRS (`odl::frames::to_gcrs`: GMST-1982 plus the kinematic term, then the IAU 2006/2000A
+CIO chain with the EOP series' dX, dY; `finals2000A` as pinned 2026-09-18, its predicted values at these epochs). *The legacy chain,* from ERFA:
+`r_J2000 = Pᵀ Nᵀ R₃(−Eqe) r_TEME` with `eraPmat76` (IAU 1976 precession), `eraNut80` (IAU 1980 nutation, 106 terms) and Eqe the geometric part of the
+equation of the equinoxes (`VAL06` Rev 3 eq. (C-3), §38.9), in three readings of what is done with the IERS offsets (dψ, dε):
+**A** puts the true pole on the observed pole — (dψ, dε) solved so that the legacy pole equals this tree's CIP (−123.20 and −10.89 mas at the first
+epoch) — in the nutation matrix **and** in the equation of the equinoxes (`VAL06` Rev 3's convention; Horizons' "corrected daily by GPS measurements"
+taken whole). **B**: no offsets at all. **C**: the offsets in the nutation matrix, the equation of the equinoxes from the model nutation only. **D**: not a chain: the manual's "origin of RA … differs by about −53 mas from the IAU2006/00A of-date system" at face value — Horizons' RA origin is 53 mas *west* of IAU 2006/2000A's, so the same components land 53 mas west in the sky: Ω = (0, 0, −53 mas), `d = Ω × r`. D is the documentation's number and the manager's reading of it; **it is not derivable from any chain built here** (in A the offsets absorb the origin offset: `dψ cos ε` is −113 mas).
+
+**Fit and sign convention.** At each of the 61 epochs (2026-10-05 07:30:00 to 12:30:00 TDB, 5-minute steps) `d_k` = legacy position − this tree's (GCRS axes),
+fitted by `d_k = Ω × r_k + τ v_k` (linear least squares over the 61 epochs). Ω is a rotation vector: a legacy position is this tree's turned by Ω
+(Ω_z > 0: turned eastward). τ is a time shift, the one thing in a comparison with a table that is not a frame difference.
+
+| case | what it is | Ω (mas, GCRS x, y, z) | \|Ω\| | \|d\| mean, max (m) | reading |
+|---|---|---|---|---|---|
+| **A** | pole offsets in the nutation and in Eqe | (−0.00, −0.00, −0.03) | 0.03 mas | 0.0007, 0.0011 | agreement |
+| A′ | A with the kinematic terms in TEME → TOD as well | (−0.00, 0.00, −1.51) | 1.51 mas | 0.034, 0.053 | the kinematic-convention band term |
+| **B** | no offsets | (−10.60, +49.03, +0.00) | 50.16 mas | 1.716, 1.774 | a **tilt** of the pole about an equatorial axis (azimuth 102° from +x) |
+| **C** | offsets in the nutation, Eqe from the model | (+0.30, +0.01, +112.98) | 112.98 mas | 2.580, 4.001 | a rotation **about the pole**, eastward |
+| **D** | the manual's −53 mas, at face value | (0.00, 0.00, −53.00) | 53.00 mas | 1.210, 1.877 | a rotation **about the pole**, westward; **the documented case** |
+
+τ is below 0.2 µs and the fit leaves under 0.3 mm in every case (D exactly zero): each is a pure rotation. The sizes follow from the models alone: case B's 50 mas is
+the observed offsets' own size at 2026 (`dψ sin ε`, `dε`); case C's 113 mas is `dψ cos ε`, the part of the offset that A carries in Eqe and C does not.
+**The plan's "a rotation about the pole, ≈ 0.064″" is case C, at 0.113″, not 0.064″;** case B is a tilt, 0.050″, a different direction; case A is
+agreement. Sensitivity, computed and not assumed: moving the EOP series' dX, dY by ±0.3 mas moves B's Ω by ±0.3 mas and A's not at all (A is tied to
+this tree's pole by construction); moving UT1 by 10–50 ms moves nothing (it cancels between GMST-1982 and the Earth-rotation angle).
+
+**The band — built from the named smaller contributions** (L6-3; the worst-case sum, **2.0 mas = 70.6 mm** at the mean radius 7279.4 km):
+1. Vallado's kinematic equation-of-equinoxes terms: **1.5 mas** (−1.476 mas at the first epoch, ≈ 52 mm here; ≈ 95 mm at the 10 208 km of `VAL06`'s own example).
+2. EOP prediction differences, `finals2000A` (published 2026-09-18) against Horizons' own EOP file (`eop.261002.p261229`, data to 2026-Oct-02): **0.3 mas** on the pole offsets.
+3. ICRF/DE441 axis alignment: **0.2 mas** (the manual's 0.0002″).
+
+Smaller still, and not in the band: this tree's port against the published vectors (6–8 µm, §38.8) and the tables' print resolution (15 significant digits, ≈ 1 nm). The fourth named term, Horizons' own SGP4 against this tree's, cannot be bounded in advance and is **not** in the band: it is controlled by the fit's residual
+(rule 3) and by τ. The band is not widened after the comparison.
+
+**Rules, fixed now.**
+1. *Which table.* Compare the object table with the user-input-TLE table position by position (Horizons against Horizons; no output of this tree involved);
+   D = the largest difference over the 61 epochs. D ≤ 1.0 m: the object table used the vendored element set, and **the object table is the gate's input**.
+   D > 1.0 m: it used another element set or another propagation path; **the user-input table is the input** and the object table is reported alongside, not used.
+2. *The fit.* The input table's geocentric ICRF positions minus this tree's, over all 61 epochs, fitted for Ω and τ as above; the table's own epochs must equal the grid.
+3. *Validity.* The fit's residual rms must be ≤ 0.25 m. Above that, a Horizons-SGP4 or timescale difference is too large to separate from a frame difference, and the
+   result is **inconclusive**, reported as such, neither a pass nor a failure.
+4. *Outcome.* The case whose Ω lies within 2.0 mas (3-vector distance) of the fitted Ω. The cases are 25 or more band-widths apart, so at most one can. None:
+   **unexplained**, reported to the manager.
+5. *What the cases mean, and how they are read* (the manager's ruling of 2026-10-06, restated). **D is the documented case and the one asserted.** **Matching B** (no offsets: a tilt, 0.050″) **or C** (offsets in the nutation only: about the pole, 0.113″, eastward) **is a finding to report, not a pass** — Horizons does something its manual does not say, and what. **Agreement below the band (A) is the failure**, reported as that, together with its finding: this tree's TEME chain reproduces a legacy chain whose pole is observed, to ≤ 1 mm. τ is reported, not gated. **The prediction's own author's expectation, recorded before the comparison:** A is the likeliest outcome by the models (the documented chain taken whole predicts agreement and has no −53 mas in it), D the documentation's number at face value; a repository cannot carry a failing test, so the committed comparison asserts that the fitted Ω matches ONE frozen case within the band and names it, and the classification above goes in the report.
+
+**The frozen predecessor values, beside it.** `T-01` 2.246 m mean, `T-02` 3.553 m max (`oracle/cases.tsv`): ratio 0.632. Case C predicts 2.580 and 4.001 m (0.645),
+case B 1.716 and 1.774 m (0.967), case A ≈ 0. An observation, not a prediction: the frozen pair has the structure of a rotation about the pole (|d| following the cosine
+of latitude along a near-polar orbit, mean/max → 2/π) at about 101 mas, like C and not like B. It would be as well explained by Horizons being A and the predecessor
+C-like as by the reverse, and the frozen input cannot be re-run, so this is not testable here. Compared with the result, not asserted.
+
+**What is frozen.** `IOSG-A-010` (`modules/io/tests/sgp4_t01_tests.cpp`) computes all of the above from the element set, the EOP and leap-second pins and the time grid, and asserts
+each case's Ω (A, A′, B, C, D) to ±0.05 mas and its sizes to ±5 mm; the build gives that test no path to either table. The comparison (`IOSG-A-011`) is a later commit and reads these numbers.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-06 | **T-01's prediction frozen before either Horizons table is compared with anything.** §38.12: Horizons' manual says nothing of how an SGP4/TEME state becomes ICRF and says its ICRF↔TOD transformation is "IAU76/80 ... corrected daily by GPS measurements", so three readings are predicted, each with its size and direction: **A** agreement (Ω ≈ 0), **B** a 50 mas pole tilt (no offsets; mean 1.72 m, max 1.77 m), **C** a 113 mas rotation about the pole (offsets in the nutation, Eqe from the model; mean 2.58 m, max 4.00 m) -- the plan's "about the pole" is C, at 0.113" not 0.064"; band 2.0 mas from the named smaller terms; rules for which table, the fit's validity and what each case means; the frozen 2.246/3.553 m beside it. `IOSG-A-010` freezes the numbers in a test that has no path to either table; `SPEC-io-sgp4.md` v1.3 adds `IOSG-R-012`. The comparison is the next commit. |
 | 2026-10-05 | **T-01's inputs pinned and vendored, before any prediction or comparison.** §38.11: ACS3's CelesTrak element set (epoch 2026-10-05 06:30:12 UTC, `SPACETRACK-PUBLIC`, cited to CelesTrak and Space-Track), the Horizons table of the object `-159588` and a Horizons table of that exact element set sent as a user-input TLE (the control for which element set the object table used); 5 h window, 5-minute step, ICRF/TDB/geometric. Only headers and row counts were looked at -- no state vector read. Three manifest entries, `NOTICE` regenerated. |
 | 2026-10-06 | **`FRAME-A-009`'s "3-5 m / 0.06 arcsec disagreement" retired; the test is now an agreement test with the legacy chain as witness.** §38.10: the recorded vector is Revision 3's printed (C-3) number, from an IAU-76/FK5 chain run with the example's IERS pole offsets; this tree agrees with it to 1.1 mm, the legacy chain with the offsets to 1.56 cm, without them 0.817 m -- so the premise (a disagreement of the epoch-2026 size, on a no-offsets chain) was wrong on both counts and the vector was not circular. `SPEC-frames.md` v1.10 qualifies §3.3's "on the TEME path it does not cancel" (true only against a legacy chain without the offsets), keeps the old text visible, and §5's row here is marked retired. Rule 5 with a 20 mas CIP-offset error. The chain and `FRAME-A-001` unchanged. |
 | 2026-10-06 | **The GMST equation citation settled from the paper: eq. (2) §II.F is the polynomial, eq. (1) §II.D the TEME↔PEF relation (GMST alone), and the kinematic rotation is Revision 3's Appendix C, the unnumbered relation under (C-1); the frames layer's "VAL06 Appendix C" is Revision 3's and the pin was Revision 2.** §38.9: the four versions CelesTrak publishes with their hashes and Appendix C side by side; Rev 2 against Rev 3 compared word by word (88 differences, 48 in Appendix C, §II.D/§II.F/Table 1/§III identical, so every sgp4 citation stands); the recorded vectors traced with `git log -S` to the 2026-09-18 merge and the L1 commit, their source otherwise unrecorded; the paper's internal inconsistency (Rev 3's eq. (1) is GMST alone, its Appendix C adds the kinematic term) and why Appendix C is followed; `FRAME-A-001`'s 13.3 mm explained as the example's own one-part Julian-date arithmetic (0.06 mm match; bound 23.4 mm) with a witness in the test. Manifest: Revision 3 pinned beside Revision 2, Revision 2's role text corrected in place. Register rows corrected. No behaviour, value or tolerance changed. |

@@ -4,7 +4,8 @@ odl_add_module(io
   DEPENDS      odl::core odl::time odl::frames
   TEST_SOURCES tests/sp3_tests.cpp tests/tle_tests.cpp tests/crd_tests.cpp tests/cpf_tests.cpp
                tests/iod_tests.cpp tests/sinex_tests.cpp tests/antex_tests.cpp
-               tests/sp3_ephemeris_tests.cpp tests/horizons_tests.cpp tests/sgp4_tests.cpp)
+               tests/sp3_ephemeris_tests.cpp tests/horizons_tests.cpp tests/sgp4_tests.cpp
+               tests/sgp4_t01_tests.cpp)
 
 # IOFM-A-030/031's own real-data holdout accuracy checks read two real SP3
 # excerpts from disk rather than carrying them as string-literal fixtures --
@@ -34,4 +35,19 @@ if(BUILD_TESTING)
   # already-known filename.
   target_compile_definitions(odl_io_tests PRIVATE
     ODL_SGP4_VECTORS_DIR="${ODL_CACHE_DIR}/vallado-sgp4-verification-vectors/extracted")
+
+  # L6 step 3's T-01 gate (SPEC-io-sgp4.md IOSG-R-012, tests/sgp4_t01_tests.cpp): the vendored ACS3
+  # element set, the EOP pin (finals2000A holds predictions for the capture's epochs) and the
+  # leap-second file. The two Horizons tables are NOT wired in here, on purpose: the prediction test
+  # (IOSG-A-010) is committed before either table is compared with anything, and the build gives it no
+  # path to open one. The comparison's own commit adds them.
+  odl_manifest_get(celestrak-acs3-tle-20261005 _t01_tle)
+  odl_manifest_get(eop-finals2000a _t01_finals)
+  odl_manifest_get(iers-leap-seconds _t01_leap)
+  target_compile_definitions(odl_io_tests PRIVATE
+    ODL_T01_TLE_FILE="${_t01_tle_CACHE_PATH}"
+    ODL_FINALS2000A_FILE="${_t01_finals_CACHE_PATH}"
+    ODL_LEAP_SECOND_FILE="${_t01_leap_CACHE_PATH}")
+  # the legacy IAU-76/80 chain the prediction needs is ERFA's; PRIVATE, as in the frames tests
+  target_link_libraries(odl_io_tests PRIVATE erfa)
 endif()
