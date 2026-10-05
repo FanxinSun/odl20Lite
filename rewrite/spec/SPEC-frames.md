@@ -4,8 +4,8 @@
 |---|---|
 | **Spec ID** | `FRAME` |
 | **Status** | **adopted** 2026-09-18 — manager verdict from session `odl maintainer (Router+Executor)`. Version 1.1 records the decisions taken in that verdict. |
-| **Version** | 1.8 |
-| **Date** | 2026-09-24 |
+| **Version** | 1.9 |
+| **Date** | 2026-10-06 |
 | **Layer** | `frames` (`../plan/PLAN.md` §2) |
 | **Feature** | F3 (plan §3) |
 | **Depends on** | `SPEC-time.md`, `SPEC-eop.md` |
@@ -62,7 +62,7 @@ in the state's magnitude reveals it.
 | `TN36-5` | N. Capitaine, P. Wallace, in G. Petit & B. Luzum (eds.), IERS | *IERS Conventions (2010)*, Technical Note 36, **chapter 5** — Transformation between the ITRS and the GCRS | 2010 | `https://iers-conventions.obspm.fr/content/chapter5/icc5.pdf` (retrieved 2026-09-18) | primary | normative |
 | `TN36-1` | IERS | *IERS Conventions (2010)*, chapter 1 — numerical standards, Table 1.1 | 2010 | `https://iers-conventions.obspm.fr/content/chapter1/icc1.pdf` (retrieved 2026-09-18) | primary | normative |
 | `ERFA` | NumFOCUS Foundation / liberfa | ERFA — Essential Routines for Fundamental Astronomy, source and in-source documentation | v2.0.1, 2023-10-13 (SOFA "20231011") | `https://github.com/liberfa/erfa` (retrieved 2026-09-18) | primary | interface — **BSD 3-clause** (plan R7) |
-| `VAL06` | D. A. Vallado, P. Crawford, R. Hujsak, T. S. Kelso | *Revisiting Spacetrack Report #3*, AIAA/AAS Astrodynamics Specialist Conference, Keystone CO, AIAA 2006-6753 (Rev 2) | 2006, rev. | `https://celestrak.org/publications/AIAA/2006-6753/AIAA-2006-6753-Rev2.pdf` (retrieved 2026-09-18); DOI `10.2514/6.2006-6753` | primary | normative — TEME |
+| `VAL06` | D. A. Vallado, P. Crawford, R. Hujsak, T. S. Kelso | *Revisiting Spacetrack Report #3*, AIAA/AAS Astrodynamics Specialist Conference, Keystone CO, AIAA 2006-6753 (**Revision 3** for Appendix C; Sections II.D and II.F, Table 1 and Section III are identical in Revisions 2 and 3 — `PROVENANCE.md` §38.9) | 2006, rev. | Rev 3 `https://celestrak.org/publications/AIAA/2006-6753/AIAA-2006-6753-Rev3.pdf` (pinned 2026-10-06) and Rev 2 `https://celestrak.org/publications/AIAA/2006-6753/AIAA-2006-6753-Rev2.pdf` (retrieved 2026-09-18, pinned 2026-09-29); DOI `10.2514/6.2006-6753`. *[v1.9: this row earlier read "(Rev 2)" and only the Rev 2 URL; the Appendix C material recorded in this specification is Revision 3's.]* | primary | normative — TEME |
 | `BEU94` | G. Beutler, E. Brockmann, W. Gurtner, U. Hugentobler, L. Mervart, M. Rothacher, A. Verdun | *Extended orbit modelling techniques at the CODE processing center …*, Manuscripta Geodaetica 19: 367–386 | 1994 | — | **not obtained** | normative for DYB — see `FRAME-Q-002` |
 | `ARN15` | D. Arnold, M. Meindl, G. Beutler *et al.* | *CODE's new solar radiation pressure model for GNSS orbit determination*, J. Geodesy 89(8): 775–791 | 2015 | DOI `10.1007/s00190-015-0814-4` | **primary** — authors' accepted manuscript (green OA, BORIS 69654, via CORE); page/equation numbers are the manuscript's own, which may differ from the version of record | normative for DYB — settles `FRAME-Q-002` (CLOSED) |
 
@@ -431,8 +431,18 @@ ERFA provides this as `eraGmst82(dj1, dj2)` taking a two-part UT1 Julian date [`
       0.002 64″ · sin Ω  +  0.000 063″ · sin 2Ω,
 
   with Ω the mean longitude of the Moon's ascending node. It **MUST** be included: `VAL06`
-  eq. (C-1) carries it, and omitting it costs **85 mm** on that paper's own worked example —
-  measured, which is how the first draft of this requirement was found to be wrong.
+  **Revision 3's** Appendix C carries it — the unnumbered relation under (C-1),
+  `r_ITRF = [ROT₃(θ_GMST1982) ROT₃(EqEquinox1982*kin)] r_TEME` — and omitting it costs **84.8 mm** on
+  that appendix's own worked example (`FRAME-A-001`) — measured, which is how the first draft of this
+  requirement was found to be wrong. *[v1.9: this sentence earlier read "eq. (C-1) carries it … on that
+  paper's own worked example", naming no revision; (C-1) is the GMST polynomial in Revision 2 and earlier
+  and the TEME→TOD relation in Revision 3, and the kinematic rotation has no equation number.]* Two facts
+  about the source, one sentence each. The paper is inconsistent with itself: Revision 3's §II.D eq. (1) is
+  GMST alone while its Appendix C adds the kinematic term, and Revision 2's Appendix C prints GMST alone with
+  example numbers that differ from Revision 3's by exactly this rotation. This specification follows
+  Appendix C because it is the authors' deliberate change between revisions and the form their own worked
+  example reproduces — 13.3 mm with the term against 84.8 mm without, the 13.3 mm being that example's own
+  one-part Julian-date arithmetic (`FRAME-A-001`; `PROVENANCE.md` §38.9).
 
   The **equinox-based route through TOD** MUST NOT be implemented, and that is a different thing.
   `VAL06` §D enumerates three independent ambiguities in it — how many nutation terms are retained
@@ -631,7 +641,7 @@ catches a large class of implementation errors cheaply, and because the predeces
 
 | id | what is checked | expected value | source of the expected value | tolerance | discharges |
 |---|---|---|---|---|---|
-| `FRAME-A-001` | **PRIMARY FRAMES GATE.** ITRS ↔ TEME on Vallado's worked example. 2004-04-06T07:51:28.386 UTC; ΔUT1 = −0.439 961 s; ΔAT = 32 s; *x*_p = −0.140 682″, *y*_p = 0.333 309″; LOD = 0.001 556 3 s. Given `r_ITRF = (−1033.479 383 00, 7901.295 275 40, 6380.356 595 80)` km and `v_ITRF = (−3.225 636 520, −2.872 451 450, 5.531 924 446)` km s⁻¹, produce TEME. | `r_TEME = (5094.180 107 20, 6127.644 705 20, 6380.344 532 70)` km; `v_TEME = (−4.746 131 494, 0.785 817 998, 5.531 931 288)` km s⁻¹ | `VAL06` Appendix C — **published worked example** | **25 mm** in position, 0.1 mm s⁻¹ in velocity; **and the residual MUST remain a pure rotation** — its radial component below 1 nm — see the note below | R-030, R-032, P-5 |
+| `FRAME-A-001` | **PRIMARY FRAMES GATE.** ITRS ↔ TEME on Vallado's worked example. 2004-04-06T07:51:28.386 UTC; ΔUT1 = −0.439 961 s; ΔAT = 32 s; *x*_p = −0.140 682″, *y*_p = 0.333 309″; LOD = 0.001 556 3 s. Given `r_ITRF = (−1033.479 383 00, 7901.295 275 40, 6380.356 595 80)` km and `v_ITRF = (−3.225 636 520, −2.872 451 450, 5.531 924 446)` km s⁻¹, produce TEME. | `r_TEME = (5094.180 107 20, 6127.644 705 20, 6380.344 532 70)` km; `v_TEME = (−4.746 131 494, 0.785 817 998, 5.531 931 288)` km s⁻¹ | `VAL06` **Revision 3** Appendix C — **published worked example** | **25 mm** in position, 0.1 mm s⁻¹ in velocity; **and the residual MUST remain a pure rotation** — its radial component below 1 nm — see the note below | R-030, R-032, P-5 |
 | `FRAME-A-002` | the same example in reverse, TEME → ITRS | the published ITRF vectors | `VAL06` Appendix C | 1 mm, 1 µm s⁻¹ | R-020, R-030 |
 | `FRAME-A-003` | ITRS → GCRS → ITRS round trip on a LEO state, 10³ epochs over 1995–2035 | identity | closed-form identity | **< 1 mm** position, < 1 nm s⁻¹ velocity | P-1, R-020 |
 | `FRAME-A-004` | each chain component against ERFA's own distributed test values: `eraXy06`, `eraS06`, `eraC2ixys`, `eraEra00`, `eraSp00`, `eraPom00`, `eraC2tcio`, `eraGmst82` | ERFA's published expected values | `ERFA` test suite (`t_erfa_c.c`) — **published verification values** | bit-comparable | P-2, R-001, R-010…R-017 |
@@ -671,6 +681,16 @@ which the paper describes but does not print. The tolerance is set above the cha
 residual and the *shape* of the residual is asserted separately: a radial component would mean a
 scale or a units error, which no rotation can produce, so that assertion still catches the class
 of defect the tight tolerance was meant to catch.
+
+**EXPLAINED (v1.9) — the 13.3 mm is the example's own arithmetic, not this chain.** The pure rotation
+about *z* of 3.45 × 10⁻⁴ arcsec is 22.8 µs of Earth rotation. Revision 3's example evidently took GMST from a
+*one-part* double-precision Julian date: doubles are spaced 2⁻³¹ d = 40.2 µs at JD 2.45 × 10⁶, and forming UT1 as
+`(JD_UTC as one double) + ΔUT1/86400` reproduces the printed `r_TEME` to **0.06 mm** (the witness in
+`frames_tests.cpp`, which calls ERFA directly and none of this tree's rotation), where the exact two-part
+evaluation this chain uses differs from it by those 22.8 µs. That arithmetic admits two roundings of up to half a
+spacing each — 40.2 µs, **23.4 mm** at this radius — so the 25 mm tolerance is that bound rounded up, not a
+measurement plus margin. The paragraph above, which calls the remainder unexplained, was written before anyone had
+tried a one-part date; it is left visible. `PROVENANCE.md` §38.9.
 
 **Note on `FRAME-A-009`.** This test is unusual and deliberately so: it asserts a
 *disagreement* of a predicted size. Vallado's published J2000 vector was computed with
@@ -729,6 +749,7 @@ cases rather than runtime ones.
 
 | version | date | change |
 |---|---|---|
+| 1.9 | 2026-10-06 | **Citations corrected against the pinned page; no requirement, value or tolerance changed.** Found at L6 step 3 settling which equation of `VAL06` the GMST polynomial and the TEME rotation are: this specification's Appendix C material (`FRAME-R-030`'s kinematic rotation, `FRAME-A-001`'s and `FRAME-A-009`'s vectors) is **Revision 3's**, and §2 named Revision 2, whose Appendix C prints GMST alone with different example numbers. §2's row now names both; `FRAME-R-030` cites Revision 3's numbering (the kinematic rotation is the unnumbered relation under (C-1), not (C-1)) and records the paper's internal inconsistency and why Appendix C is followed; `FRAME-A-001`'s source is named and its 13.3 mm, recorded as unexplained, is explained (the example's one-part Julian-date arithmetic) with a witness in the test. The earlier text is left visible in each place. `PROVENANCE.md` §38.9. |
 | 1.8 | 2026-09-24 | **`FRAME-Q-002` CLOSED.** `ARN15` obtained in primary form (authors' accepted manuscript, green OA via CORE — `PROVENANCE.md`'s rule-4 register), after the publisher, BORIS itself, ResearchGate and ADS all refused automated access. His own Eq. 1 CONFIRMS §4.7's from-first-principles DYB frame exactly: ê_D's own sense matches, and ê_Y matches once cross-product anti-commutativity is applied to his own −(e_r×e_D) form. No requirement changed — the conventions fixed without the source were already right. |
 | 1.7 | 2026-09-18 | **`FRAME-Q-006`'s *L*_B figure was wrong by a factor of a thousand**: 1.550 519 768 × 10⁻⁸ × 1.495 978 707 × 10¹¹ m is **2.3195 km** on an astronomical unit, not 2.3 m. Found while `SPEC-perturbations` `PERT-Q-010` required the translation's omissions to be stated with their arithmetic rather than asserted from memory. It sat in prose from v1.0, where gate 8 cannot reach it — the fifth instance of the family `budgetcheck.py` exists for, and the first outside a budget row. Both occurrences now carry the multiplication. |
 | 1.6 | 2026-09-18 | **`FRAME-R-062`: the km/metre crossing is named and there is one of it**, in `core`, with `FRAME-A-025`. The manager's condition on ratifying `GRAV-Q-009`: the split between km and metres was declared at v1.5 and the crossing was not, and a crossing left to arrive with the first force arrives once per force. `SPEC-dynamics` must state where it happens before anything is integrated. |

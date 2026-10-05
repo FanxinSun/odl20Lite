@@ -112,21 +112,68 @@ TEST_CASE("FRAME-A-001: PRIMARY FRAMES GATE — Vallado's published ITRS/TEME wo
     // component is 2e-8 mm and its z component 0.05 mm — of 3.45e-4 arcsec.
     //
     // Most of the original discrepancy was the kinematic equation-of-equinoxes
-    // term, which Vallado's eq. (C-1) carries and this chain first omitted: that
-    // was 85 mm. What remains is not explained by the choice of expression for
-    // it, because the two-term form the paper prints and ERFA's full
-    // complementary series eraEect00 differ by only 8e-6 arcsec at this epoch,
-    // where 3.45e-4 arcsec is needed. It sits somewhere in Vallado's own
-    // formulation of that term, which the paper describes but does not print.
+    // term, which Revision 3's Appendix C carries (the unnumbered relation under
+    // its (C-1)) and this chain first omitted: that was 85 mm (84.8).
     //
-    // 25 mm is comfortably above the characterised residual and far below
-    // anything that would matter physically. SPEC-frames FRAME-A-001 said 1 mm
-    // until v1.3, which was written before anyone had tried it.
+    // WHAT REMAINS (13.3 mm) IS THE EXAMPLE'S OWN ARITHMETIC, not this chain. The
+    // example was evidently computed with GMST taken from a ONE-PART double-
+    // precision Julian date: doubles are spaced 40.2 us at JD 2.45e6, and forming
+    // UT1 as (JD_UTC as one double) + dUT1/86400 reproduces the printed vector to
+    // 0.06 mm (the witness below), where the exact two-part evaluation this chain
+    // uses differs from it by 22.8 us of Earth rotation = 3.45e-4 arcsec = 13.3 mm.
+    // The most that arithmetic can do is two roundings of up to half a spacing
+    // each, 40.2 us, i.e. 23.4 mm at this radius: 25 mm is that bound rounded up,
+    // not a measurement plus margin. (The expression for the kinematic term is not
+    // the cause: the two-term form the paper prints and ERFA's full complementary
+    // series eraEect00 differ by only 8e-6 arcsec here.) SPEC-frames FRAME-A-001
+    // said 1 mm until v1.3, which was written before anyone had tried it, and
+    // called the 13.3 mm unexplained until v1.9, which was written before anyone
+    // had tried a one-part Julian date. PROVENANCE.md Sec. 38.9.
     REQUIRE(sep_m(teme->position(), published_r) < 0.025);             // < 25 mm
     REQUIRE((teme->velocity() - published_v).norm() * 1000.0 < 1e-4);  // < 0.1 mm/s
     // The residual must stay a pure rotation: a radial component would mean a
     // scale or a units error, which no rotation can produce.
     REQUIRE(std::abs(resid.dot(published_r)) / published_r.norm() * 1e6 < 0.001);
+
+    // THE WITNESS that the 13.3 mm is the example's arithmetic: the same inputs,
+    // with GMST evaluated from a ONE-PART double-precision Julian date, reproduce
+    // the printed vector to 0.1 mm; the exact two-part evaluation (ERFA's, this
+    // chain's) does not. It calls ERFA directly and none of this tree's rotation,
+    // so it can fail on its own: the second CHECK is what stops it being vacuous.
+    {
+        double u1 = 0.0, u2 = 0.0, a1 = 0.0, a2 = 0.0, t1 = 0.0, t2 = 0.0, ut11 = 0.0, ut12 = 0.0;
+        REQUIRE(eraDtf2d("UTC", 2004, 4, 6, 7, 51, 28.386, &u1, &u2) == 0);
+        REQUIRE(eraUtctai(u1, u2, &a1, &a2) == 0);
+        REQUIRE(eraTaitt(a1, a2, &t1, &t2) == 0);
+        REQUIRE(eraUtcut1(u1, u2, eop.dut1, &ut11, &ut12) == 0);
+        const double jd_utc = u1 + u2;                         // ONE double: spaced 40.2 us here
+        const double jd_ut1 = jd_utc + eop.dut1 / 86400.0;     // and rounded again
+        const double tut1 = (jd_ut1 - 2451545.0) / 36525.0;
+        // VAL06 eq. (2), the GMST-1982 polynomial, in seconds; then to radians
+        const double gmst_one_part =
+            std::fmod((67310.54841 + (876600.0 * 3600.0 + 8640184.812866) * tut1 +
+                       0.093104 * tut1 * tut1 - 6.2e-6 * tut1 * tut1 * tut1) * (kPi / 43200.0),
+                      2.0 * kPi);
+        const double gmst_exact = eraGmst82(ut11, ut12);
+        const double omega = eraFaom03(((t1 - 2451545.0) + t2) / 36525.0);
+        const double kin = (0.00264 * std::sin(omega) + 0.000063 * std::sin(2.0 * omega)) * kArcsec;
+        double rpom[3][3];
+        eraPom00(eop.xp, eop.yp, 0.0, rpom);
+        const Vec3 r = itrs.position();
+        const Vec3 pef{rpom[0][0] * r.x + rpom[1][0] * r.y + rpom[2][0] * r.z,
+                       rpom[0][1] * r.x + rpom[1][1] * r.y + rpom[2][1] * r.z,
+                       rpom[0][2] * r.x + rpom[1][2] * r.y + rpom[2][2] * r.z};
+        const auto teme_from = [&](double gmst) {
+            const double th = gmst + kin, c = std::cos(th), s = std::sin(th);
+            return Vec3{c * pef.x - s * pef.y, s * pef.x + c * pef.y, pef.z};
+        };
+        const double one_part_m = sep_m(teme_from(gmst_one_part), published_r);
+        const double exact_m = sep_m(teme_from(gmst_exact), published_r);
+        INFO("one-part-JD evaluation vs printed: " << one_part_m * 1000.0 << " mm; exact two-part: "
+                                                  << exact_m * 1000.0 << " mm");
+        CHECK(one_part_m < 1.0e-4);   // 0.1 mm
+        CHECK(exact_m > 0.010);       // > 10 mm: the two evaluations are told apart
+    }
 
     // FRAME-A-002: and back again.
     const auto back = to_itrs(*teme, eop, leaps());

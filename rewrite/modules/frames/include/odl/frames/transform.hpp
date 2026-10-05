@@ -51,9 +51,11 @@ struct Rotation {
     const odl::time::Epoch& when, const odl::eop::EopRecord& eop,
     const odl::time::LeapTable& leaps);
 
-/// TEME -> ITRS, per Vallado, Crawford, Hujsak & Kelso (AIAA 2006-6753) eq. (1):
-/// r_PEF = R3(theta_GMST82) r_TEME, then polar motion to ITRS. The paper's
-/// recommendation is exactly this — "rotate to PEF using GMST, and then rotate
+/// TEME -> ITRS, per Vallado, Crawford, Hujsak & Kelso (AIAA 2006-6753) Sec. II.D
+/// eq. (1): r_PEF = R3(theta_GMST82) r_TEME, then polar motion to ITRS -- with
+/// the kinematic equation-of-equinoxes term added to the angle, as Revision 3's
+/// Appendix C has it (transform.cpp; SPEC-frames FRAME-R-030). The paper's
+/// recommendation is this — "rotate to PEF using GMST, and then rotate
 /// to other standard coordinate frames" — and the equinox-based route through
 /// TOD is NOT implemented, because the paper enumerates three independent
 /// ambiguities in it (how many nutation terms, whether the post-1996 kinematic

@@ -163,7 +163,7 @@ Every constant appearing in the P1 specifications, with the document it was take
 | *s′* = −47 µas · *t* | TIO locator | `frames` | IERS Conventions (2010), TN 36 ch. 5 | eq. (5.13) |
 | *X*₀ = −0.016 617″, *Y*₀ = −0.006 951″ | CIP series constants (frame bias in the pole) | `frames` | IERS Conventions (2010), TN 36 ch. 5 | eq. (5.16) |
 | IAU 2006/2000A *X*, *Y*, *s* series (full coefficient sets) | — | `frames` | IERS Conventions (2010), TN 36 ch. 5, Tables 5.2a–5.2d — **evaluated via ERFA**, not transcribed | §5.5.4, §5.5.6 |
-| 67 310.548 41 s; 876 600 h + 8 640 184.812 866 s; 0.093 104; −6.2 × 10⁻⁶ | GMST-1982 polynomial | `frames` (TEME only) | Vallado, Crawford, Hujsak & Kelso, AIAA 2006-6753 | eq. (2) |
+| 67 310.548 41 s; 876 600 h + 8 640 184.812 866 s; 0.093 104; −6.2 × 10⁻⁶ | GMST-1982 polynomial | `frames` (TEME only) | Vallado, Crawford, Hujsak & Kelso, AIAA 2006-6753 | eq. (2), §II.F (identical in Revs 2 and 3; Rev 2 and earlier print it again as Appendix C (C-1)) |
 
 ### 2.3 Earth orientation
 
@@ -239,7 +239,7 @@ table is the answer to "is the derivation real?" and it is deliberately blunt ab
 | `PMSD` | `PMSDNUT2.F` — diurnal pole libration | **primary** (test case only) | 2026-09-18 | `iers-conventions.obspm.fr/content/chapter5/software/PMSDNUT2.F` |
 | `UTLIBR` | `UTLIBR.F` — semi-diurnal UT1/LOD libration | **primary** (test case only) | 2026-09-18 | `iers-conventions.obspm.fr/content/chapter5/software/UTLIBR.F` |
 | `ERFA` | ERFA source and in-source documentation, v2.0.1 | **primary** | 2026-09-18 | `github.com/liberfa/erfa` |
-| `VAL06` | Vallado, Crawford, Hujsak & Kelso, *Revisiting Spacetrack Report #3*, AIAA 2006-6753 Rev 2 | **primary** | 2026-09-18 | `celestrak.org/publications/AIAA/2006-6753/`; DOI `10.2514/6.2006-6753` |
+| `VAL06` | Vallado, Crawford, Hujsak & Kelso, *Revisiting Spacetrack Report #3*, AIAA 2006-6753 — **Rev 2** (pinned 2026-09-29, `vallado-2006-revisiting-str3`: §II.D, §II.F, Table 1, §III — the `sgp4` sections) and **Rev 3** (pinned 2026-10-06, `vallado-2006-revisiting-str3-rev3`: Appendix C — the TEME examples and the kinematic rotation the frames layer records; identical to Rev 2 elsewhere, §38.9). *[Corrected 2026-10-06: this row earlier read "AIAA 2006-6753 Rev 2" alone, which is wrong for Appendix C.]* | **primary** | 2026-09-18 | `celestrak.org/publications/AIAA/2006-6753/`; DOI `10.2514/6.2006-6753` |
 | `CGPM27-4` | CGPM (2022) Resolution 4 — future of UTC and leap seconds | **secondary** — consistent secondary reporting only; the resolution text was not retrieved | 2026-09-18 | `bipm.org/en/cgpm-2022/resolution-4` |
 | `ARN15` | Arnold, Meindl, Beutler *et al.*, *CODE's new solar radiation pressure model for GNSS orbit determination*, J. Geodesy 89: 775–791 | **primary** — authors' accepted manuscript (green OA, BORIS deposit 69654, fetched via CORE.ac.uk after the publisher, BORIS itself, ResearchGate and ADS all refused automated access; this is the pre-typeset manuscript, so its own page numbers may differ from the published version of record — equation numbers cited here are the manuscript's own) | 2026-09-24 | DOI `10.1007/s00190-015-0814-4` |
 | `BEU94` | Beutler *et al.*, *Extended orbit modelling techniques at the CODE processing center …*, Manuscripta Geodaetica 19: 367–386 | **not obtained** — no accessible archive found | 2026-09-18 | — |
@@ -269,9 +269,9 @@ predecessor; they are the strongest class of acceptance value per `SPEC-template
 | `PMSD` (`PMSDNUT2.F` header) | MJD 54335 | Δ*x* = 24.831 442 382 733 648 34 µas; Δ*y* = −14.092 406 920 418 376 61 µas |
 | `UTLIBR` (`UTLIBR.F` header) | MJD 44239.1 | ΔUT1 = 2.441 143 834 386 761 746 µs; ΔLOD = −14.789 712 473 494 494 92 µs/day |
 | `UTLIBR` (`UTLIBR.F` header) | MJD 55227.4 | ΔUT1 = −2.655 705 844 335 680 244 µs; ΔLOD = 27.394 458 265 998 469 67 µs/day |
-| `VAL06` Appendix C | 2004-04-06T07:51:28.386 UTC; ΔUT1 = −0.439 961 s; ΔAT = 32 s; *x*_p = −0.140 682″; *y*_p = 0.333 309″; `r_ITRF` = (−1033.479 383 00, 7901.295 275 40, 6380.356 595 80) km; `v_ITRF` = (−3.225 636 520, −2.872 451 450, 5.531 924 446) km/s | `r_TEME` = (5094.180 107 20, 6127.644 705 20, 6380.344 532 70) km; `v_TEME` = (−4.746 131 494, 0.785 817 998, 5.531 931 288) km/s |
-| `VAL06` Appendix C | TLE `00005`, day 182.784 950 62, TEME → J2000 (IAU-76/FK5) | `r_J2000` = (−9059.941 554 1, 4659.697 199 0, 813.956 940 2) km — **expected to differ from this tree's IAU 2006/2000A result by ≈ 3 m; see `FRAME-A-009`** |
-| `VAL06` Appendix C | "of date" vs "of epoch" over 3 days, same example | 23.6 m |
+| `VAL06` Rev 3 Appendix C | 2004-04-06T07:51:28.386 UTC; ΔUT1 = −0.439 961 s; ΔAT = 32 s; *x*_p = −0.140 682″; *y*_p = 0.333 309″; `r_ITRF` = (−1033.479 383 00, 7901.295 275 40, 6380.356 595 80) km; `v_ITRF` = (−3.225 636 520, −2.872 451 450, 5.531 924 446) km/s | `r_TEME` = (5094.180 107 20, 6127.644 705 20, 6380.344 532 70) km; `v_TEME` = (−4.746 131 494, 0.785 817 998, 5.531 931 288) km/s |
+| `VAL06` Rev 3 Appendix C | TLE `00005`, day 182.784 950 62, TEME → J2000 (IAU-76/FK5) | `r_J2000` = (−9059.941 554 1, 4659.697 199 0, 813.956 940 2) km — **expected to differ from this tree's IAU 2006/2000A result by ≈ 3 m; see `FRAME-A-009`** |
+| `VAL06` Rev 3 Appendix C | "of date" vs "of epoch" over 3 days, same example | 23.6 m |
 | `C04` | first row of the series | 1962-01-01, MJD 37665.00, *x* = −0.012 700″, *y* = 0.213 000″, UT1−UTC = 0.032 633 8 s |
 | `ERFA` test suite (`t_erfa_c.c`) | per-routine | ERFA's own published expected values for `eraXy06`, `eraS06`, `eraC2ixys`, `eraEra00`, `eraSp00`, `eraPom00`, `eraC2tcio`, `eraGmst82`, `eraDtdb` |
 
@@ -7656,12 +7656,96 @@ comparable (its one row is `33333`'s last, copied).
 
 ci.sh: see the report's first line; commit title in the changelog row below.
 
+### 38.9 Which `VAL06` the frames layer cites, and the GMST equation citation (2026-10-06)
+
+**The task.** The last open item of `plan/subplan_L6/L6-3.md`: settle from the paper which equation is the GMST
+polynomial and which is the TEME rotation, so that the comments, `FRAME-R-030` and the register cite them
+correctly. Settling it against the pinned page showed that the record was wrong about more than an equation
+number, and that the pin itself was the wrong revision.
+
+**1. The frames layer's "`VAL06` Appendix C" is Revision 3's; the pin was Revision 2.** CelesTrak publishes four
+versions of the paper (`https://celestrak.org/publications/AIAA/2006-6753/`):
+
+| version | bytes | sha256 |
+|---|---|---|
+| original, `AIAA-2006-6753.pdf` | 1 181 337 | `ccfe6a3e56acc8310882eaa443abfe84293f53a15e3bc70ed29922bca3e48fb8` |
+| `-Rev1.pdf` | 662 029 | `91aa0ad3773014130f5e75392b0da5e96c19f7c7ed486938e88d45e1f596b63b` |
+| `-Rev2.pdf` — pinned 2026-09-29 as `vallado-2006-revisiting-str3` | 667 568 | `538a5c0ea174eb569bbc258011717142a26d72871ab07cc64ee5fa3773164b16` |
+| `-Rev3.pdf` — pinned 2026-10-06 as `vallado-2006-revisiting-str3-rev3` | 667 908 | `3720341442fcda0d22c51c1803700e0921b63872e85f9576772ba28d4ec1d07d` |
+
+`SPEC-frames.md` §2 and §4 of this file name "Rev 2" (retrieved 2026-09-18). But the vectors recorded in
+`FRAME-A-001`, `FRAME-A-009` and §5's published-values table, and the kinematic-term rotation `FRAME-R-030` requires,
+are Revision 3's Appendix C, word for word, and are not Revision 2's. How a Revision 3 table came to sit in a
+specification labelled Revision 2 is not recoverable from this repository: `git log -S` on the recorded vectors
+finds, for the spaced form used in the specification and this file (`5094.180 107 20`, `9059.941 554 1`), the
+2026-09-18 merge `4d92e91` ("Merge the rewrite and the assessment into this tree": the specifications were
+written earlier, in a folder outside this repository, and first appear there; its message says nothing of their
+source), and for the test's copy (`5094.18010720`) `6819837` ("L1 passes", 2026-09-18). The L1 specification's own
+history before the merge is not in this repository.
+
+**2. Appendix C across the four versions** (word-level reading of each version's text, the code listing never
+printed — §38.6):
+
+| | original | Rev 1 | Rev 2 | Rev 3 |
+|---|---|---|---|---|
+| GMST-1982 polynomial | eq. (2) §II.F; again as (C-1) | same | same | eq. (2) §II.F only |
+| TEME ↔ PEF | eq. (1) §II.D: GMST alone | same | same | same |
+| Appendix C, rotation to ITRF | (C-2): GMST alone | (C-2): GMST alone | (C-2): GMST alone | the unnumbered relation under (C-1): `r_ITRF = [ROT3(θ_GMST1982) ROT3(EqEquinox1982*kin)] r_TEME`; (C-1) itself is `r_TOD = [ROT3(−EqEquinox1982*geo)] r_TEME` |
+| Appendix C, equinox route | (C-3)…(C-7): 106-term nutation series, equation of the equinoxes, `[P][N]` | same | removed ("we focus on the first approach and recommend it") | replaced by the geometric/kinematic split of the equation of the equinoxes (no series) |
+| first worked example | ECI J2000 state, 2000-06-28 | same | ITRF → TEME, 2004-04-06: `r_TEME = 5094.180 162 10 6127.644 659 50 6380.344 532 70` (GMST alone) | the same ITRF vector, with δΔΨ₁₉₈₀ = −0.052 195″, δΔε₁₉₈₀ = −0.003 875″: `r_TEME = 5094.180 107 20 6127.644 705 20 6380.344 532 70` |
+| second example (TLE `00005`, +3 d) | `r_J2000 = −9059.941 378 6 4659.697 200 0 813.958 887 5` | same | same, with the (C-8) nutation matrix | `r_J2000 = −9059.941 554 1 4659.697 199 0 813.956 940 2` ((C-3), "IAU-76/FK5"); of epoch `−9059.951 202 7 4659.680 879 9 813.942 966 4` ((C-4)) |
+
+**3. What the comparison of Revisions 2 and 3 found.** Each text was cut at its Appendix F heading before any
+comparison, so the reprinted code was never printed or read; the comparison was word by word (whitespace-split
+token sequences), 25 231 words against 25 287. **88 differences**: 48 inside Appendix C (the substantive ones in the
+table above); the other 40 are the revision label in the header and title (2), hyphenation and line- and
+page-break movements of the same words (36), and eq. (2)'s label and subscript formatting (2: `(2)` → `((2))`,
+`θ GMST1982` → `θ GMST 1982`). **§II.D eq. (1), §II.F eq. (2) with the `THGR` constants, Table 1 and §III are
+identical**, so every `sgp4` citation made against the pinned Revision 2 stands for Revision 3.
+
+**4. The equations, settled.** GMST polynomial: eq. (2), §II.F (both revisions; also (C-1) in Revision 2 and
+earlier, not in Revision 3's appendix). TEME ↔ PEF: eq. (1), §II.D, GMST alone in all four versions. The kinematic
+rotation `FRAME-R-030` requires: Revision 3's Appendix C, the unnumbered relation under (C-1) — not (C-1), which the
+earlier comment and specification text cited, and not Revision 2's Appendix C, whose (C-2) is GMST alone. **The paper
+is inconsistent with itself**: Revision 3's eq. (1) is GMST alone and its Appendix C adds the kinematic term. This tree
+follows Appendix C, because it is the authors' deliberate change between revisions (Revision 3 rewrote the appendix
+around the geometric/kinematic split and recomputed the example) and the form their own worked example reproduces:
+13.3 mm with the term, 84.8 mm without (measured in the test by taking the term out of the chain, rule 5; 84.7 mm in a
+scratch ERFA reconstruction).
+
+**5. Where the 13.3 mm comes from.** `FRAME-A-001`'s residual — a pure rotation about *z* of 3.45e-4″, 22.8 µs of
+Earth rotation, recorded as unexplained since L1 — is the example's own arithmetic. Same inputs (the printed ITRF
+vector, ΔUT1, polar motion, the kinematic term), GMST evaluated three ways:
+
+| GMST from | rotation vs the exact value | position difference from the printed `r_TEME` |
+|---|---|---|
+| exact two-part UT1 Julian date (ERFA; this chain) | 0 | 13.3 mm |
+| one-part double JD(UTC) + ΔUT1/86400, two roundings | +1.66e-9 rad | **0.06 mm** |
+| one-part double JD(UT1) formed exactly, one rounding | −1.27e-9 rad | 23.4 mm |
+
+Doubles at JD 2.45e6 are spaced 2⁻³¹ d = 40.2 µs, so each rounding moves GMST by up to 20.1 µs (1.47e-9 rad, 11.7 mm at
+the example's 7969 km); the example's arithmetic can differ from the exact value by up to 40.2 µs, **23.4 mm**.
+`FRAME-A-001`'s 25 mm is that bound rounded up, and its tolerance is now reasoned, not measured. That the example used
+a one-part date is an inference from a 0.06 mm match against 13 mm for the exact evaluation, not something the paper
+says. The witness is in `frames_tests.cpp` (ERFA directly, none of this tree's rotation; its second `CHECK`, that the exact
+evaluation is more than 10 mm away, is what keeps it from being vacuous).
+
+**6. What changed in the tree.** The manifest: a new literature entry for Revision 3, Revision 2's role and
+`why_pinned` corrected in place with the earlier text kept inside the string (the pin's claim that it held "the same bytes
+L1's TEME<->PEF equations were read from" was wrong for Appendix C). Comments in `transform.cpp`, `transform.hpp`
+and `frames_tests.cpp`. `SPEC-frames.md` v1.9: §2's row, `FRAME-R-030`, `FRAME-A-001`'s source and note. The register rows
+above. **No behaviour, value or tolerance changed**: the chain, `FRAME-A-001`'s vector and its 25 mm stand. Not done
+here, and left to the next commit: `FRAME-A-009`, whose expected vector this section finds to be Revision 3's printed
+one and not a self-referential number, and whose "3–5 m / 0.06″ disagreement" claim does not survive the revision
+mapping.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-06 | **The GMST equation citation settled from the paper: eq. (2) §II.F is the polynomial, eq. (1) §II.D the TEME↔PEF relation (GMST alone), and the kinematic rotation is Revision 3's Appendix C, the unnumbered relation under (C-1); the frames layer's "VAL06 Appendix C" is Revision 3's and the pin was Revision 2.** §38.9: the four versions CelesTrak publishes with their hashes and Appendix C side by side; Rev 2 against Rev 3 compared word by word (88 differences, 48 in Appendix C, §II.D/§II.F/Table 1/§III identical, so every sgp4 citation stands); the recorded vectors traced with `git log -S` to the 2026-09-18 merge and the L1 commit, their source otherwise unrecorded; the paper's internal inconsistency (Rev 3's eq. (1) is GMST alone, its Appendix C adds the kinematic term) and why Appendix C is followed; `FRAME-A-001`'s 13.3 mm explained as the example's own one-part Julian-date arithmetic (0.06 mm match; bound 23.4 mm) with a witness in the test. Manifest: Revision 3 pinned beside Revision 2, Revision 2's role text corrected in place. Register rows corrected. No behaviour, value or tolerance changed. |
 | 2026-10-06 | **§38.7: two statements made exact, the wrong text left visible.** "Four of the eight match to 2-10%" -> five of the eight within 0.5-8 % and the three 12 h ones 13-25 % off (the table's own figures); and the "Rule 5, shown" run was made before the §38.8 fixes were in -- re-run at the committed state with the same injection: three of nine tests fail again, `IOSG-A-001` on exactly the eight glued satellites (144 of 640 rows over the 2 cm gate, 174 over their regression bounds). Both found by the executor while writing the round-5 report; the manager's ruling asked for them as visible corrections. |
 | 2026-10-06 | **L6 step 3, second pass the same day: the "unexplained residual" was the test's own reader plus resonance; the reader is fixed and tested, the resonance branch is fixed (one fix cited to VAL06 §II.F, one determined by the vectors), and the 2 cm gate is met by all 31 comparable satellites.** §38.7: eight verification lines have the revolution number glued to the mean motion, and the reader took the glued digits as decimals (a 7e-11..1.1e-9 relative error) -- the "1e-10 to 1e-9 mean-motion drift" the previous row reported; line 2 is now read by the format's own columns, IOSG-A-009 tests it on the eight lines and shows the old reading fail (rule 5, with the old behaviour injected: A-001, A-002 and A-009 fail). 5 of the 11 "tier-B" satellites were exact all along. §38.8: the 6 that were real were resonance -- the Greenwich angle at epoch is VAL06 §II.F's 1970-epoch form (differs from STR3's by 6.75e-6 rad; fitted independently to twelve satellites at four epochs, ratio 1.0000-1.0007) and G520's e^2 coefficient is 5740.032 where STR3 prints 5740 (blind scan, V-shaped, one satellite). Corrected table, per-satellite residuals (all <= 4.1 mm; 29 of 31 <= 71 µm), the floor/AODP/low-e-term alternatives with their effects. §38.6 annotated, wrong versions left visible. `sgp4.cpp`: THGR formula, G520, comments; `sgp4_tests.cpp`: gate + regression bounds, reader, A-009; `SPEC-io-sgp4.md` v1.2 (R-010/011, A-009, P-2 rewritten, Q-001 resolved, Q-002/003 alternatives, Q-004 ruled, Q-006/007). |
 | 2026-10-06 | **L6 step 3: the battery passes at stated, per-satellite tolerances (20 of 31 satellites at 2 cm, 11 at 1 m, velocity 1 cm/s; 13 to <0.5 mm) after eleven branch-by-branch fixes, nine cited to a line of STR3 or VAL06 and two determined by the vectors alone; one residual stays unexplained and is reported with its table rows (IOSG-Q-001).** §38.6 added; §38.5's wrong claim that no correction existed for near-zero inclination corrected in place (VAL06 §VI.C describes it for 25954/28626). `modules/io/src/sgp4.cpp`: negative-inclination swap after DPPER; DPPER and the tail's inclination terms from the perturbed inclination; Lyddane node reduced mod 2pi with the nearest-quadrant fix; Kepler tolerance 1e-12 and step limit 0.95; TOTHRD = 2/3; AODP Kepler-consistent; drag-modified eccentricity floored at 1e-6 and refused below -0.001 (IOSG-F-003); low-eccentricity drag terms zeroed below 1e-4; IOSG-F-004/-005 and a perturbed-inclination IOSG-F-001. `SPEC-io-sgp4.md` v1.1 (IOSG-R-006-009, F-003-005, A-007-008, P-2, Q-001-005). Two test defects found and fixed: the position bound was 10 m under a comment saying 1 cm (so 402 and 346 were counted against 10 m; at 1 cm the old tree failed 587 rows), and NaN passed `> tol`. 33334.e is 33333.e's last row copied verbatim. One exposure disclosed: a grep over VAL06's extracted text printed two lines of its code appendix. |

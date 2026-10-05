@@ -151,21 +151,30 @@ odl::Result<Rotation, FrameError> teme_to_itrs(const Epoch& when,
     auto c = common(when, eop, leaps);
     if (!c.has_value()) return odl::err(c.error());
 
-    // Vallado eq. (1): r_PEF = R3(theta_GMST82) r_TEME, with GMST at UT1.
+    // Vallado et al. (AIAA 2006-6753) eq. (1), Sec. II.D: r_PEF = R3(theta_GMST82)
+    // r_TEME, with GMST at UT1 and theta_GMST82 the polynomial of eq. (2), Sec. II.F.
     // PEF is identified with TIRS, which is unavoidable if TEME is to reach a
     // modern frame at all, and imports the difference between the IAU-76/80
     // realisation of the true pole and the IAU 2006/2000A CIP — of order
     // 0.1 arcsec, about 3 m at 7000 km. That floor is a property of TEME, not of
     // this implementation, and State<TEME> carries it (FRAME-R-033).
-    // Vallado Appendix C eq. (C-1) is
+    //
+    // The angle used below is eq. (1)'s GMST PLUS the kinematic part of the equation
+    // of the equinoxes. That is Revision 3's Appendix C, the UNNUMBERED relation
+    // under its (C-1):
     //     r_ITRF = [ROT3(theta_GMST1982) ROT3(EqEquinox1982*kin)] r_TEME
-    // so the rotation carries the KINEMATIC part of the equation of the
-    // equinoxes as well as GMST.  That is the two terms introduced in 1997,
+    // -- not eq. (1), and not Revision 2's Appendix C, whose (C-1) is the GMST
+    // polynomial and whose (C-2) is GMST alone. The paper is inconsistent with
+    // itself here (Revision 3's own eq. (1) is GMST alone); this chain follows its
+    // Appendix C because that is the authors' deliberate change between revisions
+    // and the form their own worked example reproduces: 13.3 mm with the term,
+    // 84.8 mm without, the 13.3 mm being that example's one-part Julian-date
+    // arithmetic and not this chain (FRAME-A-001; PROVENANCE.md Sec. 38.9). The
+    // kinematic part is the two terms introduced in 1997,
     //     0.00264" sin(Omega) + 0.000063" sin(2 Omega),
     // and it is NOT the ambiguous part of the paper's discussion: the
     // ambiguities Vallado enumerates are in the GEOMETRIC nutation terms, which
-    // this chain does not use at all.  Omitting it cost 85 mm on the paper's own
-    // worked example, which is how it was found.
+    // this chain does not use at all.
     const double om = eraFaom03(((c->tt1 - 2451545.0) + c->tt2) / 36525.0);
     const double eq_kin = (0.00264 * std::sin(om) + 0.000063 * std::sin(2.0 * om))
                           * kArcsecToRad;
