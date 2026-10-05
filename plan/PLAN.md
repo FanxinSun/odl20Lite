@@ -245,6 +245,22 @@ template parameter**, so `State<Gcrs>` and `State<Teme>` are unrelated types and
 to reassign. That is the answer to the risk flagged at L0, and it is the second time a C++20
 "optional at implementation" hazard was closed by making the compiler the enforcer.
 
+> **Correction found at L6 step 3, 2026-10-06: TEME to PEF carries no kinematic term, and two of
+> this layer's references were not what they were called.** `FRAME-R-030` rotated TEME to PEF by
+> GMST plus the 1982 equation of the equinoxes' kinematic term, citing Vallado et al. 2006's (C-1);
+> the pinned Rev 2 prints the GMST polynomial as (C-1) and the rotation as (C-2) — GMST alone, then
+> polar motion — and TEME, referred to the mean equinox, takes no term of the equation of the
+> equinoxes, which is what separates the true equinox from the mean. `FRAME-A-001`'s "published"
+> TEME vector is not the pinned paper's: the two differ by exactly that term's rotation, 8.96e-9
+> rad, and where the recorded numbers came from was never written down. `FRAME-A-009`'s expected
+> vector, labelled IAU-76/FK5, is reproduced by this tree's own IAU 2006/2000A chain to 2 mm — a
+> check against itself. So the chain follows the pinned paper, GMST alone; `FRAME-A-001` asserts the
+> paper's printed vector; `FRAME-A-009`'s expected vector is replaced by the paper's printed one,
+> under a disagreement predicted before it is compared; and the retired numbers stay visible with
+> their status. Found by the executor settling an equation citation for T-01. What was wrong was a
+> citation never checked against the pinned page and two references whose provenance nobody asked
+> for, in a layer whose exit gate the manager verified.
+
 **Specification amendments this layer required — all applied 2026-09-18, specs at v1.3.**
 
 - `SPEC-eop` EOP-A-003 now takes TN36 §8.2's own bound (1 µas, 0.05 µs) instead of "the last
