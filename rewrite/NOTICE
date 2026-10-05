@@ -47,7 +47,7 @@ SUMMARY
   fehlberg-tr-r-287  NASA TR R-287, October 1968, 97 pages NASA-PUBLIC      data
   vallado-sgp4-verification-vectors as distributed in AIAA-2006-6753.zip, sgp4/cpp/testsgp4/TestSGP4/ VALLADO-UNRESTRICTED data
   horizons-acs3-vectors queried 2026-09-25, geocentric, ICRF, TDB, geometric (no light-time correction), 2 h window, 30-min step FACTUAL-DATA-CITED data
-  celestrak-acs3-tle-20261005 GP/TLE for NORAD 59588 as served by celestrak.org 2026-10-05T20:56:03Z (HTTP 200, content-length 168, CRLF line endings, name line 'ACS3'); epoch 2026-10-05 06:30:12 UTC SPACETRACK-PUBLIC data
+  celestrak-acs3-tle-20261005 GP/TLE for NORAD 59588 as served by celestrak.org 2026-10-05T20:56:03Z (HTTP 200, content-length 168, CRLF line endings, name line 'ACS3'); epoch 2026-10-05 06:30:03.72 UTC [CORRECTED 2026-10-06 from 06:30:12, an arithmetic slip] SPACETRACK-PUBLIC data
   horizons-acs3-t01-object-20261005 queried 2026-10-05T20:56:15Z (13:56 PDT), geocentric, ICRF, TDB, geometric (no light-time correction), 2026-10-05 07:30 to 12:30 TDB, 5-minute step, 61 rows FACTUAL-DATA-CITED data
   horizons-acs3-t01-usertle-20261005 queried 2026-10-05T20:56:16Z (13:56 PDT), geocentric, ICRF, TDB, geometric, 2026-10-05 07:30 to 12:30 TDB, 5-minute step, 61 rows; target 'ACS3 (-859588) {source: USER-INPUT TLE}' FACTUAL-DATA-CITED data
 
@@ -485,8 +485,8 @@ DATA INPUTS
               Attribution: "Data: JPL Horizons System (Solar System Dynamics
               Group, NASA/JPL-Caltech), ssd.jpl.nasa.gov/horizons".
 
-  celestrak-acs3-tle-20261005  GP/TLE for NORAD 59588 as served by celestrak.org 2026-10-05T20:56:03Z (HTTP 200, content-length 168, CRLF line endings, name line 'ACS3'); epoch 2026-10-05 06:30:12 UTC
-    role      ACS3 (NORAD 59588, 2024-077B) current GP element set as TLE, from CelesTrak's no-login endpoint, fetched 2026-10-05T20:56:03Z: the element set L6 step 3's T-01 required-disagreement gate propagates (SPEC-io-sgp4.md; PROVENANCE.md Sec.39). Epoch 2026 day 278.27087640 = 2026-10-05 06:30:12 UTC.
+  celestrak-acs3-tle-20261005  GP/TLE for NORAD 59588 as served by celestrak.org 2026-10-05T20:56:03Z (HTTP 200, content-length 168, CRLF line endings, name line 'ACS3'); epoch 2026-10-05 06:30:03.72 UTC [CORRECTED 2026-10-06 from 06:30:12, an arithmetic slip]
+    role      ACS3 (NORAD 59588, 2024-077B) current GP element set as TLE, from CelesTrak's no-login endpoint, fetched 2026-10-05T20:56:03Z: the element set L6 step 3's T-01 required-disagreement gate propagates (SPEC-io-sgp4.md; PROVENANCE.md Sec.39). Epoch 2026 day 278.27087640 = 2026-10-05 06:30:03.72 UTC. [CORRECTED 2026-10-06: this entry first gave the epoch as 06:30:12 UTC, an arithmetic slip in the record -- the epoch field is 06:30:03.721 UTC; the data and every computation use the field, not the slip.]
     licence   SPACETRACK-PUBLIC
     url       https://celestrak.org/NORAD/elements/gp.php?CATNR=59588&FORMAT=TLE
     sha256    c6dae02fb7cef3455499e13df064997cdc645bc5d1a37525baa690f47e60982d
