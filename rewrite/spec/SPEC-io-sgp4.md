@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Spec ID** | `IOSG` |
-| **Status** | **draft** 2026-09-29, revised 2026-10-06, for review — written after the port (plan §3 step 1's own order reordered, not skipped: requirements describe behaviour, not code structure, and a first-principles port this size carried too many open questions to write requirement IDs against in advance; manager's own instruction, `plan/subplan_L6/L6-3.md`). The 2026-10-06 revision records the branch-by-branch fixes the manager's later ruling asked for (§9.2) and what they did not resolve (§10) |
-| **Version** | 1.1 |
+| **Status** | **draft** 2026-09-29, revised 2026-10-06, for review — written after the port (plan §3 step 1's own order reordered, not skipped: requirements describe behaviour, not code structure, and a first-principles port this size carried too many open questions to write requirement IDs against in advance; manager's own instruction, `plan/subplan_L6/L6-3.md`). The 2026-10-06 revision records the branch-by-branch fixes the manager's later ruling asked for (§9.2) and what they did not resolve (§10). **Second revision, 2026-10-06, same day:** the comparison reader was found defective — eight revolution numbers glued to their mean-motion field were read as extra decimals of it (§9.2, `IOSG-A-009`) — which removed five of the eleven "unexplained" residuals and let the six that were real be worked; they were resonance, now fixed (§3.8). The gate is met; what stays open is §10 |
+| **Version** | 1.2 |
 | **Date** | 2026-10-06 |
 | **Layer** | L6 `io-measurements` (`../plan/PLAN.md` §3.7), step 3 (`sgp4`) |
 | **Depends on** | `core` (`odl::Result`, `Vec3`), `time` (`Calendar`, `Epoch`, `LeapTable`), `frames` (`TemeState`, `to_gcrs` — TEME conversion is L1's, never this module's own) |
@@ -152,7 +152,9 @@ Kepler-consistent `(XKE/XNODP)^(2/3)` of the same recovered mean motion. The two
 for every ordinary orbit and differ at `O(DELO^2)` only when the J2 correction is large; satellite
 `33333` (e = 0.995, `DELO` = -0.108) is the one battery case where they differ visibly (`PINVSQ`
 0.142% apart), and only the Kepler-consistent value reproduces its rows. **This is determined by
-the vectors; neither text states it** — §10 `IOSG-Q-003`.
+the vectors; neither text states it** — §10 `IOSG-Q-003`. Not resting on `33333` alone: with `STR3`'s
+definition `29141` sits 1.6 mm, `28350` 0.22 mm, `22312` 43 µm, `28623` 19 µm and `28872` 16 µm from their
+published rows, and with this one all five sit at 6-7 µm (the files' print resolution).
 
 ### 3.6 The Kepler solve
 
@@ -172,17 +174,50 @@ Three behaviours `STR3` does not have, in the order they fire:
    the drag terms that divide by the eccentricity — are zero. `VAL06` Table 1, satellite `28057`:
    "certain drag terms are set to zero to avoid math errors / loss of precision"; the verification
    file's own comment: "ecc = 8.84E-5 (< 1.0e-4) / drop certain normal drag terms". WHICH terms is
-   this module's reading; the vectors cannot discriminate it.
+   this module's reading (the two that divide by the eccentricity), and the vectors confirm it now
+   that `28057` is read correctly: zeroing exactly those two leaves `28057` 7 µm from its published
+   rows; none zeroed leaves 16 mm, `C3` alone 14 mm, `XMCOF` alone 1.7 mm, those two plus `C5` 31 mm.
 2. **Floor and trap on the drag-modified eccentricity** (`E=EO-TEMPE`, deep space `E=EM-TEMPE`
    before `DPPER`): below `-0.001` the call is refused (`IOSG-F-003`); between `-0.001` and `1.0e-6`
    the eccentricity is held at `1.0e-6`. The trap value is read off `VAL06` Table 1 ("propagation
    beyond approximately 1460 minutes should result in error trap (modified eccentricity too low)")
    against the published rows (§8 `IOSG-A-007`); the floor value is determined by the vectors
-   (`22312`, `33335`) and is sharp: 5% either side is 4 m off at `33335` — §10 `IOSG-Q-002`.
+   (`22312`, `33335`) and is sharp: 5% either side is 4 m off at `33335` — §10 `IOSG-Q-002`; `28350`,
+   whose own residual was the reader defect until 2026-10-06, is a third satellite on the same V
+   (0.64 m at 9.5e-7 and at 1.05e-6, 6 µm at 1.0e-6).
 3. **After `DPPER`**, a perturbed eccentricity outside `[0, 1)` is refused (`IOSG-F-004`), and in the
    shared tail a semi-latus rectum not greater than zero is refused (`IOSG-F-005`) — the
    verification file's own comments on `33334` ("check error code 3... ep never goes below zero")
    and `33333` ("check error code 4").
+
+### 3.8 Geopotential resonance (12 h and 24 h)
+
+`STR3` §10's resonance blocks in `DPINIT` and `DPSEC`'s integrator are ported as printed, with two
+exceptions. Both were found by the 2 cm gate once the comparison reader was repaired (§9.2); both
+are recorded with their evidence in `PROVENANCE.md` §38.8.
+
+1. **The Greenwich hour angle at epoch (`THGR`) is `VAL06` §II.F's 1970-epoch form**, not `STR3`'s
+   `THETAG` (1950 epoch, linear in `DS50`): `THGR = DMOD(THGR70 + C1*DS70 + C1P2P*TFRAC +
+   TS70*TS70*FK5R, TWOPI)` with the constants §II.F prints, `DS70`/`TFRAC` the whole and fractional
+   days since 1970 Jan 0.0, and `TS70 = DS70 + TFRAC` (the paper does not define `TS70`; that
+   reading agrees with the IAU-1982 GMST polynomial, eq. (2), to 1.4e-9 rad at every epoch tried).
+   §II.F says the versions "yield 'essentially' the same values"; they differ by 6.75e-6 rad
+   (0.0004 deg) at a 2006 epoch and 4.3e-6 rad at 1980, and the resonance phases read it. **Cited to
+   the text, and confirmed by the vectors**: a free additive shift fitted to each 12 h case alone
+   returned 6.751, 6.746, 6.746 and 6.748 e-6 rad against 6.748e-6 computed from the two printed
+   formulas, and with the formula all twelve resonant satellites agree with their published rows to
+   0.07 mm or better (from 2.8 to 36 cm).
+2. **`G520`'s e^2 coefficient in the `e <= 0.65` branch is 5740.032, not the printed 5740.**
+   **Determined by the vectors, not by either text.** `STR3` prints `-5740*EQSQ` (checked on the page
+   image, p. 63); `VAL06` is silent. A one-parameter fit of that coefficient alone to the one
+   satellite that exercises the branch, `26975`, from a blind scan of 5739.9-5740.1, is V-shaped with
+   its minimum at 5740.0320 +/- 0.0001, where the satellite sits 14 µm from its published rows (7.6 cm
+   with 5740). One satellite is the only evidence — §10 `IOSG-Q-006`.
+
+The integrator is `VAL06` §VI.D's: restarted from the epoch on every call, 720-minute steps, a final
+partial step by the same two-term Taylor series (a full step and a partial step of the same length are
+algebraically identical, so a time at an exact multiple of 720 minutes carries no special case).
+`THDT` (`RPTIM`) cancels from the mean longitude and enters only the resonance phase.
 
 ---
 
@@ -209,6 +244,10 @@ Three behaviours `STR3` does not have, in the order they fire:
 - **IOSG-R-008.** The eccentricity behaviours of §3.7, in that order.
 - **IOSG-R-009.** No call returns a non-finite state as success: every call either returns a fully
   finite state or refuses with a named `IOSG-F-...` diagnostic.
+- **IOSG-R-010.** The Greenwich hour angle at epoch is `VAL06` §II.F's 1970-epoch form, not `STR3`'s
+  `THETAG` — §3.8.
+- **IOSG-R-011.** The `e <= 0.65` branch of the 12-hour resonance takes `G520`'s e^2 coefficient as
+  5740.032 — §3.8 (determined by the vectors, one satellite).
 
 ---
 
@@ -243,17 +282,29 @@ Three behaviours `STR3` does not have, in the order they fire:
   print too — `STR3`'s own 1980 numerics and the corrections `VAL06` §III describes, not a defect.
   50 m still catches a real error: the `T2COF` scoping defect (§9.1) moved `11801` by hundreds of
   metres.
-- **IOSG-P-2.** Against the `VAL06`-generated `.e` battery, where no source states a tolerance, the
-  gate is MEASURED, in two tiers stated per satellite in the test (`position_tolerance_km`): **20 of
-  the 31 comparable satellites at 2 cm** (13 of them agree to under 0.5 mm; the other seven to 4-13 mm), and
-  **11 at 1 m** (`00005 08195 09880 16925 21897 22674 23599 26900 26975 28057 28350`; measured
-  residuals 3-94 cm) whose residual neither text explains — §10 `IOSG-Q-001`. **Velocity: 1 cm/s for
-  every satellite** (the worst residual is 0.57 mm/s). `33334` is not a comparable satellite: its
-  one published row is `33333`'s last row copied verbatim, the reference run's own stale output after
-  the case failed (§8 `IOSG-A-007`). The tiers are measurements plus margin, not source-stated
-  tolerances; an earlier draft of this spec and of the test claimed "1 cm / 1 cm/s" while the code
-  carried 1e-2 *km* (10 m) — a unit slip, found 2026-10-06 and corrected.
+- **IOSG-P-2.** Against the `VAL06`-generated `.e` battery, where no source states a tolerance,
+  **the gate is 2 cm**, ruled by the manager on 2026-10-06 and set before the residuals were
+  re-measured (`plan/subplan_L6/L6-3.md`): every comparable satellite within 2 cm of every published
+  row over its own span, velocity within 1 cm/s. A bound drawn round measured residuals accepts them
+  by construction (plan §4 rule 7), which is why the gate is a ruling and not a measurement. **Met by
+  all 31 comparable satellites:** `23333` 4.1 mm (radial, unexplained, §10 `IOSG-Q-007`); `20413` 0.4
+  mm, over a 3.5-year span; the 12 resonant satellites 7-71 µm; every other satellite 6-8 µm (the
+  `.e` files print positions to 1e-8 km); worst velocity 1.8 µm/s. The test also holds each
+  satellite to a tighter **regression bound** (1 mm; `23333` 5 mm), measured maximum plus margin,
+  **not a tolerance**: its only job is to stop a satellite moving from micrometres to centimetres
+  unseen. `33334` is not a comparable satellite: its one published row is `33333`'s last row copied
+  verbatim, the reference run's own stale output after the case failed (§8 `IOSG-A-007`).
 
+  > **Superseded 2026-10-06, kept as written.** *"Against the `VAL06`-generated `.e` battery, where no
+  > source states a tolerance, the gate is MEASURED, in two tiers stated per satellite in the test
+  > (`position_tolerance_km`): **20 of the 31 comparable satellites at 2 cm** (13 of them agree to under
+  > 0.5 mm; the other seven to 4-13 mm), and **11 at 1 m** (`00005 08195 09880 16925 21897 22674 23599
+  > 26900 26975 28057 28350`; measured residuals 3-94 cm) whose residual neither text explains — §10
+  > `IOSG-Q-001`. **Velocity: 1 cm/s for every satellite** (the worst residual is 0.57 mm/s)."* Wrong
+  > in two ways: the tiers were measurements, which the ruling above forbids as a gate; and five of the
+  > eleven (`00005 16925 23599 28057 28350`) were not residuals of the port at all but of the test's own
+  > reader (§9.2), the other six being resonance (§3.8). An earlier draft of that text and of the test
+  > also claimed "1 cm / 1 cm/s" while the code carried 1e-2 *km* (10 m) — a unit slip.
 ---
 
 ## 7. Failure behaviour
@@ -279,14 +330,15 @@ published row (`IOSG-A-001`).
 
 | id | what is checked | expected value | source | tolerance | discharges |
 |---|---|---|---|---|---|
-| `IOSG-A-001` | The full published battery (`SGP4-VER.TLE`, every `.e` file but `33334`'s) — every TLE propagated to every one of its own file's own times, within its own trailer's stated MFE range | the `.e` file's own printed position/velocity | `VAL06`'s own verification battery, §2 | IOSG-P-2 (2 cm / 1 m by satellite; 1 cm/s) | R-001, R-002, R-003, R-004, R-006, R-007, R-008, P-2 |
-| `IOSG-A-002` | Satellite `00005` at MFE 4320 min — the same TLE and epoch `FRAME-A-009` (`SPEC-frames.md`) already uses, `VAL06` Appendix C's own worked example | `r_TEME = (-9060.473 735 69, 4658.709 525 02, 813.686 731 53)` km | `VAL06` Appendix C | 1 m (a tier-B satellite: measured 0.56 m) | R-001, R-005 |
+| `IOSG-A-001` | The full published battery (`SGP4-VER.TLE`, every `.e` file but `33334`'s) — every TLE propagated to every one of its own file's own times, within its own trailer's stated MFE range | the `.e` file's own printed position/velocity | `VAL06`'s own verification battery, §2 | IOSG-P-2: the 2 cm gate for all 31, a 1 mm regression bound (`23333`: 5 mm), 1 cm/s | R-001, R-002, R-003, R-004, R-006, R-007, R-008, R-010, R-011, P-2 |
+| `IOSG-A-002` | Satellite `00005` at MFE 4320 min — the same TLE and epoch `FRAME-A-009` (`SPEC-frames.md`) already uses, `VAL06` Appendix C's own worked example | `r_TEME = (-9060.473 735 69, 4658.709 525 02, 813.686 731 53)` km | `VAL06` Appendix C | the 2 cm gate (measured < 0.01 mm) | R-001, R-005 |
 | `IOSG-A-003` | `sgp4_init` refuses `IOSG-F-001` at inclination 179.95 deg (within tolerance of 180); succeeds at 90 deg (rule 5, both ways) | the refusal; then success | `IOSG-F-001` | — | F-001 |
 | `IOSG-A-004` | `sgp4_init`/`sgp4_propagate` on satellite `28872`'s own real TLE (`VAL06` Table 1: "sub-orbital case... used to test error handling") refuses `IOSG-F-002` within 120 min | the refusal fires | `IOSG-F-002`, a real battery case | — | F-002 |
 | `IOSG-A-005` | SGP4, satellite `88888`, `STR3` §13's own printed case, all five printed times | `STR3` §13's own printed X/Y/Z | `STR3` §13 — rule 2's rank-1 tier | IOSG-P-1 (50 m) | R-001, P-1 |
 | `IOSG-A-006` | SDP4, satellite `11801`, `STR3` §13's own printed case (the original 1980 test, kept for continuity), all five printed times | `STR3` §13's own printed X/Y/Z | `STR3` §13 — rule 2's rank-1 tier | IOSG-P-1 (50 m) | R-001, R-002, R-004, P-1 |
 | `IOSG-A-007` | The traps the sources name: `28350` accepted at its last published time (1440 min) and refused `IOSG-F-003` first between 1455 and 1480 min; `22312` accepted at 474.2 and refused `-003` at 500; `33333` accepted at 20 min and refused `-005` at 21, 25, 30; `33334` refused `-004` at t=0, and its `.e` row byte-identical to `33333`'s last | the refusals at those times | `VAL06` Table 1; `SGP4-VER.TLE`'s own comments | — | F-003, F-004, F-005, R-008 |
 | `IOSG-A-008` | Every TLE in the verification file at t = -20000, -5000, -1440, -1, 0, 1, 20, 100, 1440, 5000, 20000 min | a fully finite state, or a refusal whose id begins `IOSG-F-` | — | — | R-009 |
+| `IOSG-A-009` | The verification-file reader, on the eight line 2s whose five-digit revolution number abuts the mean motion with no space (`00005 08195 09880 16925 21897 23599 28057 28350`): mean motion (F11.8), revolution number (I5) and checksum recovered separately; the line's own mod-10 checksum, which covers the revolution digits, valid; and the old whitespace-token reading shown to differ from the published mean motion on all eight, by 7e-11 to 1.1e-9 relative. Also: every line 2 carries exactly eight decimals, and every checksum holds but `33333`'s and `33335`'s (the authors' hand-edited variants) | the published fields, hand-transcribed from the file | `SGP4-VER.TLE` itself; the TLE format's own column definitions | exact | — |
 
 **Coverage.** `IOSG-R-005` (TEME-only output) is discharged by review — every acceptance row's own
 expected value is stated in TEME, and no function in §5 returns any other frame — not by a
@@ -316,28 +368,49 @@ moved to the shared block); the full battery's own failure count dropped from 40
 
 ### 9.2 The branch-by-branch fixes, in the order made, with the whole battery re-run after each
 
-Rows of the 641 compared; "> 1 cm" / "> 1 m" count position residuals above those bounds
-(`PROVENANCE.md` §38.6 has the per-satellite numbers behind each line).
+Rows of the 641 compared; the columns count position residuals above each bound
+(`PROVENANCE.md` §38.8 has the per-satellite numbers). **Recomputed 2026-10-06 with the repaired
+reader** — see the note below the table and the superseded table after it.
 
-| step | fix | where it comes from | > 1 cm | > 1 m |
-|---|---|---|---|---|
-| S0 | the state at the start of the round | — | 587 | 499 |
-| S1 | negative-inclination swap moved after `DPPER` | `VAL06` §VI.C (text) | 587 | 499 |
-| S2 | Lyddane route's sines/cosines from the perturbed inclination | `VAL06` §III seventh bullet (text) | 587 | 487 |
-| S3 | direct route's sines/cosines likewise | same | 587 | 488 |
-| S4 | tail coefficients from the perturbed inclination | same ("and SGP4 routines") | 587 | 280 |
-| S5 | Kepler tolerance 1e-12 | `VAL06` §III third bullet (text) | 561 | 146 |
-| S6 | Kepler step limit 0.95, not +/-e | `VAL06` §VI.E (text; the +/-e reading was the error) | 559 | 134 |
-| S7 | Lyddane node reduced mod 2*pi, relative-quadrant fix | `VAL06` §III fifth bullet and "intrinsic functions" bullet (text) | 559 | 118 |
-| S8 | eccentricity floor 1e-6, trap -0.001 | trap: Table 1 + file extents; floor: **vectors** | 559 | 40 |
-| S9 | `TOTHRD` exactly 2/3 | `VAL06` §III second bullet (text, "certain constants") | 185 | 4 |
-| S10 | `AODP` Kepler-consistent | **vectors** (`33333`) | 181 | 0 |
-| S11 | low-eccentricity drag terms zeroed | Table 1 + file comment (text); vectors indifferent | 183 | 0 |
+| step | fix | where it comes from | > 1 cm | > 2 cm (the gate) | > 1 m |
+|---|---|---|---|---|---|
+| S0 | the state at the start of the round (`T2COF` fix in) | — | 587 | 568 | 500 |
+| S1 | negative-inclination swap after `DPPER` | `VAL06` §VI.C (text) | 587 | 568 | 500 |
+| S2 | Lyddane route's sines/cosines from the perturbed inclination | `VAL06` §III seventh bullet (text) | 587 | 568 | 488 |
+| S3 | direct route's sines/cosines likewise | same | 587 | 568 | 490 |
+| S4 | tail coefficients from the perturbed inclination | same ("and SGP4 routines") | 587 | 568 | 281 |
+| S5 | Kepler tolerance 1e-12 | `VAL06` §III third bullet (text) | 562 | 534 | 145 |
+| S6 | Kepler step limit 0.95, not +/-e | `VAL06` §VI.E (text; the +/-e reading was the error) | 550 | 522 | 133 |
+| S7 | Lyddane node reduced mod 2*pi, relative-quadrant fix | `VAL06` §III fifth bullet and "intrinsic functions" bullet (text) | 550 | 522 | 117 |
+| S8 | eccentricity floor 1e-6, trap -0.001 | trap: Table 1 + file extents; floor: **vectors** | 550 | 522 | 39 |
+| S9 | `TOTHRD` exactly 2/3 | `VAL06` §III second bullet (text, "certain constants") | 85 | 59 | 4 |
+| S10 | `AODP` Kepler-consistent | **vectors** (`33333`, corroborated by five others) | 81 | 55 | 0 |
+| S11 | low-eccentricity drag terms zeroed | Table 1 + file comment (text); the vectors confirm which terms | 74 | 55 | 0 |
+| S12 | Greenwich angle at epoch: `VAL06` §II.F's 1970 form | `VAL06` §II.F (text), confirmed by the vectors | 12 | 6 | 0 |
+| S13 | `G520`'s e^2 coefficient 5740.032 | **vectors** (`26975`, one satellite) | 0 | 0 | 0 |
 
-(Two defects in the test found on the way, both in this round: the position bound was written as
-`1.0e-2` km under a comment saying 1 cm, so every failure count this module's record carried before
-today — 402, 346 — was counted against 10 m, not 1 cm; and a NaN residual compared `> tol` is false,
-so non-finite rows passed silently. Both fixed — §6, §8 `IOSG-A-008`.)
+**Three defects in the comparison, all found by being asked what the comparison fed the port.**
+(1) The test's position bound was written as `1.0e-2` km under a comment saying 1 cm, so every
+failure count the record carried before 2026-10-06 — 402, 346 — was counted against 10 m. (2) A NaN
+residual compared `> tol` is false, so non-finite rows passed silently (`IOSG-A-008`). (3) **The
+reader took eight revolution numbers glued to their mean-motion field as further decimals of it.**
+`SGP4-VER.TLE` line 2 is fixed-column (TLE format: mean motion F11.8 at columns 53-63, revolution
+number I5 at 64-68, checksum at 69); eight of its 33 line 2s have a five-digit revolution number, so
+"10.82419157413667" is one whitespace token, and `std::stod` of the whole token is off by 7e-11 to
+1.1e-9 relative (`IOSG-A-009` shows both the old reading and the right one on all eight). That was the
+"relative mean-motion error of 1e-10 to 1e-9" an earlier version of this spec reported as an
+unexplained algorithmic difference, and the "fitted mean-motion scale" figures in `PROVENANCE.md`
+§38.6 *are* those glued digits. With the reader repaired, 00005, 16925, 23599, 28057 and 28350 were
+exact (< 0.05 mm) at once; the six that remained were all resonance, §3.8.
+
+> **Superseded 2026-10-06, kept as written.** The table as first committed (`38f2ffc`), computed
+> through the defective reader (the "> 1 cm" and "> 1 m" columns of S0-S11 were 587/499, 587/499,
+> 587/487, 587/488, 587/280, 561/146, 559/134, 559/118, 559/40, 185/4, 181/0, 183/0), and the note
+> that followed it: *"(Two defects in the test found on the way, both in this round: the position bound
+> was written as `1.0e-2` km under a comment saying 1 cm, so every failure count this module's record
+> carried before today — 402, 346 — was counted against 10 m, not 1 cm; and a NaN residual compared
+> `> tol` is false, so non-finite rows passed silently. Both fixed — §6, §8 `IOSG-A-008`.)"* Correct
+> as far as it went; the third defect, above, was not yet known.
 
 ### 9.3 `T-01`'s own gate — design ruled, not yet built
 
@@ -355,8 +428,26 @@ asserted. Not started — gated on the manager's own ruling on §10.
 
 | id | question |
 |---|---|
-| `IOSG-Q-001` | **The unexplained residual.** Eleven satellites agree with the published rows to 3-94 cm, the other twenty to 13 mm or better (thirteen to under 0.5 mm). Every resonant satellite carries a residual (4 mm to 94 cm); five non-resonant ones carry 10-65 cm (`00005`, `16925`, `23599`, `28057`, `28350`) and a sixth, `23333`, 4 mm. The residual is dominated by along-track error growing roughly linearly with time (`28057`: linear to 0.3 mm rms) or quadratically (`28350`), equivalent to a relative mean-motion error of 1e-10 to 1e-9; for the resonant cases it has a radial part too. A least-squares inversion of six constants (J2, J3, J4, Earth radius, XKE, a mean-motion scale) against every residual vector leaves the rms unchanged (0.0655 -> 0.0650 m); neither is it GMST at epoch, `G520`'s one rounded coefficient, the eccentricity floor, the Kepler solve, nor the low-eccentricity drag terms (`PROVENANCE.md` §38.6 lists each). `VAL06` Appendix E says the published results were run with the paper's `'a'`, `'72'` options "to best emulate AFSPC operation" and its prose does not say what the `'a'` option changes. Is a recorded cross-check of ONE tier-B case's intermediate numbers (suggest `28057`: near-earth, near-circular, a pure linear drift) against Vallado's code allowed? Absent that, the tiers stand as measured. |
-| `IOSG-Q-002` | The eccentricity floor (1.0e-6) is **vector-determined** (a V-shaped, sharp fit: 5% either side is 4 m off at `33335` and 0.5 m at `22312`); no text states it. The trap value (-0.001) is read from Table 1 and the files' extents. Accept as recorded? |
-| `IOSG-Q-003` | `AODP` as the Kepler-consistent axis (§3.5) is **vector-determined** (`33333`'s five rows agree to 7 micrometres with it, to 3398 km without); it is invisible everywhere else. A free-factor fit gave the same answer before the hypothesis was formed (factors 1.001423/1.001421/1.002847 on the three secular-rate terms = `PINVSQ` x 1.001421; the hypothesis predicts 1.001422). Accept as recorded? |
-| `IOSG-Q-004` | `VAL06` Table 1 says the `22312` trap fires "approximately 2840 min". It does not reproduce: the published rows end at 474.2 min (the next step would be trapped) and the drag-modified eccentricity here reaches -0.001 near 489. `28350`'s "approximately 1460" does reproduce (the first refusal here is near 1470). Is Table 1's 2840 a typo for a figure near 490? |
-| `IOSG-Q-005` | `IOSG-F-004`/`-005` are readings of two comments in the verification file, and `-001` is raised in operation on the perturbed inclination where the reference sets a tolerance in a denominator instead (`VAL06` §VI.A: "setting a tolerance in both routines"). No battery row exercises either. Accept the refusals, or implement the denominator tolerance (whose value is in the code appendix, not opened)? |
+| `IOSG-Q-001` | **RESOLVED 2026-10-06.** The residual an earlier version of this row called unexplained (11 satellites, 3-94 cm) was two things: the test's own reader (five satellites, §9.2) and resonance (six, §3.8: the Greenwich angle at epoch, from `VAL06` §II.F; and one printed coefficient, `IOSG-Q-006`). The cross-check the manager ruled on 28057 was withdrawn when 28057 turned out to be a reader artefact. Nothing in the battery now exceeds 4.1 mm (`IOSG-Q-007`). |
+| `IOSG-Q-002` | **Determined by the vectors, not the texts:** the eccentricity floor, 1.0e-6. No text states it. Alternatives and their effects — maximum position residual over all published rows, with the floor off / 5e-7 / 9.5e-7 / **1.0e-6** / 1.05e-6 / 1.5e-6 / 1e-5: `22312` 279 m / 5.2 m / 0.52 m / **7 µm** / 0.52 m / 5.2 m / 93 m; `28350` 7.8 km / 6.4 m / 0.64 m / **6 µm** / 0.64 m / 6.4 m / 116 m; `33335` 51 m / 42 m / 4.2 m / **8 µm** / 4.2 m / 42 m / 759 m. `33335` (TLE e = 4.0e-7) is the case that settled the value and is not independent evidence for it; `22312` and `28350` are separate satellites that each show the same V alone, so the value rests on three. The trap value (-0.001) is read from Table 1 and the files' extents. |
+| `IOSG-Q-003` | **Determined by the vectors, not the texts:** `AODP` as the Kepler-consistent axis (§3.5). Alternative (`STR3`'s `AO/(1-DELO)`) and its effect: `33333` 3398 km (7 µm with the Kepler-consistent value; this is the case that settled it and is not independent evidence), `29141` 1.6 mm (7 µm), `28350` 0.22 mm (6 µm), `22312` 43 µm (7 µm), `28623` 19 µm (6 µm), `28872` 16 µm (7 µm), and no other satellite changes by more than 1e-6 km — so five satellites other than `33333` corroborate it, each by being nearer its published rows with it. A free-factor fit of the three secular-rate terms to `33333` gave (1.001423, 1.001421, 1.002847) before the hypothesis was formed — `PINVSQ` x 1.001421, the hypothesis predicting 1.001422. |
+| `IOSG-Q-004` | **RULED 2026-10-06: the vectors govern.** `VAL06` Table 1 says the `22312` trap fires "approximately 2840 min"; the published rows end at 474.2 min and this port's first refusal is at 489.15 min. `28350`: Table 1 "approximately 1460"; rows end at 1440; first refusal 1472.15 — reproduces. (The file's own trailers say `22312` was meant to run to 1440 min and `28350` to 2880, so neither Table 1 figure is a trailer length either.) Both figures are recorded. |
+| `IOSG-Q-005` | `IOSG-F-004`/`-005` are readings of two comments in the verification file, and `-001` is raised in operation on the perturbed inclination where the reference sets a tolerance in a denominator instead (`VAL06` §VI.A: "setting a tolerance in both routines"). They stay labelled as readings. No battery row exercises the in-operation `-001`. |
+| `IOSG-Q-006` | **Determined by the vectors, not the texts, on ONE satellite:** `G520`'s e^2 coefficient, 5740.032 where `STR3` prints 5740 (§3.8). Only `26975` has 0.5 <= e <= 0.65, so only it exercises the branch: blind scan 5739.9-5740.1 is V-shaped (2.4e-3 km per unit), minimum 5740.0320 +/- 0.0001; at 5740 the satellite is 7.6 cm out, at 5739.99 10 cm, at 5740.01 5.2 cm, at 5740.1 16 cm, at 5740.032 14 µm. It is not independent evidence for itself. Whether other printed `STR3` coefficients are similarly truncated cannot be told from this battery: the other `G520` branches, and every other coefficient in the 12 h block, are exercised by satellites that agree to 8-61 µm with the printed values. |
+| `IOSG-Q-007` | The largest remaining residual: `23333` (WIND, e = 0.973, period 13.7 days) 4.1 mm at t=0, radial, falling to 1 mm by 360 min and staying there (R = 4, 2, 2, 1, 1... mm; T <= 2 mm; N = 0); `20413` 0.4 mm, over a 3.5-year span. Tried without effect on `23333`: the Kepler iteration cap (10 to 50), the trig terms from the final iterate, every subset of the three perturbed-coefficient groups (all three are needed: any subset leaves 4-52 km). Not chased further: 5x inside the gate, one satellite. |
+
+> **Superseded 2026-10-06, kept as written.** The previous `IOSG-Q-001`: *"**The unexplained residual.**
+> Eleven satellites agree with the published rows to 3-94 cm, the other twenty to 13 mm or better (thirteen
+> to under 0.5 mm). Every resonant satellite carries a residual (4 mm to 94 cm); five non-resonant ones carry
+> 10-65 cm (`00005`, `16925`, `23599`, `28057`, `28350`) and a sixth, `23333`, 4 mm. The residual is dominated
+> by along-track error growing roughly linearly with time (`28057`: linear to 0.3 mm rms) or quadratically
+> (`28350`), equivalent to a relative mean-motion error of 1e-10 to 1e-9; for the resonant cases it has a
+> radial part too. A least-squares inversion of six constants (J2, J3, J4, Earth radius, XKE, a mean-motion
+> scale) against every residual vector leaves the rms unchanged (0.0655 -> 0.0650 m); neither is it GMST at
+> epoch, `G520`'s one rounded coefficient, the eccentricity floor, the Kepler solve, nor the low-eccentricity
+> drag terms. [...] Is a recorded cross-check of ONE tier-B case's intermediate numbers (suggest `28057`) against
+> Vallado's code allowed?"* Wrong: the "relative mean-motion error of 1e-10 to 1e-9" was the glued revolution
+> digits (§9.2); the inversion could not remove it because it is not a constant; "neither is it GMST at epoch"
+> and "`G520`'s one rounded coefficient" were tested through that reader and both are in fact the resonance
+> fixes (§3.8). The same applies to the previous `IOSG-Q-002` ("Accept as recorded?") and `-003`, whose evidence
+> stands but which now carry the alternatives and effects the manager asked for, and to `-004`, now ruled.

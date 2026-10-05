@@ -81,8 +81,11 @@ constexpr double kInclTolRad = 1.5e-3;  // ~0.086 deg
 // 1.0e-6: 22312's last row (e = -2.6e-5 unfloored) and 33335 (TLE e =
 // 4.0e-7) agree with the published rows only at 1.0e-6, and the agreement
 // is V-shaped and sharp -- 5% either side is 4 m off at 33335 (PROVENANCE.md
-// §38.6). No text states the floor's value; it is determined by the
-// vectors.
+// §38.6, §38.8). No text states the floor's value; it is determined by the
+// vectors. 28350, whose own residual was a test-reader artefact until
+// 2026-10-06 (§38.7), is a third satellite on the same V (0.64 m at 9.5e-7
+// and at 1.05e-6, 6 micrometres at 1.0e-6), and none of the three was needed to
+// fix the others.
 constexpr double kEccTrap = -0.001;  // NOT-A-UNIT-CROSSING: a dimensionless eccentricity bound, VAL06 Table 1's error trap
 constexpr double kEccFloor = 1.0e-6;
 // VAL06 Table 1, satellite 28057 ("certain drag terms are set to zero to
@@ -277,7 +280,10 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
     // 1.001421, 1.002847) -- exactly PINVSQ scaled by 1.001421, with
     // nothing else altered -- and PINVSQ from this definition is 1.001422.
     // With it, 33333 agrees to 7 micrometres at all five rows; with STR3's
-    // AO/(1-DELO), by 3398 km at the last (PROVENANCE.md §38.6).
+    // AO/(1-DELO), by 3398 km at the last (PROVENANCE.md §38.6, §38.8). Not
+    // resting on 33333 alone: with STR3's definition 29141 sits 1.6 mm, 28350
+    // 0.22 mm, 22312 43 micrometres, 28623 19 and 28872 16 from their published
+    // rows, and with this one all five sit at 6-7 (the files' print resolution).
     const double aodp = std::pow(kXke / xnodp, kTothrd);
 
     st.deep_space = (kTwopi / xnodp) >= 225.0;  // STR3 §11's own period dispatch
@@ -366,9 +372,11 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
         // below kLowEccTol those are the "certain drag terms" VAL06 Table 1
         // and the verification file's own comment on 28057 say are set to
         // zero. WHICH terms is this port's reading ("to avoid math errors /
-        // loss of precision" names the two that divide by the eccentricity);
-        // the vectors cannot discriminate it (28057's residual moves by
-        // <1% whichever of C3/XMCOF/C5 are zeroed).
+        // loss of precision" names the two that divide by the eccentricity),
+        // and the vectors confirm it now that 28057 is read correctly: zeroing
+        // exactly C3/OMGCOF and XMCOF leaves 28057 7 micrometres from its
+        // published rows; none zeroed leaves 16 mm, C3 alone 14 mm, XMCOF alone
+        // 1.7 mm, and those two plus C5 31 mm (PROVENANCE.md §38.8).
         if (eo >= kLowEccTol) {
             st.c3 = coef * tsi * a3ovk2 * xnodp * kAe * sinio / eo;
             st.omgcof = tle.bstar * st.c3 * std::cos(omegao);
@@ -399,20 +407,39 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
     // -- deep space: STR3 §10 DPINIT --
     st.omgdt_saved = omgdot;
 
-    // THGR = THETAG(EPOCH). STR3 §11's own linear GST approximation, KEPT
-    // rather than VAL06's also-offered fuller GMST82 series -- VAL06 §II.F:
-    // "retained the older method of calculation for consistency with
-    // AFSPC", which is what the published verification vectors were
-    // generated against. DS50 (days since 1950 Jan 0.0) is computed from
-    // this tree's own already-parsed TLE epoch via `calendar_elapsed_seconds`
-    // rather than by re-deriving THETAG's own fragile 2-digit-year decode --
-    // the NUMBER is what the formula consumes, and any correctly-resolved
-    // calendar date yields the same one STR3's own parsing would for a real
-    // epoch.
+    // THGR, the Greenwich hour angle at epoch -- CORRECTION, VAL06 §II.F. STR3's
+    // own THETAG is the 1950-epoch linear form 1.72944494 + 6.3003880987*DS50.
+    // §II.F lists the versions in circulation and prints the constants of the
+    // 1970-epoch one:
+    //     C1 = 1.72027916940703639D-2, THGR70 = 1.7321343856509374D0,
+    //     FK5R = 5.07551419432269442D-15, C1P2P = C1 + TWOPI,
+    //     THGR = DMOD(THGR70 + C1*DS70 + C1P2P*TFRAC + TS70*TS70*FK5R, TWOPI)
+    // ("these approaches yield 'essentially' the same values"). They do not, for
+    // a 2006 epoch: the 1970 form is 6.75e-6 rad ahead of STR3's (4.3e-6 rad for
+    // a 1980 epoch) -- 1.4 arcsec, nothing at all to a TLE, but the 12 h and 24 h
+    // resonance phases read it: with STR3's form all eleven geopotential-
+    // resonant satellites in the verification battery sat 4 mm to 36 cm from the
+    // published rows; with this one they sit within 0.07 mm. A free additive
+    // shift fitted to each resonant case alone returned 6.751/6.746/6.746/6.748
+    // e-6 rad for the four 12 h cases that fix it, against 6.7479e-6 computed
+    // from the two formulas (PROVENANCE.md §38.8). TS70 is not defined in the
+    // paper; it is read as the elapsed days DS70 + TFRAC, which agrees with the
+    // IAU-1982 GMST polynomial (VAL06 eq. (2)) to 1.4e-9 rad at every epoch tried.
+    // DS50 (days since 1950 Jan 0.0) is computed from this tree's own already-
+    // parsed TLE epoch via `calendar_elapsed_seconds`, not by re-deriving
+    // THETAG's fragile two-digit-year decode (which, as printed, maps a 2006
+    // epoch to 1986); 1970 Jan 0.0 is exactly 7305 days later.
     const time::Calendar epoch_cal = tle_epoch_calendar(tle);
     const double ds50 =
         calendar_elapsed_seconds(time::Calendar{1949, 12, 31, 0, 0, 0.0}, epoch_cal) / 86400.0;
-    const double thgr = fmod2p(1.72944494 + 6.3003880987 * ds50);
+    constexpr double kDaysFrom1950To1970 = 7305.0;
+    const double ts70 = ds50 - kDaysFrom1950To1970;
+    const double ds70 = std::floor(ts70);
+    const double tfrac = ts70 - ds70;
+    constexpr double kC1 = 1.72027916940703639e-2;
+    constexpr double kThgr70 = 1.7321343856509374;
+    constexpr double kFk5r = 5.07551419432269442e-15;
+    const double thgr = fmod2p(kThgr70 + kC1 * ds70 + (kC1 + kTwopi) * tfrac + ts70 * ts70 * kFk5r);
     st.thgr = thgr;
 
     const double eq = eo;
@@ -512,7 +539,17 @@ odl::Result<Sgp4InitialState, Sgp4Error> sgp4_init(const Tle& tle) {
             g322 = -18.9068 + 109.7927 * eq - 214.6334 * eosq + 146.5816 * eoc;
             g410 = -41.122 + 242.694 * eq - 471.094 * eosq + 313.953 * eoc;
             g422 = -146.407 + 841.880 * eq - 1629.014 * eosq + 1083.435 * eoc;
-            g520 = -532.114 + 3017.977 * eq - 5740.0 * eosq + 3708.276 * eoc;
+            // DEVIATION FROM STR3 -- determined by the vectors, not stated in either
+            // text. STR3's listing prints this coefficient as `-5740*EQSQ` (checked
+            // on the page image, p.63); every other coefficient in the block has
+            // 3-6 decimals. Satellite 26975, the battery's only case with
+            // 0.5 <= e <= 0.65, sits 7.6 cm from its published rows with 5740
+            // and 14 micrometres with 5740.032: a one-parameter fit of this
+            // coefficient alone to 26975's rows, from a blind scan of 5739.9-5740.1,
+            // is V-shaped (2.4e-3 km per unit) with its minimum at 5740.0320 +/-
+            // 0.0001 (PROVENANCE.md §38.8). One satellite exercises this branch, so
+            // it is not independent evidence the value is right.
+            g520 = -532.114 + 3017.977 * eq - 5740.032 * eosq + 3708.276 * eoc;
         } else {
             g211 = -72.099 + 331.819 * eq - 508.738 * eosq + 266.724 * eoc;
             g310 = -346.844 + 1582.851 * eq - 2415.925 * eosq + 1246.113 * eoc;

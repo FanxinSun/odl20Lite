@@ -10,13 +10,23 @@
 // misses: report the residual per case, with the case's own features,
 // before anything else is opened.
 //
-// TWO TOLERANCE TIERS, stated per satellite below (position_tolerance_km),
-// because the battery does not agree to one number: 20 of the 31 comparable
-// satellites agree with the published rows to <= 2 cm (13 of them to
-// <= 0.5 mm), and the other 11 to <= 1 m with a residual no correction in
-// either text accounts for (PROVENANCE.md §38.6, SPEC-io-sgp4.md IOSG-Q-001).
-// A single global 1 m would let the first group regress from mm to dm
-// unseen; a single global 2 cm would be a lie about the second.
+// THE GATE AND THE REGRESSION BOUNDS (SPEC-io-sgp4.md IOSG-P-2). VAL06 states
+// no tolerance, so the gate was set by ruling (manager, 2026-10-06) before the
+// residuals were re-measured: EVERY comparable satellite within 2 cm of every
+// published row over its own span, velocity within 1 cm/s. The regression
+// bounds below are tighter and are NOT gates: they are the measured maxima
+// plus margin (every satellite <= 1 mm but 23333, 4.1 mm), so a change that
+// moves a satellite from micrometres to centimetres cannot pass unseen.
+//
+// History, kept because it is why this file is built the way it is. Two earlier
+// versions of this comparison were wrong, both in the TEST, and both read as the
+// port's fault: (1) the position bound was 1.0e-2 km under a comment saying
+// 1 cm; (2) its reader took eight revolution numbers glued to their mean-
+// motion field as further decimals of it, a 1e-10 relative mean-motion error
+// that showed as a 3-94 cm "residual" in 11 satellites, five of them non-
+// resonant. IOSG-A-009 tests the reader on those lines; PROVENANCE.md §38.7.
+// What then remained was real and was resonance: the Greenwich angle at epoch
+// and one printed coefficient (PROVENANCE.md §38.8).
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -25,6 +35,7 @@
 #include <odl/io/tle.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -43,7 +54,11 @@ namespace {
 struct VerCase {
     std::string satnum;
     Tle tle;
-    double start_mfe = 0.0, stop_mfe = 0.0;  ///< VAL06 Appendix D's own trailer, line 2's last 3 tokens
+    double start_mfe = 0.0, stop_mfe = 0.0;  ///< VAL06 Appendix D's own trailer, after line 2's own column 69
+    int revolution = 0;                      ///< line 2, columns 64-68 (I5); SGP4 never reads it, the reader's own test does
+    int line2_checksum = -1;                 ///< line 2, column 69
+    bool line2_checksum_valid = false;       ///< the format's own mod-10 checksum over columns 1-68
+    std::string line2;                       ///< the raw line, so the reader can be tested against it
 };
 
 /// SGP4-VER.TLE's own real file has DOS line endings -- VAL06 §II.C names
@@ -66,8 +81,12 @@ std::string strip_cr(std::string s) {
 /// whitespace-tokenizing reader for THIS harness only, never touching
 /// `odl::io::read_tle` (which stays strict, correctly, for real,
 /// standard-column TLEs -- proved against a live CelesTrak fetch this same
-/// round). Fields this port's own algorithm never reads (classification,
-/// element number, revolution number, both checksums) are not parsed at all.
+/// round). LINE 1 is read by that tokenizer; LINE 2 is NOT -- it is fixed-
+/// column in this file as everywhere (`read_line2` below), because a
+/// tokenizer cannot see where a fixed-width field ends when its neighbour
+/// abuts it, which for eight of this file's own line 2s is exactly the case
+/// (PROVENANCE.md §38.7). Fields this port's own algorithm never reads
+/// (classification, element number, line 1's checksum) are not parsed.
 double decimal_assumed_token(const std::string& tok) {
     REQUIRE(tok.size() >= 3);
     const std::string mantissa = tok.substr(0, tok.size() - 2);
@@ -78,6 +97,61 @@ double decimal_assumed_token(const std::string& tok) {
     const double sign = mantissa[0] == '-' ? -1.0 : 1.0;
     const double e = (exp_digit - '0') * (exp_sign == '-' ? -1.0 : 1.0);
     return sign * m * std::pow(10.0, e);
+}
+
+/// `width` characters of `line` starting at the 1-based column `first`.
+std::string column(const std::string& line, std::size_t first, std::size_t width) {
+    REQUIRE(line.size() >= first - 1 + width);
+    return line.substr(first - 1, width);
+}
+
+/// The TLE format's own mod-10 checksum over columns 1-68: every digit counts
+/// its face value, every minus sign counts 1, everything else 0.
+int tle_checksum(const std::string& line) {
+    int sum = 0;
+    for (std::size_t i = 0; i < 68 && i < line.size(); ++i) {
+        if (line[i] >= '0' && line[i] <= '9') sum += line[i] - '0';
+        else if (line[i] == '-') sum += 1;
+    }
+    return sum % 10;
+}
+
+/// TLE line 2, by the format's own columns (checked against all 33 line 2s in
+/// SGP4-VER.TLE: every one sits at them): 9-16 inclination F8.4, 18-25 RAAN
+/// F8.4, 27-33 eccentricity I7 (decimal point assumed), 35-42 argument of
+/// perigee F8.4, 44-51 mean anomaly F8.4, **53-63 mean motion F11.8, 64-68
+/// revolution number I5**, 69 checksum I1. Eight of the file's line 2s (00005,
+/// 08195, 09880, 16925, 21897, 23599, 28057, 28350) have a five-digit
+/// revolution number, which abuts the mean motion with no space
+/// ("10.82419157413667"); the reader this replaces split on whitespace and
+/// `std::stod`-ed the whole token, taking those digits as decimals beyond the
+/// format's eight -- a relative mean-motion error of 1e-10..4e-10 that the
+/// previous round's report called an unexplained 3-94 cm "residual" in the
+/// port (PROVENANCE.md §38.7). VAL06 Appendix D's own trailer (start MFE,
+/// stop MFE, step) follows column 69.
+void read_line2(const std::string& line, VerCase& vc) {
+    REQUIRE(line.size() >= 69);
+    Tle& t = vc.tle;
+    t.inclination_deg = std::stod(column(line, 9, 8));
+    t.raan_deg = std::stod(column(line, 18, 8));
+    std::string ecc = column(line, 27, 7);
+    ecc.erase(0, ecc.find_first_not_of(' '));
+    t.eccentricity = std::stod("0." + ecc);
+    t.arg_perigee_deg = std::stod(column(line, 35, 8));
+    t.mean_anomaly_deg = std::stod(column(line, 44, 8));
+    t.mean_motion_rev_per_day = std::stod(column(line, 53, 11));
+    vc.revolution = std::stoi(column(line, 64, 5));
+    const char cs = line[68];
+    vc.line2_checksum = (cs >= '0' && cs <= '9') ? cs - '0' : -1;
+    vc.line2_checksum_valid = vc.line2_checksum == tle_checksum(line);
+    vc.line2 = line;
+    std::istringstream trailer(line.substr(69));
+    std::vector<std::string> tt{std::istream_iterator<std::string>{trailer},
+                                std::istream_iterator<std::string>{}};
+    if (tt.size() >= 3) {
+        vc.start_mfe = std::stod(tt[0]);
+        vc.stop_mfe = std::stod(tt[1]);
+    }
 }
 
 std::vector<VerCase> read_sgp4_ver_tle(const std::string& path) {
@@ -95,10 +169,10 @@ std::vector<VerCase> read_sgp4_ver_tle(const std::string& path) {
         if (tok[0] == "1") {
             tok1 = tok;
         } else if (tok[0] == "2" && !tok1.empty()) {
-            REQUIRE(tok.size() >= 8);
             Tle t;
             const std::string satnum = tok1[1].substr(0, tok1[1].size() - 1);  // strip classification letter
             t.satellite_number = std::stoi(satnum);
+            REQUIRE(column(line, 3, 5) == satnum);  // line 2's own satellite number agrees with line 1's
 
             // The international designator (one token when present) and the
             // ephemeris-type/element-number tail are each independently
@@ -121,17 +195,10 @@ std::vector<VerCase> read_sgp4_ver_tle(const std::string& path) {
             t.mean_motion_dot = std::stod(tok1[epoch_idx + 1]);
             t.mean_motion_ddot = decimal_assumed_token(tok1[epoch_idx + 2]);
             t.bstar = decimal_assumed_token(tok1[epoch_idx + 3]);
-            t.inclination_deg = std::stod(tok[2]);
-            t.raan_deg = std::stod(tok[3]);
-            t.eccentricity = std::stod("0." + tok[4]);
-            t.arg_perigee_deg = std::stod(tok[5]);
-            t.mean_anomaly_deg = std::stod(tok[6]);
-            t.mean_motion_rev_per_day = std::stod(tok[7]);
-            VerCase vc{satnum, t, 0.0, 0.0};
-            if (tok.size() >= 11) {
-                vc.start_mfe = std::stod(tok[tok.size() - 3]);
-                vc.stop_mfe = std::stod(tok[tok.size() - 2]);
-            }
+            VerCase vc;
+            vc.satnum = satnum;
+            vc.tle = t;
+            read_line2(line, vc);
             cases.push_back(vc);
             tok1.clear();
         }
@@ -178,20 +245,16 @@ std::string vectors_dir() {
 
 }  // namespace
 
-/// The position tolerance each satellite is held to, km. TIER A: 2 cm. TIER B:
-/// 1 m -- the eleven satellites below, whose agreement with the published
-/// rows is between 3 cm and 94 cm and whose residual neither STR3 nor VAL06
-/// explains (PROVENANCE.md §38.6 has the per-case residuals, the features
-/// they share, and every hypothesis tried). Velocity is held to 1 cm/s for
-/// every satellite (the worst residual is 0.57 mm/s).
-double position_tolerance_km(const std::string& satnum) {
-    static const std::map<std::string, double> tier_b = {
-        {"00005", 1.0e-3}, {"08195", 1.0e-3}, {"09880", 1.0e-3}, {"16925", 1.0e-3},
-        {"21897", 1.0e-3}, {"22674", 1.0e-3}, {"23599", 1.0e-3}, {"26900", 1.0e-3},
-        {"26975", 1.0e-3}, {"28057", 1.0e-3}, {"28350", 1.0e-3},
-    };
-    const auto it = tier_b.find(satnum);
-    return it == tier_b.end() ? 2.0e-5 : it->second;
+/// THE GATE, km: 2 cm (IOSG-P-2), for every comparable satellite.
+constexpr double kGateKm = 2.0e-5;
+
+/// The REGRESSION bound each satellite is also held to, km -- measured maximum
+/// plus margin, NOT a tolerance. 23333 (WIND, e = 0.973) carries 4.1 mm, radial,
+/// that no fit of a constant removed (IOSG-Q-001); every other satellite is
+/// within 0.4 mm of every published row (most within 0.01 mm, the files' own
+/// print resolution).
+double regression_bound_km(const std::string& satnum) {
+    return satnum == "23333" ? 5.0e-6 : 1.0e-6;
 }
 
 TEST_CASE("IOSG-A-001: SGP4-VER.TLE full battery, every satellite with published rows", "[sgp4]") {
@@ -209,8 +272,10 @@ TEST_CASE("IOSG-A-001: SGP4-VER.TLE full battery, every satellite with published
     // that shares its number.
     std::size_t total_rows = 0;
     std::size_t excluded_rows = 0;
-    std::size_t position_failures = 0;
+    std::size_t position_failures = 0;    // beyond the 2 cm gate
+    std::size_t regression_failures = 0;  // beyond a satellite's own tighter regression bound
     std::size_t velocity_failures = 0;
+    std::map<std::string, double> max_pos_err;  // per satellite number, over every TLE entry that shares it
     constexpr double kVelTolKmS = 1.0e-5;  // 1 cm/s
     // 20413.e's own real rows (checked directly) are NOT one contiguous
     // series: a single row at t=0, then every remaining row jumps to
@@ -234,7 +299,7 @@ TEST_CASE("IOSG-A-001: SGP4-VER.TLE full battery, every satellite with published
 
         const std::vector<EphRow> rows = read_e_file(e_path);
         INFO("satellite " << c.satnum << ", " << rows.size() << " rows");
-        const double pos_tol = position_tolerance_km(c.satnum);
+        const double reg_bound = regression_bound_km(c.satnum);
 
         const auto init = sgp4_init(c.tle);
         if (!init) {
@@ -267,16 +332,22 @@ TEST_CASE("IOSG-A-001: SGP4-VER.TLE full battery, every satellite with published
             const double dx = raw->x_km - row.r_km.x, dy = raw->y_km - row.r_km.y,
                         dz = raw->z_km - row.r_km.z;
             const double pos_err = std::sqrt(dx * dx + dy * dy + dz * dz);
+            max_pos_err[c.satnum] = std::max(max_pos_err[c.satnum], pos_err);
             const double dvx = raw->xdot_km_s - row.v_km_s.x, dvy = raw->ydot_km_s - row.v_km_s.y,
                         dvz = raw->zdot_km_s - row.v_km_s.z;
             const double vel_err = std::sqrt(dvx * dvx + dvy * dvy + dvz * dvz);
             // `!(x <= tol)`, not `x > tol`: a NaN residual must FAIL, not pass.
-            if (!(pos_err <= pos_tol)) {
+            if (!(pos_err <= kGateKm)) {
                 ++position_failures;
                 WARN("satellite " << c.satnum << " t=" << tsince_min
-                                  << " min: position residual " << pos_err << " km > " << pos_tol
+                                  << " min: position residual " << pos_err << " km exceeds the 2 cm GATE"
                                   << " (got " << raw->x_km << "," << raw->y_km << "," << raw->z_km
                                   << "; want " << row.r_km.x << "," << row.r_km.y << "," << row.r_km.z << ")");
+            }
+            if (!(pos_err <= reg_bound)) {
+                ++regression_failures;
+                WARN("satellite " << c.satnum << " t=" << tsince_min << " min: position residual "
+                                  << pos_err << " km exceeds its regression bound " << reg_bound);
             }
             if (!(vel_err <= kVelTolKmS)) {
                 ++velocity_failures;
@@ -288,11 +359,14 @@ TEST_CASE("IOSG-A-001: SGP4-VER.TLE full battery, every satellite with published
 
     INFO("total rows checked: " << total_rows);
     INFO("rows excluded (outside trailer range +/- " << kTrailerMarginMin << " min): " << excluded_rows);
-    INFO("position failures: " << position_failures);
+    INFO("position failures (2 cm gate): " << position_failures);
+    INFO("regression-bound failures: " << regression_failures);
     INFO("velocity failures (> " << kVelTolKmS << " km/s): " << velocity_failures);
     CHECK(total_rows > 600);
     CHECK(position_failures == 0);
+    CHECK(regression_failures == 0);
     CHECK(velocity_failures == 0);
+    CHECK(max_pos_err.size() == 31);  // every comparable satellite number was compared (33334 excluded)
 }
 
 TEST_CASE("IOSG-A-002: satellite 00005, FRAME-A-009's own case, deep-space classification", "[sgp4]") {
@@ -313,9 +387,11 @@ TEST_CASE("IOSG-A-002: satellite 00005, FRAME-A-009's own case, deep-space class
     // (-9060.473 735 69, 4658.709 525 02, 813.686 731 53) km.
     const auto raw = sgp4_propagate(*init, 4320.0);
     REQUIRE(raw.has_value());
-    CHECK_THAT(raw->x_km, WithinAbs(-9060.47373569, 1.0e-3));
-    CHECK_THAT(raw->y_km, WithinAbs(4658.70952502, 1.0e-3));
-    CHECK_THAT(raw->z_km, WithinAbs(813.68673153, 1.0e-3));
+    // Held to the gate (2 cm): 00005's mean motion is read to F11.8 now (its
+    // revolution number abuts it in the file), and agrees to < 0.05 mm.
+    CHECK_THAT(raw->x_km, WithinAbs(-9060.47373569, kGateKm));
+    CHECK_THAT(raw->y_km, WithinAbs(4658.70952502, kGateKm));
+    CHECK_THAT(raw->z_km, WithinAbs(813.68673153, kGateKm));
 }
 
 TEST_CASE("IOSG-A-005: SGP4 against STR3 sec.13's own printed case, satellite 88888", "[sgp4]") {
@@ -555,5 +631,63 @@ TEST_CASE("IOSG-A-008: no NaN or infinity ever escapes as a state", "[sgp4]") {
             CHECK(std::isfinite(raw->ydot_km_s));
             CHECK(std::isfinite(raw->zdot_km_s));
         }
+    }
+}
+
+TEST_CASE("IOSG-A-009: the verification-file reader recovers the eight glued mean-motion/revolution fields separately", "[sgp4]") {
+    // The comparison tool is validated before any residual is attributed to the
+    // port (the previous round's mistake: PROVENANCE.md §38.7). Eight line 2s in
+    // SGP4-VER.TLE have a five-digit revolution number abutting the mean motion
+    // with no space. The published values below are hand-transcribed from those
+    // lines, columns 53-63 (F11.8), 64-68 (I5), 69 (checksum), e.g. satellite
+    // 00005's line 2 ends "... 19.3264 10.82419157413667": mean motion
+    // 10.82419157, revolution 41366, checksum 7.
+    struct Glued { const char* satnum; double mean_motion; int revolution; int checksum; };
+    const std::array<Glued, 8> glued = {{
+        {"00005", 10.82419157, 41366, 7},  {"08195", 2.00491383, 22565, 6},
+        {"09880", 2.00813614, 11238, 0},   {"16925", 4.88511875, 14861, 6},
+        {"21897", 2.01269994, 10488, 0},   {"23599", 4.47796565, 12355, 5},
+        {"28057", 14.35478080, 14055, 0},  {"28350", 16.47856722, 11649, 0},
+    }};
+    const std::string dir = vectors_dir();
+    REQUIRE_FALSE(dir.empty());
+    const std::vector<VerCase> cases = read_sgp4_ver_tle(dir + "/SGP4-VER.TLE");
+
+    for (const Glued& g : glued) {
+        const VerCase* c = find_case(cases, g.satnum);
+        REQUIRE(c != nullptr);
+        INFO("satellite " << g.satnum << ", line 2: " << c->line2);
+        // The reader recovers each published field, separately and exactly.
+        CHECK(c->tle.mean_motion_rev_per_day == g.mean_motion);
+        CHECK(c->revolution == g.revolution);
+        CHECK(c->line2_checksum == g.checksum);
+        // ... and the line's own mod-10 checksum, which covers the revolution
+        // digits, confirms the split is the format's.
+        CHECK(c->line2_checksum_valid);
+
+        // The witness that this test CAN fail (rule 5): the whitespace-token
+        // reading it replaces -- the whole token through std::stod -- is not
+        // the published mean motion on any of these eight lines, off by the
+        // revolution digits taken as further decimals.
+        std::istringstream iss(c->line2);
+        std::vector<std::string> tok{std::istream_iterator<std::string>{iss},
+                                     std::istream_iterator<std::string>{}};
+        REQUIRE(tok.size() > 7);
+        const double legacy = std::stod(tok[7]);
+        CHECK(legacy != g.mean_motion);
+        // 7e-11 (28350) to 1.1e-9 (08195) relative: the size the previous round
+        // read as a mean-motion "drift" in the port.
+        CHECK(std::abs(legacy - g.mean_motion) / g.mean_motion > 5.0e-11);
+    }
+
+    // Every case: mean motion carries exactly the format's eight decimals, and
+    // the line's checksum holds -- except 33333 and 33335, the authors' own
+    // hand-edited variants of 28872 and 28626 (their elements were changed to
+    // exercise error paths, and the checksums were not recomputed).
+    for (const VerCase& c : cases) {
+        INFO("satellite " << c.satnum);
+        const double scaled = c.tle.mean_motion_rev_per_day * 1.0e8;
+        CHECK(std::abs(scaled - std::round(scaled)) < 1.0e-3);
+        if (c.satnum != "33333" && c.satnum != "33335") CHECK(c.line2_checksum_valid);
     }
 }
