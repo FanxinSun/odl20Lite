@@ -7924,6 +7924,7 @@ classification committed, and it was restored.) What was found afterwards — th
 millimetre. The raw 1.873 / 1.925 m adds the time shift: τ = 21.8 µs × 7.4 km/s = **0.161 m along-track**, a difference in time handling between this tree and
 Horizons, reported and not gated, and **not explained** (it is not the rounding of the epoch's Julian date to a double: that would be a constant 14.9 µs and would
 add ±20 µs of per-epoch noise, which the 2.2 mm residual excludes; this tree's TDB − TT is `eraDtdb`, the full series).
+*[Post hoc, 2026-10-06 (round 8): §38.15 evaluates one candidate for this τ — Horizons' TDB → UTC for SGP4's argument lacking the 22.4 µs Earth–Jupiter term — which reproduces it to 0.016 µs; the Horizons documentation says otherwise. A candidate, not an explanation; the text above stands.]*
 
 **The Ω_y / τ degeneracy, as the manager asked** (post hoc, from the fit's formal covariance). For this near-polar orbit the normal is ≈ +y, so a rotation about y
 is nearly an along-track shift: the fit's correlation between Ω_y and τ is −1.000 (1 µs ↔ 0.2 mas of Ω_y). Formal 1σ: Ω = (0.082, 0.658, 0.085) mas, τ = 3.2 µs.
@@ -8019,12 +8020,83 @@ its 1.455 m difference from the control, and it fits the chain at 1.125 m rms, i
 
 **What this does not change.** The chain, `FRAME-A-001`, `FRAME-A-009`, T-01's verdict (a pass naming Horizons' chain), and the requirement itself.
 
+### 38.15 τ = +21.76 µs: what Horizons' documentation says of its TDB − TT, and one post-hoc evaluation of a candidate (2026-10-06, round 8)
+
+**Post hoc. Feeds no gate. No new capture.** The candidate was proposed (by the manager) after τ had been reported, so a match with it is a candidate and not a
+prediction. Nothing in `IOSG-A-010`/`-011`, the pre-registered cases, the band or the classification is touched.
+
+**The documentation, searched for a TDB − TT formula.** The four pinned Horizons pages (manual — `sha256 5c5100b08abeb10f4a6074e02102e4fe5d915203eed360bb4dd839a77210ddcc`,
+API, FAQ, app; §38.12) were searched for every line containing `TDB`, the word `TT`, `TCB`, `TCG`, `time-ephemeris` or `relativ`, and each was read in context
+(manual 29 `TDB` lines and 13 `TT` lines, the API page 7 and 2, the FAQ and app page none; no `TCB`/`TCG`/`time-ephemeris` hit anywhere). **No page prints a closed form
+for TDB − TT, nor its coefficients.** What they print, quoted from the manual's text rendering (line numbers in that rendering):
+
+| where | what it says |
+|---|---|
+| "Universal Time (TDB -> UT Conversion)", l. 4659–4667 | "TDB - UTC = (TDB - TAI) + (TAI - UTC) … TDB - TAI = Computed from current planetary ephemeris … … dropping terms in TDB-TAI having an RSS of ~4.2 usec" |
+| field 30 "TDB-UT", l. 3917–3919 | "For 1962 and later, the difference is with respect to UTC (TDB-UTC) and periodic terms less than 1.e-6 second are ignored" |
+| the Earth-model note, l. 4781–4782 | "TDB-TAI terms less than 20 usec are omitted" |
+| the time-scale list, l. 2185–2186 | "TT periodically differs from TDB by, at most, 0.002 seconds" — no formula |
+
+The three truncation sentences do not agree with one another (1 µs, 20 µs, RSS ~4.2 µs) and none is a formula. **The absence is recorded; the instruction was to evaluate the
+manager's candidate in its place**, and the sentences are evaluated beside it below because they are all the documentation offers (the second table).
+
+**The sign.** `d = r_Horizons − r_ours = Ω × r + τ v` (§38.12). Both sides turn the labelled TDB into UTC by `UTC = TDB − (TDB − TT) − (TT − UTC)`; a Horizons
+`(TDB − TT)` more negative than ours by τ puts its SGP4 argument τ *later* than ours, which is `d = +τ v`. So **τ = (TDB − TT)_ours − (TDB − TT)_Horizons**, and
+"Horizons uses form F" predicts **τ = eraDtdb − F** (geocentre: `eraDtdb` with elong = u = v = 0; the grid is 2026-10-05 07:30:00 … 12:30:00 TDB, 61 epochs, 300 s).
+
+**The candidate, as ordered** — NAIF's leapseconds-kernel form, constants as given in the manager's instruction (not re-read at NAIF here): `K sin E`, `K = 1.657e-3 s`,
+`E = M + EB sin M`, `EB = 1.671e-2`, `M = 6.239996 + 1.99096871e-7 t` rad, `t` TDB seconds past J2000.
+
+| quantity at the 61 epochs | value |
+|---|---|
+| `eraDtdb` (this tree's `tdb_minus_tt`, the full 787-term series) | mean −1635.2380 µs |
+| the NAIF form | mean −1656.9824 µs |
+| **`eraDtdb` − NAIF form** | **mean +21.7444 µs; sample std 0.0101 µs; range +21.7276 (07:30) to +21.7617 (12:30), 34 ns over the arc** |
+| the fit's τ (§38.13) | **+21.76 ± 3.2 µs** (formal; Ω_y/τ correlation −1.000) |
+| prediction − τ | **−0.016 µs = −0.005 σ**; the sign agrees |
+
+Taken apart, arithmetically (ERFA's own series, term 2 of its Fairhead–Bretagnon table being the 22.417 µs Earth–Jupiter synodic term; the pieces sum to the line above):
+the Earth–Jupiter term at this date **+20.686 µs**; the annual + semiannual terms of the series minus the NAIF `K sin E` **+0.085 µs**; every other term of the series and
+JPL's planetary-mass adjustment **+0.974 µs**. The difference is a constant over the 5-hour arc, as the fit's one constant τ requires.
+
+**The documentation's own sentences, evaluated the same way** (ERFA's series standing in for Horizons' unpublished term list; a term is kept when its amplitude *at the
+epoch* is at least the threshold; τ_pred is then the sum of the omitted terms — the series reproduces `eraDtdb` to 2 × 10⁻¹⁹ s):
+
+| the sentence | terms kept | RSS of the omitted amplitudes (documented: ~4.2 µs) | τ_pred, mean over the 61 epochs | τ − τ_pred |
+|---|---|---|---|---|
+| "periodic terms less than 1.e-6 second are ignored" | 12 of 787 | 1.67 µs | +1.448 µs (std 0.0001) | +20.3 µs = 6.3 σ |
+| "TDB-TAI terms less than 20 usec are omitted" | 2 of 787 | 16.16 µs | +0.592 µs (std 0.030) | +21.2 µs = 6.6 σ |
+
+**Context, what the NAIF form leaves out** (the same two functions over 2020–2032, daily noon samples): RMS(`eraDtdb` − form) 17.29 µs, largest 35.96 µs; the RSS-equivalent
+(√2 × RMS, for a sum of sinusoids) **24.5 µs** — against the manual's "RSS of ~4.2 µs" dropped.
+
+**Reading — and what it does not say.**
+1. The sign and the size match: dropping the Earth–Jupiter term (and, as a form, little else) predicts the fit's τ to 16 ns, 0.005 σ of its formal error.
+   A fit value inside 0.005 σ of a prediction is much closer than the formal 3.2 µs says the fit can resolve, so **the formal σ is not the yardstick for how well τ is known here**
+   (it is large because of the Ω_y/τ degeneracy, not because the data are noisy; the residual after the fit is 2.2 mm). What the data do separate is the Earth–Jupiter term
+   being in or out: 20.7 µs is 6.5 σ.
+2. It does **not** identify the form. Anything that omits the same ≈ 21.7 µs would match (the series' annual + semiannual terms alone, the Earth–Jupiter term dropped, give
+   +21.66 µs, 0.1 µs from the fit — not separable at σ = 3.2 µs).
+3. It is **not what the documentation describes**: the documented truncations predict τ ≈ +0.6 to +1.4 µs, 6 σ from the fit, and the manual's "RSS ~4.2 µs" is a tenth of what this form
+   omits. Either the conversion Horizons applies to a TLE's SGP4 argument is a different (shorter) routine than the one its manual describes for output times, or the manual's
+   sentences describe something else. Which is not knowable from the pinned pages, and no more was fetched or asked.
+4. The candidate was chosen after τ was seen. The family evaluated is closed: this form and the documentation's sentences; no further forms are tried.
+5. **Effect on T-01: none.** τ is reported and not gated; the rms after the fit is 2.2 mm. Forcing τ to the candidate's 21.744 instead of 21.76 moves the fitted Ω by
+   0.003 mas (1 µs ↔ 0.2 mas of Ω_y), and the classification (matched B at 0.142 mas) does not change.
+6. **For tests that compare against a Horizons table of a TLE object** (step 4's ephemeris-position model): the shift is ≈ +21.7 µs on this date, i.e. 0.16 m along-track at 7.4 km/s,
+   and — if the candidate is right — it is not constant but follows the Earth–Jupiter term, ±22.4 µs over its 399-day period (±0.17 m in a low orbit, ±0.07 m at GEO). It is a
+   known difference of that comparison and is never corrected for in a test on the strength of a candidate.
+
+Evidence: `~/.claude/handover/2026-09-25-odl-rewrite-L6.REPORT.files/tau/` — `tau_eval.c` and its output (the candidate), `tau_doc_thresholds.c` and its output (the sentences), both
+built from the pinned ERFA 2.0.1 tarball's `dtdb.c` (`sha256 d5469fbd0b212b3c7270c1da15c9bd82f37da9218fc89627f98283d27b416cbf`), `fairhd_table.h` being that file's table lines 190–1064 unchanged.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-06 | **τ = +21.76 µs: the Horizons documentation printed no TDB − TT formula; one post-hoc evaluation (round 8, feeds no gate).** §38.15: the manual's three truncation sentences (1 µs, 20 µs, RSS ~4.2 µs) predict τ ≈ +0.6 to +1.4 µs, 6 σ from the fit; the manager's NAIF `K sin E` form predicts **+21.744 µs** (eraDtdb − form, sample std 0.010 µs over the arc, of which the Earth–Jupiter term is +20.686) against the fit's +21.76 ± 3.2 µs — a match to 0.016 µs that is a candidate, chosen after τ was seen, and contradicts the documentation; no effect on T-01. |
 | 2026-10-06 | **L1's account of the TEME residual corrected after T-01, and the floor's value fixed.** §38.14: `FRAME-R-033`'s requirement stands; "no amount of care removes it", the "2–3 m flat … the same quantity" paragraph, `FRAME-Q-001`'s 0.064″ precession amendment and §3.3's "undiluted" mechanism for TEME are superseded where they stand, first text kept and dated (`SPEC-frames.md` v1.11, here, `ORACLE.md`, `SPEC-io-horizons.md`, three code comments); `frame_uncertainty_floor_m()` returned 3.0 m for every TEME state where the stated 0.1″ is 20.4 m at geostationary radius -- now 0.1″ x |r| (3.39 m at 7000 km), `FRAME-A-020` at two radii, the old constant failing it (rule 5); `FRAME-A-017` reported (no test of its own; `IOSG-A-011` realises its substance); every swept hit listed; §38.13's "constants ≤ 3 mm" corrected to 3.5 mm. |
 | 2026-10-06 | **T-01 compared, once, by the rules frozen before it: Horizons' TLE -> TEME -> ICRF conversion matches case B (no celestial-pole offsets) to 0.14 mas -- a pass naming Horizons' chain -- and the object table is SGP4 of a different element set.** §38.13: the object and user-TLE tables differ by 1.455 m, so by rule 1 the control is the input; fitted Omega = (-10.592, +49.054, -0.140) mas, tau = +21.8 us, rms 2.2 mm; nearest case B (A 50.2, C 123.8, D 72.9 mas away; band 2.0); the rotation part's sizes equal B's predicted 1.716/1.774 m to the millimetre, the raw 1.873/1.925 m adding 0.16 m of time shift (unexplained, not gated); formal sigma along the A-B separation 0.63 mas of 50.16. The frozen 2.246/3.553 m matched in neither size nor structure. The object table equals this tree's SGP4 of the same TLE with the eccentricity one unit higher in the last digit (0.0044709 for 0.0044708; CelesTrak's OMM has 0.00447087, its TLE text truncates) to 2.2 mm, and differs from the control by a pure in-plane periodic eccentricity-vector signature up to 1.455 m. `IOSG-A-011` pins B by name, `IOSG-A-012` the finding; `SPEC-io-sgp4.md` v1.4; a dated note appended to `ORACLE.md`. |
 | 2026-10-06 | **T-01's classification updated to the manager's ruling `e49b33b`, before any state vector was compared; the four cases, their numbers and the band are unchanged.** §38.12 rule 5: a match within the band to A, B or C PASSES (the pipeline predicted Horizons' output and the capture names its chain: A consistent and pole-corrected, B no offsets, C offsets in the nutation only); a match to D (the face-value −53 mas, which follows from no consistent chain) or to none is a finding; a fit residual above 0.25 m is inconclusive; the plan's "agreement is the failure" is retired (Horizons' manual documents daily pole corrections, against which agreement is the physically expected result). The first-frozen rule is kept visible, marked superseded. `SPEC-io-sgp4.md` v1.3 `IOSG-R-012` restated. |
