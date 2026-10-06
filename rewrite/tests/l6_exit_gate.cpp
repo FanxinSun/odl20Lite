@@ -92,6 +92,7 @@ TEST_CASE("MEAS-A-102  the L6 exit gate, first half: every format round-trips â€
             CHECK(*b == *a);
             CHECK(b->epoch_lines_by_fields == 0);          // what was written is in SP3D's own layout, clock and all
             CHECK(b->clock_fields_absent == 0);
+            CHECK(b->epoch_count_mismatch == a->epoch_count_mismatch);   // the declared count is written as it stands: ilrsb's 5041 against its 5040 is still recorded
         }
         CHECK(total == 50408);
     }

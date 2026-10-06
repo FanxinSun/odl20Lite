@@ -22,6 +22,7 @@ if(BUILD_TESTING)
   odl_manifest_get(de440s-spk _de440s)
   odl_manifest_get(ilrs-dhf-20260527 _dhf)
   odl_manifest_get(ilrs-com6-260112 _com6)
+  odl_manifest_get(itrf2020-transfo-trfs _trfs)
   target_compile_definitions(odl_measmod_tests PRIVATE
     ODL_LEAP_SECOND_FILE="${_leap_CACHE_PATH}"
     ODL_SLRF2020_FILE="${_slrf_CACHE_PATH}"
@@ -38,6 +39,7 @@ if(BUILD_TESTING)
     ODL_ILRS_SP3_FILE="${ODL_CACHE_DIR}/ilrs-lageos1-sp3-260103/extracted/ilrsa.orb.lageos1.260103.v80.sp3"
     ODL_DHF_FILE="${_dhf_CACHE_PATH}"
     ODL_COM_LG1_FILE="${ODL_CACHE_DIR}/ilrs-com6-260112/extracted/com_lg1.dat"
+    ODL_ITRF2020_TRANSFO_FILE="${_trfs_CACHE_PATH}"
     ODL_MEASMOD_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   # G5's orbit term (SPEC-measmod.md §8.9): the nine other products of the week, each its own pinned manifest entry.
   foreach(_ac ilrsb asi bkg cnes dgfi esa gfz jcet nsgf)

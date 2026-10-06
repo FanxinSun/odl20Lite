@@ -453,6 +453,7 @@ TEST_CASE("IOFM-A-042  the EOF terminator and the header's epoch count (v1.2): a
     auto mismatched = read_sp3(eof_fixture(96, 3, true));
     REQUIRE(mismatched.has_value());
     CHECK(mismatched->eof_present);
+    CHECK(mismatched->epoch_count_mismatch);                      // IOFM-R-017: ... and recorded (v1.4)
 
     // write_sp3 always writes the terminator, and the round trip is the first file
     auto text = write_sp3(*no_eof);
@@ -668,12 +669,13 @@ TEST_CASE("IOFM-A-047  real data (v1.3): four of the nine other products of the 
         double x, y, z, vx;                                         // the first P record in km, the first V record's x in dm/s
         std::size_t by_fields, clock_absent;
         bool eof;
+        bool count_mismatch;                                        // IOFM-R-017: the declared epoch count against the epochs held, the terminator being there
     };
     const Expect expected[] = {
-        {ODL_SP3_ILRSB_FILE, "ITRF1", 5040, 3, 23, 58, -11319.687857, -4845.099088, -497.695165, -9071.001341, 5040, 10080, true},
-        {ODL_SP3_GFZ_FILE, "SLR14", 5041, 4, 0, 0, -11319.687864, -4845.099075, -497.695155, -9071.001391, 0, 10082, true},
-        {ODL_SP3_JCET_FILE, "ECF", 5040, 3, 23, 58, -11319.687870, -4845.099050, -497.695193, -9071.001224, 0, 10080, true},
-        {ODL_SP3_NSGF_FILE, "ECF", 5043, 4, 0, 4, -11319.687854, -4845.099106, -497.695162, -9071.001500, 0, 10086, true},
+        {ODL_SP3_ILRSB_FILE, "ITRF1", 5040, 3, 23, 58, -11319.687857, -4845.099088, -497.695165, -9071.001341, 5040, 10080, true, true},
+        {ODL_SP3_GFZ_FILE, "SLR14", 5041, 4, 0, 0, -11319.687864, -4845.099075, -497.695155, -9071.001391, 0, 10082, true, false},
+        {ODL_SP3_JCET_FILE, "ECF", 5040, 3, 23, 58, -11319.687870, -4845.099050, -497.695193, -9071.001224, 0, 10080, true, false},
+        {ODL_SP3_NSGF_FILE, "ECF", 5043, 4, 0, 4, -11319.687854, -4845.099106, -497.695162, -9071.001500, 0, 10086, true, false},
     };
     for (const Expect& e : expected) {
         INFO(e.path);
@@ -685,6 +687,8 @@ TEST_CASE("IOFM-A-047  real data (v1.3): four of the nine other products of the 
         REQUIRE(f->header.satellite_ids.size() == 1);
         CHECK(f->header.satellite_ids.front() == "L51");
         CHECK(f->eof_present == e.eof);
+        CHECK(f->epoch_count_mismatch == e.count_mismatch);
+        CHECK(f->header.num_epochs == (e.count_mismatch ? static_cast<int>(e.epochs) + 1 : static_cast<int>(e.epochs)));
         CHECK(f->epoch_lines_by_fields == e.by_fields);
         CHECK(f->clock_fields_absent == e.clock_absent);
         const auto& first = f->epochs.front();
@@ -700,5 +704,52 @@ TEST_CASE("IOFM-A-047  real data (v1.3): four of the nine other products of the 
         REQUIRE(rec.velocity.has_value());
         CHECK(rec.velocity->x_dm_s == e.vx);
     }
+}
+
+TEST_CASE("IOFM-A-048  the declared epoch count is recorded when the EOF line is there (v1.4): a text declaring four and holding three with its EOF reads, with the count carried "
+          "(header.num_epochs 4) and epoch_count_mismatch true; declaring three and holding three, with or without EOF, gives false; declaring none and holding three, with EOF, gives true; "
+          "the round trip keeps the declared count and the flag; the real backup combination (5041 declared, 5040 held) is flagged and the real primary (no EOF, 5040 and 5040) is not",
+          "[io][sp3]") {
+    auto four_for_three = read_sp3(eof_fixture(4, 3, true));
+    REQUIRE(four_for_three.has_value());
+    CHECK(four_for_three->epochs.size() == 3);
+    CHECK(four_for_three->header.num_epochs == 4);
+    CHECK(four_for_three->epoch_count_mismatch);
+    CHECK(four_for_three->eof_present);
+
+    for (bool with_eof : {true, false}) {
+        auto three = read_sp3(eof_fixture(3, 3, with_eof));
+        REQUIRE(three.has_value());
+        CHECK_FALSE(three->epoch_count_mismatch);
+        CHECK(three->header.num_epochs == 3);
+    }
+    auto none = read_sp3(eof_fixture(0, 3, true));
+    REQUIRE(none.has_value());
+    CHECK(none->epoch_count_mismatch);
+    auto more = read_sp3(eof_fixture(2, 3, true));
+    REQUIRE(more.has_value());
+    CHECK(more->epoch_count_mismatch);
+
+    // recorded, not refused, and not lost by writing: the writer writes the declared count as it stands, and the reading of the written text is the same
+    auto text = write_sp3(*four_for_three);
+    REQUIRE(text.has_value());
+    auto back = read_sp3(*text);
+    REQUIRE(back.has_value());
+    CHECK(*back == *four_for_three);
+    CHECK(back->header.num_epochs == 4);
+    CHECK(back->epoch_count_mismatch);
+
+    // the real files
+    auto primary = read_sp3(slurp_file(ODL_ILRS_SP3_FILE));
+    REQUIRE(primary.has_value());
+    CHECK_FALSE(primary->eof_present);
+    CHECK_FALSE(primary->epoch_count_mismatch);
+    CHECK(primary->header.num_epochs == 5040);
+    auto backup = read_sp3(slurp_file(ODL_SP3_ILRSB_FILE));
+    REQUIRE(backup.has_value());
+    CHECK(backup->eof_present);
+    CHECK(backup->epochs.size() == 5040);
+    CHECK(backup->header.num_epochs == 5041);
+    CHECK(backup->epoch_count_mismatch);
 }
 

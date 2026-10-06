@@ -158,6 +158,10 @@ struct Sp3File {
     /// 47, or columns 47-60 are blank: `IOFM-R-015`; three analysis centres' products), whose value is then 999999.999999, what `SP3C` says an absent clock is set to.
     std::size_t epoch_lines_by_fields = 0;
     std::size_t clock_fields_absent = 0;
+    /// `IOFM-R-017` (v1.4): true when the text has its `EOF` line and holds a number of epochs other than the one its first line declares (`header.num_epochs`, which carries the declared
+    /// count). A file without the terminator is accepted only if the two agree (`IOFM-R-013`), so for it this is false; with the terminator the count was never enforced, and a real product
+    /// (the ILRS backup combination `ilrsb`: 5041 declared, 5040 held) departs from it silently — recorded here, not refused. Equality does not compare it.
+    bool epoch_count_mismatch = false;
 };
 
 /// Reads an SP3-d file already in memory (no file access here, SPEC-io-formats.md

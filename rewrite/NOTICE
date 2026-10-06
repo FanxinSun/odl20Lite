@@ -68,6 +68,7 @@ SUMMARY
   ilrs-lageos1-sp3-260103-gfz gfz.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  237 355 bytes gzipped  636 433 decompressed ILRS-PUBLIC      data
   ilrs-lageos1-sp3-260103-jcet jcet.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  249 073 bytes gzipped  923 723 decompressed ILRS-PUBLIC      data
   ilrs-lageos1-sp3-260103-nsgf nsgf.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  219 290 bytes gzipped  636 764 decompressed ILRS-PUBLIC      data
+  itrf2020-transfo-trfs Transfo-ITRF2020_TRFs.txt as served by itrf.ign.fr 2026-10-06 (the ITRF 'Transformation parameters' page links it); 4 125 bytes; its own title: 'Transformation parameters from ITRF2020 to past ITRFs' IERS-public      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -1052,6 +1053,29 @@ DATA INPUTS
               et al. (2019), The ILRS: approaching 20 years and planning for
               the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
+
+  itrf2020-transfo-trfs  Transfo-ITRF2020_TRFs.txt as served by itrf.ign.fr 2026-10-06 (the ITRF 'Transformation parameters' page links it); 4 125 bytes; its own title: 'Transformation parameters from ITRF2020 to past ITRFs'
+    role      The ITRS Center's table of transformation parameters from ITRF2020 to past ITRFs (ITRF2014 row: Tx, Ty, Tz in mm, the scale D in ppb, Rx, Ry, Rz in .001 arcsec at epoch 2015.0, and their rates; the standard 14-parameter model (1), P(t) = P(EPOCH) + rate x (t - EPOCH)). L7 opening, the manager's small item: pinned for MEAS-A-101d (SPEC-measmod 8.9), which states the size, at G5's pass, of the ILRS backup combination's ITRF2014 frame against SLRF2020 (an ITRF2020 realisation) -- the one product of the nine whose header names ITRF2014 -- so that the orbit term's record can say that the frame difference does not change the term. Nothing else reads it.
+    licence   IERS-public
+    url       https://itrf.ign.fr/docs/solutions/itrf2020/Transfo-ITRF2020_TRFs.txt
+    sha256    0d8dc872e7ef994966063e614adb5b1b0fe20582359c6e77f1d83259d1ff1a68
+    retrieved 2026-10-06
+    note      IERS ITRS Center product, served from the ITRF site's documents
+              directory beside the ITRF2020 solutions. No terms stated beyond
+              a citation request: "When using data through this website,
+              please cite: Altamimi, Z., Rebischung, P., Collilieux, X.,
+              Metivier, L., Chanard, K. (2022) ITRF2020 [Data set]. IERS ITRS
+              Center Hosted by IGN and IPGP,
+              https://doi.org/10.18715/IPGP.2023.LDVIOBNL"
+              (itrf.ign.fr/en/solutions/ITRF2020, read 2026-10-06, sha256
+              33dc3b843e34a9bec1680d7fe9ebfac39949a59ab5b52aeb28bf56ddf05af0d3
+              -- the same page the sibling entry itrf2020-psd-slr cites). Not
+              redistributed: the pin is the ITRS Center's URL and the hash.
+              The file's own note: 'These parameters are derived from those
+              already published in the IERS Technical Notes and Annual
+              Reports, and from the transformation parameters between
+              ITRF2020, ITRF2014 and ITRF2008. They supersede all values
+              published in the past IERS/ITRF documentations.'
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

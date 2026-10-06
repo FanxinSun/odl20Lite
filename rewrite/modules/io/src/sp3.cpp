@@ -525,7 +525,11 @@ odl::Result<Sp3File, Sp3Error> read_sp3(std::string_view text) {
         file.epochs.push_back(std::move(epoch));
     }
 
-    if (idx < lines.size() && starts_with(lines[idx], "EOF")) return file;
+    if (idx < lines.size() && starts_with(lines[idx], "EOF")) {
+        // IOFM-R-017: the terminator is there, so the declared count is not enforced (as ever); a disagreement is recorded where a caller can see it.
+        file.epoch_count_mismatch = file.header.num_epochs < 0 || file.epochs.size() != static_cast<std::size_t>(file.header.num_epochs);
+        return file;
+    }
 
     // IOFM-R-013: no EOF terminator. A line that is neither an epoch header nor EOF is a malformed record, as ever.
     if (idx < lines.size()) {

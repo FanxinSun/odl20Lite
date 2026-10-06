@@ -287,3 +287,133 @@ TEST_CASE("MEAS-A-101  G5's envelope, committed before the comparison code exist
         }
     }
 }
+
+// ---- MEAS-A-101d (the L7 opening's record correction): the size, at G5's pass, of the backup combination's frame -----------------------------------------------------------------------
+
+namespace {
+
+/// The ITRS Center's 14-parameter model, as the pinned file's own note states it: X_S = X + T + D X + R x X, X in ITRF2020 and X_S in the other frame, each parameter P(t) = P(epoch) + rate (t - epoch).
+struct Helmert {
+    double epoch = 0.0;
+    double t_mm[3] = {0, 0, 0}, d_ppb = 0.0, r_mas[3] = {0, 0, 0};
+    double t_rate_mm[3] = {0, 0, 0}, d_rate_ppb = 0.0, r_rate_mas[3] = {0, 0, 0};
+};
+
+Helmert parse_itrf2014_row(const std::string& text) {
+    const auto lines = g5::text_lines(text);
+    for (std::size_t i = 0; i + 1 < lines.size(); ++i) {
+        const auto a = g5::split_ws(lines[i]);
+        if (a.size() < 9 || a[0] != "ITRF2014") continue;
+        const auto b = g5::split_ws(lines[i + 1]);
+        REQUIRE(b.size() >= 8);
+        REQUIRE(b[0] == "rates");
+        Helmert h;
+        for (int k = 0; k < 3; ++k) {
+            h.t_mm[k] = std::stod(a[1 + static_cast<std::size_t>(k)]);
+            h.r_mas[k] = std::stod(a[5 + static_cast<std::size_t>(k)]);
+            h.t_rate_mm[k] = std::stod(b[1 + static_cast<std::size_t>(k)]);
+            h.r_rate_mas[k] = std::stod(b[5 + static_cast<std::size_t>(k)]);
+        }
+        h.d_ppb = std::stod(a[4]);
+        h.epoch = std::stod(a[8]);
+        h.d_rate_ppb = std::stod(b[4]);
+        return h;
+    }
+    FAIL("the pinned transformation file has no ITRF2014 row");
+    return {};
+}
+
+/// X_S - X (metres) for the position `x_m` at the decimal year `t`.
+Vec3 helmert_difference_m(const Helmert& h, double t, const Vec3& x_m) {
+    const double dt = t - h.epoch;
+    const double mas = 4.84813681109536e-9;                                    // 1 mas in radians
+    const Vec3 tr{(h.t_mm[0] + h.t_rate_mm[0] * dt) * 1e-3, (h.t_mm[1] + h.t_rate_mm[1] * dt) * 1e-3, (h.t_mm[2] + h.t_rate_mm[2] * dt) * 1e-3};
+    const double d = (h.d_ppb + h.d_rate_ppb * dt) * 1e-9;
+    const Vec3 rot{(h.r_mas[0] + h.r_rate_mas[0] * dt) * mas, (h.r_mas[1] + h.r_rate_mas[1] * dt) * mas, (h.r_mas[2] + h.r_rate_mas[2] * dt) * mas};
+    return tr + d * x_m + rot.cross(x_m);
+}
+
+}  // namespace
+
+TEST_CASE("MEAS-A-101d  the backup combination's frame at G5's pass: the ITRF2014 of its header against the ITRF2020 of SLRF2020, by the ITRS Center's own transformation parameters — its size along "
+          "each normal point's line of sight, and the orbit term unchanged by it",
+          "[measmod][g5][framediff]") {
+    const Helmert h = parse_itrf2014_row(slurp(ODL_ITRF2020_TRANSFO_FILE));
+    // the parse reads what the file prints (ITRF2014: -1.4 -0.9 1.4 mm, -0.42 ppb, no rotation, epoch 2015.0; rates 0.0 -0.1 0.2 mm/y, no scale rate, no rotation rate)
+    CHECK(h.t_mm[0] == -1.4);
+    CHECK(h.t_mm[1] == -0.9);
+    CHECK(h.t_mm[2] == 1.4);
+    CHECK(h.d_ppb == -0.42);
+    CHECK((h.r_mas[0] == 0.0 && h.r_mas[1] == 0.0 && h.r_mas[2] == 0.0));
+    CHECK(h.epoch == 2015.0);
+    CHECK(h.t_rate_mm[0] == 0.0);
+    CHECK(h.t_rate_mm[1] == -0.1);
+    CHECK(h.t_rate_mm[2] == 0.2);
+    CHECK(h.d_rate_ppb == 0.0);
+
+    // a closed form (the machinery's power): at 2015.0 a satellite on the x axis at LAGEOS's radius, 12 273 km, is displaced by (-1.4 mm - 0.42e-9 x 1.2273e7 m, -0.9 mm, +1.4 mm) = (-6.5547, -0.9, +1.4) mm
+    {
+        const Vec3 d = helmert_difference_m(h, 2015.0, Vec3{1.2273e7, 0.0, 0.0});
+        CHECK_THAT(d.x, WithinAbs(-1.4e-3 - 0.42e-9 * 1.2273e7, 1e-15));
+        CHECK_THAT(d.y, WithinAbs(-0.9e-3, 1e-15));
+        CHECK_THAT(d.z, WithinAbs(1.4e-3, 1e-15));
+        // eleven years on the rates move only Ty and Tz, by -1.1 and +2.2 mm
+        const Vec3 d2 = helmert_difference_m(h, 2026.0, Vec3{1.2273e7, 0.0, 0.0});
+        CHECK_THAT(d2.y - d.y, WithinAbs(-0.1e-3 * 11.0, 1e-15));
+        CHECK_THAT(d2.z - d.z, WithinAbs(0.2e-3 * 11.0, 1e-15));
+        CHECK_THAT(d2.x - d.x, WithinAbs(0.0, 1e-15));
+    }
+
+    const g5::PassChoice& pc = g5::chosen();
+    const auto& products = g5::sp3_products();
+    REQUIRE(products.size() == 10);
+    REQUIRE(products[1].ac == "ilrsb");
+    const g5::Envelope env = g5::build_envelope();
+    REQUIRE(env.points.size() == pc.observations.size());
+
+    std::ostringstream o;
+    char b[300];
+    o << "THE BACKUP COMBINATION'S FRAME AT THE PASS (millimetres): the file's ITRF2014 row (ITRF2020 to ITRF2014; the standard model; P(t) = P(2015.0) + rate x (t - 2015.0)) at each tag's decimal year,\n"
+         "applied to the primary product's position of L51 (the SLRF2020 / ITRF2020 frame) and projected on the station-to-satellite unit vector in the ITRS.\n"
+         "   i  decimal year   |T(t)|   |D||X|   X_S - X along the line of sight   ilrsb spread   ilrsb corrected to ITRF2020\n";
+    double worst_frame = 0.0, worst_bound = 0.0, worst_spread = 0.0, worst_corrected = 0.0;
+    for (std::size_t i = 0; i < pc.observations.size(); ++i) {
+        const RangeObservation& obs = pc.observations[i];
+        auto ra = g5::sp3_position_itrs_m(products[0], obs.epoch);
+        auto rb = g5::sp3_position_itrs_m(products[1], obs.epoch);
+        REQUIRE(ra.has_value());
+        REQUIRE(rb.has_value());
+        const Vec3 d = *ra - obs.site.srp_itrs_m;
+        const Vec3 ghat = (1.0 / d.norm()) * d;
+        const auto cal = g5::utc_calendar_of(obs.epoch);
+        const double year = cal.year + (g5::day_of_year(cal.year, cal.month, cal.day) - 1 + (cal.hour * 3600.0 + cal.minute * 60.0 + cal.second) / 86400.0) / 365.0;     // 2026 has 365 days
+        const Vec3 frame = helmert_difference_m(h, year, *ra);
+        const double along = ghat.dot(frame);
+        const Vec3 t_only = helmert_difference_m(h, year, Vec3{0.0, 0.0, 0.0});
+        const double bound = t_only.norm() + std::abs(h.d_ppb) * 1e-9 * ra->norm();           // |T(t)| + |D| |X|: nothing the line of sight can pick up exceeds it
+        const double spread = std::abs(ghat.dot(*rb - *ra));
+        const double corrected = std::abs(ghat.dot((*rb - frame) - *ra));                     // ilrsb's position taken from ITRF2014 to ITRF2020: minus X_S - X
+        std::snprintf(b, sizeof b, "  %2zu  %11.5f  %7.3f  %7.3f  %31.3f  %13.3f  %27.3f\n", i, year, t_only.norm() * 1e3, std::abs(h.d_ppb) * 1e-9 * ra->norm() * 1e3, along * 1e3, spread * 1e3, corrected * 1e3);
+        o << b;
+        INFO("normal point " << i);
+        CHECK(std::abs(along) <= bound);
+        CHECK(spread + std::abs(along) <= env.orbit_max_m);                                    // the frame difference cannot lift the backup combination to the term
+        CHECK(corrected <= env.orbit_max_m);
+        worst_frame = std::max(worst_frame, std::abs(along));
+        worst_bound = std::max(worst_bound, bound);
+        worst_spread = std::max(worst_spread, spread);
+        worst_corrected = std::max(worst_corrected, corrected);
+    }
+    std::snprintf(b, sizeof b, "  worst: the frame difference along the line of sight %.3f mm (its bound |T| + |D||X| %.3f mm); ilrsb's spread %.3f mm as the products stand, %.3f mm with it corrected to ITRF2020; "
+                  "the orbit term %.3f mm (nsgf)\n", worst_frame * 1e3, worst_bound * 1e3, worst_spread * 1e3, worst_corrected * 1e3, env.orbit_max_m * 1e3);
+    o << b;
+    o << "  PREDICTED before the computation (analytic): the difference along the line of sight is at most |T(t)| 4.35 mm + |D||X| 5.15 mm = 9.5 mm, in practice 1 .. 8 mm; ilrsb's spread of 10.4 mm cannot "
+         "become more than 19.9 mm; the term, 55.6 mm, is not changed\n";
+    WARN(o.str());
+    CHECK(worst_spread <= 0.0105);                                                             // the 10.4 mm the envelope record gives for ilrsb
+    CHECK(env.orbit_by_product_m[0].first == "ilrsb");
+    CHECK_THAT(worst_spread, WithinAbs(env.orbit_by_product_m[0].second, 1e-12));              // and this test's spread is the envelope's own
+    CHECK(env.orbit_by_product_m.back().first == "nsgf");
+    CHECK_THAT(env.orbit_max_m, WithinAbs(env.orbit_by_product_m.back().second, 1e-12));       // the term is nsgf's
+}
+
