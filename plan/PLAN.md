@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L5 closed; **L6 open** — steps 1–3 done, step 4 to come; L7–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L6 closed; **L7 open** — steps 1–5 to come; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -502,7 +502,7 @@ serves at baseline; and a sail's own macromodel (§3.9).
 
 ---
 
-### 3.7 L6 `io-measurements` — 3 of 4 done; **the open layer**
+### 3.7 L6 `io-measurements` — **4 of 4 done; exit gate passed 2026-10-06**
 
 Formats in, measurements out. Public specifications throughout — nothing here is anyone's
 intellectual property but the format authors'.
@@ -512,14 +512,26 @@ intellectual property but the format authors'.
 1. **DONE** — Formats → [`subplan_L6/L6-1.md`](subplan_L6/L6-1.md)
 2. **DONE** — Horizons client → [`subplan_L6/L6-2.md`](subplan_L6/L6-2.md)
 3. **DONE** — `sgp4` → [`subplan_L6/L6-3.md`](subplan_L6/L6-3.md)
-4. **TODO** — `measmod` → [`subplan_L6/L6-4.md`](subplan_L6/L6-4.md)
+4. **DONE** — `measmod` → [`subplan_L6/L6-4.md`](subplan_L6/L6-4.md)
 
 **Exit gate:** every format round-trips, and a measurement model returns residual and partials
 for all three observation types.
 
+**Exit gate — passed 2026-10-06.** Verified by the manager from an isolated export of `fe4465c`:
+`ci.sh` exits 0, 13 gates, 559 tests, 770 artefacts byte-identical. `tests/l6_exit_gate.cpp`
+round-trips every format the tree reads — real files for CRD, ten SP3 products, SINEX, TLE and
+Horizons, the printed sample for CPF, and records built at the documented columns for IOD and
+ANTEX, of which the tree pins no real file — and returns residual and partials for all three
+observation types from real-format sources. The layer's lessons bind L7: comparisons registered
+in the order data, prediction, comparison and run once; a bound that is a bound, over the whole
+stencil and every term that varies across it; and each check's power against its defect evaluated
+at its own geometry before it runs. Carried: a real IOD file for the round trip when L8 step 3
+brings one; station displacement, a named follow-on outside the MVP (`subplan_L6/L6-4.md`); and
+T-01's time offset, a candidate cause unconfirmed (`subplan_L6/L6-3.md`).
+
 ---
 
-### 3.8 L7 `estimation` — 0 of 5 done
+### 3.8 L7 `estimation` — 0 of 5 done; **the open layer**
 
 Two of the predecessor's defects are design requirements here rather than lessons learned.
 
