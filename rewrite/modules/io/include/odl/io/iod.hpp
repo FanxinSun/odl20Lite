@@ -9,6 +9,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace odl::io {
 
@@ -44,6 +45,29 @@ struct IodObservation {
 };
 
 [[nodiscard]] odl::Result<IodObservation, IodError> read_iod(std::string_view line);
+
+// ---- v1.1 (SPEC-io-formats.md §3.5.1): the decoded angles and uncertainties ------------------------------------------------------------------------------------------
+
+/// Whether a line's two angles are right ascension and declination (formats 1, 2, 3, 7) or azimuth and elevation (formats 4, 5, 6).
+enum class IodAngleKind { RaDec, AzEl };
+
+/// The two angles of an IOD line, radians: right ascension (or azimuth) in [0, 2π), declination (or elevation) in [−π/2, π/2].
+struct IodAngles {
+    IodAngleKind kind = IodAngleKind::RaDec;
+    double first_rad = 0.0;
+    double second_rad = 0.0;
+};
+
+/// IOFM-R-011: columns 48–61 by the format of column 45, blanks as zeros. IOFM-F-016: a non-digit that is not a blank in a digit position, a sign that is not `+` or `-`, a minutes
+/// or seconds field of 60 or more, an hours field of 24 or more, an azimuth above 360° or a declination or elevation above 90°, a format code that is blank or not one of the seven.
+/// The first overload takes the format code as the character of column 45, so that a blank one can be refused as the line it came from would have it.
+[[nodiscard]] odl::Result<IodAngles, IodError> decode_iod_angles(char format_code, std::string_view angle_raw);
+[[nodiscard]] odl::Result<IodAngles, IodError> decode_iod_angles(const IodObservation& obs);
+
+/// IOFM-R-012: `MX` = mantissa digit and exponent digit, valued M × 10^(X−8): seconds for the time uncertainty (columns 42–43), and for the positional uncertainty (columns 63–64)
+/// seconds, arcminutes or degrees of arc by the format, returned in radians. Two blanks (an empty field) mean "not reported". IOFM-F-017: a digit and a blank, or a non-digit.
+[[nodiscard]] odl::Result<std::optional<double>, IodError> decode_iod_time_uncertainty(const IodObservation& obs);
+[[nodiscard]] odl::Result<std::optional<double>, IodError> decode_iod_position_uncertainty(const IodObservation& obs);
 [[nodiscard]] odl::Result<std::string, IodError> write_iod(const IodObservation& obs);
 
 [[nodiscard]] bool operator==(const IodObservation&, const IodObservation&) noexcept;

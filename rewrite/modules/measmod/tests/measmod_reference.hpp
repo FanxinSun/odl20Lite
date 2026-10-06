@@ -139,4 +139,66 @@ inline constexpr double position_sp3_z_km = -497.695158;
 inline constexpr double position_sp3_z_m = -497695.158;
 inline constexpr double position_sp3_norm_km = 12323.06856516899;
 
+// section: aberration
+inline constexpr double ab_annual_n_x = 0.6;
+inline constexpr double ab_annual_beta_x = 0.0;
+inline constexpr double ab_annual_a_x = 0.5999999970597;
+inline constexpr double ab_annual_d_x = 0.5999999970597;
+inline constexpr double ab_annual_n_y = 0.0;
+inline constexpr double ab_annual_beta_y = 9.9e-05;
+inline constexpr double ab_annual_a_y = 9.9e-05;
+inline constexpr double ab_annual_d_y = -9.9e-05;
+inline constexpr double ab_annual_n_z = 0.8;
+inline constexpr double ab_annual_beta_z = 0.0;
+inline constexpr double ab_annual_a_z = 0.7999999960796;
+inline constexpr double ab_annual_d_z = 0.7999999960796;
+inline constexpr double ab_oblique_n_x = 0.48;
+inline constexpr double ab_oblique_beta_x = 7e-05;
+inline constexpr double ab_oblique_a_x = 0.48002718253731763;
+inline constexpr double ab_oblique_d_x = 0.4799728145370567;
+inline constexpr double ab_oblique_n_y = -0.6;
+inline constexpr double ab_oblique_beta_y = -5e-05;
+inline constexpr double ab_oblique_a_y = -0.5999964798439978;
+inline constexpr double ab_oblique_d_y = -0.60000351984397;
+inline constexpr double ab_oblique_n_z = 0.64;
+inline constexpr double ab_oblique_beta_z = 4e-05;
+inline constexpr double ab_oblique_a_z = 0.6399829124282114;
+inline constexpr double ab_oblique_d_z = 0.6400170884282879;
+inline constexpr double ab_large_n_x = -0.36;
+inline constexpr double ab_large_beta_x = 0.0003;
+inline constexpr double ab_large_a_x = -0.35966392860712615;
+inline constexpr double ab_large_d_x = -0.36033592859284613;
+inline constexpr double ab_large_n_y = 0.48;
+inline constexpr double ab_large_beta_y = -0.0004;
+inline constexpr double ab_large_a_y = 0.47955190480950155;
+inline constexpr double ab_large_d_y = 0.4804479047904615;
+inline constexpr double ab_large_n_z = 0.8;
+inline constexpr double ab_large_beta_z = 0.0005;
+inline constexpr double ab_large_a_z = 0.800419783021676;
+inline constexpr double ab_large_d_z = 0.799579782978276;
+inline constexpr double ab_diurnal_n_x = 0.0;
+inline constexpr double ab_diurnal_beta_x = 0.0;
+inline constexpr double ab_diurnal_a_x = 0.0;
+inline constexpr double ab_diurnal_d_x = 0.0;
+inline constexpr double ab_diurnal_n_y = 0.6;
+inline constexpr double ab_diurnal_beta_y = 1.55e-06;
+inline constexpr double ab_diurnal_a_y = 0.6000009919990774;
+inline constexpr double ab_diurnal_d_y = 0.5999990079990775;
+inline constexpr double ab_diurnal_n_z = 0.8;
+inline constexpr double ab_diurnal_beta_z = 0.0;
+inline constexpr double ab_diurnal_a_z = 0.799999255999731;
+inline constexpr double ab_diurnal_d_z = 0.800000743999731;
+
+// section: emission
+inline constexpr double em_lageos_tau_s = 0.01916761048713511;
+inline constexpr double em_lageos_rho_m = 5746305.061924812;
+inline constexpr double em_lageos_n_x = 0.8701343644217552;
+inline constexpr double em_lageos_n_y = 0.3306322454652978;
+inline constexpr double em_lageos_n_z = 0.36544289035487215;
+inline constexpr double em_leo_tau_s = 0.004585651347971228;
+inline constexpr double em_leo_rho_m = 1374743.6891393077;
+inline constexpr double em_leo_n_x = 0.7274016506476004;
+inline constexpr double em_leo_n_y = 0.5819049758774156;
+inline constexpr double em_leo_n_z = 0.36369415404189626;
+
 }  // namespace odl::measmod::ref

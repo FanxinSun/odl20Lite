@@ -103,6 +103,60 @@ private:
     odl::Vec3 omega_;
 };
 
+/// The Earth's motion as a constant barycentric position and velocity (the closed-form stand-in of the Astrometric tests, SPEC-measmod MEAS-A-091).
+class ConstantEarthMotion final : public EarthMotion {
+public:
+    ConstantEarthMotion(odl::Vec3 position_m, odl::Vec3 velocity_m_s) : p_(position_m), v_(velocity_m_s) {}
+    [[nodiscard]] odl::Result<EarthMotionSample, MeasError> at(const odl::time::Epoch&) const override { return EarthMotionSample{p_, v_}; }
+
+private:
+    odl::Vec3 p_, v_;
+};
+
+/// Wrappers that answer exactly as the wrapped abstraction does and record every epoch they were asked at (MEAS-A-089: the observer, the Earth's orientation and the Earth's
+/// motion are evaluated at the observation epoch and nowhere else).
+class RecordingStation final : public StationTrack {
+public:
+    explicit RecordingStation(const StationTrack& inner) : inner_(&inner) {}
+    [[nodiscard]] odl::Result<StationKinematics, MeasError> at(const odl::time::Epoch& when) const override {
+        asked_.push_back(when);
+        return inner_->at(when);
+    }
+    [[nodiscard]] const std::vector<odl::time::Epoch>& asked() const { return asked_; }
+
+private:
+    const StationTrack* inner_;
+    mutable std::vector<odl::time::Epoch> asked_;
+};
+
+class RecordingOrientation final : public EarthOrientation {
+public:
+    explicit RecordingOrientation(const EarthOrientation& inner) : inner_(&inner) {}
+    [[nodiscard]] odl::Result<EarthOrientationSample, MeasError> at(const odl::time::Epoch& when) const override {
+        asked_.push_back(when);
+        return inner_->at(when);
+    }
+    [[nodiscard]] const std::vector<odl::time::Epoch>& asked() const { return asked_; }
+
+private:
+    const EarthOrientation* inner_;
+    mutable std::vector<odl::time::Epoch> asked_;
+};
+
+class RecordingMotion final : public EarthMotion {
+public:
+    explicit RecordingMotion(const EarthMotion& inner) : inner_(&inner) {}
+    [[nodiscard]] odl::Result<EarthMotionSample, MeasError> at(const odl::time::Epoch& when) const override {
+        asked_.push_back(when);
+        return inner_->at(when);
+    }
+    [[nodiscard]] const std::vector<odl::time::Epoch>& asked() const { return asked_; }
+
+private:
+    const EarthMotion* inner_;
+    mutable std::vector<odl::time::Epoch> asked_;
+};
+
 /// A trajectory that answers with the recorded states at the recorded epochs, exactly, and refuses at any other epoch (a table is not an interpolator).
 class TableTrajectory final : public Trajectory {
 public:

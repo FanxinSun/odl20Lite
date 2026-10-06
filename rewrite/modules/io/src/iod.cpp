@@ -185,4 +185,170 @@ bool operator==(const IodObservation& a, const IodObservation& b) noexcept {
            a.magnitude_uncertainty == b.magnitude_uncertainty && a.flash_period == b.flash_period;
 }
 
+// ---- v1.1: the angle and uncertainty decoders (SPEC-io-formats.md §3.5.1) ----------------------------------------------------------------------------------------------
+
+namespace {
+
+constexpr double kPi = 3.14159265358979323846;
+
+IodError f016(const std::string& what) { return IodError{"IOFM-F-016", "IOD angle field: " + what}; }
+
+/// 10^n for a small n, by multiplication: the implied decimal point of a digit field, and no literal factor of a thousand anywhere in this file's decoders.
+double pow10_of(int n) {
+    double v = 1.0;
+    for (int i = 0; i < n; ++i) v *= 10.0;
+    return v;
+}
+
+/// The digits of raw[pos, pos + width) as an integer, blanks as zeros in place ("3  " is 300); IOFM-F-016 for anything else.
+odl::Result<long, IodError> digits_at(std::string_view raw, std::size_t pos, std::size_t width, const char* what) {
+    long v = 0;
+    for (std::size_t i = 0; i < width; ++i) {
+        const char c = raw[pos + i];
+        if (c == ' ') {
+            v *= 10;
+        } else if (c >= '0' && c <= '9') {
+            v = v * 10 + (c - '0');
+        } else {
+            return odl::err(f016(std::string(what) + " has '" + c + "' in a digit position (columns " + std::to_string(48 + pos) + "-" + std::to_string(48 + pos + width - 1) + ")"));
+        }
+    }
+    return v;
+}
+
+}  // namespace
+
+odl::Result<IodAngles, IodError> decode_iod_angles(char format_code, std::string_view raw) {
+    if (raw.size() != 14) return odl::err(f016("the angle field must be the 14 characters of columns 48-61, not " + std::to_string(raw.size())));
+    if (format_code < '1' || format_code > '7') {
+        return odl::err(f016(format_code == ' ' ? std::string("no position reported (the format code of column 45 is blank)")
+                                                : std::string("the format code '") + format_code + "' is not one of the seven (1-7)"));
+    }
+    const int fmt = format_code - '0';
+    const bool ra_dec = fmt == 1 || fmt == 2 || fmt == 3 || fmt == 7;
+    IodAngles out;
+    out.kind = ra_dec ? IodAngleKind::RaDec : IodAngleKind::AzEl;
+
+    // the sign of the second coordinate, column 55
+    if (raw[7] != '+' && raw[7] != '-') return odl::err(f016(std::string("the sign in column 55 is '") + raw[7] + "', not '+' or '-'"));
+    const double sign = raw[7] == '-' ? -1.0 : 1.0;
+
+    // ---- the first coordinate, columns 48-54 -------------------------------------------------------------------------------------------------------------------------
+    double first_deg = 0.0;
+    if (ra_dec) {
+        auto hh = digits_at(raw, 0, 2, "right ascension hours");
+        if (!hh) return odl::err(hh.error());
+        auto mm = digits_at(raw, 2, 2, "right ascension minutes");
+        if (!mm) return odl::err(mm.error());
+        if (*hh >= 24) return odl::err(f016("right ascension hours " + std::to_string(*hh) + " is 24 or more"));
+        if (*mm >= 60) return odl::err(f016("right ascension minutes " + std::to_string(*mm) + " is 60 or more"));
+        double hours = static_cast<double>(*hh) + static_cast<double>(*mm) / 60.0;
+        if (fmt == 1 || fmt == 7) {
+            auto ss = digits_at(raw, 4, 2, "right ascension seconds");
+            if (!ss) return odl::err(ss.error());
+            auto tenths = digits_at(raw, 6, 1, "right ascension tenths of a second");
+            if (!tenths) return odl::err(tenths.error());
+            if (*ss >= 60) return odl::err(f016("right ascension seconds " + std::to_string(*ss) + " is 60 or more"));
+            hours += (static_cast<double>(*ss) + static_cast<double>(*tenths) / 10.0) / 3600.0;
+        } else {                                               // formats 2, 3: the minutes carry a three-digit decimal fraction
+            auto frac = digits_at(raw, 4, 3, "right ascension thousandths of a minute");
+            if (!frac) return odl::err(frac.error());
+            hours += static_cast<double>(*frac) / pow10_of(3) / 60.0;
+        }
+        first_deg = hours * 15.0;
+    } else {
+        auto dd = digits_at(raw, 0, 3, "azimuth degrees");
+        if (!dd) return odl::err(dd.error());
+        double deg = static_cast<double>(*dd);
+        if (fmt == 6) {                                         // DDD dddd
+            auto frac = digits_at(raw, 3, 4, "azimuth ten-thousandths of a degree");
+            if (!frac) return odl::err(frac.error());
+            deg += static_cast<double>(*frac) / pow10_of(4);
+        } else {
+            auto mm = digits_at(raw, 3, 2, "azimuth arcminutes");
+            if (!mm) return odl::err(mm.error());
+            if (*mm >= 60) return odl::err(f016("azimuth arcminutes " + std::to_string(*mm) + " is 60 or more"));
+            deg += static_cast<double>(*mm) / 60.0;
+            auto tail = digits_at(raw, 5, 2, fmt == 4 ? "azimuth arcseconds" : "azimuth hundredths of an arcminute");
+            if (!tail) return odl::err(tail.error());
+            if (fmt == 4) {
+                if (*tail >= 60) return odl::err(f016("azimuth arcseconds " + std::to_string(*tail) + " is 60 or more"));
+                deg += static_cast<double>(*tail) / 3600.0;
+            } else {
+                deg += static_cast<double>(*tail) / pow10_of(2) / 60.0;
+            }
+        }
+        if (deg > 360.0) return odl::err(f016("azimuth " + std::to_string(deg) + " degrees is above 360"));
+        first_deg = deg;
+    }
+
+    // ---- the second coordinate, columns 56-61 ------------------------------------------------------------------------------------------------------------------------
+    const char* name = ra_dec ? "declination" : "elevation";
+    auto dd = digits_at(raw, 8, 2, name);
+    if (!dd) return odl::err(dd.error());
+    double second_deg = static_cast<double>(*dd);
+    if (fmt == 3 || fmt == 6 || fmt == 7) {                     // DD dddd
+        auto frac = digits_at(raw, 10, 4, name);
+        if (!frac) return odl::err(frac.error());
+        second_deg += static_cast<double>(*frac) / pow10_of(4);
+    } else {                                                    // DD MM SS (1, 4) or DD MM mm (2, 5)
+        auto mm = digits_at(raw, 10, 2, name);
+        if (!mm) return odl::err(mm.error());
+        if (*mm >= 60) return odl::err(f016(std::string(name) + " arcminutes " + std::to_string(*mm) + " is 60 or more"));
+        second_deg += static_cast<double>(*mm) / 60.0;
+        auto tail = digits_at(raw, 12, 2, name);
+        if (!tail) return odl::err(tail.error());
+        if (fmt == 1 || fmt == 4) {
+            if (*tail >= 60) return odl::err(f016(std::string(name) + " arcseconds " + std::to_string(*tail) + " is 60 or more"));
+            second_deg += static_cast<double>(*tail) / 3600.0;
+        } else {
+            second_deg += static_cast<double>(*tail) / pow10_of(2) / 60.0;
+        }
+    }
+    if (second_deg > 90.0) return odl::err(f016(std::string(name) + " " + std::to_string(second_deg) + " degrees is above 90"));
+
+    const double to_rad = kPi / 180.0;
+    double first_rad = first_deg * to_rad;
+    if (first_rad >= 2.0 * kPi) first_rad -= 2.0 * kPi;          // 360 degrees exactly is 0
+    out.first_rad = first_rad;
+    out.second_rad = sign * second_deg * to_rad;
+    return out;
+}
+
+odl::Result<IodAngles, IodError> decode_iod_angles(const IodObservation& obs) {
+    return decode_iod_angles(angle_format_char(obs.angle_format), obs.angle_raw);
+}
+
+namespace {
+
+/// `MX` -> M × 10^(X-8); an empty field is "not reported"; IOFM-F-017 otherwise.
+odl::Result<std::optional<double>, IodError> mx_value(const std::string& field, const char* what) {
+    if (field.empty()) return std::optional<double>{};
+    if (field.size() != 2 || field[0] < '0' || field[0] > '9' || field[1] < '0' || field[1] > '9') {
+        return odl::err(IodError{"IOFM-F-017", std::string("IOD ") + what + " uncertainty field '" + field + "' is neither two digits nor two blanks"});
+    }
+    const int m = field[0] - '0', x = field[1] - '0';
+    const double mantissa = static_cast<double>(m);
+    return std::optional<double>{x >= 8 ? mantissa * pow10_of(x - 8) : mantissa / pow10_of(8 - x)};      // one rounding, of the exact decimal
+}
+
+}  // namespace
+
+odl::Result<std::optional<double>, IodError> decode_iod_time_uncertainty(const IodObservation& obs) { return mx_value(obs.time_uncertainty, "time"); }
+
+odl::Result<std::optional<double>, IodError> decode_iod_position_uncertainty(const IodObservation& obs) {
+    auto v = mx_value(obs.positional_uncertainty, "positional");
+    if (!v || !v->has_value()) return v;
+    // the unit by the format: seconds of arc (1, 4), minutes of arc (2, 5), degrees (3, 6, 7)
+    double to_rad = kPi / 180.0;
+    switch (obs.angle_format) {
+        case IodAngleFormat::RaDecArcsec:
+        case IodAngleFormat::AzElArcsec: to_rad /= 3600.0; break;
+        case IodAngleFormat::RaDecArcmin:
+        case IodAngleFormat::AzElArcmin: to_rad /= 60.0; break;
+        default: break;
+    }
+    return std::optional<double>{**v * to_rad};
+}
+
 }  // namespace odl::io

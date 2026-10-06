@@ -418,6 +418,445 @@ def amended(scan: bool, check: bool) -> int:
     return bad
 
 
+# =====================================================================================================================================
+# THE ANGLE SIZING — 2026-10-06, WRITTEN AND COMMITTED BEFORE THE ANGLE GATE'S FIRST RUN (item 6; SPEC-measmod.md §6.2 (iv), "The angle gate")
+# =====================================================================================================================================
+# Amendment A1 (iv) said the angle gate takes the same two terms before it first runs: (i) the chain's floor is ZERO — an angle observation puts the observer, the Earth's
+# orientation and the Earth's motion at the OBSERVATION epoch, which no variation of the target moves, so the floor cancels in every difference (MEAS-A-089 shows the epochs
+# asked); (ii) F_a is a bound over the stencil for the whole modelled angle: the geometry, the light-time coupling, the reduction's aberration, and the refraction.
+#
+#   F_a(h)  =  F_pure(h)  +  1.01 F_extra
+#   F_pure(h) = 2 / [ (rho - h)^3 cos^3(phi_max + asin(h/rho)) ]          the pure geometric direction, a THEOREM: the third derivative of right ascension along a unit
+#                                                                          displacement is 2 Im[(w1/w0)^3], |w1| <= 1, |w0| = rho' cos(phi'), rho' >= rho - h and
+#                                                                          |phi'| <= phi_max + asin(h/rho) over the stencil; declination's is smaller
+#   F_extra   = sup | d3y(the full modelled angle) - d3y(the pure direction of the same displaced target) | over the class, d3 the third derivative along the displacement,
+#               by the exact power series of the MODEL ITSELF (the light-time coupling re-solved for every displacement; the aberration; the diurnal aberration, the local
+#               frame and the refraction), at the stencil's centre and its two ends; the 1.01 allows for the grid. The two-method guard: the series is checked against
+#               60-digit central third differences of an independent implementation before it is used.
+#
+# The class (the geometry rule of the gate, SPEC §6.2 "The angle gate"): |declination| <= 39.5 deg of the geometric direction in the observation's frame (<= 40 deg after the
+# aberration's 0.012 deg), and for azimuth/elevation an elevation of 20 to 39.5 deg; rho = 1.2e6 m at emission; the target at 7.5 km/s across the line of sight and along it.
+
+RHO_A = 1.2e6                                    # m: the slant range at emission
+V_TARGET_A = 7500.0                              # m/s
+PHI_MAX_A = math.radians(40.0)
+BETA_E_MAX = 30.29e3 / C_LIGHT                   # the Earth's speed at the January perihelion over c (the largest it is)
+BETA_D_MAX = V_STATION_MAX / C_LIGHT             # the equatorial station's v/c: 1.55e-6, above any station's
+GM_EARTH = 3.986004415e14
+NU_A = 3 * (ulp(2 * math.pi) + ulp(7.2e6) / RHO_A)      # rad: as frozen (the output's own ulp and the operand's, as an angle)
+H_V = [0.01, 0.1, 1.0, 10.0]                     # m/s: the velocity sizes of the gate
+
+# the first normal point's weather (record 20 of lageos1_202601.np2, as used above): pressure, temperature, humidity and wavelength -> eraRefco's A and B (60 digits)
+ATM_A = (P_HPA, T_KELVIN - 273.15, RH_PERCENT / 100.0, LAMBDA_UM)
+
+
+def _radd(self, o):
+    return self + o
+
+
+def _rsub(self, o):
+    return S([o]) - self
+
+
+def _rmul(self, o):
+    return self * o
+
+
+def _rdiv(self, o):
+    return S([o]) / self
+
+
+# reflected operators, so that a float can stand on the left of a series (additive: nothing above used them)
+S.__radd__, S.__rsub__, S.__rmul__, S.__rtruediv__ = _radd, _rsub, _rmul, _rdiv
+
+
+def refco(p_hpa, t_c, rh, wl_um):
+    """eraRefco's A and B, from the model as ERFA documents and implements it (Gill's saturation pressure, Crane's vapour pressure, the IAG refractivity, Stone's beta, Green's constants),
+    in 60 digits for the doubles passed. The optical case only (wavelength <= 100 micrometres)."""
+    from decimal import Decimal
+    p, t, r, w = Decimal(p_hpa), Decimal(t_c), Decimal(rh), Decimal(wl_um)
+    ps = (Decimal(10) ** ((Decimal("0.7859") + Decimal("0.03477") * t) / (1 + Decimal("0.00412") * t))) * (1 + p * (Decimal("4.5e-6") + Decimal("6e-10") * t * t))
+    pw = r * ps / (1 - (1 - r) * ps / p)
+    tk = t + Decimal("273.15")
+    wlsq = w * w
+    gamma = (((Decimal("77.53484e-6") + (Decimal("4.39108e-7") + Decimal("3.666e-9") / wlsq) / wlsq) * p) - Decimal("11.2684e-6") * pw) / tk
+    beta = Decimal("4.4474e-6") * tk
+    return float(gamma * (1 - beta)), float(-gamma * (beta - gamma / 2))
+
+
+def refco_check() -> float:
+    """ERFA's own published case (t_erfa_c.c: 800 hPa, 10 C, 90 %, 0.4 um): the difference from its A = 0.2264949956241415009e-3, B = -0.2598658261729343970e-6, in units of ERFA's tolerances."""
+    a, b = refco(800.0, 10.0, 0.9, 0.4)
+    return max(abs(a - 0.2264949956241415009e-3) / 1e-15, abs(b + 0.2598658261729343970e-6) / 1e-18)
+
+
+# ---- series on 3-vectors ---------------------------------------------------------------------------------------------------------------------------------------------------
+def v_dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def v_unit(a):
+    n = v_dot(a, a).sqrt()
+    return (a[0] / n, a[1] / n, a[2] / n)
+
+
+def aberrate(n, beta):
+    """A(n; beta) of MEAS-R-053 on a series vector n and a float vector beta; D(n; beta) is A(n; -beta)."""
+    inv_gamma = math.sqrt(1.0 - sum(x * x for x in beta))
+    nb = v_dot(n, beta)
+    w = 1.0 + nb / (1.0 + inv_gamma)
+    q = 1.0 + nb
+    return tuple((n[i] * inv_gamma + w * beta[i]) / q for i in range(3))
+
+
+def _f_derivs(z, a, b):
+    """F(z) = z + a tan z + b tan^3 z and its first three derivatives, at the float z."""
+    t = math.tan(z)
+    s2 = 1.0 + t * t
+    f1 = 1.0 + a * s2 + 3.0 * b * t * t * s2
+    f2 = 2.0 * a * t * s2 + 6.0 * b * t * s2 * s2 + 6.0 * b * t ** 3 * s2
+    f3 = 2.0 * a * s2 * (s2 + 2 * t * t) + 6.0 * b * s2 * s2 * (s2 + 4 * t * t) + 6.0 * b * t * t * s2 * (3 * s2 + 2 * t * t)
+    return f1, f2, f3
+
+
+def refract_series(zv: S, a: float, b: float) -> S:
+    """z_o as a series, from z_v = z_o + a tan z_o + b tan^3 z_o: Newton on the constant term, then the cubic Taylor polynomial of the inverse function composed with the series."""
+    z0 = zv.c[0]
+    zo = z0
+    for _ in range(60):
+        t = math.tan(zo)
+        g = zo + a * t + b * t ** 3 - z0
+        f1, _, _ = _f_derivs(zo, a, b)
+        step = g / f1
+        zo -= step
+        if abs(step) < 1e-16:
+            break
+    f1, f2, f3 = _f_derivs(zo, a, b)
+    g1 = 1.0 / f1
+    g2 = -f2 / f1 ** 3
+    g3 = -f3 / f1 ** 4 + 3.0 * f2 * f2 / f1 ** 5
+    d = zv - z0                                   # a series without constant term
+    return S([zo]) + g1 * d + (0.5 * g2) * (d * d) + (g3 / 6.0) * (d * d * d)
+
+
+def emission_direction(los, e, xi0, v_hat, a_hat, passes=3):
+    """The unit direction (a series vector in s = displacement / rho along the unit vector e, about the stencil point xi0 / rho) from the origin observer to a target that was at `los` (unit
+    vector, in units of rho) at its nominal emission epoch, moving at v_hat (in units of c) with acceleration a_hat (rho/c^2), displaced TIME-FIXED by (xi0 + s) e, the light time re-solved.
+    Also returns the displaced position itself (the pure direction's source)."""
+    base = [S([los[i] + xi0 * e[i], e[i]]) for i in range(3)]
+    u0 = 0.0
+    for _ in range(80):                           # the constant term of the light-time shift, tau - tau_nominal, in units rho/c
+        r = [los[i] + xi0 * e[i] - v_hat[i] * u0 + 0.5 * a_hat[i] * u0 * u0 for i in range(3)]
+        un = math.sqrt(sum(x * x for x in r)) - 1.0
+        if abs(un - u0) < 1e-18:
+            u0 = un
+            break
+        u0 = un
+    u = S([u0])
+    for _ in range(passes):
+        r = [base[i] - v_hat[i] * u + (0.5 * a_hat[i]) * (u * u) for i in range(3)]
+        u = v_dot(r, r).sqrt() - 1.0
+    r = [base[i] - v_hat[i] * u + (0.5 * a_hat[i]) * (u * u) for i in range(3)]
+    inv = 1.0 / (1.0 + u)
+    return tuple(r[i] * inv for i in range(3)), tuple(base[i] for i in range(3))
+
+
+def ra_dec_series(n):
+    """Right ascension and declination, as two series, of a series direction with n_x > 0."""
+    h = (n[0] * n[0] + n[1] * n[1]).sqrt()
+    return atan_series(n[1] / n[0]), atan_series(n[2] / h)
+
+
+def outputs_series(kind, los, e, xi0, v_hat, a_hat, beta, atm_ab):
+    """The (first, second) output series of the full modelled angle (`kind`: "geometric", "astrometric", "refracted") and of the pure geometric direction of the same displaced target.
+    beta: the Earth's velocity over c (astrometric) or the observer's (refracted), a float vector; atm_ab: (A, B) of the refraction. The local frame of "refracted" is x = north, y = east, z = up."""
+    n_geo, displaced = emission_direction(los, e, xi0, v_hat, a_hat)
+    pure = ra_dec_series(v_unit(displaced))
+    if kind == "geometric":
+        full = ra_dec_series(n_geo)
+    elif kind == "astrometric":
+        full = ra_dec_series(aberrate(n_geo, tuple(-x for x in beta)))
+    else:
+        n_app = aberrate(n_geo, beta)
+        az = atan_series(n_app[1] / n_app[0])
+        zv = atan_series((n_app[0] * n_app[0] + n_app[1] * n_app[1]).sqrt() / n_app[2])
+        zo = refract_series(zv, atm_ab[0], atm_ab[1])
+        full = (az, math.pi / 2 - zo)
+        pure = (pure[0], pure[1])
+    return full, pure
+
+
+def third_of(series_pair):
+    return [6.0 * s.c[3] for s in series_pair]
+
+
+def unit_of_angles(first_deg, second_deg):
+    """The unit vector with 'right ascension' first_deg and 'declination' second_deg (for the local frame: azimuth from north and elevation: x = north, y = east, z = up)."""
+    f, d = math.radians(first_deg), math.radians(second_deg)
+    return (math.cos(d) * math.cos(f), math.cos(d) * math.sin(f), math.sin(d))
+
+
+def sphere_half(step_deg):
+    """Unit displacement directions on a half-sphere (the third derivative is odd in the direction, so its modulus is even)."""
+    out = []
+    n_th = int(round(180.0 / step_deg))
+    n_ph = int(round(360.0 / step_deg))
+    for it in range(n_th + 1):
+        th = math.radians(step_deg * it)
+        for jp in range(n_ph):
+            ph = math.radians(step_deg * jp)
+            e = (math.sin(th) * math.cos(ph), math.sin(th) * math.sin(ph), math.cos(th))
+            if e[2] > 1e-12 or (abs(e[2]) <= 1e-12 and (e[0] > 1e-12 or (abs(e[0]) <= 1e-12 and e[1] > 0))):
+                out.append(e)
+    return out
+
+
+def f_pure(h: float, rho: float = RHO_A) -> float:
+    """The pure geometric coefficient, in m^-3 rad: 2 / [(rho - h)^3 cos^3(phi_max + asin(h/rho))]."""
+    return 2.0 / ((rho - h) ** 3 * math.cos(PHI_MAX_A + math.asin(h / rho)) ** 3)
+
+
+def scenario_vectors(los, radial):
+    """v_hat and a_hat for the scaled scenario: the speed across the line of sight (radial = 0: perpendicular to `los` and to the third axis) or along it (radial = 1)."""
+    up = (0.0, 0.0, 1.0)
+    across = (los[1] * up[2] - los[2] * up[1], los[2] * up[0] - los[0] * up[2], los[0] * up[1] - los[1] * up[0])
+    na = math.sqrt(sum(x * x for x in across))
+    across = tuple(x / na for x in across)
+    sp = V_TARGET_A / C_LIGHT
+    v_hat = tuple(sp * (math.sqrt(1 - radial * radial) * across[i] + radial * los[i]) for i in range(3))
+    a_mag = GM_EARTH / (7.2e6) ** 2
+    a_hat = tuple(-a_mag * RHO_A / C_LIGHT ** 2 * los[i] for i in range(3))      # a representative acceleration, 7.7 m/s^2 toward the geocentre
+    return v_hat, a_hat
+
+
+def angle_scan(kind: str, los_list, e_list, beta_list, atm_ab, xis=(0.0, 1000.0, -1000.0)):
+    """The scan: for each line of sight, velocity direction, displacement direction, centre of the stencil and beta, the third derivatives of the full modelled angle and of the pure
+    direction. Returns (sup |full - pure| per output, sup |pure| per output, the worst ratio of a pure third derivative to F_pure at its stencil point, sup |full| per output)."""
+    sup_diff = [0.0, 0.0]
+    sup_pure = [0.0, 0.0]
+    worst_ratio = 0.0
+    sup_full = [0.0, 0.0]
+    for los in los_list:
+        for radial in (0.0, 1.0):
+            v_hat, a_hat = scenario_vectors(los, radial)
+            for e in e_list:
+                for xi in xis:
+                    for beta in beta_list:
+                        full, pure = outputs_series(kind, los, e, xi / RHO_A, v_hat, a_hat, beta, atm_ab)
+                        tf, tp = third_of(full), third_of(pure)
+                        for k in range(2):
+                            sup_diff[k] = max(sup_diff[k], abs(tf[k] - tp[k]))
+                            sup_pure[k] = max(sup_pure[k], abs(tp[k]))
+                            sup_full[k] = max(sup_full[k], abs(tf[k]))
+                            worst_ratio = max(worst_ratio, abs(tp[k]) / (f_pure(abs(xi)) * RHO_A ** 3))
+    return sup_diff, sup_pure, worst_ratio, sup_full
+
+
+def angle_classes():
+    """The lines of sight of the scan, by the class of the gate: declinations -39.5 .. 39.5 for right ascension and declination, elevations 20, 30, 39.5 for azimuth and elevation."""
+    radec = [unit_of_angles(ra, dec) for dec in (-39.5, 0.0, 39.5) for ra in (-45.0, 45.0)]
+    azel = [unit_of_angles(az, el) for el in (20.0, 30.0, 39.5) for az in (-45.0, 0.0, 45.0)]
+    return radec, azel
+
+
+def _beta_dirs(mag):
+    return [(mag, 0.0, 0.0), (0.0, mag, 0.0), (0.0, 0.0, mag)]
+
+
+# ---- the two-method guard: 60-digit central third differences of an independent implementation (Decimal) ------------------------------------------------------------------------
+def d_atan(x):
+    """arctan in 60 digits: halving the argument four times, then the Taylor series."""
+    from decimal import Decimal
+    y = Decimal(x)
+    k = 0
+    for _ in range(4):
+        y = y / (1 + (1 + y * y).sqrt())
+        k += 1
+    term, total, n = y, y, 0
+    y2 = y * y
+    while abs(term) > Decimal("1e-70"):
+        n += 1
+        term = -term * y2
+        total += term / (2 * n + 1)
+    return total * (2 ** k)
+
+
+def d_tan(z):
+    from decimal import Decimal
+    import measmod_reference as mr
+    s = z
+    term, n = z, 0
+    z2 = z * z
+    while abs(term) > Decimal("1e-70"):
+        n += 1
+        term = -term * z2 / ((2 * n) * (2 * n + 1))
+        s += term
+    return s / mr.d_cos(z)
+
+
+def decimal_outputs(kind, los, e, xi, v_hat, a_hat, beta, atm_ab):
+    """The same two outputs, independently, in 60-digit arithmetic and by iteration of the light time (no series): the displaced target at xi (a Decimal or a float, in rho units;
+    the sample points of the guard are formed in Decimal, so that their spacing is exact)."""
+    from decimal import Decimal
+    D = Decimal
+    los_d, e_d, v_d, a_d = ([D(x) for x in t] for t in (los, e, v_hat, a_hat))
+    u = D(0)
+    for _ in range(40):
+        r = [los_d[i] + D(xi) * e_d[i] - v_d[i] * u + D("0.5") * a_d[i] * u * u for i in range(3)]
+        u = sum(x * x for x in r).sqrt() - 1
+    r = [los_d[i] + D(xi) * e_d[i] - v_d[i] * u + D("0.5") * a_d[i] * u * u for i in range(3)]
+    n = [x / (1 + u) for x in r]
+
+    def ab(nv, bv):
+        b = [D(x) for x in bv]
+        bb = sum(x * x for x in b)
+        ig = (1 - bb).sqrt()
+        nb = sum(nv[i] * b[i] for i in range(3))
+        w = 1 + nb / (1 + ig)
+        return [(nv[i] * ig + w * b[i]) / (1 + nb) for i in range(3)]
+
+    if kind == "geometric":
+        m = n
+    elif kind == "astrometric":
+        m = ab(n, [-x for x in beta])
+    else:
+        m = ab(n, beta)
+    if kind == "refracted":
+        hh = (m[0] ** 2 + m[1] ** 2).sqrt()
+        zv = d_atan(hh / m[2])
+        a, b = D(atm_ab[0]), D(atm_ab[1])
+        zo = zv
+        for _ in range(40):
+            t = d_tan(zo)
+            g = zo + a * t + b * t ** 3 - zv
+            dg = 1 + a * (1 + t * t) + 3 * b * t * t * (1 + t * t)
+            zo -= g / dg
+        import measmod_reference as mr
+        return d_atan(m[1] / m[0]), D(mr.PI) / 2 - zo
+    hh = (m[0] ** 2 + m[1] ** 2).sqrt()
+    return d_atan(m[1] / m[0]), d_atan(m[2] / hh)
+
+
+def series_guard(atm_ab) -> float:
+    """The largest relative disagreement between the series' third derivative and the 60-digit central third difference, over a few cases of every kind."""
+    from decimal import Decimal
+    worst = 0.0
+    cases = [("geometric", unit_of_angles(30.0, 35.0), (0.3, -0.5, 0.8124038404635961), (0.0, 0.0, 0.0)),
+             ("astrometric", unit_of_angles(-20.0, -30.0), (-0.6, 0.48, 0.64), (7.0e-5, -5.0e-5, 4.0e-5)),
+             ("refracted", unit_of_angles(10.0, 25.0), (0.36, 0.48, -0.8), (0.0, 1.5e-6, 4.0e-7)),
+             ("refracted", unit_of_angles(-40.0, 38.0), (0.8, 0.0, 0.6), (1.0e-6, -1.0e-6, 0.0))]
+    for kind, los, e, beta in cases:
+        e = tuple(x / math.sqrt(sum(y * y for y in e)) for x in e)
+        v_hat, a_hat = scenario_vectors(los, 0.3)
+        for xi in (0.0, 8.0e-4):
+            full, _ = outputs_series(kind, los, e, xi, v_hat, a_hat, beta, atm_ab)
+            t_series = third_of(full)
+            delta = 2.0e-5                          # in rho units: 24 m (the 4-point difference converges as delta^2: checked at 2e-4, 1e-4, 5e-5)
+            ys = [decimal_outputs(kind, los, e, Decimal(xi) + k * Decimal(delta), v_hat, a_hat, beta, atm_ab) for k in (-2, -1, 1, 2)]
+            for out in range(2):
+                f = [y[out] for y in ys]
+                third = (f[3] - 2 * f[2] + 2 * f[1] - f[0]) / (2 * Decimal(delta) ** 3)
+                worst = max(worst, abs(float(third) - t_series[out]) / max(abs(float(third)), 1e-3))
+    return worst
+
+
+# ---- the frozen numbers of the angle sizing (the section's own output) -------------------------------------------------------------------------------------------------------
+# THE ANGLE GATE'S FROZEN NUMBERS, 2026-10-06, BEFORE THE ANGLE GATE EXISTS (the section's own output, 5 significant digits; SPEC-measmod.md §6.2 (v) holds the same).
+#   f_extra : F_extra / rho^3 = 1.05 x the FINE scan below (a 10-degree grid of displacement directions over the half-sphere, 25 lines of sight, the stencil's centre and both ends, both
+#             velocity directions, the aberration vector along each axis), rounded up to three digits. The 15-degree grid the check uses gives 2.9 %, 1.6 % and 1.0 % less (Geometric, Astrometric,
+#             refracted) than the 10-degree one, and a 20-degree grid up to 4.5 % less: 1.05 allows for the grid.
+#   fine    : the fine scan's own supremum of |full - pure| over both outputs.
+FROZEN_ANGLE = {
+    "fine": {"geometric": 2.495171e-04, "astrometric": 1.358137e-03, "refracted": 9.271765e-02},
+    "f_extra": {"geometric": 2.62e-4, "astrometric": 1.43e-3, "refracted": 9.74e-2, "ofdate": 1.43e-3},
+    "eps": {"geometric":   [5.4220e-16, 5.5271e-16, 4.3433e-15, 3.8693e-14, 4.3112e-13],
+            "astrometric": [5.4221e-16, 5.5281e-16, 4.3444e-15, 3.8703e-14, 4.3124e-13],
+            "refracted":   [5.4314e-16, 5.6114e-16, 4.4370e-15, 3.9536e-14, 4.4049e-13],
+            "ofdate":      [5.4221e-16, 5.5281e-16, 4.3444e-15, 3.8703e-14, 4.3124e-13]},
+    "b_pred": {"geometric": 4.3112e-13, "astrometric": 4.3124e-13, "refracted": 4.4049e-13, "ofdate": 4.3124e-13},
+    "agreement": [1.0007e-15, 3.3494e-16, 1.0194e-16, 3.5370e-17, 1.2073e-17],      # 2 nu_a/h + 3 ds/(rho(1 - kappa) - h)^2, ds = 1e-6 m
+    "nu_a": 4.9928e-15,
+    "refraction": (2.484383e-04, -3.123796e-07),
+}
+DELTA_S_MAX = 1.0e-6        # m: the largest difference between the real chain's observer and the rigid configuration's at the observation epoch (a precondition the gate asserts)
+
+
+def f_a_table(group: str):
+    """F_a(h) of a group over the five sizes: F_pure(h) + F_extra / rho^3."""
+    return [f_pure(h) + FROZEN_ANGLE["f_extra"][group] / RHO_A ** 3 for h in HS]
+
+
+def eps_a_table(group: str):
+    return [h * h * f / 6 + NU_A / h for h, f in zip(HS, f_a_table(group))]
+
+
+def agreement_table():
+    kappa = V_TARGET_A / C_LIGHT
+    return [2 * NU_A / h + 3 * DELTA_S_MAX / (RHO_A * (1 - kappa) - h) ** 2 for h in HS]
+
+
+def angle_report(scan: bool, check: bool) -> int:
+    bad = 0
+    a_ref, b_ref = refco(*ATM_A)
+    print("\n=== THE ANGLE SIZING (item 6: written and committed before the angle gate's first run) ===")
+    print(f"nu_a = 3 [ulp(2 pi) + ulp(7.2e6 m)/rho] = {NU_A:.4e} rad;  the chain's floor: ZERO (the observer, the orientation and the Earth's motion are evaluated at the observation epoch only)")
+    print(f"the refraction of the first normal point's weather ({ATM_A[0]} hPa, {ATM_A[1]:.2f} C, rh {ATM_A[2]}, {ATM_A[3]} um): A = {a_ref:.6e}, B = {b_ref:.6e} rad")
+    print("    h        F_pure(h) (m^-3)    h^2 F_pure/6      nu_a/h       agreement tolerance")
+    ag = agreement_table()
+    for i, h in enumerate(HS):
+        print(f"    {h:6.0f}   {f_pure(h):.5e}    {h * h * f_pure(h) / 6:.4e}   {NU_A / h:.4e}   {ag[i]:.4e}")
+    for group in ("geometric", "astrometric", "refracted", "ofdate"):
+        eps = eps_a_table(group)
+        print(f"    {group:12s}: F_extra/rho^3 = {FROZEN_ANGLE['f_extra'][group]:.3g}  F_a(h) = {['%.5e' % f for f in f_a_table(group)]}")
+        print(f"                  eps(h) = {['%.4e' % e for e in eps]}   B_pred = {max(eps):.4e}  window [{max(eps) / 10:.3e}, {max(eps) * 10:.3e}]")
+    if check:
+        d = refco_check()
+        ok = d < 1.0
+        print(f"the 60-digit eraRefco against ERFA's published case: {d:.3f} of ERFA's tolerances:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        ok = abs(a_ref / FROZEN_ANGLE["refraction"][0] - 1) < 1e-6 and abs(b_ref / FROZEN_ANGLE["refraction"][1] - 1) < 1e-6
+        print("the frozen A and B of the first normal point's weather reproduced:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        ok = abs(NU_A / FROZEN_ANGLE["nu_a"] - 1) < 1e-4
+        print("the frozen nu_a reproduced:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        ok = all(abs(max(eps_a_table(g)) / FROZEN_ANGLE["b_pred"][g] - 1) < 1e-3 and all(abs(a / b - 1) < 1e-3 for a, b in zip(eps_a_table(g), FROZEN_ANGLE["eps"][g])) for g in FROZEN_ANGLE["eps"])
+        print("the frozen eps(h) and B_pred of the four groups reproduced from F_pure and the frozen F_extra:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        ok = all(abs(a / b - 1) < 1e-3 for a, b in zip(ag, FROZEN_ANGLE["agreement"]))
+        print("the frozen agreement tolerances reproduced:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        def ceil3(x):
+            e = math.floor(math.log10(x))
+            sc = 10 ** (e - 2)
+            return math.ceil(x / sc - 1e-9) * sc
+        ok = all(abs(ceil3(1.05 * FROZEN_ANGLE["fine"][k]) / FROZEN_ANGLE["f_extra"][k] - 1) < 1e-9 for k in FROZEN_ANGLE["fine"])
+        print("the frozen F_extra are 1.05 x the fine scan, rounded up to three digits:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+    if not scan:
+        return bad
+    radec, azel = angle_classes()
+    e_list = sphere_half(15.0)
+    print("the series guard against 60-digit third differences ...", end=" ", flush=True)
+    g = series_guard((a_ref, b_ref))
+    print(f"worst relative disagreement {g:.2e}:", "ok" if g < 1e-6 else "NOT AGREED")
+    bad += 0 if g < 1e-6 else 1
+    for kind, los_list, beta_list in (("geometric", radec, [(0.0, 0.0, 0.0)]), ("astrometric", radec, _beta_dirs(BETA_E_MAX)), ("refracted", azel, _beta_dirs(BETA_D_MAX))):
+        sd, sp, wr, sf = angle_scan(kind, los_list, e_list, beta_list, (a_ref, b_ref))
+        print(f"--- {kind} (check grid: 15 degrees, {len(los_list)} lines of sight): sup |full - pure| = ({sd[0]:.4e}, {sd[1]:.4e}) /rho^3;  sup |pure| = ({sp[0]:.4f}, {sp[1]:.4f}), worst ratio to F_pure {wr:.5f};  sup |full| = ({sf[0]:.4f}, {sf[1]:.4f})")
+        mine = max(sd)
+        ok = mine <= FROZEN_ANGLE["f_extra"][kind] and mine >= 0.85 * FROZEN_ANGLE["fine"][kind]
+        print(f"    below the frozen F_extra {FROZEN_ANGLE['f_extra'][kind]:.3g} and within 15 % of the fine scan's {FROZEN_ANGLE['fine'][kind]:.4g}: {'yes' if ok else 'NO'}")
+        bad += 0 if ok else 1
+        ok = wr <= 1.0
+        print(f"    the pure geometric formula bounds the pure third derivatives of the scan: {'yes' if ok else 'NO'}")
+        bad += 0 if ok else 1
+        full_bound = max(f_pure(h) * RHO_A ** 3 + FROZEN_ANGLE["f_extra"][kind] for h in HS)
+        ok = max(sf) <= full_bound
+        print(f"    the full third derivative stays below F_a (the largest of the five sizes, {full_bound:.4f}): {'yes' if ok else 'NO'}")
+        bad += 0 if ok else 1
+    return bad
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scan", action="store_true", help="the exact series scan of the angle third derivatives (a few seconds)")
@@ -446,6 +885,7 @@ def main() -> int:
             bad += 0 if ok else 1
     try:
         bad += amended(a.scan, a.check)
+        bad += angle_report(a.scan, a.check)
     except FileNotFoundError as err:
         print(f"missing input: {err}", file=sys.stderr)
         return 2

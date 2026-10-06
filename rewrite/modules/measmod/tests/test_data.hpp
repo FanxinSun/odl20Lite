@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <odl/eop/series.hpp>
+#include <odl/ephemerides/ephemeris.hpp>
 #include <odl/io/crd.hpp>
 #include <odl/io/horizons.hpp>
 #include <odl/io/sinex.hpp>
@@ -86,6 +87,13 @@ inline const odl::io::Sp3File& real_sp3() {
         return *r;
     }();
     return f;
+}
+
+/// The planetary ephemeris de440s as the manifest pins it (the Earth's barycentric motion of the Astrometric angle gate, MEAS-A-096, -099).
+inline const odl::eph::Ephemeris& ephemeris_de440s() {
+    static const auto e = odl::eph::Ephemeris::open({ODL_DE440S_BSP}, {});
+    if (!e) FAIL("de440s did not open: " << e.error().id << " " << e.error().message);
+    return *e;
 }
 
 inline const SlrRegistry& real_registry() {
