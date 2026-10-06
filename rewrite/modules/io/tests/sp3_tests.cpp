@@ -526,3 +526,179 @@ TEST_CASE("IOFM-A-044  a comment line '%/* text' reads as the comment 'text', as
     const std::vector<std::string> expected = {"", "", "x", "y"};
     CHECK(c->header.comments == expected);
 }
+
+// --- IOFM-A-045 … -047 (v1.3): what the real analysis-centre products taught the reader ------------------------------------------------------------------------------------
+
+namespace {
+
+/// `kExample2`'s header and first epoch with only its `P` and `V` records (the correlation records dropped), the clock and clock-rate fields as `clock_form` makes them.
+std::string clock_fixture(const std::string& p_line, const std::string& v_line) {
+    std::string t = kExample2;
+    const std::size_t at = t.find("PG01 ");
+    REQUIRE(at != std::string::npos);
+    return t.substr(0, at) + p_line + "\n" + v_line + "\nEOF\n";
+}
+
+const std::string kP = "PG01 -11044.805800 -10475.672350  21929.418200    189.163300 18 18 18 219";   // kExample2's own record
+const std::string kV = "VG01  20298.880364 -18462.044804   1381.387685     -4.534317 14 14 14 191";
+
+}  // namespace
+
+TEST_CASE("IOFM-A-045  an epoch line is read at the fixed columns, and by its blank-separated fields when the columns do not read (v1.3): the backup combination's lines, every field one column to "
+          "the left, read and are counted; a seconds field one column to the right agrees and reads; a line that reads two ways that differ refuses IOFM-F-019, and one that reads neither refuses "
+          "IOFM-F-001",
+          "[io][sp3]") {
+    const std::string standard = eof_fixture(3, 3, true);
+    auto base = read_sp3(standard);
+    REQUIRE(base.has_value());
+    CHECK(base->epoch_lines_by_fields == 0);
+
+    std::string shifted = standard;                               // "*  2013" -> "* 2013": 30 characters wide, the fixed columns cannot read it
+    for (std::size_t pos = shifted.find("\n*  2013"); pos != std::string::npos; pos = shifted.find("\n*  2013", pos + 1)) shifted.erase(pos + 2, 1);
+    REQUIRE(shifted.size() == standard.size() - 3);
+    auto r = read_sp3(shifted);
+    REQUIRE(r.has_value());
+    CHECK(r->epoch_lines_by_fields == 3);
+    CHECK(*r == *base);                                           // the same epochs, to the digit
+
+    std::string right = standard;                                 // the seconds one column to the right (the JCET product's form): the columns still read, the fields agree
+    for (std::size_t pos = right.find(" 0.00000000\n"); pos != std::string::npos; pos = right.find(" 0.00000000\n", pos + 3)) right.insert(pos, " ");
+    auto rr = read_sp3(right);
+    REQUIRE(rr.has_value());
+    CHECK(rr->epoch_lines_by_fields == 0);
+    CHECK(*rr == *base);
+
+    std::string lastdigit = standard;                             // a nonzero last decimal in such a field: the columns truncate it, the fields keep it, and they agree to 1e-7 s
+    const std::size_t first_epoch = lastdigit.find("\n*  2013  4  3  0  0  0.00000000\n");
+    REQUIRE(first_epoch != std::string::npos);
+    lastdigit.replace(first_epoch + 1, 31, "*  2013  4  3  0  0   5.00000001");
+    auto ld = read_sp3(lastdigit);
+    REQUIRE(ld.has_value());
+    CHECK_THAT(ld->epochs.front().epoch.second, WithinAbs(5.00000001, 1e-12));
+
+    auto first_shifted = [&](const std::string& old_line, const std::string& new_line) {
+        std::string t = shifted;
+        const std::size_t at = t.find(old_line);
+        REQUIRE(at != std::string::npos);
+        t.replace(at, old_line.size(), new_line);
+        return t;
+    };
+    auto not_a_number = read_sp3(first_shifted("* 2013  4  3  0  0  0.00000000", "* 2013 xx  3  0  0  0.00000000"));
+    REQUIRE_FALSE(not_a_number.has_value());
+    CHECK(not_a_number.error().id == "IOFM-F-001");
+    auto five_fields = read_sp3(first_shifted("* 2013  4  3  0  0  0.00000000", "* 2013  4  3  0  0.00000000"));
+    REQUIRE_FALSE(five_fields.has_value());
+    CHECK(five_fields.error().id == "IOFM-F-001");
+
+    // the same shifted line padded to 80 columns, as the ESA product's lines are: the columns read it as year 13 and the fields as year 2013 — refused, not misread
+    auto padded = read_sp3(first_shifted("* 2013  4  3  0  0  0.00000000", "* 2013  4  3  0  0  0.00000000" + std::string(50, ' ')));
+    REQUIRE_FALSE(padded.has_value());
+    CHECK(padded.error().id == "IOFM-F-019");
+    CHECK_THAT(padded.error().message, ContainsSubstring("differently"));
+}
+
+TEST_CASE("IOFM-A-046  the clock field of a P record and the clock-rate field of a V record may be absent or blank (v1.3): a line that stops at column 46, and a line with blank columns 47-60 "
+          "(the sigma columns after it still read), give 999999.999999 and are counted; a field cut short or not a number, and a record cut inside its coordinates, still refuse IOFM-F-001; "
+          "the round trip equals the reading",
+          "[io][sp3]") {
+    auto full = read_sp3(clock_fixture(kP, kV));
+    REQUIRE(full.has_value());
+    CHECK(full->clock_fields_absent == 0);
+    const auto& full_p = full->epochs.front().satellites.front().position;
+    CHECK_THAT(full_p.clock_us, WithinAbs(189.163300, 1e-12));
+
+    const std::string p46 = kP.substr(0, 46), v46 = kV.substr(0, 46);
+    auto cut = read_sp3(clock_fixture(p46, v46));
+    REQUIRE(cut.has_value());
+    CHECK(cut->clock_fields_absent == 2);
+    const auto& cp = cut->epochs.front().satellites.front();
+    CHECK(cp.position.clock_us == 999999.999999);
+    CHECK(cp.velocity->clock_rate == 999999.999999);
+    CHECK(cp.position.x_km == full_p.x_km);
+    CHECK(cp.position.y_km == full_p.y_km);
+    CHECK(cp.position.z_km == full_p.z_km);
+    CHECK_FALSE(cp.position.x_sdev.has_value());                  // the sigma columns are not there either
+
+    const std::string pblank = kP.substr(0, 46) + std::string(14, ' ') + kP.substr(60), vblank = kV.substr(0, 46) + std::string(14, ' ') + kV.substr(60);
+    auto blank = read_sp3(clock_fixture(pblank, vblank));
+    REQUIRE(blank.has_value());
+    CHECK(blank->clock_fields_absent == 2);
+    const auto& bp = blank->epochs.front().satellites.front();
+    CHECK(bp.position.clock_us == 999999.999999);
+    CHECK(bp.velocity->clock_rate == 999999.999999);
+    CHECK(bp.position.x_sdev == 18);                              // the sigma columns after a blank clock still read
+    CHECK(bp.position.clock_sdev == 219);
+    CHECK(bp.velocity->clock_rate_sdev == 191);
+
+    const std::string pblank_padded = kP.substr(0, 46) + std::string(34, ' ');         // 80 columns of blanks after the coordinates, as the ESA and JCET products pad their lines
+    auto padded = read_sp3(clock_fixture(pblank_padded, v46 + std::string(14, ' ')));
+    REQUIRE(padded.has_value());
+    CHECK(padded->clock_fields_absent == 2);
+
+    auto cut_clock = read_sp3(clock_fixture(kP.substr(0, 55), v46));                    // a clock that is there and cut short
+    REQUIRE_FALSE(cut_clock.has_value());
+    CHECK(cut_clock.error().id == "IOFM-F-001");
+    CHECK_THAT(cut_clock.error().message, ContainsSubstring("clock"));
+    auto junk = read_sp3(clock_fixture(kP.substr(0, 46) + "      abcdefgh" + kP.substr(60), v46));
+    REQUIRE_FALSE(junk.has_value());
+    CHECK(junk.error().id == "IOFM-F-001");
+    auto cut_z = read_sp3(clock_fixture(kP.substr(0, 40), v46));                        // inside the z coordinate
+    REQUIRE_FALSE(cut_z.has_value());
+    CHECK(cut_z.error().id == "IOFM-F-001");
+    CHECK_THAT(cut_z.error().message, ContainsSubstring("z"));
+
+    auto text = write_sp3(*cut);
+    REQUIRE(text.has_value());
+    auto back = read_sp3(*text);
+    REQUIRE(back.has_value());
+    CHECK(*back == *cut);
+    CHECK(back->clock_fields_absent == 0);                       // the writer writes the standard layout: the marker is there as a number
+}
+
+TEST_CASE("IOFM-A-047  real data (v1.3): four of the nine other products of the ILRS week 260103 read whole — the backup combination (every epoch line one column to the left, no clock "
+          "or clock rate), and the GFZ, JCET and NSGF analysis centres (no clock or clock rate) — with their epochs, satellite, coordinate systems, first positions and counts",
+          "[io][sp3]") {
+    // The backup combination's header names its frame "ITRF14", six characters in the format's five columns (47-51), so the fixed-column reader gives "ITRF1": it is not an SP3-c code `MEAS-R-041` maps, and
+    // a consumer that needs the frame refuses it; the orbit term of G5 uses the products' positions only (SPEC-measmod.md §8.9).
+    struct Expect {
+        const char* path;
+        const char* coordinate_sys;
+        std::size_t epochs;
+        int last_day, last_hour, last_minute;                      // of 2026-01-
+        double x, y, z, vx;                                         // the first P record in km, the first V record's x in dm/s
+        std::size_t by_fields, clock_absent;
+        bool eof;
+    };
+    const Expect expected[] = {
+        {ODL_SP3_ILRSB_FILE, "ITRF1", 5040, 3, 23, 58, -11319.687857, -4845.099088, -497.695165, -9071.001341, 5040, 10080, true},
+        {ODL_SP3_GFZ_FILE, "SLR14", 5041, 4, 0, 0, -11319.687864, -4845.099075, -497.695155, -9071.001391, 0, 10082, true},
+        {ODL_SP3_JCET_FILE, "ECF", 5040, 3, 23, 58, -11319.687870, -4845.099050, -497.695193, -9071.001224, 0, 10080, true},
+        {ODL_SP3_NSGF_FILE, "ECF", 5043, 4, 0, 4, -11319.687854, -4845.099106, -497.695162, -9071.001500, 0, 10086, true},
+    };
+    for (const Expect& e : expected) {
+        INFO(e.path);
+        auto f = read_sp3(slurp_file(e.path));
+        if (!f) FAIL("the real SP3 did not read: " << f.error().id << " " << f.error().message);
+        CHECK(f->epochs.size() == e.epochs);
+        CHECK(f->header.coordinate_sys == e.coordinate_sys);
+        CHECK(f->header.time_system == Sp3TimeSystem::UTC);
+        REQUIRE(f->header.satellite_ids.size() == 1);
+        CHECK(f->header.satellite_ids.front() == "L51");
+        CHECK(f->eof_present == e.eof);
+        CHECK(f->epoch_lines_by_fields == e.by_fields);
+        CHECK(f->clock_fields_absent == e.clock_absent);
+        const auto& first = f->epochs.front();
+        CHECK((first.epoch.year == 2025 && first.epoch.month == 12 && first.epoch.day == 28 && first.epoch.hour == 0 && first.epoch.minute == 0 && first.epoch.second == 0.0));
+        const auto& last = f->epochs.back().epoch;
+        CHECK((last.year == 2026 && last.month == 1 && last.day == e.last_day && last.hour == e.last_hour && last.minute == e.last_minute && last.second == 0.0));
+        for (const auto& ep : f->epochs) CHECK(ep.satellites.size() == 1);
+        const auto& rec = first.satellites.front();
+        CHECK(rec.position.x_km == e.x);
+        CHECK(rec.position.y_km == e.y);
+        CHECK(rec.position.z_km == e.z);
+        CHECK(rec.position.clock_us == 999999.999999);              // none of the four prints a clock
+        REQUIRE(rec.velocity.has_value());
+        CHECK(rec.velocity->x_dm_s == e.vx);
+    }
+}
+

@@ -36,6 +36,14 @@ if(BUILD_TESTING)
   target_compile_definitions(odl_io_tests PRIVATE
     ODL_ILRS_SP3_FILE="${ODL_CACHE_DIR}/ilrs-lageos1-sp3-260103/extracted/ilrsa.orb.lageos1.260103.v80.sp3")
 
+  # IOFM-A-047 (v1.3) reads four of the nine other products of the same week, each a pinned manifest entry: the ones whose layout departs from SP3D's columns (SPEC-measmod.md §8.9 uses all nine).
+  foreach(_ac ilrsb gfz jcet nsgf)
+    odl_manifest_get(ilrs-lageos1-sp3-260103-${_ac} _io_sp3_${_ac})
+    string(TOUPPER "${_ac}" _AC)
+    target_compile_definitions(odl_io_tests PRIVATE
+      ODL_SP3_${_AC}_FILE="${ODL_CACHE_DIR}/ilrs-lageos1-sp3-260103-${_ac}/extracted/${_ac}.orb.lageos1.260103.v80.sp3")
+  endforeach()
+
   # L6 step 3's own gate: the published SGP4 verification vectors
   # (SGP4-VER.TLE plus 32 .e files), extracted members of
   # vallado-sgp4-verification-vectors -- the same manifest-supplied-path

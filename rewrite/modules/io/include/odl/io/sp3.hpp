@@ -14,6 +14,7 @@
 #include <odl/time/epoch.hpp>
 #include <odl/time/time_scale.hpp>
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -151,6 +152,12 @@ struct Sp3File {
     /// (`IOFM-R-013`, found by the real ILRS weekly orbit, which has no such line). It records how the text ended, not what it says: `Sp3File`'s equality does not
     /// compare it, and `write_sp3` always writes the terminator.
     bool eof_present = true;
+    /// How the text was read where it departs from `SP3D`'s fixed columns, as counts the caller can see (they record how the text was read, not what it says: equality does not compare them and
+    /// `write_sp3` writes the standard layout). `epoch_lines_by_fields`: epoch lines whose fixed columns did not read and that were read by their six blank-separated fields (`IOFM-R-016`; the
+    /// ILRS backup combination writes every epoch line one column to the left). `clock_fields_absent`: `P` records with no clock and `V` records with no clock rate (the line stops before column
+    /// 47, or columns 47-60 are blank: `IOFM-R-015`; three analysis centres' products), whose value is then 999999.999999, what `SP3C` says an absent clock is set to.
+    std::size_t epoch_lines_by_fields = 0;
+    std::size_t clock_fields_absent = 0;
 };
 
 /// Reads an SP3-d file already in memory (no file access here, SPEC-io-formats.md

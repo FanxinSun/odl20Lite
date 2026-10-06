@@ -108,6 +108,46 @@ odl::Result<std::optional<int>, Sp3Error> to_int_opt(const std::optional<std::st
     return std::optional<int>(*v);
 }
 
+/// What SP3-c says an absent clock (and an absent clock rate-of-change) is to be set to: "Bad or absent clock values are to be set to 999999.999999" (`SP3C`, the Position and Clock Record
+/// and the Velocity record alike).
+constexpr double kAbsentClock = 999999.999999;
+
+/// IOFM-R-015: the clock field (columns 47-60) of a `P` record and the clock-rate field of a `V` record, which `SP3D` requires and some real products omit: a line that stops before column 47
+/// (the GFZ and NSGF products stop at column 46) or whose columns 47-60 are all blank (the JCET product) holds no clock — `nullopt`. A field that is there and cut short, or is not a number, is
+/// refused as ever.
+odl::Result<std::optional<double>, Sp3Error> clock_field(std::string_view line, int line_no, std::string_view field) {
+    if (line.size() < 47) return std::optional<double>{};
+    const std::size_t width = std::min<std::size_t>(14, line.size() - 46);
+    if (trim(line.substr(46, width)).empty()) return std::optional<double>{};
+    auto c = column(line, 47, 60, line_no, field);
+    if (!c.has_value()) return odl::err(c.error());
+    auto d = to_double(*c, line_no, field);
+    if (!d.has_value()) return odl::err(d.error());
+    return std::optional<double>(*d);
+}
+
+/// IOFM-R-016: the blank-separated reading of an epoch line — `*` and exactly six numeric fields: year, month, day, hour and minute as integers, the second as a number. `nullopt` for
+/// anything else.
+std::optional<time::Calendar> epoch_by_fields(std::string_view line) {
+    std::istringstream in{std::string(line.substr(1))};
+    std::vector<std::string> tok;
+    for (std::string t; in >> t;) tok.push_back(t);
+    if (tok.size() != 6) return std::nullopt;
+    int iv[5];
+    for (std::size_t k = 0; k < 5; ++k) {
+        auto r = to_int(tok[k], 0, "epoch field");
+        if (!r.has_value()) return std::nullopt;
+        iv[k] = *r;
+    }
+    auto s = to_double(tok[5], 0, "epoch second");
+    if (!s.has_value()) return std::nullopt;
+    return time::Calendar{iv[0], iv[1], iv[2], iv[3], iv[4], *s};
+}
+
+bool same_epoch(const time::Calendar& a, const time::Calendar& b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day && a.hour == b.hour && a.minute == b.minute && std::abs(a.second - b.second) <= 1e-7;
+}
+
 odl::Result<Sp3TimeSystem, Sp3Error> parse_time_system(const std::string& raw, int line_no) {
     std::string t = trim(raw);
     if (t == "GPS") return Sp3TimeSystem::GPS;
@@ -329,21 +369,38 @@ odl::Result<Sp3File, Sp3Error> read_sp3(std::string_view text) {
     while (idx < lines.size() && starts_with(lines[idx], "*")) {
         ln = static_cast<int>(idx) + 1;
         std::string_view l = lines[idx];
-        auto year = column(l, 4, 7, ln, "epoch year"); if (!year.has_value()) return odl::err(year.error());
-        auto month = column(l, 9, 10, ln, "epoch month"); if (!month.has_value()) return odl::err(month.error());
-        auto day = column(l, 12, 13, ln, "epoch day"); if (!day.has_value()) return odl::err(day.error());
-        auto hour = column(l, 15, 16, ln, "epoch hour"); if (!hour.has_value()) return odl::err(hour.error());
-        auto minute = column(l, 18, 19, ln, "epoch minute"); if (!minute.has_value()) return odl::err(minute.error());
-        auto second = column(l, 21, 31, ln, "epoch second"); if (!second.has_value()) return odl::err(second.error());
-        auto yi = to_int(*year, ln, "epoch year"); if (!yi.has_value()) return odl::err(yi.error());
-        auto moi = to_int(*month, ln, "epoch month"); if (!moi.has_value()) return odl::err(moi.error());
-        auto dai = to_int(*day, ln, "epoch day"); if (!dai.has_value()) return odl::err(dai.error());
-        auto hoi = to_int(*hour, ln, "epoch hour"); if (!hoi.has_value()) return odl::err(hoi.error());
-        auto mii = to_int(*minute, ln, "epoch minute"); if (!mii.has_value()) return odl::err(mii.error());
-        auto sei = to_double(*second, ln, "epoch second"); if (!sei.has_value()) return odl::err(sei.error());
+        // IOFM-R-016: the fixed columns of `SP3D`, and the blank-separated fields as the fallback the real ILRS backup combination needs (it writes every epoch line one column to the left).
+        auto columns = [&]() -> odl::Result<time::Calendar, Sp3Error> {
+            auto year = column(l, 4, 7, ln, "epoch year"); if (!year.has_value()) return odl::err(year.error());
+            auto month = column(l, 9, 10, ln, "epoch month"); if (!month.has_value()) return odl::err(month.error());
+            auto day = column(l, 12, 13, ln, "epoch day"); if (!day.has_value()) return odl::err(day.error());
+            auto hour = column(l, 15, 16, ln, "epoch hour"); if (!hour.has_value()) return odl::err(hour.error());
+            auto minute = column(l, 18, 19, ln, "epoch minute"); if (!minute.has_value()) return odl::err(minute.error());
+            auto second = column(l, 21, 31, ln, "epoch second"); if (!second.has_value()) return odl::err(second.error());
+            auto yi = to_int(*year, ln, "epoch year"); if (!yi.has_value()) return odl::err(yi.error());
+            auto moi = to_int(*month, ln, "epoch month"); if (!moi.has_value()) return odl::err(moi.error());
+            auto dai = to_int(*day, ln, "epoch day"); if (!dai.has_value()) return odl::err(dai.error());
+            auto hoi = to_int(*hour, ln, "epoch hour"); if (!hoi.has_value()) return odl::err(hoi.error());
+            auto mii = to_int(*minute, ln, "epoch minute"); if (!mii.has_value()) return odl::err(mii.error());
+            auto sei = to_double(*second, ln, "epoch second"); if (!sei.has_value()) return odl::err(sei.error());
+            return time::Calendar{*yi, *moi, *dai, *hoi, *mii, *sei};
+        };
+        const auto by_columns = columns();
+        const auto by_fields = epoch_by_fields(l);
 
         Sp3Epoch epoch;
-        epoch.epoch = time::Calendar{*yi, *moi, *dai, *hoi, *mii, *sei};
+        if (by_columns.has_value()) {
+            if (by_fields.has_value() && !same_epoch(*by_columns, *by_fields)) {
+                return odl::err(Sp3Error{"IOFM-F-019", "SP3 line " + std::to_string(ln) + ": the epoch line reads differently at the fixed columns and by its blank-separated fields (a field shifted from its columns): '" +
+                                                           std::string(l) + "'"});
+            }
+            epoch.epoch = by_fields.has_value() ? *by_fields : *by_columns;       // they agree: the fields are the faithful one where a field sits a column off
+        } else if (by_fields.has_value()) {
+            epoch.epoch = *by_fields;
+            ++file.epoch_lines_by_fields;
+        } else {
+            return odl::err(by_columns.error());
+        }
         ++idx;
 
         while (idx < lines.size() && starts_with(lines[idx], "P")) {
@@ -355,12 +412,17 @@ odl::Result<Sp3File, Sp3Error> read_sp3(std::string_view text) {
             auto x = column(pl, 5, 18, ln, "x"); if (!x.has_value()) return odl::err(x.error());
             auto y = column(pl, 19, 32, ln, "y"); if (!y.has_value()) return odl::err(y.error());
             auto z = column(pl, 33, 46, ln, "z"); if (!z.has_value()) return odl::err(z.error());
-            auto ck = column(pl, 47, 60, ln, "clock"); if (!ck.has_value()) return odl::err(ck.error());
             auto xd = to_double(*x, ln, "x"); if (!xd.has_value()) return odl::err(xd.error());
             auto yd = to_double(*y, ln, "y"); if (!yd.has_value()) return odl::err(yd.error());
             auto zd = to_double(*z, ln, "z"); if (!zd.has_value()) return odl::err(zd.error());
-            auto ckd = to_double(*ck, ln, "clock"); if (!ckd.has_value()) return odl::err(ckd.error());
-            pr.x_km = *xd; pr.y_km = *yd; pr.z_km = *zd; pr.clock_us = *ckd;
+            auto ckd = clock_field(pl, ln, "clock"); if (!ckd.has_value()) return odl::err(ckd.error());
+            pr.x_km = *xd; pr.y_km = *yd; pr.z_km = *zd;
+            if (ckd->has_value()) {
+                pr.clock_us = **ckd;
+            } else {
+                pr.clock_us = kAbsentClock;                            // IOFM-R-015
+                ++file.clock_fields_absent;
+            }
 
             auto xs = to_int_opt(column_opt(pl, 62, 63), ln, "x sdev"); if (!xs.has_value()) return odl::err(xs.error());
             auto ys = to_int_opt(column_opt(pl, 65, 66), ln, "y sdev"); if (!ys.has_value()) return odl::err(ys.error());
@@ -411,12 +473,17 @@ odl::Result<Sp3File, Sp3Error> read_sp3(std::string_view text) {
                 auto vx = column(vl, 5, 18, ln, "vx"); if (!vx.has_value()) return odl::err(vx.error());
                 auto vy = column(vl, 19, 32, ln, "vy"); if (!vy.has_value()) return odl::err(vy.error());
                 auto vz = column(vl, 33, 46, ln, "vz"); if (!vz.has_value()) return odl::err(vz.error());
-                auto vckt = column(vl, 47, 60, ln, "clock rate"); if (!vckt.has_value()) return odl::err(vckt.error());
                 auto vxd = to_double(*vx, ln, "vx"); if (!vxd.has_value()) return odl::err(vxd.error());
                 auto vyd = to_double(*vy, ln, "vy"); if (!vyd.has_value()) return odl::err(vyd.error());
                 auto vzd = to_double(*vz, ln, "vz"); if (!vzd.has_value()) return odl::err(vzd.error());
-                auto vckd = to_double(*vckt, ln, "clock rate"); if (!vckd.has_value()) return odl::err(vckd.error());
-                vr.x_dm_s = *vxd; vr.y_dm_s = *vyd; vr.z_dm_s = *vzd; vr.clock_rate = *vckd;
+                auto vckd = clock_field(vl, ln, "clock rate"); if (!vckd.has_value()) return odl::err(vckd.error());
+                vr.x_dm_s = *vxd; vr.y_dm_s = *vyd; vr.z_dm_s = *vzd;
+                if (vckd->has_value()) {
+                    vr.clock_rate = **vckd;
+                } else {
+                    vr.clock_rate = kAbsentClock;                      // IOFM-R-015
+                    ++file.clock_fields_absent;
+                }
                 auto vxs = to_int_opt(column_opt(vl, 62, 63), ln, "vx sdev"); if (!vxs.has_value()) return odl::err(vxs.error());
                 auto vys = to_int_opt(column_opt(vl, 65, 66), ln, "vy sdev"); if (!vys.has_value()) return odl::err(vys.error());
                 auto vzs = to_int_opt(column_opt(vl, 68, 69), ln, "vz sdev"); if (!vzs.has_value()) return odl::err(vzs.error());
