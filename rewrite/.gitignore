@@ -16,3 +16,9 @@ tools/.msisref/
 # Literature pinned by hash for provenance (plan §5 constraint 3). The repository
 # holds the URL and the hash and NEVER the bytes: this project redistributes nothing.
 data/literature/
+
+# Originals kept PRIVATELY, never redistributed (L0 step 8, groups C1b/C2): the one copy of an upstream file whose vendored copy is a derivative.  Today
+# that is the GFZ Kp/ap/F10.7 file as pinned on 2026-09-18, which carries a CC BY-NC 4.0 column (the sunspot number) that the repository may not carry:
+# `gfz_derive --check <it> <the vendored copy>` re-proves the derivation (PROVENANCE.md section 41).  Git ignores it, `git archive` leaves it out, the
+# workflow never caches it.
+/data/originals/

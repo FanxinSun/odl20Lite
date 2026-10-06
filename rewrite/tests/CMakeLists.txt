@@ -15,6 +15,14 @@ add_test(NAME fetcher.behaviour
 add_test(NAME gfz.derivation
   COMMAND odl_devtools_tests "[gfz]")
 
+# NOTICE, generated from the manifest (L0 step 8 group C2; tests/devtools/notice_tests.cpp, tagged [notice]): the generator's text on synthetic manifests,
+# the licence texts quoted out of archives, the two stated substitutions, the tool's outcomes and refusals, and the real tree.  The generator had no test
+# but ci.sh's gate 6, which is `notice --check`: the second test is that gate, as a test.
+add_test(NAME notice.behaviour
+  COMMAND odl_devtools_tests "[notice]")
+add_test(NAME notice.matches_manifest
+  COMMAND notice --check)
+
 # The manifest verifies offline.  This is the property CI depends on (step 4):
 # green means the pinned bytes are the bytes, not that the network was up.
 add_test(NAME manifest.verify_offline

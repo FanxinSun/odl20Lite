@@ -77,7 +77,7 @@ gate "test"
 ctest --test-dir "$BUILD" --output-on-failure
 
 gate "NOTICE regenerates and matches what is committed"
-"$PY" tools/notice.py --check
+"$BUILD/tools/notice" --check
 
 gate "specification traceability (NOT a test-suite check — see the tool's output)"
 "$PY" tools/speccheck.py

@@ -10,7 +10,7 @@
 
 add_library(odl_devkit STATIC
   devkit/src/tool.cpp devkit/src/text.cpp devkit/src/pyfmt.cpp devkit/src/sha256.cpp devkit/src/json.cpp
-  devkit/src/inflate.cpp devkit/src/archive.cpp devkit/src/fs.cpp devkit/src/process.cpp)
+  devkit/src/inflate.cpp devkit/src/archive.cpp devkit/src/fs.cpp devkit/src/process.cpp devkit/src/pytext.cpp)
 target_include_directories(odl_devkit PUBLIC devkit/include)
 target_compile_features(odl_devkit PUBLIC cxx_std_20)
 target_link_libraries(odl_devkit PRIVATE odl_warnings)
@@ -33,18 +33,35 @@ target_link_libraries(odl_tool_gfz_derive PUBLIC odl_devkit PRIVATE odl_warnings
 add_executable(gfz_derive gfz_derive.cpp)
 target_link_libraries(gfz_derive PRIVATE odl_devkit odl_warnings)
 
+# NOTICE, generated from the manifest (plan L0 step 8, group C2; tools/notice.cpp): `notice` writes it, `notice --check` is ci.sh's gate 6, the target
+# `regenerate_notice` is the one command that rewrites the committed file, and the object library is what the tests call in-process.
+add_library(odl_tool_notice OBJECT notice.cpp)
+target_compile_definitions(odl_tool_notice PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_include_directories(odl_tool_notice PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(odl_tool_notice PUBLIC odl_devkit PRIVATE odl_warnings)
+
+add_executable(notice notice.cpp)
+target_compile_definitions(notice PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_link_libraries(notice PRIVATE odl_devkit odl_warnings)
+
+add_custom_target(regenerate_notice
+  COMMAND notice --root "${CMAKE_SOURCE_DIR}"
+  COMMENT "NOTICE: written from the manifest and the pinned archives"
+  VERBATIM)
+
 if(BUILD_TESTING)
   # One executable for the devkit's own tests and the tools' (the Python tests of tests/ ported): each ctest of the old names runs the tag of the
   # test it replaces (tests/CMakeLists.txt), and every devkit case is its own ctest.
   add_executable(odl_devtools_tests
     devkit/tests/sha256_tests.cpp devkit/tests/json_tests.cpp devkit/tests/inflate_tests.cpp devkit/tests/archive_tests.cpp
-    devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/gfz_derive_tests.cpp)
+    devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp devkit/tests/pytext_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/gfz_derive_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/notice_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   target_compile_definitions(odl_devtools_tests PRIVATE
     ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}"
     ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
-  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_devkit Catch2::Catch2WithMain odl_warnings)
+  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
   # test executable, which the tests find at run time and put first on PATH: no test of this tree touches the network.  (Its place is NOT a compile

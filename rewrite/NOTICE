@@ -1,11 +1,11 @@
 NOTICE — third-party components
 ==============================================================================
 
-GENERATED FILE.  Do not edit.  Produced by tools/notice.py from
+GENERATED FILE.  Do not edit.  Produced by tools/notice.cpp from
 manifest/manifest.json, which is the single declaration of every external
 input to this tree.  To change anything here, change the manifest and run
-    python3 tools/notice.py
-CI runs `notice.py --check` and fails if this file has drifted.
+    cmake --build <build-dir> --target regenerate_notice
+CI runs `notice --check` and fails if this file has drifted.
 
 This file does not describe the licence of THIS tree, which grants nothing
 for now and is stated in LICENSE.  It describes what this tree depends on.
@@ -111,16 +111,17 @@ SUMMARY
   nist-strd-nls-rat43 Rat43.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/nls/data/LINKS/DATA/, 2 168 bytes NIST-PUBLIC      data
   nist-strd-nls-bennett5 Bennett5.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/nls/data/LINKS/DATA/, 7 088 bytes NIST-PUBLIC      data
 
-  Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
-  LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
-  enforces it and CI runs it.
+  Every licence above is permissive, with one exception: the stage exception
+  (a release blocker), named in its entry below.  Plan §5 constraint 3
+  forbids GPL, LGPL and AGPL anywhere in what could ship; tools/fetch.cpp
+  check-licences enforces it and CI runs it.
 
 ------------------------------------------------------------------------------
 COMPONENTS COMPILED INTO OR LINKED WITH THIS TREE
 ------------------------------------------------------------------------------
 
   Fetched from origin, pinned by SHA-256, and verified twice — once by
-  tools/fetch.py and once by CMake's URL_HASH.
+  tools/fetch.cpp and once by CMake's URL_HASH.
 
   catch2  3.16.0
     role      test framework
@@ -508,12 +509,14 @@ DATA INPUTS
               vendored copy keeps every notice of the file's own 40 header
               lines, the licence line included.
     EXCLUDED  CC-BY-NC-4.0: SN
-              the file contains the above under CC-BY-NC-4.0, which is NOT the
-              licence named above and NOT on this tree's permissive allowlist.
-              This tree does not read it, and tools/fetch.py refuses a
-              manifest entry that declares any of those columns as consumed. A
-              reader who fetches the file for their own use is subject to CC-
-              BY-NC-4.0 for that part of it.
+              the file at the URL above contains the above under CC-BY-NC-4.0,
+              which is NOT the licence named above and NOT on this tree's
+              permissive allowlist; the copy vendored in this tree has that
+              column replaced by the file's own missing-value marker. This
+              tree does not read it, and tools/fetch.cpp refuses a manifest
+              entry that declares any of those columns as consumed. A reader
+              who fetches the file from its URL for their own use is subject
+              to CC-BY-NC-4.0 for that part of it.
     columns   consumed: YYYY, MM, DD, Kp1, Kp2, Kp3, Kp4, Kp5, Kp6, Kp7, Kp8,
               ap1, ap2, ap3, ap4, ap5, ap6, ap7, ap8, Ap, F10.7obs, F10.7adj,
               D
