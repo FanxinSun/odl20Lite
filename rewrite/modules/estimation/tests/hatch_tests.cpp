@@ -108,7 +108,7 @@ TEST_CASE("EST-A-210: the hatch -- Filip with B6 .. B10 eliminated at their cert
         auto nr = with_rows({"p0", "p1", "p3"}, reduced, rp);
         const auto h = nr.solve();
         REQUIRE(h.has_value());
-        bool same = same_bits(e->x[0], h->x[0]) && same_bits(e->x[1], h->x[1]) && same_bits(e->x[3], h->x[3]) && same_bits(e->x[2], 1.5);
+        bool same = same_bits(e->x[0], h->x[0]) && same_bits(e->x[1], h->x[1]) && same_bits(e->x[3], h->x[2]) && same_bits(e->x[2], 1.5);   // h has 3 entries: p3 is h->x[2]
         const std::size_t map[3] = {0, 1, 3};
         for (std::size_t i = 0; i < 3; ++i)
             for (std::size_t j = 0; j < 3; ++j) same = same && same_bits(e->cofactor[map[i] * 4 + map[j]], h->cofactor[i * 3 + j]);
