@@ -69,6 +69,19 @@ SUMMARY
   ilrs-lageos1-sp3-260103-jcet jcet.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  249 073 bytes gzipped  923 723 decompressed ILRS-PUBLIC      data
   ilrs-lageos1-sp3-260103-nsgf nsgf.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  219 290 bytes gzipped  636 764 decompressed ILRS-PUBLIC      data
   itrf2020-transfo-trfs Transfo-ITRF2020_TRFs.txt as served by itrf.ign.fr 2026-10-06 (the ITRF 'Transformation parameters' page links it); 4 125 bytes; its own title: 'Transformation parameters from ITRF2020 to past ITRFs' IERS-public      data
+  igs-final-sp3-2023-022 IGS0OPSFIN_20230220000_01D_15M_ORB.SP3.gz, BKG root_ftp/IGS/products/2246/, 97 869 bytes gzipped, 245 474 decompressed; the file's own header: #cP, PCV:IGS20_2233, OL/AL:FES2014b, ORB:CMB CLK:CMB, combination of cod esa gfz grg jpl mit ngs sio IGS-PUBLIC       data
+  igs-final-sp3-2023-023 IGS0OPSFIN_20230230000_01D_15M_ORB.SP3.gz, BKG root_ftp/IGS/products/2246/, 97 823 bytes gzipped, 245 474 decompressed; the file's own header: #cP, PCV:IGS20_2233, OL/AL:FES2014b, ORB:CMB CLK:CMB, combination of cod esa gfz grg jpl mit ngs sio IGS-PUBLIC       data
+  nist-strd-lls-norris Norris.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 688 bytes NIST-PUBLIC      data
+  nist-strd-lls-pontius Pontius.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 748 bytes NIST-PUBLIC      data
+  nist-strd-lls-noint1 NoInt1.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 1 608 bytes NIST-PUBLIC      data
+  nist-strd-lls-noint2 NoInt2.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 1 347 bytes NIST-PUBLIC      data
+  nist-strd-lls-filip Filip.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 4 867 bytes NIST-PUBLIC      data
+  nist-strd-lls-longley Longley.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 987 bytes NIST-PUBLIC      data
+  nist-strd-lls-wampler1 Wampler1.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 420 bytes NIST-PUBLIC      data
+  nist-strd-lls-wampler2 Wampler2.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 414 bytes NIST-PUBLIC      data
+  nist-strd-lls-wampler3 Wampler3.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 433 bytes NIST-PUBLIC      data
+  nist-strd-lls-wampler4 Wampler4.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 381 bytes NIST-PUBLIC      data
+  nist-strd-lls-wampler5 Wampler5.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 425 bytes NIST-PUBLIC      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -1076,6 +1089,547 @@ DATA INPUTS
               Reports, and from the transformation parameters between
               ITRF2020, ITRF2014 and ITRF2008. They supersede all values
               published in the past IERS/ITRF documentations.'
+
+  igs-final-sp3-2023-022  IGS0OPSFIN_20230220000_01D_15M_ORB.SP3.gz, BKG root_ftp/IGS/products/2246/, 97 869 bytes gzipped, 245 474 decompressed; the file's own header: #cP, PCV:IGS20_2233, OL/AL:FES2014b, ORB:CMB CLK:CMB, combination of cod esa gfz grg jpl mit ngs sio
+    role      The IGS final combined GNSS orbit for 2023-01-22 (day of year 022, GPS week 2246 day 0): SP3-c, ECEF, reference frame IGS20, GPS time, 96 epochs at 900 s from 2023-01-22 00:00:00 to 23:45:00, 31 GPS satellites (G28 absent), orbit type HLM, agency IGS, from BKG's IGS data centre. L7's exit gate (SPEC-estimation 8.1, EST-A-900): the OBSERVATIONS of the cannonball fit(s) G-01 (`validate_sp3.sh 2246 20230220000 G01`) and G-03 (`... G05`) of oracle/cases.tsv -- the file's own epochs are the statistic's epochs (N = 96). Bad or absent values: none in the file. NO FIT AGAINST IT RUNS BEFORE ITS FORCE SET AND DEGREE ARE WRITTEN INTO THE FIT'S TEST (the manager's ruling of 2026-10-06 on L7 step 1, A.5).
+    licence   IGS-PUBLIC
+    url       https://igs.bkg.bund.de/root_ftp/IGS/products/2246/IGS0OPSFIN_20230220000_01D_15M_ORB.SP3.gz
+    sha256    f7f1df605708d2abb7bb177500d18c756431db81ce2c6d15d24f25662507e053
+    retrieved 2026-10-06
+    note      "The IGS products and station data are provided openly for the
+              benefit of all scientific, educational, and commercial users.
+              For 25 years, IGS data and products have been made openly
+              available for use without restriction, and continue to be
+              offered free of cost or obligation." -- "By accessing data,
+              products, and any other information from the IGS, users agree to
+              appropriately cite and attribute these resources to providers
+              and their sponsors, acknowledgment of IGS and its contributing
+              organizations, and to adherence to professional and ethical
+              standards." -- "IGS makes no guarantee of the quality,
+              reliability, usability, availability, or suitability of any IGS
+              data and products for any particular purpose." (International
+              GNSS Service, Data and Product Disclaimer and Terms of Use, 5
+              August 2020, igs.org/wp-content/uploads/2020/09/IGS-Data-and-
+              Product-Disclaimer-and-Terms-of-Use-200805.pdf, 3 pages, read
+              2026-10-06, sha256 7b4e253c24073af930c38ac65b30ae5208850c4a5681a
+              0e2c6bbf388e72f8226; pinned as the literature entry
+              igs-2020-data-product-terms-of-use). A grant of unrestricted use
+              with an attribution term and a disclaimer: a real, stated
+              position. This tree does not redistribute the file; the pin is
+              BKG's URL and the hash. The document names no citation to give;
+              the attribution this tree carries is: IGS final combined orbit
+              IGS0OPSFIN (a weighted average of the analysis centres cod, esa,
+              gfz, grg, jpl, mit, ngs, sio, as the file's own comment lines
+              state), distributed by the International GNSS Service through
+              the Bundesamt fuer Kartographie und Geodaesie (BKG) IGS data
+              centre.
+
+  igs-final-sp3-2023-023  IGS0OPSFIN_20230230000_01D_15M_ORB.SP3.gz, BKG root_ftp/IGS/products/2246/, 97 823 bytes gzipped, 245 474 decompressed; the file's own header: #cP, PCV:IGS20_2233, OL/AL:FES2014b, ORB:CMB CLK:CMB, combination of cod esa gfz grg jpl mit ngs sio
+    role      The IGS final combined GNSS orbit for 2023-01-23 (day of year 023, GPS week 2246 day 1): SP3-c, ECEF, reference frame IGS20, GPS time, 96 epochs at 900 s from 2023-01-23 00:00:00 to 23:45:00, 31 GPS satellites (G28 absent), orbit type HLM, agency IGS, from BKG's IGS data centre. L7's exit gate (SPEC-estimation 8.1, EST-A-900): the OBSERVATIONS of the cannonball fit(s) G-02 (`validate_sp3.sh 2246 20230230000 G01`) of oracle/cases.tsv -- the file's own epochs are the statistic's epochs (N = 96). Bad or absent values: two clock values of G27 (the 999999.999999 marker; G27's positions are present), none for G01 or G05. NO FIT AGAINST IT RUNS BEFORE ITS FORCE SET AND DEGREE ARE WRITTEN INTO THE FIT'S TEST (the manager's ruling of 2026-10-06 on L7 step 1, A.5).
+    licence   IGS-PUBLIC
+    url       https://igs.bkg.bund.de/root_ftp/IGS/products/2246/IGS0OPSFIN_20230230000_01D_15M_ORB.SP3.gz
+    sha256    28ee14d5e0679cd3cab4762ce3f88eff48503851975376e18fc6d548b10ca085
+    retrieved 2026-10-06
+    note      "The IGS products and station data are provided openly for the
+              benefit of all scientific, educational, and commercial users.
+              For 25 years, IGS data and products have been made openly
+              available for use without restriction, and continue to be
+              offered free of cost or obligation." -- "By accessing data,
+              products, and any other information from the IGS, users agree to
+              appropriately cite and attribute these resources to providers
+              and their sponsors, acknowledgment of IGS and its contributing
+              organizations, and to adherence to professional and ethical
+              standards." -- "IGS makes no guarantee of the quality,
+              reliability, usability, availability, or suitability of any IGS
+              data and products for any particular purpose." (International
+              GNSS Service, Data and Product Disclaimer and Terms of Use, 5
+              August 2020, igs.org/wp-content/uploads/2020/09/IGS-Data-and-
+              Product-Disclaimer-and-Terms-of-Use-200805.pdf, 3 pages, read
+              2026-10-06, sha256 7b4e253c24073af930c38ac65b30ae5208850c4a5681a
+              0e2c6bbf388e72f8226; pinned as the literature entry
+              igs-2020-data-product-terms-of-use). A grant of unrestricted use
+              with an attribution term and a disclaimer: a real, stated
+              position. This tree does not redistribute the file; the pin is
+              BKG's URL and the hash. The document names no citation to give;
+              the attribution this tree carries is: IGS final combined orbit
+              IGS0OPSFIN (a weighted average of the analysis centres cod, esa,
+              gfz, grg, jpl, mit, ngs, sio, as the file's own comment lines
+              state), distributed by the International GNSS Service through
+              the Bundesamt fuer Kartographie und Geodaesie (BKG) IGS data
+              centre.
+
+  nist-strd-lls-norris  Norris.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 688 bytes
+    role      NIST StRD linear least squares regression dataset Norris (linear, 2 parameters, 36 observations, level of difficulty lower, observed data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Norris.dat
+    sha256    5ab6906c68a9c4b2eb1661c0cd7d2a09f5a469a6d4e05b6b691f190f5f7b944f
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-pontius  Pontius.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 748 bytes
+    role      NIST StRD linear least squares regression dataset Pontius (quadratic, 3 parameters, 40 observations, level of difficulty lower, observed data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations. The twelve-orders-of-magnitude case: column norms 6.3, 1.1e7, 2.7e13.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Pontius.dat
+    sha256    de60baa5dc66fd804f9316f895bc5aa2b8f791c09d1ecc1ec39f8b199b8c15c7
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-noint1  NoInt1.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 1 608 bytes
+    role      NIST StRD linear least squares regression dataset NoInt1 (linear without an intercept, 1 parameters, 11 observations, level of difficulty average, generated data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/NoInt1.dat
+    sha256    d8234c428dedaa9de23b67df7d04aeee83befae73ceb6b38321b224955a9b667
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-noint2  NoInt2.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 1 347 bytes
+    role      NIST StRD linear least squares regression dataset NoInt2 (linear without an intercept, 1 parameters, 3 observations, level of difficulty average, generated data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/NoInt2.dat
+    sha256    a71c2810b1edcef8fec6b864c20c5f9d9908e530282a174772ce610999ca7c69
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-filip  Filip.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 4 867 bytes
+    role      NIST StRD linear least squares regression dataset Filip (polynomial of degree 10, 11 parameters, 82 observations, level of difficulty higher, observed data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations, and the registered REFUSAL (certified, yet beyond normal equations in double precision).
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Filip.dat
+    sha256    403b34689e401d915cb28bd69311d3ca5c3007d88d3b670b00e3203042315072
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-longley  Longley.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 987 bytes
+    role      NIST StRD linear least squares regression dataset Longley (multilinear, 7 parameters, 16 observations, level of difficulty higher, observed data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Longley.dat
+    sha256    fc4b0c824f8f0b834eb8e7d1c4c7e0b3cebdd7987bcb085e8f5e1007582480ea
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-wampler1  Wampler1.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 420 bytes
+    role      NIST StRD linear least squares regression dataset Wampler1 (polynomial of degree 5, 6 parameters, 21 observations, level of difficulty higher, generated data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Wampler1.dat
+    sha256    8bcd6f00dbe8c307ebc5c971e12b950eb3cdb75afbc2b38573082b5fcb0d7fbc
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-wampler2  Wampler2.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 414 bytes
+    role      NIST StRD linear least squares regression dataset Wampler2 (polynomial of degree 5, 6 parameters, 21 observations, level of difficulty higher, generated data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Wampler2.dat
+    sha256    01ba5f08b5b9f84431f3754216e006939a80264a1caa69fe08b3cbc543f9ee3e
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-wampler3  Wampler3.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 433 bytes
+    role      NIST StRD linear least squares regression dataset Wampler3 (polynomial of degree 5, 6 parameters, 21 observations, level of difficulty higher, generated data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Wampler3.dat
+    sha256    c5b025f6ebf0365de92d80e478ad826b01a6dfdafb71964ea8bae7eec993ce53
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-wampler4  Wampler4.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 381 bytes
+    role      NIST StRD linear least squares regression dataset Wampler4 (polynomial of degree 5, 6 parameters, 21 observations, level of difficulty higher, generated data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Wampler4.dat
+    sha256    dcff32075a52ecf31af70dad340776237544b1a29b5034a40f8b3e6b607cf9c1
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
+
+  nist-strd-lls-wampler5  Wampler5.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 425 bytes
+    role      NIST StRD linear least squares regression dataset Wampler5 (polynomial of degree 5, 6 parameters, 21 observations, level of difficulty higher, generated data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
+    licence   NIST-PUBLIC
+    url       https://www.itl.nist.gov/div898/strd/lls/data/LINKS/DATA/Wampler5.dat
+    sha256    c4e260a6638db61287bfea75a2dd3b324c86c5d40931ddc6d8fab0c0305ffa39
+    retrieved 2026-10-06
+    note      "With the exception of material marked as copyrighted,
+              information presented on NIST sites are considered public
+              information and may be distributed or copied. Use of appropriate
+              byline/photo/image credits is requested." (nist.gov/copyrights-
+              disclaimers, 'Use of NIST information', read 2026-10-06) -- the
+              StRD's own disclaimer: "NIST uses its best efforts to verify
+              that the information provided is correct. However, NIST makes no
+              warranties to this effect. The certified values are obtained
+              using sound scientific judgement. In some cases, there is no way
+              to guarantee that the certified values are indeed correct. NIST
+              shall not be liable for any damage that may result from errors
+              or omissions in the dataset archives."
+              (itl.nist.gov/div898/strd/general/disclaim.html, read
+              2026-10-06) -- and its FAQ: "The NIST Statistical Reference
+              Datasets are provided simply as an aid to software development,
+              and use of these materials for software testing is strictly
+              voluntary." (strd/general/faq.html, answer 12). THE DATASETS ARE
+              NIST STANDARD REFERENCE DATABASE 140 (doi 10.18434/T43G6C, 'Last
+              update to Data Content: 2003'); NIST's own statement on
+              copyright for Standard Reference Data (nist.gov/open/copyright-
+              fair-use-and-licensing-statements-srd-data-software-and-
+              technical-series-publications, read 2026-10-06) is that the
+              Standard Reference Data Act, 15 U.S.C. 290e, EMPOWERS the
+              Secretary of Commerce to secure copyright in SRD and that SRD
+              products 'should include' a copyright statement; none of the
+              StRD pages read, and none of the data files' headers, carries
+              one (the files begin 'NIST/ITL StRD / Dataset Name:'). The
+              status is therefore: unmarked, hence public information under
+              NIST's site-wide statement, with the SRD copyright power on
+              record and unexercised on these pages. THIS TREE REDISTRIBUTES
+              NOTHING: no NIST data file is copied into the tree (the
+              manager's ruling of 2026-10-06 on EST-Q-004); tests read the
+              pinned cache; specifications and tests quote certified numbers
+              as facts with this citation: NIST/ITL Statistical Reference
+              Datasets, NIST Standard Reference Database 140,
+              https://www.itl.nist.gov/div898/strd/ .
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

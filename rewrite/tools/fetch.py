@@ -723,6 +723,22 @@ PERMISSIVE_LICENCES = {
                      "                    restriction, and a REAL, explicit, stated position, so (like SPACETRACK-PUBLIC) it needs no\n"
                      "                    search_recorded pointer. The tree redistributes none of it: pin-only. The citations are carried\n"
                      "                    in NOTICE through the entries' licence_note. Data, never linked.",
+    "IGS-PUBLIC":    "not an SPDX identifier: International GNSS Service data and products, on the service's own\n"
+                     "                    Data and Product Disclaimer and Terms of Use (5 August 2020, quoted in each entry's\n"
+                     "                    licence_note): 'IGS data and products have been made openly available for use without\n"
+                     "                    restriction, and continue to be offered free of cost or obligation', with an ATTRIBUTION term\n"
+                     "                    (users agree to appropriately cite and attribute these resources to providers and their\n"
+                     "                    sponsors) and a no-warranty disclaimer. A REAL, explicit, stated position -- a grant of\n"
+                     "                    unrestricted use with attribution -- so, like ILRS-PUBLIC, it needs no search_recorded\n"
+                     "                    pointer. The tree redistributes none of it: pin-only. Data, never linked.",
+    "NIST-PUBLIC":   "not an SPDX identifier: NIST web publications and datasets, on the site's own statement (nist.gov/\n"
+                     "                    copyrights-disclaimers, quoted in each entry's licence_note): 'With the exception of material\n"
+                     "                    marked as copyrighted, information presented on NIST sites are considered public information\n"
+                     "                    and may be distributed or copied'. The StRD datasets (Standard Reference Database 140) are\n"
+                     "                    unmarked; the Standard Reference Data Act (15 U.S.C. 290e) lets NIST secure copyright in SRD and\n"
+                     "                    that power is on record and unexercised on these pages -- stated in the entries, not hidden.\n"
+                     "                    The tree redistributes none of it (no NIST file is copied into the tree): pin-only. Data, never\n"
+                     "                    linked.",
     "FACTUAL-DATA-CITED": "not an SPDX identifier: computed or measured factual data (e.g. a\n"
                      "                    position, a table of positions) from a source that states no\n"
                      "                    redistribution terms of its own, where a search for terms was\n"
