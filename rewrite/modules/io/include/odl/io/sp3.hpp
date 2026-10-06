@@ -147,6 +147,10 @@ struct Sp3Epoch {
 struct Sp3File {
     Sp3Header header;
     std::vector<Sp3Epoch> epochs;
+    /// False when the text ended without the `EOF` line `SP3D` requires and was accepted because it holds exactly the number of epochs its first line declares
+    /// (`IOFM-R-013`, found by the real ILRS weekly orbit, which has no such line). It records how the text ended, not what it says: `Sp3File`'s equality does not
+    /// compare it, and `write_sp3` always writes the terminator.
+    bool eof_present = true;
 };
 
 /// Reads an SP3-d file already in memory (no file access here, SPEC-io-formats.md

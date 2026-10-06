@@ -22,6 +22,9 @@ Sections (each added by the step that needs it; the spec names the row that uses
                           at two geometries (LAGEOS-like and LEO-like), and the derivative of the range with respect to the target's position
                           by a 60-digit central difference of that closed form (MEAS-A-041).
 
+  position   MEAS-A-063   the first record of the vendored Horizons table (X, Y, Z printed in km) and of the real ILRS weekly SP3 (PL51, km), read as TEXT from the files and
+                          converted to metres in 60 digits (exact decimal products) with their distances from the centre.
+
 Usage:  measmod_reference.py [--check] [--header PATH]
 Exit:   0 written / matches   1 --check found a difference   2 an input file is missing
 """
@@ -38,6 +41,8 @@ ROOT = Path(__file__).resolve().parent.parent
 HEADER = ROOT / "modules/measmod/tests/measmod_reference.hpp"
 SLRF = ROOT / "data/cache/ilrs-slrf2020-20260205/SLRF2020_POS+VEL_2026.02.05.snx"
 ECC = ROOT / "data/cache/ilrs-slrecc-une-20260527/slrecc.260527.ILRS.une.snx"
+HORIZONS = ROOT / "data/vendored/horizons-acs3-vectors/acs3_horizons_20260925.txt"
+SP3 = ROOT / "data/cache/ilrs-lageos1-sp3-260103/extracted/ilrsa.orb.lageos1.260103.v80.sp3"
 
 # WGS 84 (ERFA's n = 1, the ellipsoid the registry uses): a and 1/f, exactly as defined
 WGS84_A = Decimal("6378137")
@@ -198,6 +203,26 @@ def zenith_section() -> dict[str, float]:
 
 
 
+def position_section() -> dict[str, float]:
+    """The first Horizons record (between $$SOE and the next epoch line) and the first SP3 `P` record, as the printed text, converted to metres in 60 digits."""
+    import re
+    hz = HORIZONS.read_text(encoding="utf-8")
+    soe = hz[hz.index("$$SOE"):]
+    m = re.search(r"X =\s*([-+0-9.E]+)\s+Y =\s*([-+0-9.E]+)\s+Z =\s*([-+0-9.E]+)", soe)
+    assert m, "no first Horizons record"
+    hz_km = [Decimal(m.group(i)) for i in (1, 2, 3)]
+    first_p = next(ln for ln in SP3.read_text(encoding="utf-8").splitlines() if ln.startswith("P"))
+    # SP3 P record: 'P', a three-character vehicle id, then three F14.6 fields in kilometres
+    sp3_km = [Decimal(first_p[4 + 14 * i: 18 + 14 * i]) for i in range(3)]
+    out: dict[str, float] = {}
+    for name, km in (("horizons", hz_km), ("sp3", sp3_km)):
+        for axis, v in zip("xyz", km):
+            out[f"position_{name}_{axis}_km"] = float(v)
+            out[f"position_{name}_{axis}_m"] = float(v * 1000)
+        out[f"position_{name}_norm_km"] = float((km[0] ** 2 + km[1] ** 2 + km[2] ** 2).sqrt())
+    return out
+
+
 def np_section() -> dict[str, float]:
     tof = Decimal("0.051212898595")                      # record 11 field 3 of the first normal point of lageos1_202601.np2 (a published observation)
     return {"np_first_tof_s": float(tof), "np_first_observed_range_m": float(Decimal(299792458) * tof / 2)}
@@ -299,7 +324,7 @@ def main() -> int:
     ap.add_argument("--header", type=Path, default=HEADER)
     a = ap.parse_args()
     try:
-        text = render({"registry": registry_section(), "shapiro": shapiro_section(), "vapour": vapour_section(), "zenith": zenith_section(), "np": np_section(), "lighttime": lighttime_section()})
+        text = render({"registry": registry_section(), "shapiro": shapiro_section(), "vapour": vapour_section(), "zenith": zenith_section(), "np": np_section(), "lighttime": lighttime_section(), "position": position_section()})
     except OSError as exc:
         print(f"measmod_reference.py: {exc} (run `python3 tools/fetch.py fetch`)", file=sys.stderr)
         return 2

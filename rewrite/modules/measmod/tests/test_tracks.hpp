@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace odl::measmod::testing {
 
@@ -100,6 +101,86 @@ public:
 private:
     odl::Mat3 m_;
     odl::Vec3 omega_;
+};
+
+/// A trajectory that answers with the recorded states at the recorded epochs, exactly, and refuses at any other epoch (a table is not an interpolator).
+class TableTrajectory final : public Trajectory {
+public:
+    struct Row {
+        odl::time::Epoch epoch;
+        odl::Vec3 position_km, velocity_km_s;
+    };
+    explicit TableTrajectory(std::vector<Row> rows) : rows_(std::move(rows)) {}
+    [[nodiscard]] odl::Result<odl::frames::GcrsState, MeasError> state_at(const odl::time::Epoch& when) const override {
+        for (const Row& r : rows_)
+            if (r.epoch == when) return odl::frames::GcrsState{when, r.position_km, r.velocity_km_s};
+        return odl::err("TRAJ-F-998", "the test table holds no state at this epoch");
+    }
+
+private:
+    std::vector<Row> rows_;
+};
+
+/// Two-body motion about the Earth from a state at an epoch, by the universal-variable form of Kepler's equation (closed form, no integrator, no J2): the stand-in a
+/// test uses where the specification says "a two-body propagation from the nearest record" (SPEC-measmod MEAS-A-060).
+class TwoBodyTrajectory final : public Trajectory {
+public:
+    TwoBodyTrajectory(const odl::time::Epoch& t0, odl::Vec3 r0_m, odl::Vec3 v0_m_s, double mu_m3_s2 = 3.986004415e14) : t0_(t0), r0_(r0_m), v0_(v0_m_s), mu_(mu_m3_s2) {}
+    [[nodiscard]] odl::Result<odl::frames::GcrsState, MeasError> state_at(const odl::time::Epoch& when) const override {
+        const double dt = when.difference(t0_).to_seconds();
+        const double sqmu = std::sqrt(mu_), r0n = r0_.norm(), vr0 = r0_.dot(v0_) / r0n, alpha = 2.0 / r0n - v0_.dot(v0_) / mu_;   // alpha = 1/a
+        auto stumpff = [](double z, double& c, double& s) {
+            if (std::abs(z) < 1e-6) {
+                c = 0.5 - z / 24.0 + z * z / 720.0;
+                s = 1.0 / 6.0 - z / 120.0 + z * z / 5040.0;
+            } else if (z > 0.0) {
+                const double q = std::sqrt(z);
+                c = (1.0 - std::cos(q)) / z;
+                s = (q - std::sin(q)) / (q * q * q);
+            } else {
+                const double q = std::sqrt(-z);
+                c = (std::cosh(q) - 1.0) / (-z);
+                s = (std::sinh(q) - q) / (q * q * q);
+            }
+        };
+        double chi = sqmu * std::abs(alpha) * dt, c = 0.0, s = 0.0;
+        for (int it = 0; it < 100; ++it) {
+            const double z = alpha * chi * chi;
+            stumpff(z, c, s);
+            const double f = r0n * vr0 / sqmu * chi * chi * c + (1.0 - alpha * r0n) * chi * chi * chi * s + r0n * chi - sqmu * dt;
+            const double df = r0n * vr0 / sqmu * chi * (1.0 - z * s) + (1.0 - alpha * r0n) * chi * chi * c + r0n;
+            const double step = f / df;
+            chi -= step;
+            if (std::abs(step) < 1e-10) break;
+        }
+        const double z = alpha * chi * chi;
+        stumpff(z, c, s);
+        const double fl = 1.0 - chi * chi / r0n * c, gl = dt - chi * chi * chi / sqmu * s;
+        const odl::Vec3 r = fl * r0_ + gl * v0_;
+        const double rn = r.norm();
+        const double fd = sqmu / (rn * r0n) * (z * s - 1.0) * chi, gd = 1.0 - chi * chi / rn * c;
+        const odl::Vec3 v = fd * r0_ + gd * v0_;
+        return odl::frames::GcrsState{when, odl::km_from_metres(r), odl::km_from_metres(v)};
+    }
+
+private:
+    odl::time::Epoch t0_;
+    odl::Vec3 r0_, v0_;
+    double mu_;
+};
+
+/// An Earth orientation that answers with the real chain's at an epoch `seconds` LATER than the one asked for: the rotation of a UT1 error of that size (the precession,
+/// nutation and polar motion change by under 10^-9 rad in half a second). MEAS-A-060 (iv).
+class OffsetOrientation final : public EarthOrientation {
+public:
+    OffsetOrientation(const EarthOrientation& inner, double seconds) : inner_(&inner), seconds_(seconds) {}
+    [[nodiscard]] odl::Result<EarthOrientationSample, MeasError> at(const odl::time::Epoch& when) const override {
+        return inner_->at(when.add(odl::time::Duration::from_seconds(seconds_)));
+    }
+
+private:
+    const EarthOrientation* inner_;
+    double seconds_;
 };
 
 /// The real chain's orientation at one reference epoch, carried to nearby epochs by an EXACT rigid rotation at the chain's own rate about its own axis: the matrix

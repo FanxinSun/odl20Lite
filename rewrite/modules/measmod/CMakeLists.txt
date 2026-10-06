@@ -1,7 +1,7 @@
 odl_add_module(measmod
-  SOURCES      src/registry.cpp src/troposphere.cpp src/shapiro.cpp src/tracks.cpp src/lighttime.cpp src/range.cpp
+  SOURCES      src/registry.cpp src/troposphere.cpp src/shapiro.cpp src/tracks.cpp src/lighttime.cpp src/range.cpp src/position.cpp
   DEPENDS      odl::core odl::time odl::eop odl::frames odl::ephemerides odl::io
-  TEST_SOURCES tests/registry_tests.cpp tests/troposphere_tests.cpp tests/shapiro_tests.cpp tests/lighttime_tests.cpp tests/range_tests.cpp tests/gate_tests.cpp)
+  TEST_SOURCES tests/registry_tests.cpp tests/troposphere_tests.cpp tests/shapiro_tests.cpp tests/lighttime_tests.cpp tests/range_tests.cpp tests/gate_tests.cpp tests/position_tests.cpp)
 
 # ERFA is PRIVATE: a caller of odl::measmod must not have to know it exists (the geodetic conversions are its).
 target_link_libraries(odl_measmod PRIVATE erfa)
@@ -16,6 +16,9 @@ if(BUILD_TESTING)
   odl_manifest_get(itrf2020-psd-slr _slrpsd)
   odl_manifest_get(eop-c04-20 _c04)
   odl_manifest_get(ilrs-lageos1-np-202601 _np)
+  odl_manifest_get(horizons-acs3-vectors _acs3)
+  odl_manifest_get(eop-finals2000a _finals)
+  odl_manifest_get(ilrs-lageos1-sp3-260103 _sp3)
   target_compile_definitions(odl_measmod_tests PRIVATE
     ODL_LEAP_SECOND_FILE="${_leap_CACHE_PATH}"
     ODL_SLRF2020_FILE="${_slrf_CACHE_PATH}"
@@ -26,5 +29,8 @@ if(BUILD_TESTING)
     ODL_SLR_PSD_SHA256="${_slrpsd_SHA256}"
     ODL_C04_FILE="${_c04_CACHE_PATH}"
     ODL_LAGEOS1_NP_FILE="${_np_CACHE_PATH}"
+    ODL_ACS3_HORIZONS_FILE="${_acs3_CACHE_PATH}"
+    ODL_FINALS2000A_FILE="${_finals_CACHE_PATH}"
+    ODL_ILRS_SP3_FILE="${ODL_CACHE_DIR}/ilrs-lageos1-sp3-260103/extracted/ilrsa.orb.lageos1.260103.v80.sp3"
     ODL_MEASMOD_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 endif()

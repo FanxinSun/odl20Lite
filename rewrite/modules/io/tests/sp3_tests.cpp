@@ -1,12 +1,19 @@
-// sp3_tests.cpp — SPEC-io-formats.md §8, IOFM-A-001 through IOFM-A-005, IOFM-A-013.
+// sp3_tests.cpp — SPEC-io-formats.md §8, IOFM-A-001 through IOFM-A-005, IOFM-A-013, and (v1.2) IOFM-A-042 … -044.
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <odl/io/sp3.hpp>
 
+#include <cstdio>
+#include <fstream>
+#include <sstream>
+#include <string>
+
 using namespace odl;
 using namespace odl::io;
+using Catch::Matchers::ContainsSubstring;
 using Catch::Matchers::WithinAbs;
 
 namespace {
@@ -374,4 +381,148 @@ TEST_CASE("IOFM-A-014  a hand-built, multi-epoch, multi-satellite Sp3File "
     auto back = read_sp3(*text);
     REQUIRE(back.has_value());
     CHECK(f == *back);
+}
+
+// --- IOFM-A-042, IOFM-A-043 (v1.2) -----------------------------------------------------------------------------------------------------------------------------------
+
+namespace {
+
+/// `kExample1`'s header with the epoch count of its first line replaced, followed by `held` epochs (three satellites each) 15 minutes apart, then `tail`, then EOF if asked.
+std::string eof_fixture(int declared, int held, bool with_eof, const std::string& tail = "") {
+    std::string t = kExample1;
+    const std::size_t first_epoch = t.find("*  2013  4  3  0  0  0.00000000\n");
+    REQUIRE(first_epoch != std::string::npos);
+    std::string out = t.substr(0, first_epoch);
+    char count[16];
+    std::snprintf(count, sizeof count, "%7d", declared);
+    out.replace(32, 7, count);                                   // columns 33-39 of the first line: "Number of Epochs"
+    const std::string body =
+        "PG01   5783.206741 -18133.044484 -18510.756016     12.734450\n"
+        "PG02 -22412.401440  13712.162332    528.367722    425.364822\n"
+        "PG03  10114.112309 -17446.189044  16665.051308    189.049475\n";
+    for (int i = 0; i < held; ++i) {
+        char l[64];
+        std::snprintf(l, sizeof l, "*  2013  4  3  0 %2d  0.00000000\n", 15 * i);
+        out += l;
+        out += body;
+    }
+    out += tail;
+    if (with_eof) out += "EOF\n";
+    return out;
+}
+
+std::string slurp_file(const char* path) {
+    std::ifstream in(path, std::ios::binary);
+    REQUIRE(in.good());
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+
+}  // namespace
+
+TEST_CASE("IOFM-A-042  the EOF terminator and the header's epoch count (v1.2): a text of three epochs whose first line declares three and that has no EOF reads, with eof_present "
+          "false; with the EOF line it reads with eof_present true and equals the first; declaring four and held three without EOF, or declaring three and holding four, refuses "
+          "IOFM-F-018 naming both counts; a stray line after the last epoch refuses IOFM-F-001; write_sp3 writes the terminator and the round trip equals the first",
+          "[io][sp3]") {
+    auto no_eof = read_sp3(eof_fixture(3, 3, false));
+    REQUIRE(no_eof.has_value());
+    CHECK(no_eof->epochs.size() == 3);
+    CHECK_FALSE(no_eof->eof_present);
+    CHECK(no_eof->header.num_epochs == 3);
+
+    auto with_eof = read_sp3(eof_fixture(3, 3, true));
+    REQUIRE(with_eof.has_value());
+    CHECK(with_eof->eof_present);
+    CHECK(*with_eof == *no_eof);                                  // the flag is how the text ended, not what it says
+
+    for (auto [declared, held] : {std::pair{4, 3}, std::pair{3, 4}, std::pair{0, 3}}) {
+        auto r = read_sp3(eof_fixture(declared, held, false));
+        INFO("declared " << declared << ", held " << held);
+        REQUIRE_FALSE(r.has_value());
+        CHECK(r.error().id == "IOFM-F-018");
+        CHECK_THAT(r.error().message, ContainsSubstring("holds " + std::to_string(held) + " epochs"));
+        CHECK_THAT(r.error().message, ContainsSubstring("declares " + std::to_string(declared)));
+    }
+
+    auto stray = read_sp3(eof_fixture(3, 3, false, "XYZ stray line\n"));
+    REQUIRE_FALSE(stray.has_value());
+    CHECK(stray.error().id == "IOFM-F-001");
+
+    // the terminator present with a count that does not match: read as before (the count has never been enforced on such a file)
+    auto mismatched = read_sp3(eof_fixture(96, 3, true));
+    REQUIRE(mismatched.has_value());
+    CHECK(mismatched->eof_present);
+
+    // write_sp3 always writes the terminator, and the round trip is the first file
+    auto text = write_sp3(*no_eof);
+    REQUIRE(text.has_value());
+    CHECK(text->size() >= 4);
+    CHECK(text->substr(text->size() - 4) == "EOF\n");
+    auto back = read_sp3(*text);
+    REQUIRE(back.has_value());
+    CHECK(*back == *no_eof);
+    CHECK(back->eof_present);
+}
+
+TEST_CASE("IOFM-A-043  real data (v1.2): the pinned ILRS weekly orbit of LAGEOS-1 (SP3-c) reads whole — 5040 epochs of 120 s, the one satellite L51, the coordinate system SLR20, the "
+          "time system UTC, eof_present false, the first epoch 2025-12-28 00:00:00 and the last 2026-01-03 23:58:00",
+          "[io][sp3]") {
+    auto f = read_sp3(slurp_file(ODL_ILRS_SP3_FILE));
+    if (!f) FAIL("the real ILRS SP3 did not read: " << f.error().id << " " << f.error().message);
+    CHECK_FALSE(f->eof_present);
+    CHECK(f->header.num_epochs == 5040);
+    CHECK(f->epochs.size() == 5040);
+    CHECK_THAT(f->header.epoch_interval_s, WithinAbs(120.0, 1e-9));
+    CHECK(f->header.time_system == Sp3TimeSystem::UTC);
+    CHECK(f->header.coordinate_sys == "SLR20");
+    REQUIRE(f->header.satellite_ids.size() == 1);
+    CHECK(f->header.satellite_ids.front() == "L51");
+    const auto& first = f->epochs.front().epoch;
+    CHECK(first.year == 2025);
+    CHECK(first.month == 12);
+    CHECK(first.day == 28);
+    CHECK(first.hour == 0);
+    CHECK(first.minute == 0);
+    CHECK(first.second == 0.0);
+    const auto& last = f->epochs.back().epoch;
+    CHECK(last.year == 2026);
+    CHECK(last.month == 1);
+    CHECK(last.day == 3);
+    CHECK(last.hour == 23);
+    CHECK(last.minute == 58);
+    CHECK(last.second == 0.0);
+    for (const auto& e : f->epochs) CHECK(e.satellites.size() == 1);
+    // the comment line that names the product's reference frame (MEAS-R-041: SLR20 is the ITRS as realised by SLRF2020, from the product's own description)
+    bool named = false;
+    for (const auto& c : f->header.comments)
+        if (c.find("Reference TRF: SLRF2020") != std::string::npos) named = true;
+    CHECK(named);
+}
+
+TEST_CASE("IOFM-A-044  a comment line '%/* text' reads as the comment 'text', as '/* text' does (v1.2): a text whose comment lines are written in the SP3D form and the same text "
+          "written in the ILRS form give the same comments; a bare '%/*' and a bare '/*' give an empty comment; the ILRS form is accepted among the lines of the other",
+          "[io][sp3]") {
+    const std::string slash = kExample1;
+    std::string percent = slash;
+    for (std::size_t pos = percent.find("\n/* "); pos != std::string::npos; pos = percent.find("\n/* ", pos + 5)) percent.insert(pos + 1, "%");
+    REQUIRE(percent != slash);
+    auto a = read_sp3(slash);
+    auto b = read_sp3(percent);
+    REQUIRE(a.has_value());
+    REQUIRE(b.has_value());
+    REQUIRE(a->header.comments.size() == 4);
+    CHECK(a->header.comments == b->header.comments);
+    CHECK(a->header.comments.front() == "Note: This is a simulated file, meant to illustrate what an SP3-d header");
+    CHECK(*a == *b);
+
+    // a mixture, and bare markers
+    const std::size_t c0 = slash.find("/* Note"), e0 = slash.find("*  2013  4  3  0  0  0.00000000\n");
+    REQUIRE(c0 != std::string::npos);
+    REQUIRE(e0 != std::string::npos);
+    const std::string bare = slash.substr(0, c0) + "%/*\n/*\n%/* x\n/* y\n" + slash.substr(e0);
+    auto c = read_sp3(bare);
+    REQUIRE(c.has_value());
+    const std::vector<std::string> expected = {"", "", "x", "y"};
+    CHECK(c->header.comments == expected);
 }

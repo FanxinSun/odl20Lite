@@ -56,6 +56,7 @@ SUMMARY
   tn36-chapter9      2010, updated text of 10 June 2013 IERS-public      data
   tn36-chapter11     2010         IERS-public      data
   ilrs-lageos1-np-202601 lageos1_202601.np2, EDC npt_crd_v2/lageos1/2026/, 1 474 762 bytes (the January file, complete since 2026-02) ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103 ilrsa.orb.lageos1.260103.v80.sp3.gz, EDC products/orbits/lageos1/260103/, 244 115 bytes gzipped, 777 478 decompressed (inputs ASI, BKG, CNES, DGFI, ESA, GFZ, JCET, NSGF, v80) ILRS-PUBLIC      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -692,6 +693,34 @@ DATA INPUTS
               (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the data are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103  ilrsa.orb.lageos1.260103.v80.sp3.gz, EDC products/orbits/lageos1/260103/, 244 115 bytes gzipped, 777 478 decompressed (inputs ASI, BKG, CNES, DGFI, ESA, GFZ, JCET, NSGF, v80)
+    role      The ILRS Analysis Centres' combined weekly orbit of LAGEOS-1 (SP3-c, ECEF, reference frame SLRF2020 written 'SLR20', UTC, 5040 epochs at 120 s from 2025-12-28 00:00:00 to 2026-01-03 23:58:00), from the EUROLAS Data Center's mirror of the ILRS products, the week of the January-2026 normal-point file. L6 step 4: item 5 reads its header and its first record only (SPEC-measmod MEAS-A-013, -061, -063: the frame code, the time system, the kilometre units); the G5 comparison (MEAS-A-100, -101) is made against it. THE MODEL'S RESIDUALS AGAINST IT ARE NOT COMPUTED IN ANY TEST BEFORE THE ENVELOPE OF MEAS-A-101 IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/ilrsa.orb.lageos1.260103.v80.sp3.gz
+    sha256    9326cd4becc844992b8f8b1dde723bcc380dd659bbddc289bfee3ad56b830463
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
               nor a restriction. This tree does not redistribute the file; the
               pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES

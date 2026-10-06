@@ -314,9 +314,11 @@ odl::Result<Sp3File, Sp3Error> read_sp3(std::string_view text) {
     h.i2_line = lines[idx + 1].size() > 2 ? std::string(lines[idx + 1].substr(2)) : std::string{};
     idx += 2;
 
-    // Comment lines, until the first epoch header ("* ").
-    while (idx < lines.size() && starts_with(lines[idx], "/*")) {
-        h.comments.push_back(lines[idx].size() > 3 ? std::string(lines[idx].substr(3)) : std::string{});
+    // Comment lines, until the first epoch header ("* "). `SP3D` writes them "/* text"; the ILRS combined orbits write "%/* text" (IOFM-R-014): the text is what follows the
+    // marker and the one blank after it.
+    while (idx < lines.size() && (starts_with(lines[idx], "/*") || starts_with(lines[idx], "%/*"))) {
+        const std::size_t marker = starts_with(lines[idx], "%/*") ? 3 : 2;
+        h.comments.push_back(lines[idx].size() > marker + 1 ? std::string(lines[idx].substr(marker + 1)) : std::string{});
         ++idx;
     }
 
@@ -456,11 +458,20 @@ odl::Result<Sp3File, Sp3Error> read_sp3(std::string_view text) {
         file.epochs.push_back(std::move(epoch));
     }
 
-    if (idx >= lines.size() || !starts_with(lines[idx], "EOF")) {
-        return odl::err(Sp3Error{"IOFM-F-001", "SP3 file does not end with 'EOF'"});
-    }
+    if (idx < lines.size() && starts_with(lines[idx], "EOF")) return file;
 
-    return file;
+    // IOFM-R-013: no EOF terminator. A line that is neither an epoch header nor EOF is a malformed record, as ever.
+    if (idx < lines.size()) {
+        return odl::err(Sp3Error{"IOFM-F-001", "SP3 file: line " + std::to_string(idx + 1) + " after the last epoch is neither an epoch header ('*') nor 'EOF'"});
+    }
+    // The text simply stops. It is complete only if it holds exactly the number of epochs its first line declares: the header's own count is a stronger check
+    // of completeness than a terminator, and a real product (the ILRS weekly orbit, SP3-c) omits the terminator while meeting the count.
+    if (file.header.num_epochs > 0 && file.epochs.size() == static_cast<std::size_t>(file.header.num_epochs)) {
+        file.eof_present = false;
+        return file;
+    }
+    return odl::err(Sp3Error{"IOFM-F-018", "SP3 file does not end with 'EOF' and holds " + std::to_string(file.epochs.size()) + " epochs where its first line declares " +
+                                               std::to_string(file.header.num_epochs) + ": truncated"});
 }
 
 namespace {

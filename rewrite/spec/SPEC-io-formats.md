@@ -4,8 +4,8 @@
 |---|---|
 | **Spec ID** | `IOFM` |
 | **Status** | **draft** 2026-09-25, for review |
-| **Version** | 1.1 |
-| **Date** | 2026-10-06 (v1.1; v1.0 2026-09-25) |
+| **Version** | 1.2 |
+| **Date** | 2026-10-06 (v1.2, v1.1; v1.0 2026-09-25) |
 | **Layer** | L6 `io-measurements` (`../plan/PLAN.md` §3.7), step 1 (Formats) |
 | **Depends on** | `core` (`odl::Result`), `time` (`Epoch`, `TimeScale`) |
 | **Depended on by** | L6 step 2 (Horizons client, its own table format), L6 step 3 (`sgp4`, the TLE reader's own output), L6 step 4 (`measmod`, the CRD/CPF readers' own output); `tools/` — the SP3 reader here becomes the tree's one SP3 reader, re-pointing every tool that currently parses SP3 ad hoc |
@@ -147,6 +147,13 @@ velocity (later epochs may still carry `V`/`EV` records even when the file is de
 `SP3D` states exactly (fixed-column format, not whitespace-delimited — unlike every ILRS
 format below); a line shorter than a field's own column range, or a non-numeric value in
 a numeric field's own column range, is `IOFM-F-001`.
+
+**Two departures of the real ILRS orbit from `SP3D`, both accepted by rule (v1.2).** The ILRS weekly orbit `ilrsa.orb.lageos1.260103.v80.sp3` (SP3-c, 5040 epochs) was refused by the reader on the day it was first read (2026-10-06), because it departs from `SP3D` in two ways, and the one
+the refusal named, "does not end with 'EOF'", was the later of them:
+- **Its comment lines begin `%/*`, not `/*`** (`IOFM-R-014`): a comment line is a line that begins `/*` or `%/*`, and its text is what follows the marker and one blank. These lines carry the product's own statement of its reference frame (`Reference TRF: SLRF2020`, `MEAS-R-041`), so they are read, not skipped.
+- **It has no `EOF` line** (`IOFM-R-013`). `SP3D` ends a file with `EOF`, and a file that stops without one may have been cut short; such a file is complete **only if it holds exactly the number of epoch records its first line declares** (columns 33–39, "Number of Epochs") — the header's own count is a stronger check of
+  completeness than a terminator. It is then read, and `Sp3File::eof_present` is false so that a caller can see the terminator was missing; a file without the terminator and with another count is refused as truncated (`IOFM-F-018`). A file that has the terminator is read as before (the declared count has never been enforced on it, and is not now).
+Both rules were added to the one SP3 reader and not worked around in a test, because the reader that refuses the one product L6's last gate compares against is the defect.
 
 ### 3.3 CRD
 
@@ -365,6 +372,8 @@ seven and stated once here rather than seven times:
 - **IOFM-R-010.** (v1.1) The `H2` epoch-time-scale code is resolved when the pass is built: 3, 4 and 7 to `TimeScale::UTC`, every other code refused (`IOFM-F-015`).
 - **IOFM-R-011.** (v1.1) `decode_iod_angles` converts the 14 angle columns by the format of §3.5.1, blanks as zeros, to radians, within the ranges stated there, refusing what is outside them (`IOFM-F-016`).
 - **IOFM-R-012.** (v1.1) `decode_iod_time_uncertainty` and `decode_iod_position_uncertainty` evaluate `M × 10^(X−8)` in seconds, and in radians by the format's unit (seconds, arcminutes or degrees of arc); two blanks give no value (`IOFM-F-017` for anything else that is not two digits).
+- **IOFM-R-013.** (v1.2) An SP3 file that ends without its `EOF` line is read **only if it holds exactly the number of epochs its first line declares**, and then `Sp3File::eof_present` is false; with any other number of epochs it refuses as truncated (`IOFM-F-018`). A file that has the `EOF` line is read as before. `write_sp3` always writes the terminator, and `Sp3File`'s equality does not compare the flag (it records how the text ended, not what it says).
+- **IOFM-R-014.** (v1.2) An SP3 comment line is a line that begins `/*` (`SP3D`) or `%/*` (the ILRS combined orbits); its text is what follows the marker and the one blank after it, and `Sp3Header::comments` holds the text of both kinds alike (`write_sp3` writes the `/*` form).
 
 ---
 
@@ -457,6 +466,7 @@ state a caller could observe mid-parse.
 | `IOFM-F-015` | (v1.1) a pass's `H2` epoch-time-scale code is not 3, 4 or 7 | the code and the three accepted |
 | `IOFM-F-016` | (v1.1) `decode_iod_angles` finds a non-digit that is not a blank, a sign that is not `+` or `-`, a minutes or seconds field of 60 or more, an hours field of 24 or more, a degrees field above 360 (azimuth) or 90 (declination, elevation), or no position reported (column 45 blank) | the field, the text found and the limit |
 | `IOFM-F-017` | (v1.1) an uncertainty field is not two digits and not two blanks | the columns and the text found |
+| `IOFM-F-018` | (v1.2) an SP3 file ends without its `EOF` line and holds a different number of epochs from the one its first line declares (refused as `IOFM-F-001` before v1.2); a line after the last epoch that is neither an epoch header nor `EOF` is still `IOFM-F-001` | the number of epochs held and the number declared | accepting a truncated file, or refusing a complete one |
 | (inherited) `R-ERR-1`/`R-ERR-2`/`R-ERR-3` | `SPEC-template.md` §5's own standing rules | unchanged; no persistent error state, no silently-dropped dependency warning, at most one named override anywhere in this module (none is needed by any reader here — every refusal above is a genuine format violation, not a legitimate operational case needing a documented escape hatch) |
 
 ---
@@ -535,6 +545,9 @@ in `speccheck.py` itself (`tools/speccheck.py`, the row-finding regex), not work
 | `IOFM-A-039` | (v1.1) the IOD angle decoder against **the document's own four examples** (formats 1, 2, 3 and 7: `1122334+112233` is 11 h 22 m 33.4 s, +11° 22′ 33″; `1122   +1122  ` is 11 h 22.000 m, +11° 22.00′ with the blanks zero; `11223  +112   ` is 11 h 22.300 m, +11.2000°; `1122334+112222` is 11 h 22 m 33.4 s, +11.2222°) and hand-built lines for formats 4, 5, 6 to the printed layout (weaker: the document prints no azimuth/elevation example); the sign, the wrap of azimuth into [0, 2π) | the decoded radians | `IODFMT`'s examples | 1 × 10⁻¹⁵ rad | R-011 |
 | `IOFM-A-040` | (v1.1) the decoder's refusals: minutes 60, hours 24, azimuth 361°, declination 91°, a letter in a digit position, a blank sign, a blank format code each refuse `IOFM-F-016`; the adjacent in-range values pass (minutes 59, hours 23, azimuth 360°, declination 90°) | the refusals | `IODFMT` | exact | R-011, F-016 |
 | `IOFM-A-041` | (v1.1) the uncertainties: the document's own `MX` examples — 15 is 0.001, 56 is 0.05, 17 is 0.1, 97 is 0.9, 18 is 1, 28 is 2, 58 is 5, 19 is 10, 99 is 90 — in the time unit, and in each format's angle unit (seconds, arcminutes, degrees) converted to radians; two blanks give no value; `1 ` and `ab` refuse `IOFM-F-017` | the values | `IODFMT`'s examples | 1 × 10⁻¹⁵ relative | R-012, F-017 |
+| `IOFM-A-042` | (v1.2) the terminator and the count: a hand-built SP3 text of three epochs whose first line declares three and that has no `EOF` reads, with `eof_present` false and the three epochs; the same text with the `EOF` line reads with `eof_present` true; the same text declaring four epochs and without `EOF` refuses `IOFM-F-018` naming 3 and 4; a text with a stray line after the last epoch refuses `IOFM-F-001`; `write_sp3` of the first writes the `EOF` line, and the round trip equals it | the values | `SP3D`; the real ILRS file's shape | exact | R-013, F-018, F-001 |
+| `IOFM-A-043` | (v1.2) **real data:** the pinned ILRS weekly orbit of LAGEOS-1 (`ilrs-lageos1-sp3-260103`, SP3-c) reads whole: 5040 epochs of 120 s, the one satellite `L51`, the coordinate system `SLR20`, the time system `UTC`, `eof_present` false, the first epoch 2025-12-28 00:00:00 and the last 2026-01-03 23:58:00, and its `%/*` comment lines read, one of them `Reference TRF: SLRF2020` | the values | the file; `MEAS-A-063` | exact | R-013 |
+| `IOFM-A-044` | (v1.2) a comment line `%/* text` reads as the comment `text`, as `/* text` does: a hand-built SP3 text whose comment lines are written in the two forms gives the same `comments` as the same text written all in the `/*` form; a bare `%/*` and a bare `/*` give an empty comment | the values | `SP3D`; the real ILRS file | exact | R-014 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row; none require excusing.
 
@@ -579,3 +592,4 @@ in `speccheck.py` itself (`tools/speccheck.py`, the row-finding regex), not work
 |---|---|---|
 | 1.0 | 2026-09-25 | first draft: the eight readers, the SP3 interpolation of §3.8 |
 | 1.1 | 2026-10-06 | L6 step 4's needs (`SPEC-measmod.md` §9.2): the CRD pass view, the `C0` wavelength accessor, the `H2` time-scale resolution (`IOFM-R-008`…`R-010`, `F-013`…`F-015`); the IOD angle and uncertainty decoders (`IOFM-R-011`, `R-012`, `F-016`, `F-017`); acceptance rows `IOFM-A-033`…`A-041`; §3.3's statement that no configuration field is needed superseded and kept visible; `IOFM-Q-001` annotated |
+| 1.2 | 2026-10-06 | L6 step 4 item 5, found by the real ILRS weekly orbit, which departs from `SP3D` in two ways: its comment lines begin `%/*` (`IOFM-R-014`) and it has no `EOF` line; a file without the terminator is read if it holds the number of epochs its header declares, otherwise refused as truncated, as before but under a new id (`IOFM-R-013`, `IOFM-F-018`; `Sp3File::eof_present`); `IOFM-A-042` … `-044` |

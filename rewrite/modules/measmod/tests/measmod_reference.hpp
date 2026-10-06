@@ -123,4 +123,20 @@ inline constexpr double lt_leo_e1_d_range_dx = 0.7273929674543915;
 inline constexpr double lt_leo_e1_d_range_dy = 0.5819143739647877;
 inline constexpr double lt_leo_e1_d_range_dz = 0.36369648372680824;
 
+// section: position
+inline constexpr double position_horizons_x_km = 7049.479204680989;
+inline constexpr double position_horizons_x_m = 7049479.204680989;
+inline constexpr double position_horizons_y_km = -1823.447981968663;
+inline constexpr double position_horizons_y_m = -1823447.981968663;
+inline constexpr double position_horizons_z_km = 760.5020081570782;
+inline constexpr double position_horizons_z_m = 760502.0081570782;
+inline constexpr double position_horizons_norm_km = 7321.098476634927;
+inline constexpr double position_sp3_x_km = -11319.687869;
+inline constexpr double position_sp3_x_m = -11319687.869;
+inline constexpr double position_sp3_y_km = -4845.099064;
+inline constexpr double position_sp3_y_m = -4845099.064;
+inline constexpr double position_sp3_z_km = -497.695158;
+inline constexpr double position_sp3_z_m = -497695.158;
+inline constexpr double position_sp3_norm_km = 12323.06856516899;
+
 }  // namespace odl::measmod::ref

@@ -32,6 +32,10 @@ if(BUILD_TESTING)
   target_compile_definitions(odl_io_tests PRIVATE
     ODL_HORIZONS_ACS3_TXT="${_horizons_acs3_CACHE_PATH}")
 
+  # IOFM-A-043 (v1.2) reads the manifest's own pinned real ILRS weekly orbit (SP3-c, no EOF line).
+  target_compile_definitions(odl_io_tests PRIVATE
+    ODL_ILRS_SP3_FILE="${ODL_CACHE_DIR}/ilrs-lageos1-sp3-260103/extracted/ilrsa.orb.lageos1.260103.v80.sp3")
+
   # L6 step 3's own gate: the published SGP4 verification vectors
   # (SGP4-VER.TLE plus 32 .e files), extracted members of
   # vallado-sgp4-verification-vectors -- the same manifest-supplied-path

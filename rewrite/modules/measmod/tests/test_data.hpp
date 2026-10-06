@@ -5,7 +5,9 @@
 
 #include <odl/eop/series.hpp>
 #include <odl/io/crd.hpp>
+#include <odl/io/horizons.hpp>
 #include <odl/io/sinex.hpp>
+#include <odl/io/sp3.hpp>
 #include <odl/measmod/range.hpp>
 #include <odl/measmod/registry.hpp>
 #include <odl/time/epoch.hpp>
@@ -48,6 +50,42 @@ inline const odl::eop::EopSeries& c04() {
         return *r;
     }();
     return s;
+}
+
+/// finals2000A.all as pinned (observed to 2026-09-17, predicted beyond): the Earth orientation of the 2026-09 epochs of the vendored Horizons table, with the predictions allowed.
+inline const odl::eop::EopSeries& finals() {
+    static const odl::eop::EopSeries s = [] {
+        auto r = odl::eop::EopSeries::load_finals2000a(slurp(ODL_FINALS2000A_FILE), odl::eop::EopProvenance{"eop-finals2000a", "", "", ""}, leaps());
+        if (!r) FAIL("finals2000A: " << r.error().message);
+        return *r;
+    }();
+    return s;
+}
+inline odl::eop::EopPolicy predictions_allowed() {
+    odl::eop::EopPolicy policy;
+    policy.max_quality = odl::eop::Quality::Predicted;
+    return policy;
+}
+
+/// The vendored Horizons vector table of ACS3 (5 real records at 30-minute steps; ICRF, geocentre, TDB, geometric).
+inline const odl::io::HorizonsEphemeris& acs3_table() {
+    static const odl::io::HorizonsEphemeris t = [] {
+        auto r = odl::io::read_horizons(slurp(ODL_ACS3_HORIZONS_FILE));
+        if (!r) FAIL("the vendored Horizons table did not read: " << r.error().id << " " << r.error().message);
+        return *r;
+    }();
+    return t;
+}
+
+/// The real ILRS weekly SP3 of LAGEOS-1 (the week ending 2026-01-03; SP3-c, UTC, SLR20, 5040 epochs). Its header and first record are read by the position tests;
+/// NO residual against it is computed anywhere before the envelope of MEAS-A-101 is committed.
+inline const odl::io::Sp3File& real_sp3() {
+    static const odl::io::Sp3File f = [] {
+        auto r = odl::io::read_sp3(slurp(ODL_ILRS_SP3_FILE));
+        if (!r) FAIL("the real ILRS SP3 did not read: " << r.error().id << " " << r.error().message);
+        return *r;
+    }();
+    return f;
 }
 
 inline const SlrRegistry& real_registry() {
