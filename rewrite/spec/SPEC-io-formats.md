@@ -4,8 +4,8 @@
 |---|---|
 | **Spec ID** | `IOFM` |
 | **Status** | **draft** 2026-09-25, for review |
-| **Version** | 1.0 |
-| **Date** | 2026-09-25 |
+| **Version** | 1.1 |
+| **Date** | 2026-10-06 (v1.1; v1.0 2026-09-25) |
 | **Layer** | L6 `io-measurements` (`../plan/PLAN.md` §3.7), step 1 (Formats) |
 | **Depends on** | `core` (`odl::Result`), `time` (`Epoch`, `TimeScale`) |
 | **Depended on by** | L6 step 2 (Horizons client, its own table format), L6 step 3 (`sgp4`, the TLE reader's own output), L6 step 4 (`measmod`, the CRD/CPF readers' own output); `tools/` — the SP3 reader here becomes the tree's one SP3 reader, re-pointing every tool that currently parses SP3 ad hoc |
@@ -169,6 +169,18 @@ record whose own TYPE TAG is not one of the twenty-eight `CRD2` names at all is 
 refused (`IOFM-F-004`), only its own field-level content is passed through opaque for
 the kinds named above.
 
+#### 3.3.1 Pass grouping, the `C0` wavelength and the `H2` time scale (v1.1, 2026-10-06; L6 step 4's needs)
+
+> **[Superseded 2026-10-06 (v1.1), kept visible: the paragraph above says `SPEC-measmod.md` "does not need laser-configuration or calibration-statistic detail to compute a range residual".]**
+> It needs **one** configuration field: the transmit wavelength, field 3 of `C0`, which the troposphere's dispersion depends on (`MEAS-R-036`) — found when the model was specified, against a real file. The rest of the paragraph stands: the other configuration, calibration, statistics and user-defined records stay opaque.
+
+`CRD2` §4 permits a common `H1`/`H2`/`H3` set followed by several `H4`…`H8` blocks, and a file of several complete `H1`…`H8` sets (§4.4); the real monthly LAGEOS-1 file read for this step has 807 of the latter, each with one `H2`, `H3`, `H4`, `C0` and `H8`, and one `H9` at its end. The flat `CrdFile` of §5 loses which normal points belong to which pass, so a **view by pass** is added, over the same text:
+
+- `CrdPass` — one `H4`…`H8` block (a session or pass segment, `CRD2` §1.4) together with the `H2`, `H3` and `C0`–`C7` records **in force when it opens**: `station` (`H2`), `target` (`H3`), `session` (`H4`), `time_scale` (resolved, below), `configs` (each `C0` typed: `config_id` field 4, `wavelength_nm` field 3, the remaining tokens verbatim), the full-rate and normal-point records (`10`, `11`) in file order as `CrdRangeRecord`, the meteorology (`20`) typed as `CrdMeteorology { seconds_of_day, pressure_mbar, temperature_k, relative_humidity_percent, origin }`, and every other record of the block, opaque, in file order.
+- `CrdPass::wavelength_nm(config_id)` returns field 3 of the `C0` whose field 4 is `config_id` (nanometres); an id with no `C0` in force refuses (`IOFM-F-014`).
+- **The `H2` epoch-time-scale code** (field 6, "Station Epoch Time Scale") is resolved **at parse time** (ruling R8 of L6 step 4): **3 = UTC(USNO), 4 = UTC(GPS), 7 = UTC(BIPM)** resolve to `TimeScale::UTC` (the differences among the three realisations, ≤ 100 ns by estimate, are not modelled); **every other code is refused** (`IOFM-F-015`) — 1–2, 5–6 and 8–9 are "reserved for … obsolete time scales" and 10 and above are "UTC (Station Time Scales) USE ONLY WITH ANALYSIS STANDING COMMITTEE APPROVAL". The flat `read_crd` stays lenient (it reads the code as an integer, as v1.0 does); only the pass view resolves it.
+- **Structure refusals** (`IOFM-F-013`): a data record (`10`, `11`, `12`, `20`, `21`, `30`, `40`–`42`, `50`) outside an `H4`…`H8` block; an `H4` with no `H2` or no `H3` in force; an `H4` opened before the previous block's `H8`; a block with no `H8` before the end of the text; two `C0` records of one id in one pass. Record tags are case-insensitive, as in the real file (`h8` and `H8` both occur).
+
 ### 3.4 CPF
 
 `CpfDirectionFlag { Common, Transmit, Receive }` — `CPF2`'s own three-way flag on every
@@ -186,6 +198,24 @@ reader returns that number; resolving it to a real station location is the stati
 registry's own job (L6 step 4, out of this spec's own scope, §1). Uncertainty fields use
 `IODFMT`'s own mantissa-exponent encoding, `value = M × 10^(X−8)`, read directly, not
 approximated.
+
+#### 3.5.1 Decoding the angle field and the uncertainties (v1.1, 2026-10-06; L6 step 4's needs)
+
+`IodObservation::angle_raw` (columns 48–61) is decoded by the format code of column 45 into two angles. Columns 48–54 hold the first coordinate (right ascension or azimuth), column 55 the sign of the second (declination or elevation), columns 56–61 the second.
+**Blanks in the digit positions are zeros** (`IODFMT`: "NON-SIGNIFICANT DIGITS MAY BE ZERO (0), NON-ZERO (1-9) or BLANK"). The sign column must be `+` or `-`.
+
+| format | first coordinate (cols 48–54) | second coordinate (cols 56–61) | uncertainty `MX` is in |
+|---|---|---|---|
+| 1 | RA `HH MM SS s`: hours, minutes, seconds, tenths of a second | `DD MM SS`: degrees, arcminutes, arcseconds | seconds of arc |
+| 2 | RA `HH MM mmm`: hours, minutes, thousandths of a minute | `DD MM mm`: degrees, arcminutes, hundredths of an arcminute | minutes of arc |
+| 3 | RA `HH MM mmm` | `DD dddd`: degrees, ten-thousandths of a degree | degrees of arc |
+| 4 | AZ `DDD MM SS` | `DD MM SS` (elevation) | seconds of arc |
+| 5 | AZ `DDD MM mm`: degrees, arcminutes, hundredths of an arcminute | `DD MM mm` (elevation) | minutes of arc |
+| 6 | AZ `DDD dddd`: degrees, ten-thousandths | `DD dddd` (elevation) | degrees of arc |
+| 7 | RA `HH MM SS s` | `DD dddd` | degrees of arc |
+
+Right ascension is converted from hours (× 15°) and returned in [0, 2π); azimuth in [0, 2π); declination and elevation within [−π/2, π/2]. A minutes or seconds field of 60 or more, an hours field of 24 or more, a degrees field above 360 (azimuth) or above 90 (declination, elevation), or a non-digit that is not a blank refuses (`IOFM-F-016`).
+**The uncertainties** (`IODFMT`): the time uncertainty (columns 42–43) and the positional uncertainty (columns 63–64) are `MX` with `M` the mantissa and `X` the exponent digit, valued `M × 10^(X−8)` — seconds for the time, and seconds, arcminutes or degrees of arc by the format for the position, "assumed to apply equally to both components". Two blanks mean "not reported" (no value); a digit and a blank, or a non-digit, refuses (`IOFM-F-017`). The epoch code (column 46) is read as it is (0 or blank, 1…6, blank for azimuth/elevation); **what to do with each code is a policy of the consumer**, not of this reader.
 
 ### 3.6 SINEX
 
@@ -330,6 +360,12 @@ seven and stated once here rather than seven times:
   whenever either position probe it needs does — never a wider, less accurate
   difference between two real, possibly far-apart samples.
 
+- **IOFM-R-008.** (v1.1) The CRD pass view groups a file's records into `CrdPass` blocks as §3.3.1 states, in file order, and the flattened content of the passes agrees with the flat `read_crd` of the same text (the same normal-point records, the same sessions) — the view is an indexing of the file, not a second reading of it.
+- **IOFM-R-009.** (v1.1) `CrdPass::wavelength_nm(config_id)` returns the nanometre value of field 3 of the `C0` record whose field 4 is `config_id`, to the printed digits; an id with no `C0` in force refuses (`IOFM-F-014`).
+- **IOFM-R-010.** (v1.1) The `H2` epoch-time-scale code is resolved when the pass is built: 3, 4 and 7 to `TimeScale::UTC`, every other code refused (`IOFM-F-015`).
+- **IOFM-R-011.** (v1.1) `decode_iod_angles` converts the 14 angle columns by the format of §3.5.1, blanks as zeros, to radians, within the ranges stated there, refusing what is outside them (`IOFM-F-016`).
+- **IOFM-R-012.** (v1.1) `decode_iod_time_uncertainty` and `decode_iod_position_uncertainty` evaluate `M × 10^(X−8)` in seconds, and in radians by the format's unit (seconds, arcminutes or degrees of arc); two blanks give no value (`IOFM-F-017` for anything else that is not two digits).
+
 ---
 
 ## 5. Interfaces, stated language-free
@@ -349,6 +385,8 @@ seven and stated once here rather than seven times:
   show a mismatched checksum refused without constructing a whole `Tle`.
 - `read_crd(text: string) -> Result<CrdFile, CrdError>` / `write_crd(CrdFile) ->
   Result<string, CrdError>`.
+- `read_crd_passes(text: string) -> Result<vector<CrdPass>, CrdError>` (v1.1, §3.3.1) with `CrdPass::wavelength_nm(config_id: string) -> Result<double, CrdError>`; the `time_scale` of a pass is an `odl::time::TimeScale`, already resolved.
+- `decode_iod_angles(IodObservation) -> Result<IodAngles { kind: RaDec | AzEl, first_rad, second_rad }, IodError>`; `decode_iod_time_uncertainty(IodObservation) -> Result<optional<double>, IodError>` (seconds); `decode_iod_position_uncertainty(IodObservation) -> Result<optional<double>, IodError>` (radians) (v1.1, §3.5.1).
 - `read_cpf(text: string) -> Result<CpfFile, CpfError>` / `write_cpf(CpfFile) ->
   Result<string, CpfError>`.
 - `read_iod(line: string) -> Result<IodObservation, IodError>` / `write_iod
@@ -414,6 +452,11 @@ state a caller could observe mid-parse.
 | `IOFM-F-010` | The interpolation window a query would use spans a gap more than 1.5× the file's stated epoch interval | the query time, the gap's own size, the file's own stated interval, and the two bracketing sample times |
 | `IOFM-F-011` | The interpolation window a query would use includes a sample flagged `M` (Maneuver Flag) | the query time and the flagged sample's own time |
 | `IOFM-F-012` | `Sp3Ephemeris::build` is called with a `satellite_id` that has fewer than 2 samples in the file | the satellite id and how many samples were found |
+| `IOFM-F-013` | (v1.1) `read_crd_passes` finds a data record outside an `H4`…`H8` block, an `H4` with no `H2` or no `H3` in force, an `H4` before the previous block's `H8`, a block with no `H8` before the end of the text, or two `C0` records of one id in one pass | the line number, the record tag and which rule |
+| `IOFM-F-014` | (v1.1) `CrdPass::wavelength_nm` is asked for a configuration id with no `C0` in force | the id, and the ids the pass does hold |
+| `IOFM-F-015` | (v1.1) a pass's `H2` epoch-time-scale code is not 3, 4 or 7 | the code and the three accepted |
+| `IOFM-F-016` | (v1.1) `decode_iod_angles` finds a non-digit that is not a blank, a sign that is not `+` or `-`, a minutes or seconds field of 60 or more, an hours field of 24 or more, a degrees field above 360 (azimuth) or 90 (declination, elevation), or no position reported (column 45 blank) | the field, the text found and the limit |
+| `IOFM-F-017` | (v1.1) an uncertainty field is not two digits and not two blanks | the columns and the text found |
 | (inherited) `R-ERR-1`/`R-ERR-2`/`R-ERR-3` | `SPEC-template.md` §5's own standing rules | unchanged; no persistent error state, no silently-dropped dependency warning, at most one named override anywhere in this module (none is needed by any reader here — every refusal above is a genuine format violation, not a legitimate operational case needing a documented escape hatch) |
 
 ---
@@ -483,6 +526,15 @@ in `speccheck.py` itself (`tools/speccheck.py`, the row-finding regex), not work
 | `IOFM-A-032` | `central_difference_velocity_km_s` matches a synthetic fixture's own KNOWN analytic derivative at an interior, non-node query time; a query within `h_s` of the sampled span's own edge refuses, propagating `position_km_at`'s own `IOFM-F-009` | the analytic derivative; the refusal | self-consistency (the fixture's own closed-form derivative, a property of the polynomial, not assumed) | 1e-6 km/s | R-007, F-009 |
 | `IOFM-A-030` | **Real-data accuracy.** An 11-point Lagrange fit against 13 real, individually held-out GPS G01 samples (IGS rapid combined solution, 900 s interval, `igs.bkg.bund.de`, no login) stays under 1 cm — measured 1.07 mm RMS, 1.47 mm max | error < 1 cm | a real IGS rapid-product SP3 file (`PROVENANCE.md`, this round's own entry); the 1 cm bound from Schenewerk (2003) / Horemuž & Andersson (2006), §3.8 | < 1 cm | R-003 |
 | `IOFM-A-031` | **Real-data accuracy.** The same methodology against 13 real, individually held-out Jason-3 L39 samples (GSFC SLR+DORIS dynamic orbit, 60 s interval, `doris.ign.fr`, anonymous FTP) stays under 1 cm — measured 2.23 mm RMS, 4.43 mm max | error < 1 cm | a real GSFC dynamic-orbit SP3 file (`PROVENANCE.md`, this round's own entry); the 1 cm bound from Zeitlhöfler et al. (2024), §3.8 | < 1 cm | R-003 |
+| `IOFM-A-033` | (v1.1) **pass grouping on a hand-built multi-session file**: `H1 H2 H3 H4 … H8` three times (the acceptable method of `CRD2` §4.4.2) and `H1 H2 H3 H4 … H8 H3 H4 … H8 H9` (the preferred method §4.4.1, the second session with its own `H3`): the passes' stations, targets, sessions, normal points and meteorology records are those of the fixture, in file order; the `H2`, `H3` and `C0` in force are the right ones in the second case | the fixture's values | `CRD2` §4.4's two orderings | exact | R-008 |
+| `IOFM-A-034` | (v1.1) **real data**: the real monthly LAGEOS-1 file (EDC `lageos1_202601.np2`, 1 474 762 bytes, SHA-256 `c08df9c3dcb2156d…`, pinned in the manifest as `ilrs-lageos1-np-202601` when the pass view lands) gives **807 passes**, 4 628 normal points and 4 317 meteorology records in total, every pass with exactly one `C0`, one `H4` and at least one normal point; the first pass is Yarragadee (`7090 5 13`), 2026-01-01 02:07:49, its first normal point `7676.800587100000`, `0.051212898595` s, configuration `new`, event 2; **the flattened passes agree with the flat `read_crd` of the same text** (same normal points, same sessions) | the counts and the first pass | the real file, counted independently with `awk` | exact | R-008 |
+| `IOFM-A-035` | (v1.1) `wavelength_nm`: the real first pass's configuration `new` gives **532.000**; a fixture with two `C0` records (`new` 532.000, `old` 1064.000) selects by the record's own id; an id with no `C0` refuses `IOFM-F-014` naming the id and the ids held | the values; the refusal | the real file; `CRD2` `C0` | exact | R-009, F-014 |
+| `IOFM-A-036` | (v1.1) **the `H2` time-scale resolution**: codes 3, 4, 7 resolve to `TimeScale::UTC`; **0, 1, 2, 5, 6, 8, 9, 10 and 11 each refuse `IOFM-F-015`** from `read_crd_passes`, naming the code and the three accepted; the flat `read_crd` still reads code 5 | the table | `CRD2` field 6 | exact | R-010, F-015 |
+| `IOFM-A-037` | (v1.1) the meteorology record typed: the real file's `20  7676.801  976.70 310.30  12. 0` is 7676.801 s, 976.70 mbar, 310.30 K, 12 %, origin 0 | the values | the real file; `CRD2` record `20` | exact | R-008 |
+| `IOFM-A-038` | (v1.1) the structure refusals, each alone and each naming its line: a `11` before any `H4`; an `H4` with no `H3`; an `H4` opened before the previous `H8`; a block with no `H8` at the end of the text; two `C0` of the same id; **the real file is accepted** (so none of these fires on it) | the refusals; the acceptance | `CRD2` §1.4, §4 | exact | R-008, F-013 |
+| `IOFM-A-039` | (v1.1) the IOD angle decoder against **the document's own four examples** (formats 1, 2, 3 and 7: `1122334+112233` is 11 h 22 m 33.4 s, +11° 22′ 33″; `1122   +1122  ` is 11 h 22.000 m, +11° 22.00′ with the blanks zero; `11223  +112   ` is 11 h 22.300 m, +11.2000°; `1122334+112222` is 11 h 22 m 33.4 s, +11.2222°) and hand-built lines for formats 4, 5, 6 to the printed layout (weaker: the document prints no azimuth/elevation example); the sign, the wrap of azimuth into [0, 2π) | the decoded radians | `IODFMT`'s examples | 1 × 10⁻¹⁵ rad | R-011 |
+| `IOFM-A-040` | (v1.1) the decoder's refusals: minutes 60, hours 24, azimuth 361°, declination 91°, a letter in a digit position, a blank sign, a blank format code each refuse `IOFM-F-016`; the adjacent in-range values pass (minutes 59, hours 23, azimuth 360°, declination 90°) | the refusals | `IODFMT` | exact | R-011, F-016 |
+| `IOFM-A-041` | (v1.1) the uncertainties: the document's own `MX` examples — 15 is 0.001, 56 is 0.05, 17 is 0.1, 97 is 0.9, 18 is 1, 28 is 2, 58 is 5, 19 is 10, 99 is 90 — in the time unit, and in each format's angle unit (seconds, arcminutes, degrees) converted to radians; two blanks give no value; `1 ` and `ab` refuse `IOFM-F-017` | the values | `IODFMT`'s examples | 1 × 10⁻¹⁵ relative | R-012, F-017 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row; none require excusing.
 
@@ -507,12 +559,23 @@ in `speccheck.py` itself (`tools/speccheck.py`, the row-finding regex), not work
   and the six comparison tools re-pointed at `Sp3Ephemeris`, retiring their own per-tool
   lookup and interpolation code.
 
+- **v1.1 (2026-10-06)** is recorded in the same section's extension for L6 step 4: the correction of §3.3's "does not need … detail" (found against a real file, with the file's hash), the real file's structure counts, and the IOD decoders' sources (`IODFMT`'s tables and examples).
+
 ---
 
 ## 10. Open questions for the manager
 
 | id | question |
 |---|---|
-| `IOFM-Q-001` | `CRD2`'s own configuration/calibration/statistics record kinds (`C0`–`C7`, `40`–`42`, `50`, `9X`) are read opaque (§3.3) rather than field-by-field, since this round's own consumer (L6 step 4's range residual) does not need them. Worth field-by-field treatment if a future consumer (e.g. a laser-system-specific correction) needs it. |
+| `IOFM-Q-001` | `CRD2`'s own configuration/calibration/statistics record kinds (`C0`–`C7`, `40`–`42`, `50`, `9X`) are read opaque (§3.3) rather than field-by-field, since this round's own consumer (L6 step 4's range residual) does not need them. Worth field-by-field treatment if a future consumer (e.g. a laser-system-specific correction) needs it. *[Amended 2026-10-06 (v1.1), the text before kept: L6 step 4 does need one field — the `C0` wavelength — which §3.3.1 now types; the rest stays opaque.]* |
 | `IOFM-Q-002` | `SINEX2`'s own ~20 named blocks are read at the general block-structure level only (§3.6); no block's own field semantics are modelled. Worth building specific block readers (`SITE/ID`, `SOLUTION/ESTIMATE`) if L7's estimator or L8's campaigns need to consume a SINEX solution rather than only this tree's own SINEX output (if any). |
 | `IOFM-Q-003` | `STR3`'s own T-card/G-card format sheet could not be extracted from the fetched PDF (§2, §9). A cleaner scan or an alternative digitisation, if one is found later, would let this spec cite `STR3` directly for the TLE column layout too, alongside `TLEFMT`. Not pursued further this round since `TLEFMT` already gives a complete, primary, directly-fetched layout. |
+
+---
+
+## Changelog
+
+| version | date | change |
+|---|---|---|
+| 1.0 | 2026-09-25 | first draft: the eight readers, the SP3 interpolation of §3.8 |
+| 1.1 | 2026-10-06 | L6 step 4's needs (`SPEC-measmod.md` §9.2): the CRD pass view, the `C0` wavelength accessor, the `H2` time-scale resolution (`IOFM-R-008`…`R-010`, `F-013`…`F-015`); the IOD angle and uncertainty decoders (`IOFM-R-011`, `R-012`, `F-016`, `F-017`); acceptance rows `IOFM-A-033`…`A-041`; §3.3's statement that no configuration field is needed superseded and kept visible; `IOFM-Q-001` annotated |

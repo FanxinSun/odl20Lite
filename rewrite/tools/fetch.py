@@ -715,6 +715,14 @@ PERMISSIVE_LICENCES = {
                      "                    wish', attribution requested only. A REAL, explicit, stated approval,\n"
                      "                    the same shape as SPACETRACK-PUBLIC above -- needs no search_recorded\n"
                      "                    pointer either.",
+    "ILRS-PUBLIC":   "not an SPDX identifier: International Laser Ranging Service data and products, on the\n"
+                     "                    service's own statement (ilrs.gsfc.nasa.gov/about/cite.html, quoted verbatim in each entry's\n"
+                     "                    licence_note): 'The data and products are not copyrighted; however, in the event that you\n"
+                     "                    publish data or results using these data, we request that you include the following\n"
+                     "                    citation'. A statement of no copyright with a citation REQUEST -- neither a grant nor a\n"
+                     "                    restriction, and a REAL, explicit, stated position, so (like SPACETRACK-PUBLIC) it needs no\n"
+                     "                    search_recorded pointer. The tree redistributes none of it: pin-only. The citations are carried\n"
+                     "                    in NOTICE through the entries' licence_note. Data, never linked.",
     "FACTUAL-DATA-CITED": "not an SPDX identifier: computed or measured factual data (e.g. a\n"
                      "                    position, a table of positions) from a source that states no\n"
                      "                    redistribution terms of its own, where a search for terms was\n"
