@@ -314,7 +314,7 @@ velocities are m yr⁻¹ with the year of **365.25 days**.
   first record can be a millisecond *after* the normal point it belongs to (met `7676.801` for a normal point at `7676.800587`). A pass with **no** record `20` refuses (`MEAS-F-012`); a pass with no normal point refuses (`MEAS-F-023`).
 - **MEAS-R-036.** The wavelength is the pass's **C0** record, field 3 (nanometres), for the normal point's system configuration id (record `11` field 4); **a configuration id with no `C0` refuses** (`MEAS-F-012`).
   The io module exposes it as a typed accessor (§9.2).
-- **MEAS-R-037.** The elevation, latitude and height the troposphere needs are the **SRP's**: `φ` and `H` the geodetic latitude and ellipsoidal height of the system reference point; `û` the ellipsoid normal there. `TN36-9` §9.1.1 defines `H` as "the geodetic height of the station" and notes that the formula "is insensitive to the difference" from the orthometric height (its footnote 1), so the ellipsoidal height is the right input; the sensitivity is measured, not assumed (`MEAS-A-024`).
+- **MEAS-R-037.** The elevation, latitude and height the troposphere needs are the **SRP's**: `φ` and `H` the geodetic latitude and ellipsoidal height of the system reference point; `û` the ellipsoid normal there. `TN36-9` §9.1.1 defines `H` as "the geodetic height of the station" and notes that the formula "is insensitive to the difference" from the orthometric height (its footnote 1), so the ellipsoidal height is the right input; the sensitivity is measured, not assumed: a 30 m difference — a typical geoid undulation — changes the one-way delay at 15° elevation by 0.11 mm, both through `f_s` and through the mapping function's `a_i3 H` terms, against the zenith model's own 1 mm (`MEAS-A-024`).
 
 ### 4.6 The ephemeris-position model
 
@@ -445,6 +445,23 @@ Applied         { legs[2]{ geometric range, light time, Δ_atm, Δ_S, ĝ }, ztd,
 
 The **light-time core** (`solve_two_way(events, station, target, leg_delay)`, `solve_emission(…)`) is a public, tested building block: the full models pass the real leg delay (atmosphere plus Shapiro); the closed-form tests pass **zero** —
 so no switch on a physical term exists for a caller to turn off.
+
+### 5.5 The term functions (public, tested building blocks)
+
+```
+Atmosphere { pressure_hpa, temperature_c, relative_humidity (a fraction, 0–1) }
+validate_atmosphere(Atmosphere, wavelength_um) -> Result<void>                                // F-022
+water_vapour_pressure_hpa(relative_humidity, temperature_c) -> double                          // MEAS-R-022, Marini & Murray eq. (22)
+zenith_delay(latitude_rad, height_m, pressure_hpa, water_vapour_hpa, wavelength_um)
+        -> Result<ZenithDelay { total_m, hydrostatic_m, wet_m }>                               // MEAS-R-020; F-022 for non-physical inputs
+mapping_fcula(sin_e, latitude_rad, height_m, temperature_c) -> Mapping { value, d_dsin_e }     // MEAS-R-021
+mapping_fculb(sin_e, latitude_rad, height_m, day_of_year)   -> double                          // MEAS-R-021
+TroposphereModel::make(latitude_rad, height_m, Atmosphere, wavelength_um) -> Result<TroposphereModel>      // F-022
+TroposphereModel::leg(sin_e) -> Result<LegDelay { delay_m, d_delay_d_sin_e, ztd_m, mapping }>              // MEAS-R-023; F-010
+shapiro_leg(r1_m, r2_m, rho_m) -> Result<ShapiroLeg { delay_m, d_rho, d_r1, d_r2 }>                         // MEAS-R-024; F-010
+```
+
+The relative humidity of the CRD record `20` is in per cent and is divided by 100 where the record enters the model; the angle models take a fraction.
 
 ---
 
@@ -657,8 +674,8 @@ Other absences this specification works around, each with its search in the repo
 | `MEAS-A-021` | **G2, FCULa**: lat 30.67166667°, height 2075 m, T 300.15 K, elevation 15° gives **3.800243667312344087** | printed | `IERS-CASES` (`FCUL_A` prolog); `TN36-9` Table 9.1 | 1 × 10⁻¹² (observed 0.0 at 15 digits) | R-021 |
 | `MEAS-A-022` | the water-vapour pressure from relative humidity, `MM73` eq. (22): at (20 °C, 50 %), (0 °C, 100 %), (−10 °C, 30 %), (35 °C, 80 %) equal to an independent 50-digit evaluation of the printed formula; zero humidity gives zero; the value is monotonic in both arguments | the evaluation | `MM73` eq. (22); `tools/measmod_reference.py` | 1 × 10⁻¹² relative | R-022 |
 | `MEAS-A-023` | **G2, FCULb**: lat 30.67166667°, height 2075 m, day of year 224, elevation 15° gives **3.800758725284345996**. **Negative control (rule 5):** the same evaluation with φ_d in place of φ_d² (the misreading the PDF text layer invites) misses by 2.5 × 10⁻⁴, and the assertion fails for it | printed | `IERS-CASES` (`FCUL_B` prolog); `MPPL02` Table 1, eq. (6), read from the rendered page | 1 × 10⁻¹² | R-021 |
-| `MEAS-A-024` | the leg delay `ZTD · m(sin e)` at a stated geometry equals the product of the two tested terms; the elevation limit: 3.0° accepted, **2.99° refuses `F-010`**, a target below the horizon refuses; **the height sensitivity is measured**: changing `H` by 100 m changes the one-way delay at 15° elevation by less than **0.1 mm** (predicted 21 µm from `a₁₃ ΔH` and `∂m/∂a₁ ≈ −50` — written before the run) | the product; the diagnostics; the bound | `TN36-9` §9.1.2 ("greater than 3 degrees") and its footnote 1 | 1 × 10⁻¹² (product); 0.1 mm (sensitivity) | R-023, R-037, F-010 |
-| `MEAS-A-025` | **G4, Shapiro**: `(2GM/c²) ln[(r₁+r₂+ρ)/(r₁+r₂−ρ)]` at three geometries (LAGEOS-like zenith 5.80 mm; 10° elevation 9.88 mm; a LEO case) equals an independent 50-digit evaluation to 1 × 10⁻¹² m — **labelled not published**: `TN36-11` prints the formula and no number | the evaluation | `TN36-11` eq. (11.17); `tools/measmod_reference.py` (two precisions agreeing) | 1 × 10⁻¹² m | R-024 |
+| `MEAS-A-024` | the leg delay `ZTD · m(sin e)` at a stated geometry equals the product of the two tested terms; the elevation limit: 3.0° accepted, **2.99° refuses `F-010`**, a target below the horizon refuses; **the height sensitivity is measured**: changing `H` by 30 m (a typical geoid undulation) changes the one-way delay at 15° elevation by less than **0.2 mm** and by 100 m by less than **0.5 mm**, both under the zenith model's own 1 mm (predicted **0.115 mm** and **0.382 mm** by an independent evaluation, `tools/measmod_height_sensitivity.py`, written before the C++ ran). *[Corrected 2026-10-06, before the test was run, the first text kept: "changing `H` by 100 m changes the one-way delay … by less than 0.1 mm (predicted 21 µm from `a₁₃ ΔH` and `∂m/∂a₁ ≈ −50`)" — an estimate from one term of the mapping function that was off by a factor 8 and omitted the height dependence of the zenith delay's own `f_s` (2.8 × 10⁻⁷ per metre); the criterion is restated against the model's own 1 mm.]* **A non-physical atmosphere** (pressure ≤ 0, wavelength ≤ 0, temperature −100.1 °C or 60.1 °C, humidity −0.01 or 1.01, a non-finite value) **refuses `F-022`**, the same validator the angle refraction uses (`MEAS-A-086`) | the product; the diagnostics; the bounds | `TN36-9` §9.1.2 ("greater than 3 degrees") and its footnote 1 | 1 × 10⁻¹² (product); 0.2 mm and 0.5 mm (sensitivity) | R-023, R-037, F-010, F-022 |
+| `MEAS-A-025` | **G4, Shapiro**: `(2GM/c²) ln[(r₁+r₂+ρ)/(r₁+r₂−ρ)]` at three geometries (LAGEOS-like zenith 5.80 mm; 10° elevation 9.88 mm; a LEO case, 2.25 mm) equals an independent 60-digit evaluation (the generator and the test share the three input triples, the doubles the test passes) to 1 × 10⁻¹² m — **labelled not published**: `TN36-11` prints the formula and no number | the evaluation | `TN36-11` eq. (11.17); `tools/measmod_reference.py` (two precisions agreeing) | 1 × 10⁻¹² m | R-024 |
 | `MEAS-A-026` | the Shapiro term's partials `∂/∂ρ`, `∂/∂r₁`, `∂/∂r₂` equal the independent evaluation's high-precision derivatives to 1 × 10⁻¹⁰ relative; the term is symmetric in `r₁ ↔ r₂`, positive, and tends to 0 with ρ | the derivatives and identities | closed form; `tools/measmod_reference.py` | 1 × 10⁻¹⁰ relative | R-024 |
 
 ### 8.4 The range model

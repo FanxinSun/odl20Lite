@@ -1,7 +1,7 @@
 odl_add_module(measmod
-  SOURCES      src/registry.cpp
+  SOURCES      src/registry.cpp src/troposphere.cpp src/shapiro.cpp
   DEPENDS      odl::core odl::time odl::eop odl::frames odl::ephemerides odl::io
-  TEST_SOURCES tests/registry_tests.cpp)
+  TEST_SOURCES tests/registry_tests.cpp tests/troposphere_tests.cpp tests/shapiro_tests.cpp)
 
 # ERFA is PRIVATE: a caller of odl::measmod must not have to know it exists (the geodetic conversions are its).
 target_link_libraries(odl_measmod PRIVATE erfa)
