@@ -1039,7 +1039,8 @@ TEST_CASE("GRAV-A-031: the tensor of one coefficient against the tensor of the D
     const ConventionalField& f = j2000_field();
     const double gm_over_ae3 = f.scaling().gm_m3_s2() / (kAeM * kAeM * kAeM);
     int cases = 0, exact_zero = 0, floor_governed = 0;
-    std::map<int, double> worst_by_degree;     // worst |difference| / (eps max|R|) per degree
+    double floor_worst = 0.0;                  // worst ABSOLUTE difference among the floor-governed cases
+    std::map<int, double> worst_by_degree;     // worst |difference| / (eps max|R|) per degree, the floor-governed cases apart
     // SPEC-gravity §8's amendment of 2026-10-06 (v1.4a): a reference below 1e-26 is beyond what §3.6a's scaled
     // representation carries, and is held to the scale's resolution, 2e-38 absolute, instead of to a relative bound.
     constexpr double kRepresentationFloor = 2.0e-38;
@@ -1059,7 +1060,8 @@ TEST_CASE("GRAV-A-031: the tensor of one coefficient against the tensor of the D
             for (int j = 0; j < 3; ++j)
                 worst = std::max(worst, std::abs(at_ij(g->per_second_squared(), i, j) / gm_over_ae3 - ref[i][j]));
         CHECK(worst <= tol);
-        worst_by_degree[k.n] = std::max(worst_by_degree[k.n], worst / (kEps * max_ref));
+        if (tol == kRepresentationFloor) floor_worst = std::max(floor_worst, worst);      // reported apart: a relative figure means nothing there
+        else if (max_ref > 0.0) worst_by_degree[k.n] = std::max(worst_by_degree[k.n], worst / (kEps * max_ref));
         ++cases;
     }
     REQUIRE(cases == 145);
@@ -1070,7 +1072,8 @@ TEST_CASE("GRAV-A-031: the tensor of one coefficient against the tensor of the D
     for (const auto& [n, w] : worst_by_degree) os << " n=" << n << ": " << w << ";";
     WARN("GRAV-A-031: " << cases << " cases, all nine entries each (" << exact_zero << " with an exactly-zero reference, "
          << "held to exact zero; " << floor_governed << " below 1e-26, held to the representation floor); worst "
-         "disagreement in eps x max|R| by degree" << os.str() << " (bound 16(n+8))");
+         "disagreement in eps x max|R| by degree" << os.str() << " (bound 16(n+8)); the floor-governed cases' worst "
+         "ABSOLUTE difference " << floor_worst << " (bound 2e-38)");
 }
 
 TEST_CASE("GRAV-A-032: Laplace's equation -- the trace of the real field's tensor is zero", "[gravity][gradient]") {
