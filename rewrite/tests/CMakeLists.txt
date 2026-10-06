@@ -53,6 +53,17 @@ add_test(NAME speccheck.catches_cross_file_duplicate_ids
 add_test(NAME speccheck.discharges_lettered_acceptance_rows
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_lettered_acceptance.py")
 
+# L6 step 4 (SPEC-measmod.md): the numbers the specification freezes and the tests compare against come from tools that do
+# NOT use the code under test, and each is reproduced here so that the number cannot drift away from its generator:
+# the registry's counts of the pinned station files (MEAS-A-004), the finite-difference sizing frozen before any run (§6.2),
+# and the header of independent reference values the C++ tests include.
+add_test(NAME measmod.registry_facts_reproduce
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/measmod_registry_facts.py" --check)
+add_test(NAME measmod.fd_sizing_reproduces
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/measmod_fd_sizing.py" --check)
+add_test(NAME measmod.reference_header_matches_its_generator
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/measmod_reference.py" --check)
+
 # --------------------------------------------------------------------------- #
 # The module boundary is a link boundary — proved both ways.
 

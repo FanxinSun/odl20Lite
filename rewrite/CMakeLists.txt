@@ -164,6 +164,7 @@ add_subdirectory(modules/spacecraft)
 
 # L6 io-measurements: formats in, measurements out (PLAN.md §3.7).
 add_subdirectory(modules/io)
+add_subdirectory(modules/measmod)
 
 add_subdirectory(tools)
 
