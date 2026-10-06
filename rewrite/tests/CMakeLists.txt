@@ -45,29 +45,42 @@ add_test(NAME budget.checker_catches_the_historical_errors
 add_test(NAME constraint8.result_only
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/constraint8.py")
 
-# L5 step 4's own review round: speccheck.py's new duplicate-TEST_CASE check
+# The specification coverage checker (ci.sh's gate 7) is C++ since L0 step 8, group C3: tools/speccheck.cpp.  Its three tests, which were Python (the names are kept), are Catch2
+# cases of tests/devtools/speccheck_tests.cpp in the one devtools executable, each ctest running the tag of the test it replaces, with the same synthetic inputs and the same
+# injected defects; the cases that came with the port (what a run prints, each kind of finding, the scanners against the patterns they replace, the tree walk's scope) and the
+# real tree run as `speccheck.behaviour` and `speccheck.real_tree`.
+
+# L5 step 4's own review round: the checker's new duplicate-TEST_CASE check
 # (gate 7) caught a real bug (two different modules' own tests claiming the
 # same id) that nothing before it could see. This proves the checker itself
 # catches that shape, the same "inject the historical error" discipline
 # budget.checker_catches_the_historical_errors already uses for a different
 # checker.
 add_test(NAME speccheck.catches_duplicate_test_case_ids
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_duplicate.py")
+  COMMAND odl_devtools_tests "[speccheck][test_case_dup]")
 
 # L5 step 4's own THIRD review round: the TEST_CASE check above closes the
-# .cpp side of this; this is its SPEC side -- does speccheck.py also catch
+# .cpp side of this; this is its SPEC side -- does the checker also catch
 # the same id defined in two DIFFERENT spec .md files, not just within one
 # file? Same discipline again, a third checker.
 add_test(NAME speccheck.catches_cross_file_duplicate_ids
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_cross_file_duplicate.py")
+  COMMAND odl_devtools_tests "[speccheck][cross_file]")
 
 # L6 step 1's own review: a lettered-suffix ACCEPTANCE row (SPEC-io-formats.md
 # IOFM-A-004b, the same amendment-lettering convention EPH-A-001b already
 # uses) was invisible to the discharge parser's own row-finding regex, so its
 # own real discharge column went unread and a properly-covered requirement
-# showed UNCOVERED. Fixed in speccheck.py itself; proven here the same way.
+# showed UNCOVERED. Fixed in the checker itself; proven here the same way.
 add_test(NAME speccheck.discharges_lettered_acceptance_rows
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_speccheck_lettered_acceptance.py")
+  COMMAND odl_devtools_tests "[speccheck][lettered]")
+
+# What came with the port: the printed text of a run, every kind of finding, the refusals and their exit codes, the scanners (each against the semantics of the regular expression it
+# replaces), universal newlines, and what the tree-wide scan reads and does not (the root's own build*/ and data/: plan L0-8's ruling D12 a).  Then the real tree, which is gate 7's
+# own run as a test (the way notice.matches_manifest is gate 6's).
+add_test(NAME speccheck.behaviour
+  COMMAND odl_devtools_tests "[speccheck][behaviour],[speccheck][scan]")
+add_test(NAME speccheck.real_tree
+  COMMAND odl_devtools_tests "[speccheck][real_tree]")
 
 # L6 step 4 (SPEC-measmod.md): the numbers the specification freezes and the tests compare against come from tools that do
 # NOT use the code under test, and each is reproduced here so that the number cannot drift away from its generator:

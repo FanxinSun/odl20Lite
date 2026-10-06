@@ -105,7 +105,7 @@ gate "NOTICE regenerates and matches what is committed"
 "$BUILD/tools/notice" --check
 
 gate "specification traceability (NOT a test-suite check — see the tool's output)"
-"$PY" tools/speccheck.py
+"$BUILD/tools/speccheck"
 
 gate "budget-row arithmetic (specifications' only untested numbers)"
 "$PY" tools/budgetcheck.py --quiet

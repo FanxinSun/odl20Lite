@@ -225,8 +225,30 @@ bool is_py_decimal(std::uint32_t cp) noexcept {
     return false;
 }
 
+int py_decimal_value(std::uint32_t cp) noexcept {
+    if (cp >= 0x1D7CE && cp <= 0x1D7FF) return static_cast<int>((cp - 0x1D7CE) % 10);   // the fifty mathematical digits: five runs of ten
+    for (const std::uint32_t first : kDecimalBlocks) {
+        if (cp >= first && cp < first + 10) return static_cast<int>(cp - first);
+    }
+    return -1;
+}
+
 bool is_py_word(std::uint32_t cp) noexcept {
     return cp == U'_' || in_ranges(kLetters, cp) || in_ranges(kLettersHigh, cp) || in_ranges(kOtherNumerics, cp) || is_py_decimal(cp);
+}
+
+std::string universal_newlines(std::string_view s) {
+    std::string out;
+    out.reserve(s.size());
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '\r') {
+            out.push_back('\n');
+            if (i + 1 < s.size() && s[i + 1] == '\n') ++i;   // "\r\n" is one line end, not two
+        } else {
+            out.push_back(s[i]);
+        }
+    }
+    return out;
 }
 
 // ------------------------------------------------------------------------------------------------------------------------ str methods

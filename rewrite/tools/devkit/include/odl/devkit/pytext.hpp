@@ -33,6 +33,12 @@ namespace odl::devkit {
 /// Python's `\d` for one code point: the decimal digits (category Nd).
 [[nodiscard]] bool is_py_decimal(std::uint32_t cp) noexcept;
 
+/// The value, 0 to 9, of a decimal digit as int() reads it (the Arabic-Indic five is 5), or -1 for a code point that is not one (is_py_decimal).
+[[nodiscard]] int py_decimal_value(std::uint32_t cp) noexcept;
+
+/// What a text-mode read in Python hands back: universal newlines.  "\r\n" and a lone "\r" both become "\n"; everything else is as it was.
+[[nodiscard]] std::string universal_newlines(std::string_view s);
+
 /// str.rstrip(): without trailing whitespace (is_py_space).
 [[nodiscard]] std::string rstrip_py(std::string_view s);
 

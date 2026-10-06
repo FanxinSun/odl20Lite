@@ -219,3 +219,23 @@ TEST_CASE("unified_diff is difflib's format and context grouping", "[devkit][tex
     // the context is a parameter
     CHECK(unified_diff(numbered(10), b, "A", "B", 1) == Lines{"--- A", "+++ B", "@@ -4,3 +4,3 @@", " l4", "-l5", "+X", " l6"});
 }
+
+TEST_CASE("the decimal digits of other scripts have their values, and a text-mode read has universal newlines", "[devkit][text]") {
+    // what tools/speccheck.cpp's scanners rest on: Python's `\d` matches the digits of every script and int() reads them (the value is the offset in the block of ten)
+    CHECK(py_decimal_value(U'0') == 0);
+    CHECK(py_decimal_value(U'9') == 9);
+    CHECK(py_decimal_value(0x665) == 5);    // ARABIC-INDIC DIGIT FIVE
+    CHECK(py_decimal_value(0x967) == 1);    // DEVANAGARI DIGIT ONE
+    CHECK(py_decimal_value(0xFF17) == 7);   // FULLWIDTH DIGIT SEVEN
+    CHECK(py_decimal_value(0x1D7D9) == 1);  // MATHEMATICAL DOUBLE-STRUCK DIGIT ONE
+    CHECK(py_decimal_value(0x1D7FF) == 9);  // MATHEMATICAL MONOSPACE DIGIT NINE
+    CHECK(py_decimal_value(U'a') == -1);
+    CHECK(py_decimal_value(0xB2) == -1);    // SUPERSCRIPT TWO is a number, not a decimal digit
+    CHECK((py_decimal_value(0x665) >= 0) == is_py_decimal(0x665));
+    // universal newlines: "\r\n" and a lone "\r" become "\n"; a "\r\r\n" is a CR line end and then a CRLF one
+    CHECK(universal_newlines("a\r\nb\rc\nd\r\r\ne") == "a\nb\nc\nd\n\ne");
+    CHECK(universal_newlines("").empty());
+    CHECK(universal_newlines("no line ends") == "no line ends");
+    CHECK(universal_newlines("\r") == "\n");
+    CHECK(universal_newlines("\n\r") == "\n\n");
+}
