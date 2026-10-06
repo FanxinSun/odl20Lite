@@ -2,7 +2,7 @@
 """estimation_sizing.py — the FROZEN FIGURES of SPEC-estimation §6 (L7 step 2: the batch estimator, normal equations scaled by default).
 
 The estimator's gate is registered BEFORE any code of it exists (plan §4 rule 7).  This tool is where the numbers the registration needs come from, in exact
-arithmetic, and it is run by a ctest (`estimation.sizing_reproduces`) so that no figure in the specification is a number nobody can regenerate (plan §4 rule 3).
+arithmetic, and it is run by two ctests (`estimation.sizing_header_matches_generator`, `estimation.spec_table_matches_generator`) so that no figure in the specification is a number nobody can regenerate (plan §4 rule 3).
 
 WHAT IT COMPUTES, for each dataset the gate is registered against (NIST StRD's eleven linear regression datasets, read from the PINNED CACHE and never copied
 into the tree; Demmel's worked example; the synthetic cases of SPEC-estimation §8.2):
@@ -36,9 +36,62 @@ from decimal import Decimal, getcontext
 from fractions import Fraction as F
 from pathlib import Path
 
-import numpy as np
-
 getcontext().prec = 90
+
+
+# ------------------------------------------------------------------------------------------------------------------------- x87 long double, emulated exactly
+# The C++ tests compute their rows in `long double` (x87 extended precision: a 64-bit significand, round to nearest even) and round to double ONCE.  The generator
+# must reproduce those doubles bit for bit, and it must run under ANY Python 3.9+ (a ctest runs it with whichever interpreter CMake found, which need not have
+# NumPy: the first composed run of the gate failed on exactly that), so the extended-precision arithmetic is emulated here in exact rational arithmetic —
+# every result is the EXACT value of the operation rounded to 64 significant bits, which is what the hardware returns for + - * / under the default precision
+# control.  No overflow, underflow or denormal handling: the data never come near them.
+
+def _round_sig(q: F, bits: int) -> F:
+    """The nearest `bits`-bit-significand value to the exact rational q, ties to even."""
+    if q == 0:
+        return F(0)
+    sign = -1 if q < 0 else 1
+    a = abs(q)
+    num, den = a.numerator, a.denominator
+    e2 = num.bit_length() - den.bit_length()               # floor(log2 a) is e2 or e2 - 1
+    if (num << max(0, -e2)) < (den << max(0, e2)):
+        e2 -= 1
+    shift = e2 - (bits - 1)                                 # the unit in the last place of the result is 2**shift
+    if shift >= 0:
+        n, r = divmod(num, den << shift)
+        twice, half = 2 * r, den << shift
+    else:
+        n, r = divmod(num << (-shift), den)
+        twice, half = 2 * r, den
+    if twice > half or (twice == half and (n & 1)):
+        n += 1
+    return sign * F(n) * F(2) ** shift
+
+
+class LD:
+    """An x87 extended-precision number (64-bit significand, round to nearest even): the exact rational value of the nearest such number."""
+    __slots__ = ("q",)
+
+    def __init__(self, v):
+        # a string is parsed exactly and rounded once, which is what a correctly rounded strtold does; an int or a float is exact before the rounding
+        self.q = _round_sig(F(Decimal(v)) if isinstance(v, str) else F(v.q if isinstance(v, LD) else v), 64)
+
+    @staticmethod
+    def _of(q: F) -> "LD":
+        out = LD.__new__(LD)
+        out.q = _round_sig(q, 64)
+        return out
+
+    def __mul__(self, other: "LD") -> "LD":
+        return LD._of(self.q * other.q)
+
+    def __truediv__(self, other: "LD") -> "LD":
+        return LD._of(self.q / other.q)
+
+    def __float__(self) -> float:                           # round to nearest even at 53 bits: the double rounding of `static_cast<double>(long double)`
+        return float(self.q)
+
+
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_CACHE = HERE.parent / "data" / "cache"
@@ -92,11 +145,10 @@ def read_nist(cache: Path, name: str) -> dict:
 
 def design(name: str, rows, exact: bool):
     """The design matrix and the response.  exact=True: rationals; exact=False: the DOUBLES of the C++ test (long double recurrence, rounded once to double)."""
-    ld = np.longdouble
     X_out, y_out = [], []
     for r in rows:
-        vals = [F(Decimal(t)) for t in r] if exact else [ld(t) for t in r]
-        one = F(1) if exact else ld(1)
+        vals = [F(Decimal(t)) for t in r] if exact else [LD(t) for t in r]
+        one = F(1) if exact else LD(1)
         y = vals[0]
         if name in ("NoInt1", "NoInt2"):
             X = [vals[1]]
@@ -338,7 +390,7 @@ def equilibrated_pontius_rows(cache: Path):
     P = read_nist(cache, "Pontius")
     Xd, yd = design("Pontius", P["rows"], False)
     n = len(Xd[0])
-    norms = [math.sqrt(sum(float(np.longdouble(Xd[k][j]) ** 2) for k in range(len(Xd)))) for j in range(n)]
+    norms = [math.sqrt(sum(float(LD(Xd[k][j]) * LD(Xd[k][j])) for k in range(len(Xd)))) for j in range(n)]
     return [[Xd[k][j] / norms[j] for j in range(n)] for k in range(len(Xd))], yd, norms
 
 
@@ -359,7 +411,7 @@ def demmel() -> dict:
     nrm = sum(dec(v) ** 2 for v in y).sqrt()
     p = [dec(v) / nrm for v in y]
     # double matrix as the test builds it: H_ij in long double from the decimals, rounded once
-    ld = np.longdouble
+    ld = LD
     Hd = [[float(ld(str(DEMMEL_A[i][j].numerator)) / ld(str(DEMMEL_A[i][j].denominator)) * ld(["1", "1e5", "1e-10", "1e15"][i]) * ld(["1", "1e5", "1e-10", "1e15"][j]))
            for j in range(n)] for i in range(n)]
     e = [scale_exponent(Hd[i][i]) for i in range(n)]
