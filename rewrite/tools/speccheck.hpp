@@ -25,6 +25,11 @@ int run(const std::vector<std::string>& argv, odl::devkit::Streams io);
 /// The tree this tool was built from (ODL_TREE_ROOT) or the current directory: what `--spec-dir` (as `<root>/spec`) and `--cpp-root` default to.
 std::filesystem::path default_root();
 
+/// The invariant a specification's printed counts are held to: tested + excused - both + uncovered == requirements, where `both` is how many are tested AND excused (so
+/// counted in each of the first two) and `uncovered` how many are neither.  The Python asserted it; it cannot fail by construction, and is kept as an internal guard, a
+/// function of its own so that a test can show it fires on the numbers the Python's `assert` crashed on (a "(partial" row for an undischarged requirement, counted twice).
+[[nodiscard]] bool partitions(std::size_t tested, std::size_t excused, std::size_t both, std::size_t uncovered, std::size_t requirements) noexcept;
+
 namespace scan {
 
 /// One identifier as ID_RE found it: PREFIX-KIND-NUMBER, the number being digits and at most one lower-case letter.

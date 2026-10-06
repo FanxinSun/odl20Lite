@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `TEMPLATE` |
 | **Status** | adopted for the P1 tranche; subject to manager review |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-09-18 |
 | **Layer** | — (meta) |
 | **Implements** | rule R1 of `../plan/PLAN.md` §1 |
@@ -48,7 +48,7 @@ reads as an omission rather than a decision.
 | 3 | Definitions and conventions | Symbols, units, sign conventions, frames, the time argument of every time-dependent quantity |
 | 4 | Required behaviour | The mathematics, stated so an implementer who has seen no implementation can write one |
 | 5 | Interfaces | The module's public surface, language-free (§4 below) |
-| 6 | Precision and accuracy | Numbers, with the physical quantity each number is a budget for — **and the conversion written out in a form `tools/budgetcheck.py` can evaluate**, not only its result: `100 ns × 7.5 km s⁻¹ = **0.75 mm**`. The result goes in `**bold**`, every factor carries its units, and CI evaluates the left side and compares it. A row that looks like arithmetic and will not parse is a build failure, never a skip. `SPEC-ephemerides`'s first draft stated 10⁻¹³ AU as "15 µm" where it is 14.96 mm; the arithmetic is one multiplication and writing it down is what makes a factor of a thousand visible. |
+| 6 | Precision and accuracy | Numbers, with the physical quantity each number is a budget for — **and the conversion written out in a form `tools/budgetcheck.cpp` (v1.3: it was `tools/budgetcheck.py`) can evaluate**, not only its result: `100 ns × 7.5 km s⁻¹ = **0.75 mm**`. The result goes in `**bold**`, every factor carries its units, and CI evaluates the left side and compares it. A row that looks like arithmetic and will not parse is a build failure, never a skip. `SPEC-ephemerides`'s first draft stated 10⁻¹³ AU as "15 µm" where it is 14.96 mm; the arithmetic is one multiplication and writing it down is what makes a factor of a thousand visible. |
 | 7 | Failure behaviour | The refusal catalogue (§5 below) |
 | 8 | Acceptance tests | Concrete, checkable, each naming the **source of its expected values** |
 | 9 | Provenance obligations | What the implementation must add to `PROVENANCE.md` when it lands |
@@ -319,6 +319,7 @@ in descending order of strength:
 
 | version | date | change |
 |---|---|---|
+| 1.3 | 2026-10-07 | **L0 step 8 (the tree's development code is C++, plan §5 constraint 11):** the row for §6 of the required-sections table names the checker that evaluates a budget's conversion as `tools/budgetcheck.cpp` (it was `tools/budgetcheck.py`); the grammar a row is written in is unchanged. No required section, rule or form changes. |
 | 1.2 | 2026-09-18 | Added the rule in §8 that a statistic cited as an acceptance value must carry its formula, prompted by two unstated denominators surfacing within two days (`PROVENANCE.md` §8.10). |
 | 1.1 | 2026-09-18 | Added `R-ERR-3` to §5, carrying plan rule **R12** — the named, per-run, provenance-recorded single override — to every spec in the tree. |
 | 1.0 | 2026-09-18 | First issue, for the P1 tranche. |

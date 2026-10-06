@@ -16,4 +16,8 @@ namespace odl::devkit {
 /// float.hex(): "0x1.8000000000000p+0" (always thirteen hexadecimal digits), "0x0.0p+0" for zero, a subnormal as "0x0.xxxxxxxxxxxxxp-1022".
 [[nodiscard]] std::string py_float_hex(double v);
 
+/// format(v, ".{precision}g") (and f"{v:g}", which is precision 6): the printf `%.*g`, which Python's 'g' is for every finite value (both round the exact binary value
+/// correctly, drop trailing zeros and write at least two exponent digits), and Python's own words for the rest: "inf", "-inf" and "nan" (printf's `-nan` is not Python's).
+[[nodiscard]] std::string py_format_g(double v, int precision = 6);
+
 }  // namespace odl::devkit

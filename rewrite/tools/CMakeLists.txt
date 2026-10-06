@@ -60,6 +60,21 @@ add_executable(speccheck speccheck.cpp)
 target_compile_definitions(speccheck PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
 target_link_libraries(speccheck PRIVATE odl_devkit odl_warnings)
 
+# The budget-row arithmetic checker (plan L0 step 8, group C4; tools/budgetcheck.cpp): `budgetcheck` is ci.sh's gate 8 and the ctest budget.arithmetic, and the object library is what the
+# tests call in-process.  Its arithmetic is the Python's operation for operation (the same libm, nothing fused), so no multiplication is contracted into a fused one.
+add_library(odl_tool_budgetcheck OBJECT budgetcheck.cpp)
+target_compile_definitions(odl_tool_budgetcheck PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_include_directories(odl_tool_budgetcheck PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(odl_tool_budgetcheck PUBLIC odl_devkit PRIVATE odl_warnings)
+
+add_executable(budgetcheck budgetcheck.cpp)
+target_compile_definitions(budgetcheck PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_link_libraries(budgetcheck PRIVATE odl_devkit odl_warnings)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(odl_tool_budgetcheck PRIVATE -ffp-contract=off)
+  target_compile_options(budgetcheck PRIVATE -ffp-contract=off)
+endif()
+
 if(BUILD_TESTING)
   # One executable for the devkit's own tests and the tools' (the Python tests of tests/ ported): each ctest of the old names runs the tag of the
   # test it replaces (tests/CMakeLists.txt), and every devkit case is its own ctest.
@@ -67,12 +82,13 @@ if(BUILD_TESTING)
     devkit/tests/sha256_tests.cpp devkit/tests/json_tests.cpp devkit/tests/inflate_tests.cpp devkit/tests/archive_tests.cpp
     devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp devkit/tests/pytext_tests.cpp devkit/tests/fs_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/gfz_derive_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/notice_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/speccheck_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/notice_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/speccheck_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/budgetcheck_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   target_compile_definitions(odl_devtools_tests PRIVATE
     ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}" ODL_MANIFEST_VENDORED_ROOT="${ODL_VENDORED_DIR}"
     ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
-  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_devkit Catch2::Catch2WithMain odl_warnings)
+  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
   # test executable, which the tests find at run time and put first on PATH: no test of this tree touches the network.  (Its place is NOT a compile

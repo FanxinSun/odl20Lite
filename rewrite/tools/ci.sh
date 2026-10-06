@@ -108,7 +108,7 @@ gate "specification traceability (NOT a test-suite check — see the tool's outp
 "$BUILD/tools/speccheck"
 
 gate "budget-row arithmetic (specifications' only untested numbers)"
-"$PY" tools/budgetcheck.py --quiet
+"$BUILD/tools/budgetcheck" --quiet
 
 gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
 "$PY" tools/constraint8.py

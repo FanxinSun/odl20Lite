@@ -445,16 +445,111 @@ TEST_CASE("a partial excuse counts as tested and is printed apart; an excuse for
     }
 }
 
-TEST_CASE("a partial marker on a requirement no test discharges is not a partial excuse: the partition check refuses it, with the Python's exit status", "[speccheck][behaviour]") {
-    // speccheck.py's `assert`: R-001 is in `uncovered` AND in `contradictory`, so tested + excused - both + uncovered = 0 + 0 - 1 + 1 = 0, not 1, and the Python died with
-    // an AssertionError (a traceback, exit 1).  The port keeps the check and the status and writes one line.
+// A "(partial" row says a test covers the rest of the requirement.  When no acceptance row discharges it the row excuses nothing and misleads: group C4 REPORTS it (the manager's ruling of
+// 2026-10-07; a deliberate change of behaviour -- the Python's partition `assert` crashed on it, and the C3 port kept the crash as one line).
+namespace {
+
+const std::string kPartialHead = "| | |\n|---|---|\n| **Spec ID** | `SYN` |\n\n";
+const std::string kPartialTail = "**Coverage.**\n\n| id | why no test |\n|---|---|\n";
+
+std::string partial_finding(const std::string& file, const std::string& id, const std::vector<std::string>& rows, bool excused_whole) {
+    std::string text = "  PARTIAL    " + id + "  (" + file + "): a \"(partial\" Coverage row names it and no acceptance row discharges it\n";
+    for (const std::string& row : rows) text += "      row: " + row + "\n";
+    text += excused_whole ? "      Another Coverage row already excuses it whole: drop the \"(partial\" row, or add the acceptance row that would make it partial.\n"
+                          : "      Either the acceptance row the \"(partial\" promises is missing, or nothing tests it and a Coverage row without \"(partial\" should say why.\n";
+    return text;
+}
+
+}  // namespace
+
+TEST_CASE("a partial marker on a requirement no test discharges is REPORTED, named by spec, id and row, exit 1, and counted once", "[speccheck][behaviour]") {
     Tree t;
-    t.spec_file("SPEC-synthetic.md",
-                "| | |\n|---|---|\n| **Spec ID** | `SYN` |\n\n- **SYN-R-001.** One.\n\n**Coverage.**\n\n| id | why no test |\n|---|---|\n| `SYN-R-001` (partial: nothing tests it) | structural |\n");
+    t.spec_file("SPEC-synthetic.md", kPartialHead + "- **SYN-R-001.** One.\n\n" + kPartialTail + "| `SYN-R-001` (partial: nothing tests it) | structural |\n");
     const Result r = t.run({"--skip-test-case-check"});
     CHECK(r.code == kGaps);
-    CHECK(contains(r.err, "speccheck: assertion failed: "));
-    CHECK(contains(r.err, "0 tested + 0 excused - 1 both + 1 uncovered != 1"));
+    // the finding: the spec's file name, the identifier, the row's own first cell (stripped), and what to do
+    CHECK(contains(r.err, partial_finding("SPEC-synthetic.md", "SYN-R-001", {"`SYN-R-001` (partial: nothing tests it)"}, false)));
+    // ... and no assertion any more: the Python's crash is gone, and so is the C3 port's one line for it
+    CHECK_FALSE(contains(r.both(), "assertion failed"));
+    // counted ONCE: the requirement is uncovered (no test, no whole excuse), is not tested and not excused, and is also named on the block's own line
+    CHECK(contains(r.out, "    discharged by a test   " + w4(0) + "\n    excused in §8 Coverage " + w4(0) + "\n"));
+    CHECK(contains(r.out, "    \"(partial\" NOT TESTED  " + w4(1) + "   SYN-R-001   <- a \"(partial\" row names it and no test discharges it; see its PARTIAL finding\n"
+                          "    UNCOVERED              " + w4(1) + "   SYN-R-001\n"));
+    CHECK_FALSE(contains(r.out, "BOTH tested and excused"));   // the stale-row line is for what a test DOES discharge
+    CHECK(contains(r.out, "  requirements + refusals  " + w4(1) + "\n"));
+    CHECK(contains(r.out, "    uncovered                                       : 1\n"));   // the total counts the requirement once
+}
+
+TEST_CASE("a partial marker on a requirement an ordinary row excuses whole, and no test discharges, is reported too, with the advice for that case", "[speccheck][behaviour]") {
+    // the second route to the Python's crash: tested 0 + excused 1 - contradictory 1 + uncovered 0 = 0, not 1
+    Tree t;
+    t.spec_file("SPEC-synthetic.md",
+                kPartialHead + "- **SYN-R-001.** One.\n\n" + kPartialTail + "| `SYN-R-001` | structural |\n| `SYN-R-001` (partial: first clause) | partly structural |\n");
+    const Result r = t.run({"--skip-test-case-check"});
+    CHECK(r.code == kGaps);
+    CHECK(contains(r.err, partial_finding("SPEC-synthetic.md", "SYN-R-001", {"`SYN-R-001` (partial: first clause)"}, true)));
+    CHECK_FALSE(contains(r.both(), "assertion failed"));
+    CHECK(contains(r.out, "    discharged by a test   " + w4(0) + "\n    excused in §8 Coverage " + w4(1) + "\n"));   // excused, whole, once
+    CHECK(contains(r.out, "    \"(partial\" NOT TESTED  " + w4(1) + "   SYN-R-001   <- a \"(partial\" row names it and no test discharges it; see its PARTIAL finding\n"
+                          "    UNCOVERED              " + w4(0) + "\n"));                                                              // and it is not uncovered
+}
+
+TEST_CASE("one finding per requirement, in identifier order, each quoting every partial row that names it; a requirement a test does discharge has none", "[speccheck][behaviour]") {
+    Tree t;
+    t.spec_file("SPEC-synthetic.md",
+                kPartialHead + "- **SYN-R-001.** One.\n- **SYN-R-002.** Two.\n- **SYN-R-003.** Three.\n\n| `SYN-A-001` | checks | R-002 |\n\n" + kPartialTail +
+                    "| `SYN-R-003`, `SYN-R-001` (partial: a shared row) | s |\n| `SYN-R-003` (partial: and a second row) | s |\n| `SYN-R-002` (partial: a test covers the rest) | s |\n");
+    const Result r = t.run({"--skip-test-case-check"});
+    CHECK(r.code == kGaps);
+    const std::string expected = partial_finding("SPEC-synthetic.md", "SYN-R-001", {"`SYN-R-003`, `SYN-R-001` (partial: a shared row)"}, false) +
+                                 partial_finding("SPEC-synthetic.md", "SYN-R-003", {"`SYN-R-003`, `SYN-R-001` (partial: a shared row)", "`SYN-R-003` (partial: and a second row)"}, false);
+    CHECK(contains(r.err, expected));   // R-001 before R-003; R-003 quotes both of its rows, in file order
+    CHECK(r.err.find("  PARTIAL    SYN-R-002") == std::string::npos);
+    CHECK(contains(r.out, "    partially excused      " + w4(1) + "   SYN-R-002   <- counted as tested; one clause is structural\n"));
+    CHECK(contains(r.out, "    \"(partial\" NOT TESTED  " + w4(2) + "   SYN-R-001, SYN-R-003   <- a \"(partial\" row names it and no test discharges it; see its PARTIAL finding\n"));
+    CHECK(contains(r.out, "    UNCOVERED              " + w4(2) + "   SYN-R-001, SYN-R-003\n"));
+    // an identifier written twice in one cell quotes that row once
+    Tree twice;
+    twice.spec_file("SPEC-synthetic.md", kPartialHead + "- **SYN-R-001.** One.\n\n" + kPartialTail + "| `SYN-R-001`, `SYN-R-001` (partial) | s |\n");
+    CHECK(contains(twice.run({"--skip-test-case-check"}).err, partial_finding("SPEC-synthetic.md", "SYN-R-001", {"`SYN-R-001`, `SYN-R-001` (partial)"}, false)));
+}
+
+TEST_CASE("the partial finding names its own file, survives --quiet on standard error, and a spec without the defect adds nothing to a run", "[speccheck][behaviour]") {
+    Tree t;
+    t.spec_file("SPEC-a.md", spec_of("SYM", "- **SYM-R-001.** One.\n"));
+    t.spec_file("SPEC-b.md", kPartialHead + "- **SYN-R-001.** One.\n\n" + kPartialTail + "| `SYN-R-001` (partial) | s |\n");
+    const Result loud = t.run({"--skip-test-case-check"});
+    CHECK(loud.code == kGaps);
+    CHECK(contains(loud.err, "  PARTIAL    SYN-R-001  (SPEC-b.md): "));
+    CHECK_FALSE(contains(loud.err, "SPEC-a.md"));
+    CHECK(loud.err.find("PARTIAL") == loud.err.rfind("PARTIAL"));   // one finding in all
+    const Result quiet = t.run({"--skip-test-case-check", "--quiet"});
+    CHECK(quiet.code == kGaps);
+    CHECK(contains(quiet.err, partial_finding("SPEC-b.md", "SYN-R-001", {"`SYN-R-001` (partial)"}, false)));   // standard error says it whatever --quiet says
+    CHECK_FALSE(contains(quiet.out, "NOT TESTED"));                                                          // the block is what --quiet leaves out
+    // a clean specification prints nothing of the finding's: no block line, no PARTIAL
+    Tree clean;
+    clean.spec_file("SPEC-a.md", spec_of("SYM", "- **SYM-R-001.** One.\n"));
+    const Result ok = clean.run({"--skip-test-case-check"});
+    CHECK(ok.code == kOk);
+    CHECK_FALSE(contains(ok.both(), "NOT TESTED"));
+    CHECK_FALSE(contains(ok.both(), "PARTIAL"));
+}
+
+TEST_CASE("the partition guard holds the three printed counts to the denominator, and fires on the numbers the Python's assert crashed on", "[speccheck][behaviour]") {
+    CHECK(sc::partitions(1, 0, 0, 0, 1));   // tested only
+    CHECK(sc::partitions(0, 1, 0, 0, 1));   // excused only
+    CHECK(sc::partitions(0, 0, 0, 1, 1));   // uncovered only
+    CHECK(sc::partitions(1, 1, 1, 0, 1));   // tested AND excused: counted in each of the first two, once in the denominator
+    CHECK(sc::partitions(2, 1, 1, 3, 5));   // 2 + 1 - 1 + 3
+    CHECK(sc::partitions(0, 0, 0, 0, 0));
+    // a "(partial" row for an undischarged requirement, counted as uncovered AND as "both": 0 + 0 - 1 + 1 = 0, not 1
+    CHECK_FALSE(sc::partitions(0, 0, 1, 1, 1));
+    // the same requirement also excused whole: 0 + 1 - 1 + 0 = 0, not 1
+    CHECK_FALSE(sc::partitions(0, 1, 1, 0, 1));
+    CHECK_FALSE(sc::partitions(1, 0, 0, 1, 1));   // one counted twice, as tested and as uncovered
+    CHECK_FALSE(sc::partitions(0, 0, 0, 0, 1));   // one counted nowhere
+    CHECK_FALSE(sc::partitions(1, 0, 1, 0, 1));   // a "both" with no excuse to share it
 }
 
 TEST_CASE("a range of identifiers in a discharge column discharges what lies in it and is defined; the endpoints are discharged by name as well", "[speccheck][behaviour]") {

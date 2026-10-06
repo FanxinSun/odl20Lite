@@ -1,13 +1,23 @@
 #include <odl/devkit/pyfmt.hpp>
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 
 namespace odl::devkit {
+
+std::string py_format_g(double v, int precision) {
+    if (std::isnan(v)) return "nan";
+    if (std::isinf(v)) return v < 0 ? "-inf" : "inf";
+    std::array<char, 400> buf{};   // far more than any precision a tool asks for needs
+    const int n = std::snprintf(buf.data(), buf.size(), "%.*g", precision, v);
+    return std::string(buf.data(), n > 0 ? static_cast<std::size_t>(std::min<int>(n, static_cast<int>(buf.size()) - 1)) : 0);
+}
 
 std::string py_float_repr(double v) {
     if (std::isnan(v)) return "nan";

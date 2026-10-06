@@ -37,10 +37,18 @@ add_test(NAME manifest.licences_permissive
 # inside the interchangeable part of the expected API; this is what keeps it so.
 # The budget rows are the only class of number in this tree with no test behind
 # them, and four of twenty-three were wrong by 1000x or more on 2026-09-18.
+# The budget checker (ci.sh's gate 8) is C++ since L0 step 8, group C4: tools/budgetcheck.cpp.  budget.arithmetic runs the built tool on the real specifications, as it always did; the
+# test that was Python (the name is kept) is the Catch2 cases of tests/devtools/budgetcheck_tests.cpp tagged [historical] -- the same four wrong rows, the same corrected forms, the same
+# refusals.  What came with the port: the printed text of a run, every kind of finding and the exit codes, each scanner against the pattern it replaces, the unit table, and the real tree
+# row by row (each real row alone, and each with its stated result made wrong).
 add_test(NAME budget.arithmetic
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/budgetcheck.py" --quiet)
+  COMMAND budgetcheck --quiet)
 add_test(NAME budget.checker_catches_the_historical_errors
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_budgetcheck.py")
+  COMMAND odl_devtools_tests "[budgetcheck][historical]")
+add_test(NAME budgetcheck.behaviour
+  COMMAND odl_devtools_tests "[budgetcheck][behaviour]")
+add_test(NAME budgetcheck.real_tree
+  COMMAND odl_devtools_tests "[budgetcheck][real_tree]")
 
 add_test(NAME constraint8.result_only
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/constraint8.py")

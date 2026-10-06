@@ -319,6 +319,65 @@ std::string rstrip_py(std::string_view s) {
     return std::string(s.substr(0, end));
 }
 
+std::uint32_t code_point_at(std::string_view s, std::size_t i, std::size_t& after) noexcept {
+    std::size_t j = i;
+    std::uint32_t cp = 0;
+    if (next_code_point(s, j, cp)) {
+        after = j;
+        return cp;
+    }
+    after = i + 1;
+    return 0xFFFD;
+}
+
+std::string lstrip_py(std::string_view s) {
+    std::size_t i = 0;
+    while (i < s.size()) {
+        std::size_t at = i;
+        std::uint32_t cp = 0;
+        if (!next_code_point(s, at, cp) || !is_py_space(cp)) break;   // text that is not well-formed ends the strip, as in rstrip_py
+        i = at;
+    }
+    return std::string(s.substr(i));
+}
+
+std::string strip_py(std::string_view s) { return rstrip_py(lstrip_py(s)); }
+
+std::string lstrip_chars_py(std::string_view s, std::string_view chars) {
+    std::vector<std::uint32_t> set;
+    for (std::size_t i = 0; i < chars.size();) {
+        std::size_t after = 0;
+        set.push_back(code_point_at(chars, i, after));
+        i = after;
+    }
+    std::size_t i = 0;
+    while (i < s.size()) {
+        std::size_t after = 0;
+        const std::uint32_t cp = code_point_at(s, i, after);
+        if (std::find(set.begin(), set.end(), cp) == set.end()) break;
+        i = after;
+    }
+    return std::string(s.substr(i));
+}
+
+std::vector<std::string> split_py(std::string_view s) {
+    std::vector<std::string> words;
+    std::string cur;
+    for (std::size_t i = 0; i < s.size();) {
+        std::size_t after = 0;
+        const std::uint32_t cp = code_point_at(s, i, after);
+        if (is_py_space(cp)) {
+            if (!cur.empty()) words.push_back(std::move(cur));
+            cur.clear();
+        } else {
+            cur.append(s.substr(i, after - i));
+        }
+        i = after;
+    }
+    if (!cur.empty()) words.push_back(std::move(cur));
+    return words;
+}
+
 std::vector<std::string> splitlines_py(std::string_view s) {
     std::vector<std::string> lines;
     std::string cur;

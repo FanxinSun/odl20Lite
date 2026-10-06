@@ -6,9 +6,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <odl/devkit/pyfmt.hpp>
 #include <odl/devkit/pytext.hpp>
 #include <odl/devkit/text.hpp>
 
+#include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -238,4 +241,71 @@ TEST_CASE("the decimal digits of other scripts have their values, and a text-mod
     CHECK(universal_newlines("no line ends") == "no line ends");
     CHECK(universal_newlines("\r") == "\n");
     CHECK(universal_newlines("\n\r") == "\n\n");
+}
+
+TEST_CASE("strip, lstrip(chars), split() and the code point at a byte, and Python's 'g' format", "[devkit][text]") {
+    // what tools/budgetcheck.cpp's scanners rest on
+    const std::string nbsp = cps({0xA0});
+    const std::string em_space = cps({0x2003});
+    CHECK(strip_py("  a b \t\n") == "a b");
+    CHECK(strip_py(nbsp + "x" + em_space) == "x");   // U+00A0 and U+2003 are white space to str.strip()
+    CHECK(strip_py("   ").empty());
+    CHECK(strip_py("").empty());
+    CHECK(lstrip_py(cps({0x3000}) + " x ") == "x ");   // U+3000, the ideographic space, then a blank
+    CHECK(lstrip_py("x ") == "x ");
+    CHECK(lstrip_py("\xff ") == "\xff ");   // text that is not UTF-8 stops the strip; a str cannot hold it
+    CHECK(rstrip_py(lstrip_py(" \t x \n")) == strip_py(" \t x \n"));
+
+    // str.lstrip(chars) takes a SET of characters: "<≤≈~ " is the five, in any order and number
+    const std::string five = std::string("<") + cps({0x2264, 0x2248}) + "~ ";
+    CHECK(lstrip_chars_py(cps({0x2264}) + "~ <5 mm", five) == "5 mm");
+    CHECK(lstrip_chars_py("~~ ;x", ";, ") == "~~ ;x");   // the first character is not in the set
+    CHECK(lstrip_chars_py(";, ;, a", ";, ") == "a");
+    CHECK(lstrip_chars_py("abc", "").empty() == false);
+    CHECK(lstrip_chars_py("abc", "") == "abc");
+    CHECK(lstrip_chars_py("", "x").empty());
+    CHECK(lstrip_chars_py(";;;", ";").empty());
+    CHECK(lstrip_chars_py(cps({0x2264, 0x2264, 0x2248, 'q'}), five) == "q");
+
+    // str.split(): runs of white space (U+00A0 included) separate, nothing is empty, and bytes that are not UTF-8 are part of a word
+    CHECK(split_py(" a  b\tc\n") == std::vector<std::string>{"a", "b", "c"});
+    CHECK(split_py("").empty());
+    CHECK(split_py(" \t ").empty());
+    CHECK(split_py("a" + nbsp + "b") == std::vector<std::string>{"a", "b"});
+    CHECK(split_py("a\xff" "b c") == std::vector<std::string>{"a\xff" "b", "c"});
+    CHECK(split_py("one") == std::vector<std::string>{"one"});
+
+    // the code point at a byte, and the index after it
+    std::size_t after = 99;
+    CHECK(code_point_at("a", 0, after) == U'a');
+    CHECK(after == 1);
+    CHECK(code_point_at("\xc3\xa9x", 0, after) == 0xE9);
+    CHECK(after == 2);
+    CHECK(code_point_at("\xff", 0, after) == 0xFFFD);   // not UTF-8: one replacement of one byte
+    CHECK(after == 1);
+    CHECK(code_point_at("\xe2\x82", 0, after) == 0xFFFD);   // truncated: one of one byte, and the next call reads the stray continuation byte alone
+    CHECK(after == 1);
+    CHECK(code_point_at("\xe2\x82", 1, after) == 0xFFFD);
+    CHECK(after == 2);
+    CHECK(code_point_at("a\xe2\x82\xac", 1, after) == 0x20AC);   // the euro sign
+    CHECK(after == 4);
+
+    // format(v, ".6g"): printf's, except for the words of the non-finite values
+    CHECK(py_format_g(7.5) == "7.5");
+    CHECK(py_format_g(15.0) == "15");
+    CHECK(py_format_g(100000.0) == "100000");        // the decimal exponent 5 is below the precision 6: fixed
+    CHECK(py_format_g(1234567.0) == "1.23457e+06");  // 6 is not: scientific, two exponent digits at least
+    CHECK(py_format_g(0.0001) == "0.0001");          // the exponent -4 is still fixed
+    CHECK(py_format_g(1e-5) == "1e-05");
+    CHECK(py_format_g(2.5e-16) == "2.5e-16");
+    CHECK(py_format_g(1e22) == "1e+22");
+    CHECK(py_format_g(0.0) == "0");
+    CHECK(py_format_g(-0.0) == "-0");
+    CHECK(py_format_g(-7.5) == "-7.5");
+    CHECK(py_format_g(1.0 / 3.0, 4) == "0.3333");
+    CHECK(py_format_g(0.5, 0) == "0.5");   // a precision of 0 is read as 1
+    CHECK(py_format_g(std::numeric_limits<double>::infinity()) == "inf");
+    CHECK(py_format_g(-std::numeric_limits<double>::infinity()) == "-inf");
+    CHECK(py_format_g(std::numeric_limits<double>::quiet_NaN()) == "nan");
+    CHECK(py_format_g(std::copysign(std::numeric_limits<double>::quiet_NaN(), -1.0)) == "nan");   // printf would write -nan
 }

@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `MEAS` |
 | **Status** | **draft** 2026-10-06 — written on the manager's rulings R1–R12 of the same date (`plan/subplan_L6/L6-4.md` is the binding text), whose order (R12) sequences the build after this specification **without a review pause**; the manager's review of this text comes with Round 9, and a correction found then is made **here first** (`SPEC-template.md` §10) |
-| **Version** | 1.0g |
+| **Version** | 1.0h |
 | **Date** | 2026-10-06 |
 | **Layer** | L6 `io-measurements` (`../plan/PLAN.md` §3.7), step 4 (`measmod`) |
 | **Depends on** | `core` (`odl::Result`, `Vec3`, `Mat3`, `metres_from_km`), `time` (`Epoch`, `Duration`, `TimeScale`, `LeapTable`), `eop` (`EopSeries`), `frames` (`GcrsState`, `ItrsState`, `gcrs_to_itrs`, `to_gcrs`, `to_itrs`), `ephemerides` (the Earth's barycentric velocity), `io` (the parsed CRD, IOD, SP3 and SINEX structures); ERFA (private) |
@@ -489,7 +489,7 @@ The relative humidity of the CRD record `20` is in per cent and is divided by 10
 
 ### 6.1 Budgets
 
-Each row names the physical quantity it is a budget for and writes its arithmetic where `tools/budgetcheck.py` evaluates it (the rows are the only numbers with no test behind them).
+Each row names the physical quantity it is a budget for and writes its arithmetic where `tools/budgetcheck.cpp` (v1.0h: it was `tools/budgetcheck.py`) evaluates it (the rows are the only numbers with no test behind them).
 
 | id | quantity | budget | because |
 |---|---|---|---|
@@ -1078,3 +1078,4 @@ Elevations 36.65° – 75.93° (none near the mapping table's edge); **`w` 268.5
 | 1.0e | 2026-10-06 | **item 7 (G5) carried out, and the L6 exit gate:** §8.9 records, each beside the rule it carried out — the second set of the envelope's clarifications and the correction of rule 9 (the pole's coefficient 30.92 mm per mas, `MEAS-P-33`, not 3; first text kept in §6.4 and rule 9), the helper's one comparison (norms 7.63, 8.07, 4.80 mm; the sign-flip prediction low), **the envelope** (`MEAS-A-101`, `-101c`: `w` 268.5 – 278.9 mm, `c` −319.2 … −199.0 mm, the orbit term 55.6 mm from one product, and the size of each assembly defect against it — the centre-of-mass sign and the omitted station velocity not seen for certain), the comparison's code and predictions (`MEAS-A-100b`), **the comparison, run once: G5 holds** (`MEAS-A-100`: `r − c` +4.1 … +26.8 mm, largest `|r − c|/w` 0.100; one prediction missed), the Horizons writer the exit gate needed (`SPEC-io-horizons.md` v1.1), and `MEAS-A-102`, `-102b`, the two halves of the exit gate, which hold; `SPEC-io-formats.md` v1.3 (the SP3 reader's two new rules, found by four of the nine products of the orbit term) |
 | 1.0f | 2026-10-06 | **L7 opening (the manager's small item):** §8.9's orbit-term record corrected with its first text kept — the nine products were compared in their own frames, `ilrsb`'s frame field reads `ITRF1` from a six-character code in five columns and nothing maps it, and the size of its ITRF2014 against SLRF2020 at the pass is 3.8 – 8.9 mm along the line of sight (`MEAS-A-101d`, the ITRS Center's table pinned as `itrf2020-transfo-trfs`), the term unchanged at `nsgf`'s 55.6 mm |
 | 1.0g | 2026-10-06 | **L0 step 8 (the tree's development code is C++, plan §5 constraint 11):** the tool that fetches is `tools/fetch.cpp` (it was `tools/fetch.py`): the statement of what this module does not do names it (§1, Purpose and scope, the list of what the module does not do); the generators and checkers this specification cites by name (`tools/measmod_*.py`, `tools/legendre_reference.py`) are replaced one group at a time and this text follows each switch. No requirement, refusal or acceptance row changes. |
+| 1.0h | 2026-10-07 | **L0 step 8, group C4 (the tree's development code is C++, plan §5 constraint 11):** §6.1 names the budget checker as `tools/budgetcheck.cpp` (it was `tools/budgetcheck.py`); the grammar the rows are written in is unchanged and every row evaluates as before. The other generators this specification cites by name are replaced one group at a time and this text follows each switch. No requirement, refusal or acceptance row changes. |

@@ -23,7 +23,9 @@
 //   * SCOPE FIX (plan L0-8, ruling D12 a): the tree-wide scan for TEST_CASE claims does not read the root's own `build*` directories or its `data/`.  The Python read every `.cpp`
 //     under the root, so a build tree inside it (a CMake build's `_deps` holds other projects' sources) was part of what "the tree" meant.
 //   * A specification that cannot be read as UTF-8 is REFUSED, exit 3 (the Python raised UnicodeDecodeError, a traceback, exit 1).  A `.cpp` that cannot is skipped, as before.
-//   * The partition check of a spec's three counts (below) reports and exits 1; the Python's was an `assert` and a traceback (also exit 1).
+//   * A "(partial" Coverage row that names a requirement no acceptance row discharges is REPORTED: one named finding per requirement (the spec, the id, the row's own text), exit 1
+//     (the manager's ruling of 2026-10-07, plan L0 step 8 group C4: a DELIBERATE change of behaviour, not a port).  The Python's partition `assert` crashed on it -- a traceback, exit 1 --
+//     and the C3 port kept that as one line.  The partition check stays as an internal guard (`partitions`, below); by construction it cannot fire on any input now.
 //   * argparse's abbreviations (`--qu`) are not accepted, and `-h` prints this tool's own text and not the Python module's docstring.
 //   * "no SPEC-*.md" names `speccheck`, not `speccheck.py`.
 //   * `\w`, `\s`, `\d` and `\b` are Unicode-aware as Python's are, within the limit odl/devkit/pytext.hpp states (a code point it does not know is not a word character).
@@ -461,6 +463,13 @@ std::uint64_t decimal_number(std::string_view digits, bool& too_long) {
     return value;
 }
 
+// A requirement that a "(partial" Coverage row names and no acceptance row discharges: whether an ordinary row excuses it whole as well, and the first cells of the "(partial" rows.
+struct PartialUntested {
+    std::string id;
+    bool excused_whole = false;
+    std::vector<std::string> rows;
+};
+
 struct SpecStat {
     fs::path path;
     std::string shown_path;   // as the cross-file report prints it
@@ -547,31 +556,42 @@ bool check_spec(Io& io, const fs::path& path, const std::string& shown, bool qui
         }
     }
 
-    // EXCUSED IS THE FIRST CELL OF A COVERAGE ROW, NOT ANY MENTION IN ONE; a row marked "(partial" excuses PART of a requirement a test also covers.
+    // EXCUSED IS THE FIRST CELL OF A COVERAGE ROW, NOT ANY MENTION IN ONE; a row marked "(partial" excuses PART of a requirement a test also covers.  For each requirement a
+    // "(partial" row names, the first cells of those rows are kept (stripped, in the order the file has them): a finding below quotes them.
     std::set<std::string> excused;
-    std::set<std::string> partial;
+    std::map<std::string, std::vector<std::string>> partial;
     for (const std::string& cell : scan::coverage_cells(coverage)) {
-        std::set<std::string>& target = cell.find("(partial") != std::string::npos ? partial : excused;
-        for (const auto& [letter, number] : scan::cell_ids(cell, prefix)) target.insert(prefix + "-" + letter + "-" + number);
+        const bool is_partial = cell.find("(partial") != std::string::npos;
+        const std::string cell_text = dk::strip_py(cell);
+        for (const auto& [letter, number] : scan::cell_ids(cell, prefix)) {
+            const std::string id = prefix + "-" + letter + "-" + number;
+            if (!is_partial) {
+                excused.insert(id);
+            } else {
+                std::vector<std::string>& rows = partial[id];
+                if (rows.empty() || rows.back() != cell_text) rows.push_back(cell_text);
+            }
+        }
     }
 
     std::vector<std::string> uncovered;
-    std::vector<std::string> contradictory;
+    std::vector<std::string> contradictory;   // BOTH tested and excused: the Coverage row is stale
     std::vector<std::string> partial_ok;
+    std::vector<PartialUntested> partial_untested;
     std::size_t tested = 0;
     std::size_t excused_count = 0;
     for (const std::string& id : reqs) {
         const bool d = discharged.count(id) != 0;
         const bool e = excused.count(id) != 0;
+        const auto p = partial.find(id);
         if (d) ++tested;
         if (e) ++excused_count;
         if (!d && !e) uncovered.push_back(id);
         if (d && e) contradictory.push_back(id);   // BOTH: the Coverage table's column says "why no test", so the row is stale; reported, never netted off
-        if (d && partial.count(id) != 0) partial_ok.push_back(id);
-    }
-    // a "(partial)" marker on something no test discharges is not a partial excuse, it is an excuse with a misleading label
-    for (const std::string& id : reqs) {
-        if (partial.count(id) != 0 && discharged.count(id) == 0) contradictory.push_back(id);
+        if (d && p != partial.end()) partial_ok.push_back(id);
+        // A "(partial" marker on something no test discharges is not a partial excuse: it is a label that misleads.  (The Python put the requirement in `contradictory` as well,
+        // which counted it twice and failed its partition `assert`.)  It is REPORTED, once, whether or not an ordinary row also excuses the requirement (plan L0 step 8, group C4).
+        if (!d && p != partial.end()) partial_untested.push_back(PartialUntested{id, e, p->second});
     }
 
     // Every identifier mentioned anywhere, so dangling references are caught.
@@ -606,16 +626,16 @@ bool check_spec(Io& io, const fs::path& path, const std::string& shown, bool qui
     stat.defined_ids = defined;
 
     // The three printed components must PARTITION the denominator.  They are laid out as though they do, so they are made to, and the check is here and not in a reader's head.
-    // (The Python was an `assert`.  It is also where a "(partial" row for a requirement no test discharges lands: that requirement is in `uncovered` AND in `contradictory`, the sum
-    // double-counts it, and the Python crashed with an AssertionError instead of reporting it.  The port keeps the check, and the exit status, and does not make the crash prettier.)
-    const long long sum = static_cast<long long>(tested) + static_cast<long long>(excused_count) - static_cast<long long>(contradictory.size()) + static_cast<long long>(uncovered.size());
-    if (sum != static_cast<long long>(reqs.size())) {
+    // (The Python was an `assert`, and it was where a "(partial" row for a requirement no test discharges landed: the requirement was counted in `uncovered` AND in `contradictory`,
+    // the sum double-counted it, and the Python died with an AssertionError instead of reporting it.  That is a finding of its own now, below, and every requirement is counted
+    // once in the classes above, so this is a guard against a mistake in this function, and it cannot fail on any input.)
+    if (!partitions(tested, excused_count, contradictory.size(), uncovered.size(), reqs.size())) {
         dk::die(io, kTool, kGaps,
                 "assertion failed: " + shown + ": " + std::to_string(tested) + " tested + " + std::to_string(excused_count) + " excused - " + std::to_string(contradictory.size()) +
                     " both + " + std::to_string(uncovered.size()) + " uncovered != " + std::to_string(reqs.size()));
     }
 
-    const bool ok = uncovered.empty() && dangling.empty() && duplicates.empty() && contradictory.empty();
+    const bool ok = uncovered.empty() && dangling.empty() && duplicates.empty() && contradictory.empty() && partial_untested.empty();
 
     if (!quiet) {
         io.out << "\n" << name << "  [Spec ID: " << prefix << "]\n";
@@ -630,9 +650,21 @@ bool check_spec(Io& io, const fs::path& path, const std::string& shown, bool qui
             io.out << "    BOTH tested and excused" << right(contradictory.size(), 4) << "   " << join(contradictory)
                    << "   <- the Coverage row is stale; its column says \"why no test\"\n";
         }
+        if (!partial_untested.empty()) {
+            std::vector<std::string> ids;
+            for (const PartialUntested& p : partial_untested) ids.push_back(p.id);
+            io.out << "    \"(partial\" NOT TESTED  " << right(ids.size(), 4) << "   " << join(ids) << "   <- a \"(partial\" row names it and no test discharges it; see its PARTIAL finding\n";
+        }
         io.out << "    UNCOVERED              " << right(uncovered.size(), 4) << (uncovered.empty() ? std::string() : "   " + join(uncovered)) << '\n';
         if (!dangling.empty()) io.out << "  DANGLING references      " << right(dangling.size(), 4) << "   " << join(dangling) << '\n';
         if (!duplicates.empty()) io.out << "  DUPLICATE definitions    " << right(duplicates.size(), 4) << "   " << join(duplicates) << '\n';
+    }
+    // One named finding per requirement, on standard error whatever --quiet says: the spec, the identifier, the row's own text, and what to do.
+    for (const PartialUntested& p : partial_untested) {
+        io.err << "  PARTIAL    " << p.id << "  (" << name << "): a \"(partial\" Coverage row names it and no acceptance row discharges it\n";
+        for (const std::string& row : p.rows) io.err << "      row: " << row << '\n';
+        io.err << (p.excused_whole ? "      Another Coverage row already excuses it whole: drop the \"(partial\" row, or add the acceptance row that would make it partial.\n"
+                                   : "      Either the acceptance row the \"(partial\" promises is missing, or nothing tests it and a Coverage row without \"(partial\" should say why.\n");
     }
     return ok;
 }
@@ -765,6 +797,10 @@ std::filesystem::path default_root() {
 #else
     return std::filesystem::current_path();
 #endif
+}
+
+bool partitions(std::size_t tested, std::size_t excused, std::size_t both, std::size_t uncovered, std::size_t requirements) noexcept {
+    return tested + excused + uncovered == requirements + both;   // tested + excused - both + uncovered == requirements, without the subtraction
 }
 
 int run(const std::vector<std::string>& argv, Io io) {

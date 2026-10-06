@@ -42,6 +42,22 @@ namespace odl::devkit {
 /// str.rstrip(): without trailing whitespace (is_py_space).
 [[nodiscard]] std::string rstrip_py(std::string_view s);
 
+/// str.lstrip(): without leading whitespace.
+[[nodiscard]] std::string lstrip_py(std::string_view s);
+
+/// str.strip(): without leading and trailing whitespace.
+[[nodiscard]] std::string strip_py(std::string_view s);
+
+/// str.lstrip(chars): without the leading code points that are among those of `chars` (UTF-8: "<≤≈~ " is five code points, not a prefix).
+[[nodiscard]] std::string lstrip_chars_py(std::string_view s, std::string_view chars);
+
+/// str.split() with no argument: the runs of non-whitespace, in order; none is empty, and a string of nothing but whitespace gives none.
+[[nodiscard]] std::vector<std::string> split_py(std::string_view s);
+
+/// The code point that starts at byte i of s (i < s.size()) and the index after it.  A byte that does not begin well-formed UTF-8 is read as ONE U+FFFD of one byte, so that a
+/// scanner steps over text that is not UTF-8 and never takes it for a word, a digit or a blank.
+[[nodiscard]] std::uint32_t code_point_at(std::string_view s, std::size_t i, std::size_t& after) noexcept;
+
 /// str.splitlines() (keepends False): \n, \r, \r\n, \v, \f, 0x1c, 0x1d, 0x1e, U+0085, U+2028, U+2029 end a line; a final terminator does not start another.
 [[nodiscard]] std::vector<std::string> splitlines_py(std::string_view s);
 
