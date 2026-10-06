@@ -33,9 +33,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # TRANSITIONAL: it goes when group C12 takes Python out of the build, the tests and CI (plan §5 constraint 11).  3.13 is the minor the local ctests pass under (CMake's Python
+      # here is 3.13), and the minor matters: tools/estimation_sizing.py prints figures that depend on the interpreter's float summation, which is COMPENSATED from CPython 3.12 and
+      # plain before it, so the committed modules/estimation/tests/registered_figures.hpp (generated under 3.12 or later) differs on 3.11.  The first full run of this workflow,
+      # run 37485373306 of 2026-10-06 (every gate past the fetch, for the first time since 2026-09-18), failed exactly one test of 653,
+      # estimation.sizing_header_matches_generator, on the runner's CPython 3.11.17.  A host dependence of that kind is what the C++ port of the generator (group C9) removes:
+      # its acceptance condition is that it reproduces the committed header byte for byte and depends on no interpreter (PROVENANCE.md section 41.8).
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13'
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y ninja-build g++-13 cmake
