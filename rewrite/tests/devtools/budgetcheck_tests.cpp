@@ -211,13 +211,17 @@ TEST_CASE("a wrong row is reported on standard error with its components, the ex
     const Result padded = run_rows(row("TIME-P-1", "1 ns × 7.5 km s⁻¹ = ** 7.5 pm **"));
     CHECK(padded.code == kWrong);
     CHECK(contains(padded.err, "      stated   7.5 pm\n      computed 7.5e+06 (same units)\n"));
-    // a stated zero: the tolerance of a zero is 0.5 in the stated units (absolute), so 1 mm is refused and 0.4 mm is accepted, and the Python's message for the refusal is short
+    // a stated zero: its tolerance is 0.5 in the stated units -- the stated-precision rule (half a unit of the last stated digit) read for a stated 0, KEPT by the maintainer's ruling of
+    // 2026-10-07 -- so 1 mm is refused and 0.4 mm is accepted, and the Python's message for the refusal is short
     const Result zero = run_rows(row("X-P-1", "1 mm = **0 mm**"));
     CHECK(zero.code == kWrong);
     CHECK(zero.err == "\nFAILED   X-P-1: stated zero\n" + blurb(1));
     const Result zero_ok = run_rows(row("X-P-1", "0.4 mm = **0 mm**"), false);
     CHECK(zero_ok.code == kOk);
     CHECK(zero_ok.out == ok_line("X-P-1", "0.4 mm = 0 (0.4 computed)") + summary(1, 1, 0) + kSuccess);
+    // ... and the same 0.5 whatever the digits of the zero: `0.00` is no tighter than `0`, as in the Python
+    CHECK(run_rows(row("X-P-1", "0.4 mm = **0.00 mm**")).code == kOk);
+    CHECK(run_rows(row("X-P-1", "1 mm = **0.00 mm**")).code == kWrong);
 }
 
 TEST_CASE("dimensions that differ, a count of values that differs, and a row that cannot be read are each reported in the Python's words; unparseable outranks wrong", "[budgetcheck][behaviour]") {
@@ -265,6 +269,32 @@ TEST_CASE("dimensions that differ, a count of values that differs, and a row tha
     CHECK(contains(infinite.err, "the stated value is out of range"));
 }
 
+TEST_CASE("the silent misreadings the Python had are REFUSED as UNPARSEABLE, naming the row; a left side that is NaN never passes", "[budgetcheck][behaviour]") {
+    // the maintainer's ruling of 2026-10-07 (group C5's first item): each of these was read as something else, or passed
+    const auto unparseable = [](const std::string& consequence, const std::string& expected) {
+        const Result r = run_rows(row("X-P-1", consequence));
+        INFO(consequence << "\n" << r.both());
+        CHECK(r.code == kUnparseable);
+        CHECK(contains(r.err, "FAILED   X-P-1: UNPARSEABLE " + expected + "\n"));
+        CHECK_FALSE(contains(r.out, "ok       every budget row"));
+        CHECK(r.out == "\n1 budget rows: 0 with arithmetic, checked; 0 with none.\n  1 row(s) neither \xE2\x80\x94 see the failures below.\n");
+    };
+    unparseable("10^+3 m = **1000 m**", "'10^+3 m' = '1000 m': a power with no unit before it: '^+3' (a power of ten is written 10^3 or 10^-3)");   // was 10 m
+    unparseable("5 m^ = **5 m**", "'5 m^' = '5 m': no exponent after '^' in 'm^'");                                                                // was 5 m
+    unparseable("1 m^1_0 = **1 m**", "'1 m^1_0' = '1 m': a digit separator in '1_0' is not read: an exponent is digits only");                    // was 1 m^10
+    unparseable("1e999 m * 0 = **1 m**", "'1e999 m * 0' = '1 m': the left side evaluates to NaN (a check never passes on it)");                    // passed, "computed nan"
+    unparseable("1 m = **5 m^**", "'1 m' = '5 m^': no exponent after '^' in 'm^'");                                                                // the stated side is read the same way
+    // an infinity on the left that is not NaN is plain wrong arithmetic, as before
+    const Result inf = run_rows(row("X-P-1", "1e999 m = **1 m**"));
+    CHECK(inf.code == kWrong);
+    CHECK(contains(inf.err, "computed inf (same units)"));
+    // what each of them looks like when it is written as it should be, and is accepted
+    const Result fine = run_rows(row("X-P-1", "10^3 m = **1000 m**") + row("X-P-2", "1e+3 m = **1000 m**") + row("X-P-3", "5 m^1 = **5 m**") + row("X-P-4", "1 m^10 = **1 m^10**"), false);
+    CHECK(fine.code == kOk);
+    CHECK(fine.out == ok_line("X-P-1", "1e3 m = 1000 (1000 computed)") + ok_line("X-P-2", "1e+3 m = 1000 (1000 computed)") + ok_line("X-P-3", "5 m^1 = 5 (5 computed)") +
+                          ok_line("X-P-4", "1 m^10 = 1 (1 computed)") + summary(4, 4, 0) + kSuccess);
+}
+
 TEST_CASE("every row of a specification counts, specifications are read in name order, SPEC-template.md is not excluded, and what is not a specification is not read", "[budgetcheck][behaviour]") {
     TempDir td;
     write_text(td.path() / "SPEC-b.md", kHeader + row("B-P-1", "1 m = **1 m**"));
@@ -293,15 +323,35 @@ TEST_CASE("every row of a specification counts, specifications are read in name 
     CHECK(separator.out == summary(2, 2, 0) + kSuccess);
 }
 
-TEST_CASE("a directory that is not there, or holds no specification, passes with no rows: the Python did, and it is kept and reported", "[budgetcheck][behaviour]") {
+TEST_CASE("a directory that is absent, or holds no specification, is REFUSED (exit 2, named): success over nothing read is the failure this tool exists against; one that was read passes", "[budgetcheck][behaviour]") {
+    // the maintainer's ruling of 2026-10-07 (group C5's first item): the Python passed each of these with "0 budget rows ... ok"
     TempDir td;
-    const std::string nothing = summary(0, 0, 0) + kSuccess;
-    CHECK(run_tool({"--spec-dir", td.path().string()}).out == nothing);
-    CHECK(run_tool({"--spec-dir", td.path().string()}).code == kOk);
-    CHECK(run_tool({"--spec-dir", (td.path() / "absent").string(), "--quiet"}).code == kOk);
-    CHECK(run_tool({"--spec-dir", (td.path() / "absent").string(), "--quiet"}).out == nothing);
+    const auto refused = [&](const fs::path& dir, bool quiet) {
+        std::vector<std::string> args = {"--spec-dir", dir.string()};
+        if (quiet) args.push_back("--quiet");
+        const Result r = run_tool(args);
+        INFO(dir.string() << (quiet ? "  --quiet" : ""));
+        CHECK(r.code == kUnparseable);
+        CHECK(r.out.empty());
+        CHECK(r.err == "budgetcheck: no SPEC-*.md in " + dir.string() + "\n");
+    };
+    refused(td.path(), false);                // an empty directory
+    refused(td.path(), true);
+    refused(td.path() / "absent", false);     // a directory that is not there
+    refused(td.path() / "absent", true);
     write_text(td.path() / "a file", "x");
-    CHECK(run_tool({"--spec-dir", (td.path() / "a file").string()}).out == nothing);   // a file where a directory was meant
+    refused(td.path() / "a file", false);     // a file where a directory was meant
+    write_text(td.path() / "SPEC.md", row("N-P-1", "1 s = **99 s**"));   // names that are no specification: nothing read is still nothing read
+    write_text(td.path() / "SPEC-x.txt", row("N-P-2", "1 s = **99 s**"));
+    write_text(td.path() / "spec-x.md", row("N-P-3", "1 s = **99 s**"));
+    refused(td.path(), false);
+    // ... and a directory whose specifications hold no budget row WAS read, so it passes with its "0 budget rows"
+    write_text(td.path() / "SPEC-prose.md", "No budget rows here.\n\n| id | what |\n|---|---|\n| `X-R-1` | a requirement |\n");
+    const Result read = run_tool({"--spec-dir", td.path().string()});
+    CHECK(read.code == kOk);
+    CHECK(read.out == summary(0, 0, 0) + kSuccess);
+    CHECK(read.err.empty());
+    CHECK(run_tool({"--quiet"}).code == kOk);   // the default directory is the tree's own, which holds specifications: the run is not refused
 }
 
 TEST_CASE("a specification that cannot be read is refused by name, exit 2, whatever it is that cannot be read", "[budgetcheck][behaviour]") {
@@ -405,9 +455,12 @@ TEST_CASE("parse_unit refuses what it cannot read in the Python's words, in the 
     CHECK(message("M") == "unknown unit 'M' in 'M'");             // case matters
     CHECK(message("m^x") == "invalid literal for int() with base 10: 'x'");
     CHECK(message("foo^x") == "invalid literal for int() with base 10: 'x'");   // int() before the lookup
-    CHECK(message("m^1__0") == "invalid literal for int() with base 10: '1__0'");
-    CHECK(message("m^_1") == "invalid literal for int() with base 10: '_1'");
-    CHECK(message("m^1_") == "invalid literal for int() with base 10: '1_'");
+    // a digit separator in an exponent: int() read it (`m^1_0` was m^10); REFUSED by the maintainer's ruling of 2026-10-07, wherever the underscore stands
+    CHECK(message("m^1_0") == "a digit separator in '1_0' is not read: an exponent is digits only");
+    CHECK(message("m^1__0") == "a digit separator in '1__0' is not read: an exponent is digits only");
+    CHECK(message("m^_1") == "a digit separator in '_1' is not read: an exponent is digits only");
+    CHECK(message("m^1_") == "a digit separator in '1_' is not read: an exponent is digits only");
+    CHECK(message("m^-1_0") == "a digit separator in '-1_0' is not read: an exponent is digits only");
     CHECK(message("m^-") == "invalid literal for int() with base 10: '-'");
     CHECK(message("m^2000000") == "exponent out of range: '2000000'");
     CHECK(message("km^200") == "a unit raised to 200 is out of range: 'km^200'");
@@ -418,12 +471,18 @@ TEST_CASE("parse_unit refuses what it cannot read in the Python's words, in the 
     CHECK(message("m^-1000001") == "exponent out of range: '-1000001'");
     CHECK(bc::parse_unit("m^1000000").dim == bc::Dim{1000000, 0, 0, 0});
     CHECK(message("m") == "no error");
-    // the quirks of the Python, kept: `m^` is `m`; `^3` is the dimensionless "" cubed (so 10^+3 below reads as 10); a digit separator is read; a plus sign is an exponent's
-    CHECK(bc::parse_unit("m^").dim == bc::Dim{1, 0, 0, 0});
-    const bc::Quantity cubed = bc::parse_unit("^3");
-    CHECK(cubed.value == 1.0);
-    CHECK(cubed.dim == bc::Dim{0, 0, 0, 0});
-    CHECK(bc::parse_unit("m^1_0").dim == bc::Dim{10, 0, 0, 0});
+    // REFUSED by the maintainer's ruling of 2026-10-07, each a silent misreading in the Python: `m^` was read as `m`, and a power with no unit before it as the dimensionless "" raised to it
+    // (so `10^+3` was 10)
+    CHECK(message("m^") == "no exponent after '^' in 'm^'");
+    CHECK(message("km s^") == "no exponent after '^' in 's^'");
+    CHECK(message("m/s^") == "no exponent after '^' in 's^'");
+    CHECK(message("^3") == "a power with no unit before it: '^3' (a power of ten is written 10^3 or 10^-3)");
+    CHECK(message("^+3") == "a power with no unit before it: '^+3' (a power of ten is written 10^3 or 10^-3)");
+    CHECK(message("^-13 AU") == "a power with no unit before it: '^-13' (a power of ten is written 10^3 or 10^-3)");
+    CHECK(message("m ^2") == "a power with no unit before it: '^2' (a power of ten is written 10^3 or 10^-3)");   // a blank before the caret makes it a token of its own
+    CHECK(message("^") == "a power with no unit before it: '^' (a power of ten is written 10^3 or 10^-3)");
+    // what stays: the empty unit, an explicit plus sign, and the digits of any script, are read as before
+    CHECK(bc::parse_unit("").dim == bc::Dim{0, 0, 0, 0});
     CHECK(bc::parse_unit("m^+2").dim == bc::Dim{2, 0, 0, 0});
     CHECK(bc::parse_unit("m^\xD9\xA2").dim == bc::Dim{2, 0, 0, 0});   // ARABIC-INDIC DIGIT TWO: int() reads every script's digits
     CHECK(bc::parse_unit("m^0").dim == bc::Dim{0, 0, 0, 0});
@@ -499,10 +558,6 @@ TEST_CASE("parse_term reads a quantity: a number, an optional range, and the uni
         CHECK(t.unit.dim == D{1, 0, -1, 0});
     }
     {
-        const bc::Term t = bc::parse_term("10^-13 AU");   // not a number: `10` and the "unit" `^-13 AU` -- unless normalise has folded it, which the tool always does first
-        CHECK(t.values == std::vector<double>{10.0});
-    }
-    {
         const bc::Term t = bc::parse_term("1e-13 AU");
         CHECK(t.values == std::vector<double>{1e-13});
         CHECK(t.unit.dim == D{1, 0, 0, 0});
@@ -534,6 +589,9 @@ TEST_CASE("parse_term reads a quantity: a number, an optional range, and the uni
     CHECK(message("mm 5") == "cannot read a quantity from 'mm 5'");
     CHECK(message(".5 mm") == "cannot read a quantity from '.5 mm'");   // NUM wants a digit first
     CHECK(message("2 * 10^ m") == "unknown unit '*' in '* 10^ m'");    // a star form with no digits in its exponent is no exponent: the number is 2 and the unit begins at the star
+    // a power of ten that normalise has not folded (it folds `10^3` and `10^-3` into `1e3` and `1e-3`, not `10^+3`) is no longer read as the number 10 with a "unit" `^+3`: it is refused
+    CHECK(message("10^-13 AU") == "a power with no unit before it: '^-13' (a power of ten is written 10^3 or 10^-3)");
+    CHECK(message("10^+3 m") == "a power with no unit before it: '^+3' (a power of ten is written 10^3 or 10^-3)");
     CHECK(message("1e m") == "unknown unit 'e' in 'e m'");              // an e with no digit after it is no exponent: it begins the unit
     CHECK(message("1e+ m") == "unknown unit 'e+' in 'e+ m'");
     CHECK(message("5 ~ 6 mm") == "unknown unit '~' in '~ 6 mm'");      // the range's tilde has to touch both numbers; here the unit text starts with it
@@ -555,6 +613,7 @@ TEST_CASE("the tolerance is half a unit of the last SIGNIFICANT digit of the sta
     CHECK(tol("2.6~10.2 mm", 2.6) == Approx(0.05005).epsilon(1e-12));
     CHECK(tol("1 m", 0.0) == 0.5);                // a stated zero: 0.5, in the stated units
     CHECK(tol("0 m", 0.0) == 0.5);
+    CHECK(tol("0.00 m", 0.0) == 0.5);             // the same 0.5 however many digits the zero is written with
     CHECK(tol("zero", 5.0) == Approx(0.5005).epsilon(1e-12));   // no digit in the text: the mantissa is "1", one significant digit, exponent 0
     CHECK(tol("0", 5.0) == Approx(0.5005).epsilon(1e-12));      // "0" -> lstrip -> "" -> "0": length 1
     CHECK(tol("1 2", 10.0) == Approx(0.5005).epsilon(1e-12));   // spaces are removed first: "12"

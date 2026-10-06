@@ -36,8 +36,14 @@
 //     magnitude exceeds a million is refused (the Python's integers have no limit; this tool's are 64 bits).
 //   * A specification that is not UTF-8 is REFUSED, exit 2 (the Python raised UnicodeDecodeError); the messages name `budgetcheck`, not `budgetcheck.py`; argparse's abbreviations (`--qu`) are
 //     not accepted and `-h` prints this tool's own text.
-//   * KEPT AS THEY ARE, found by reading the Python and reported, not fixed: a specification directory with no SPEC-*.md (or none at all) passes with "0 budget rows"; `10^+3` reads as 10 (the plus
-//     makes `^+3` a dimensionless "unit" raised to 3); a unit token `m^` reads as `m`; int()'s digit separators (`m^1_0`) are read.
+//   * REFUSED, by the maintainer's ruling of 2026-10-07 (each was a silent misreading in the Python found by reading it; plan constraint 4: refuse rather than approximate; none changes a result
+//     on today's specifications, which the controls of the ctest `budgetcheck.real_tree` and the unchanged three lines of gate 8 show): (1) a `--spec-dir` that is absent or holds no SPEC-*.md
+//     (the Python passed it with "0 budget rows", success over nothing read; a directory whose specifications hold no budget row still passes, it was read); (2) `10^+3`, which read as 10
+//     because the plus sign made `^+3` a dimensionless "unit" raised to 3, and so any power with no unit before it; (3) a unit token `m^` with no exponent, which read as `m`; (4) int()'s digit
+//     separators in an exponent (`m^1_0`, which read as `m^10`); (5) a left side that is NaN (infinity times zero), which passed because no comparison with NaN is true.  Each is UNPARSEABLE, exit 2,
+//     naming the row, except (1), which is refused as speccheck refuses it ("no SPEC-*.md in DIR", exit 2).
+//   * KEPT, by the same ruling: the tolerance of a stated zero is 0.5 in the stated units.  It is the stated-precision rule -- half a unit of the last stated digit -- read for a stated zero, and
+//     the Python gave every zero the same 0.5 however many digits it is written with (`0`, `0.0` and `0.00` alike), which this tool keeps.
 //   * `\s` and `\d` are Unicode-aware as Python's are, within the limit odl/devkit/pytext.hpp states; repr of a prose prefix is the devkit's py_repr.
 
 #include <odl/devkit/fs.hpp>
@@ -369,9 +375,10 @@ std::optional<std::string> row_id(std::string_view line) {
 
 namespace {
 
-// int(text) as parse_unit and parse_number use it: an optional sign, then decimal digits of any script with single underscores BETWEEN digits; anything else is the ValueError the Python
-// raised, in its words.  A magnitude above a million is refused (deliberate difference: the Python's integers have no limit, this tool's are 64 bits).
-long long python_int(std::string_view text) {
+// int(text) as parse_unit and parse_number use it: an optional sign, then decimal digits of any script; anything else is the ValueError the Python raised, in its words -- EXCEPT a digit
+// separator, which Python's int() reads (`1_0` is 10) and this tool REFUSES (the maintainer's ruling of 2026-10-07: a silent misreading of an exponent; plan constraint 4, refuse rather than
+// approximate).  A magnitude above a million is refused (deliberate difference: the Python's integers have no limit, this tool's are 64 bits).
+long long py_int(std::string_view text) {
     const auto invalid = [&] { return ParseError("invalid literal for int() with base 10: " + dk::py_repr(text)); };
     constexpr long long kLimit = 1'000'000;
     std::size_t i = 0;
@@ -381,7 +388,7 @@ long long python_int(std::string_view text) {
         ++i;
     }
     long long value = 0;
-    bool last_was_digit = false;
+    bool any_digit = false;
     bool too_big = false;
     while (i < text.size()) {
         std::size_t after = 0;
@@ -392,21 +399,21 @@ long long python_int(std::string_view text) {
                 value = value * 10 + digit;
                 too_big = value > kLimit;
             }
-            last_was_digit = true;
-        } else if (cp == U'_' && last_was_digit) {   // a separator is allowed after a digit; what follows it has to be a digit, which the next turn (or the end of the text) checks
-            last_was_digit = false;
+            any_digit = true;
+        } else if (cp == U'_') {
+            throw ParseError("a digit separator in " + dk::py_repr(text) + " is not read: an exponent is digits only");
         } else {
             throw invalid();
         }
         i = after;
     }
-    if (!last_was_digit) throw invalid();
+    if (!any_digit) throw invalid();
     if (too_big) throw ParseError("exponent out of range: " + dk::py_repr(text));
     return negative ? -value : value;
 }
 
 // float(text) for a decimal number: [sign] digits [. digits] [e [sign] digits], the digits of any script.  Out of double range it is inf or 0, as in the Python.
-double python_float(std::string_view text) {
+double py_float(std::string_view text) {
     std::string ascii;
     for (std::size_t i = 0; i < text.size();) {
         std::size_t after = 0;
@@ -459,7 +466,7 @@ const std::map<std::string, std::pair<double, Dim>>& units() {
         {"pm", {1e-12, length}},   {"fm", {1e-15, length}},   {"AU", {1.495978707e11, length}},
         {"s", {1.0, time}},        {"ms", {1e-3, time}},      {"us", {1e-6, time}},    {"ns", {1e-9, time}},     {"ps", {1e-12, time}},
         {"fs", {1e-15, time}},     {"rad", {1.0, angle}},     {"as", {arcsec, angle}}, {"mas", {arcsec * 1e-3, angle}}, {"uas", {arcsec * 1e-6, angle}},
-        {"", {1.0, kNoDim}},       {"1", {1.0, kNoDim}},
+        {"1", {1.0, kNoDim}},   // (the Python also had "", reachable only through a bare power such as `^+3`, which is refused now; the empty UNIT is read before the table)
         {"kg", {1.0, mass}},       {"g", {1e-3, mass}},       {"N", {1.0, Dim{1, -2, 0, 1}}},
         {"J", {1.0, Dim{2, -2, 0, 1}}},                       {"W", {1.0, Dim{2, -3, 0, 1}}},
     };
@@ -519,7 +526,11 @@ Quantity parse_unit(std::string_view input) {
             const std::size_t caret = token.find('^');
             const std::string symbol = token.substr(0, caret);
             const std::string exponent = caret == std::string::npos ? std::string() : token.substr(caret + 1);
-            const long long e = exponent.empty() ? 1 : python_int(exponent);   // BEFORE the symbol is looked up, as in the Python
+            // REFUSED since the maintainer's ruling of 2026-10-07, each a silent misreading in the Python: a power with no unit before it (`^+3` was read as the dimensionless "" cubed, so
+            // `10^+3` was 10), and a unit symbol with `^` and no exponent (`m^` was read as `m`).
+            if (caret != std::string::npos && symbol.empty()) throw ParseError("a power with no unit before it: " + dk::py_repr(token) + " (a power of ten is written 10^3 or 10^-3)");
+            if (caret != std::string::npos && exponent.empty()) throw ParseError("no exponent after '^' in " + dk::py_repr(token));
+            const long long e = caret == std::string::npos ? 1 : py_int(exponent);   // BEFORE the symbol is looked up, as in the Python
             const auto found = units().find(symbol);
             if (found == units().end()) throw ParseError("unknown unit " + dk::py_repr(symbol) + " in " + dk::py_repr(u));
             const long long power = e * sign;
@@ -555,8 +566,8 @@ double parse_number(std::string_view input) {
                 if (m < s.size() && s[m] == '-') ++m;
                 const std::size_t end = digits_end(s, m);
                 if (end > m && end == s.size()) {
-                    const double mantissa = python_float(std::string_view(s).substr(0, j));
-                    return mantissa * power_of_ten(python_int(std::string_view(s).substr(k)));
+                    const double mantissa = py_float(std::string_view(s).substr(0, j));
+                    return mantissa * power_of_ten(py_int(std::string_view(s).substr(k)));
                 }
             }
         }
@@ -565,9 +576,9 @@ double parse_number(std::string_view input) {
         std::size_t m = 3;
         if (m < s.size() && s[m] == '-') ++m;
         const std::size_t end = digits_end(s, m);
-        if (end > m && end == s.size()) return power_of_ten(python_int(std::string_view(s).substr(3)));
+        if (end > m && end == s.size()) return power_of_ten(py_int(std::string_view(s).substr(3)));
     }
-    return python_float(s);
+    return py_float(s);
 }
 
 Term parse_term(std::string_view input) {
@@ -673,6 +684,10 @@ RowOutcome check_row(const std::string& rid, std::string_view row, bool quiet, s
                 Quantity q{1.0, kNoDim};
                 for (const Term& f : factors) q = q * Quantity{f.values[f.values.size() > 1 ? i : 0], kNoDim} * f.unit;
                 lefts.push_back(q);
+            }
+            // REFUSED since the maintainer's ruling of 2026-10-07: a left side that is NaN (an infinity times zero) passed in the Python, because no comparison with NaN is true; a check never passes on it
+            for (const Quantity& q : lefts) {
+                if (std::isnan(q.value)) throw ParseError("the left side evaluates to NaN (a check never passes on it)");
             }
             const Term right = parse_term(rhs);
             rvals = right.values;
@@ -790,6 +805,12 @@ int run(const std::vector<std::string>& argv, Io io) {
             }
         }
         std::sort(names.begin(), names.end());
+        // REFUSED since the maintainer's ruling of 2026-10-07, as speccheck refuses it: a directory that is absent, or holds no SPEC-*.md, is success over nothing read (the Python passed it with "0
+        // budget rows"), which is the failure this tool exists against.  A directory whose specifications hold no budget row passes: it was read.
+        if (names.empty()) {
+            io.err << kTool << ": no SPEC-*.md in " << spec_dir << '\n';
+            return kUnparseable;
+        }
 
         std::size_t rows = 0, checked = 0, none = 0;
         std::vector<std::string> all_problems;

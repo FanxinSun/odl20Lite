@@ -1,8 +1,8 @@
 #pragma once
 // tools/budgetcheck.hpp — the budget-row arithmetic checker's entry point, and the pieces it is made of (plan L0 step 8, group C4).
 //
-// `run` is the whole tool: `budgetcheck [--spec-dir DIR] [--quiet]`; exit 0 every row checks, 1 a row is wrong, 2 a row would not parse (also an argument error and a specification that
-// could not be read), 70 an error the tool did not anticipate.  The tests call it in-process on synthetic specifications; ci.sh's gate 8 and the ctest `budget.arithmetic` run the built tool.
+// `run` is the whole tool: `budgetcheck [--spec-dir DIR] [--quiet]`; exit 0 every row checks, 1 a row is wrong, 2 a row would not parse (also an argument error, a specification that could not be
+// read, and a directory with no SPEC-*.md), 70 an error the tool did not anticipate.  The tests call it in-process on synthetic specifications; ci.sh's gate 8 and the ctest `budget.arithmetic` run the built tool.
 //
 // `scan` is the Python tool's regular expressions as hand-written scanners over UTF-8 text, and the rest of this header is its arithmetic: each exposed so that it can be tested against the
 // semantics of the code it replaces (the Python's text is in each comment).  `\s` and `\d` are Unicode-aware as Python's are, within the limit odl/devkit/pytext.hpp states.
@@ -65,7 +65,8 @@ struct Quantity {
 [[nodiscard]] Quantity operator*(const Quantity& a, const Quantity& b);
 
 /// parse_unit: `km s^-1`, `mm/uas`, `m/AU`, `mm`, the empty string.  The first `/` splits numerator from denominator; a token is `symbol` or `symbol^integer`; an unknown symbol is a
-/// ParseError.  (A bare `^3` is the dimensionless "" raised to 3, as in the Python.)
+/// ParseError.  Refused, each a silent misreading in the Python (the maintainer's ruling of 2026-10-07): a power with no unit before it (`^3`, which read as the dimensionless "" cubed), a symbol with `^` and
+/// no exponent (`m^`, which read as `m`) and a digit separator in an exponent (`m^1_0`, which read as `m^10`).
 [[nodiscard]] Quantity parse_unit(std::string_view u);
 
 /// parse_number: `7.5`, `1.11*10^-16`, `10^-13`, `1e-5`, `+3`, as float() and `10.0 ** int()` read them; blanks are ignored.
