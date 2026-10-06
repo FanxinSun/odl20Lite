@@ -275,6 +275,8 @@ def main(argv=None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true", help="also verify SPEC-gravity §4.7's formulas against the definition")
     ap.add_argument("--header", type=Path, default=None, help="write a C++ header here instead of printing")
+    ap.add_argument("--verify", type=Path, default=None,
+                    help="compare this committed header with what the generator emits; exit 1 if they differ")
     args = ap.parse_args(argv)
 
     rows = []
@@ -334,6 +336,11 @@ def main(argv=None) -> int:
                      f"{{{', '.join(hexes)}}}}},")
     lines += ["};", "", "}  // namespace odl::gravity::reference", ""]
     text = "\n".join(lines)
+    if args.verify:
+        ok = args.verify.read_text(encoding="utf-8") == text
+        print("ok       the committed header is exactly what the generator emits" if ok
+              else "MISMATCH the committed header differs from the generator's output", file=sys.stderr)
+        return 0 if ok else 1
     if args.header:
         args.header.write_text(text, encoding="utf-8")
         print(f"wrote {len(rows)} tensors to {args.header}", file=sys.stderr)

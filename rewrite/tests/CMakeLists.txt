@@ -190,3 +190,11 @@ if(BUILD_TESTING)
   target_compile_definitions(odl_l6_exit_gate_tests PRIVATE ODL_ACS3_TLE_FILE="${_gate_tle_CACHE_PATH}")
 endif()
 catch_discover_tests(odl_l6_exit_gate_tests EXTRA_ARGS --warn NoAssertions)
+
+# L7 step 1 (SPEC-gravity.md v1.4, SPEC-forcemodel.md): the numbers the specifications freeze and the tests compare against come from
+# tools that do NOT use the code under test, and each is reproduced here so that a number cannot drift away from its generator — the
+# gravity gradient's 145 reference tensors from the definition, and the force plugins' finite-difference sizing frozen before any run (§6.2).
+add_test(NAME gravity.gradient_reference_header_matches_its_generator
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/gradient_reference.py" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/gravity/tests/gradient_reference.hpp")
+add_test(NAME forcemodel.fd_sizing_reproduces
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/forcemodel_fd_sizing.py" --check)
