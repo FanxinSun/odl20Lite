@@ -1751,6 +1751,20 @@
       "upstream_mutable": false,
       "verify_note": "The document names no citation to give (searched: 'Johnston', 'doi' 0 occurrences).",
       "retrieved": "2026-10-06"
+    },
+    {
+      "id": "dach-et-al-2015-bernese-gnss-software-5-2-manual",
+      "kind": "literature",
+      "role": "Dach, R., Lutz, S., Walser, P., Fridez, P. (eds.), 'Bernese GNSS Software, Version 5.2', user manual. L7 steps 2, 4, 5: section 7.2 (the normal equations, the cofactor matrix, the variance of unit weight sigma0^2 = Omega/(n-u), the standard deviation of a parameter), section 8.3.2 (the standard deviation of a difference from the joint cofactor, with Student's t), section 7.5 (constraints as pseudo-observations: H p = h + v_h, D(h) = sigma^2 P_h^-1; the normal equations gain H'P_hH and H'P_hh), section 2.2.2.4 (pseudo-stochastic orbit parameters).",
+      "version": "Astronomical Institute, University of Bern, November 2015, 19 262 349 bytes, DOI 10.7892/boris.72297",
+      "url": "https://zhw-b.s3.cloud.switch.ch/aiub/BERN52/DOCU/DOCU52.pdf",
+      "filename": "DOCU52.pdf",
+      "sha256": "0498ff23f248f412f155d976357da5599d1f96643026a0030cda7e4ce0fc7ee8",
+      "terms": "FOUND. The manual's own title-page text: \"This is an open access book licensed under a Creative Commons Attribution-NonCommercial 4.0 International license (CC BY-NC 4.0). This license allows anyone to download, share, reuse, reprint, adapt, distribute and/or copy the work providing the original authors and source are credited and the purpose is non-commercial. No permission is required from the authors or the publisher in these cases.\" and \"Freely available online at http://www.bernese.unibe.ch\"; \"Copyright c Astronomical Institute, University of Bern, November 2015\". The tree redistributes nothing and cites the manual for its formulas: the pin is the URL and the hash. HOST: the AIUB's own ftp host (ftp.aiub.unibe.ch/BERN52/DOCU/DOCU52.pdf) did not answer on 2026-10-06; the bytes were taken from the bucket 'aiub' of SWITCH's cloud storage under the same path, and are byte-identical to the copy read for the L7 rule-4 report (sha256 0498ff23f248f412...).",
+      "why_pinned": "A PROVENANCE RECORD, NOT A DEPENDENCY. Nothing derived from this document is a copy of it. It is pinned so that 'this was derived from that' is checkable by a future reader who fetches the same hash and gets the same bytes.",
+      "upstream_mutable": false,
+      "verify_note": "A text search of the extracted manual (49 953 lines) finds no Cholesky, Levenberg, Marquardt, Gauss-Newton, 'condition number' or 'equilibrat' (0 each): it prints the estimation theory and the constraints, no solver and no damping (PROVENANCE section 40.7).",
+      "retrieved": "2026-10-06"
     }
   ]
 }
