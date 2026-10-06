@@ -317,6 +317,10 @@ struct Control {
     RowOptions options;
     double multiple;
     bool across_only;
+    /// false: computed and logged beside the others, NOT asserted. The control without the diurnal aberration's Jacobian had no power at the geometry the rule selected (0.47 epsilon for
+    /// the 100 asked: the line of sight is perpendicular to the station's velocity, so the Jacobian's first-order effect vanishes); SPEC-measmod 6.2 (v), amended after the run by the
+    /// manager's ruling (plan/subplan_L6/L6-4.md, 7baf3ad): the run stands as run, and the control's claim moves to MEAS-A-098b (angle_diurnal_tests.cpp).
+    bool asserted = true;
     bool applies_to(AngleGate g) const {
         if (!options.annual_jacobian) return g == AngleGate::Astrometric || g == AngleGate::AstrometricOfDate;
         if (!options.dzo_dzv) return g == AngleGate::ApparentRefracted;
@@ -333,7 +337,7 @@ std::vector<Control> controls() {
     o = RowOptions{}; o.dzo_dzv = false; c.push_back({"without dz_o/dz_v", o, 1.0e3, false});
     o = RowOptions{}; o.light_time_shift = false; c.push_back({"without the emission-epoch shift", o, 1.0e3, true});
     o = RowOptions{}; o.frame_rotation = false; c.push_back({"without the frame's rotation", o, 1.0e3, false});
-    o = RowOptions{}; o.diurnal_jacobian = false; c.push_back({"without the diurnal aberration's Jacobian", o, 1.0e2, false});
+    o = RowOptions{}; o.diurnal_jacobian = false; c.push_back({"without the diurnal aberration's Jacobian", o, 1.0e2, false, false});
     return c;
 }
 
@@ -374,8 +378,8 @@ void gate_group(const AngleFrozen& fz) {
                 const double rel = std::max((wrong[0] - o.analytic[0]).norm() / o.analytic[0].norm(), (wrong[1] - o.analytic[1]).norm() / o.analytic[1].norm());
                 const double v = violation(o.fhat, wrong, o.eps);
                 WARN(std::setprecision(4) << label(fz, cfg, radial) << ", control " << c.name << ": the row differs from the model's by " << rel << " of itself and fails (b) by " << v
-                                          << " ε (asked: " << c.multiple << ")");
-                CHECK(v >= c.multiple);
+                                          << " ε (" << (c.asserted ? "asked: " : "logged, not asserted — asked as first written: ") << c.multiple << ")");
+                if (c.asserted) CHECK(v >= c.multiple);
             }
         }
 

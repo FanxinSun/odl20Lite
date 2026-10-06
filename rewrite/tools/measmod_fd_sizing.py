@@ -857,6 +857,181 @@ def angle_report(scan: bool, check: bool) -> int:
         bad += 0 if ok else 1
     return bad
 
+# =====================================================================================================================================
+# THE DIURNAL-ABERRATION CHECK (MEAS-A-098b) — 2026-10-06, REGISTERED AFTER THE ANGLE GATE'S ONE RUN AND BEFORE THIS CHECK HAS RUN
+# =====================================================================================================================================
+# The angle gate's control "without the diurnal aberration's Jacobian A'(.; beta_d)" asked 10^2 epsilon and gave 0.47: at the geometry the rule selected (a line of sight due north,
+# a station moving east) the Jacobian's first-order effect on an angular displacement, the scalar (1 - n.beta), is zero, and the control had no power. The manager's ruling (7baf3ad,
+# 2026-10-06): the run stands; the claim — that G1 catches a missing or mis-wired A'(.; beta_d) in the azimuth/elevation row — moves to a NEW check at a closed-form geometry with
+# the station moving along the line of sight, sized by the same procedure EVALUATED AT THIS GEOMETRY (not the same numbers carried over), with each control's power evaluated
+# at this geometry and written down before it runs.
+#
+# Geometry (SPEC-measmod 6.2 (vi)): the identity Earth orientation, a site on the equator at longitude 0 (up = x, east = y, north = z of the GCRS axes), the observer at rest in
+# position at (6 378 137, 0, 0) m with the inertial velocity of the equatorial surface, 465.1 m/s, ALONG THE LINE OF SIGHT (toward the target, n.beta = +beta; or away, -beta); the
+# target static (no light-time coupling to confuse the check) at azimuth 90 deg, elevation 30 deg, slant range 1.2e6 m; the atmosphere the first normal point's. Because beta
+# is parallel to n, A(n; +-beta) = n: the apparent direction IS the geometric one, and the right row, the row without A' and the row with A'(.; -beta) share one base direction and
+# differ only in the Jacobian — which is what the check isolates.
+#
+# The sizing, the procedure of the angle sizing evaluated here:
+#   nu    = 3 [ulp(output) + ulp(operand)/rho]   output: the azimuth, 1.5708 rad (ulp 2^-52, not ulp(2 pi): THIS geometry's); operand: the target's largest position component
+#   F_a(h) = F_pure(h; phi = 30 deg) + 1.05 F_extra/rho^3, F_pure(h; phi) = 2/[(rho - h)^3 cos^3(phi + asin(h/rho))], F_extra by the exact series of the model at THIS line of sight
+#   eps(h) = h^2 F_a(h)/6 + nu/h;   B_pred = max eps;   the controls' power: |Delta row| / eps at each size, from the series' first derivatives (an implementation independent of the C++ rows)
+
+DI_AZ_DEG, DI_EL_DEG = 90.0, 30.0
+DI_RHO = 1.2e6
+DI_SPEED = V_STATION_MAX                  # m/s: omega_E a = 465.1, the largest speed of any ground station
+DI_AXES_LOCAL = {"x": (0.0, 0.0, 1.0), "y": (0.0, 1.0, 0.0), "z": (1.0, 0.0, 0.0)}     # the GCRS axes of the test's identity orientation (x = up, y = east, z = north) in (north, east, up)
+
+
+def di_nu() -> float:
+    los = unit_of_angles(DI_AZ_DEG, DI_EL_DEG)
+    r_largest = 6378137.0 + DI_RHO * los[2]                 # the target's largest position component: the station's x plus rho sin(el)
+    return 3 * (ulp(math.radians(DI_AZ_DEG)) + ulp(r_largest) / DI_RHO)
+
+
+def f_pure_at(h: float, phi_deg: float, rho: float = RHO_A) -> float:
+    return 2.0 / ((rho - h) ** 3 * math.cos(math.radians(phi_deg) + math.asin(h / rho)) ** 3)
+
+
+def az_series_any(n):
+    """The azimuth of a series direction (x north, y east, z up), by the branch that stays away from the singularity: arctan(y/x) for |x| >= |y|, else +-pi/2 - arctan(x/y)."""
+    if abs(n[0].c[0]) >= abs(n[1].c[0]):
+        return atan_series(n[1] / n[0])
+    sgn = 1.0 if n[1].c[0] > 0 else -1.0
+    return sgn * (math.pi / 2) - atan_series(n[0] / n[1])
+
+
+def di_outputs(variant: str, sign: float, e, xi0: float, atm_ab):
+    """The (azimuth, elevation) series of the diurnal check's model — variant "right" (A' of the model), "without" (the identity Jacobian) or "reversed" (A'(.; -beta)) — and the pure direction's
+    series, for the static target displaced along the unit vector e (local axes) about the stencil point xi0 (units of rho)."""
+    los = unit_of_angles(DI_AZ_DEG, DI_EL_DEG)
+    base = tuple(S([los[i] + xi0 * e[i], e[i]]) for i in range(3))
+    n_geo = v_unit(base)
+    beta = tuple(sign * (DI_SPEED / C_LIGHT) * x for x in los)
+    if variant == "right":
+        n_app = aberrate(n_geo, beta)
+    elif variant == "reversed":
+        n_app = aberrate(n_geo, tuple(-x for x in beta))
+    else:                                                  # "without": the identity Jacobian, n_app = n_geo + (A(n0; beta) - n0), a constant shift; defined at the centre of the stencil only
+        assert xi0 == 0.0
+        a0 = aberrate(tuple(S([x]) for x in los), beta)
+        n_app = tuple(n_geo[i] + (a0[i].c[0] - los[i]) for i in range(3))
+    zv = atan_series((n_app[0] * n_app[0] + n_app[1] * n_app[1]).sqrt() / n_app[2])
+    zo = refract_series(zv, atm_ab[0], atm_ab[1])
+    full = (az_series_any(n_app), math.pi / 2 - zo)
+    h_pure = (n_geo[0] * n_geo[0] + n_geo[1] * n_geo[1]).sqrt()
+    pure = (az_series_any(n_geo), atan_series(n_geo[2] / h_pure))
+    return full, pure
+
+
+def di_extra_scan(atm_ab, step_deg=10.0):
+    """sup |third derivative of the full angle - that of the pure direction| over the displacement directions, the stencil's centre and ends, both signs of the observer's motion;
+    and the largest pure third derivative against F_pure(h; 30 deg)."""
+    sup_diff = [0.0, 0.0]
+    worst_ratio = 0.0
+    sup_pure = [0.0, 0.0]
+    for e in sphere_half(step_deg):
+        for xi in (0.0, 1000.0, -1000.0):
+            for sign in (1.0, -1.0):
+                full, pure = di_outputs("right", sign, e, xi / DI_RHO, atm_ab)
+                tf, tp = third_of(full), third_of(pure)
+                for k in range(2):
+                    sup_diff[k] = max(sup_diff[k], abs(tf[k] - tp[k]))
+                    sup_pure[k] = max(sup_pure[k], abs(tp[k]))
+                    worst_ratio = max(worst_ratio, abs(tp[k]) / (f_pure_at(abs(xi), DI_EL_DEG) * DI_RHO ** 3))
+    return sup_diff, sup_pure, worst_ratio
+
+
+def di_first_coeffs(variant: str, sign: float, atm_ab):
+    """The row of the model (variant "right") or of a wrong row, in rad per m: [axis][output], from the first coefficient of the exact series."""
+    out = {}
+    for name, e in DI_AXES_LOCAL.items():
+        full, _ = di_outputs(variant, sign, e, 0.0, atm_ab)
+        out[name] = [full[0].c[1] / DI_RHO, full[1].c[1] / DI_RHO]
+    return out
+
+
+def di_ceil3(x: float) -> float:
+    e = math.floor(math.log10(x))
+    sc = 10 ** (e - 2)
+    return math.ceil(x / sc - 1e-9) * sc
+
+
+# THE DIURNAL CHECK'S FROZEN NUMBERS, 2026-10-06, BEFORE ITS TEST CODE EXISTS (the section's own output; SPEC-measmod.md 6.2 (vi) holds the same).
+#   nu       : 3 [ulp(1.5708) + ulp(6.98e6 m)/rho], THIS geometry's output and operand (the angle gate's nu_a used ulp(2 pi) for any azimuth)
+#   fine_extra / f_extra : F_extra/rho^3 from the exact series of the model at this line of sight (10-degree grid, centre and both ends, both signs of the observer's motion), and
+#             1.05 x it rounded up to three digits; the elevation output carries it (the refraction's share, 1.2 % of F_pure(30 deg)); the azimuth's own is 9 x 10^-6
+#   power    : the controls' predicted violation of (b) at the smallest eps, |wrong row - right row| / eps(10 m), from the series' first derivatives
+FROZEN_DIURNAL = {
+    "nu": 2.9944e-15,
+    "fine_extra": 2.0815e-02,
+    "f_extra": 2.19e-2,
+    "eps": [3.2936e-16, 3.6904e-16, 3.0221e-15, 2.6961e-14, 3.0028e-13],
+    "b_pred": 3.0028e-13,
+    "delta_without": 1.4928e-12,        # rad/m: the largest |row without A' - row|, any output, axis, either sign of the motion
+    "delta_reversed": 2.9857e-12,       # rad/m: the same for A'(.; -beta)
+    "power_without": [4533.0, 4045.0, 494.0, 55.0, 5.0],        # |delta|/eps at the five sizes
+    "power_reversed": [9065.0, 8090.0, 988.0, 111.0, 10.0],
+}
+
+
+def diurnal_report(scan: bool, check: bool) -> int:
+    bad = 0
+    a_ref, b_ref = refco(*ATM_A)
+    nu = di_nu()
+    f_extra = FROZEN_DIURNAL["f_extra"]
+    print("\n=== THE DIURNAL-ABERRATION CHECK (MEAS-A-098b; registered after the angle gate's one run, before this check has run) ===")
+    print(f"geometry: azimuth {DI_AZ_DEG:.0f} deg, elevation {DI_EL_DEG:.0f} deg, rho {DI_RHO:.3g} m, the observer moving at {DI_SPEED:.4f} m/s along the line of sight; beta = {DI_SPEED / C_LIGHT:.6e}")
+    print(f"nu (this geometry) = 3 [ulp(az = 1.5708 rad) + ulp(target's largest component)/rho] = {nu:.4e} rad   (the angle gate's nu_a, with ulp(2 pi), was {NU_A:.4e})")
+    eps = [h * h * (f_pure_at(h, DI_EL_DEG) + f_extra / DI_RHO ** 3) / 6 + nu / h for h in HS]
+    print(f"F_extra/rho^3 frozen = {f_extra:.3g}  (1.05 x the fine scan's {FROZEN_DIURNAL['fine_extra']:.4e}, rounded up)")
+    print("    h        F_pure(h; 30 deg)    F_a(h)               eps(h)")
+    for h, e in zip(HS, eps):
+        print(f"    {h:6.0f}   {f_pure_at(h, DI_EL_DEG):.5e}    {f_pure_at(h, DI_EL_DEG) + f_extra / DI_RHO ** 3:.5e}    {e:.4e}")
+    print(f"    B_pred = max eps = {max(eps):.4e}, window [{max(eps) / 10:.3e}, {max(eps) * 10:.3e}]")
+    # the controls' power at THIS geometry, from the first coefficients of the exact series (independent of the C++ rows)
+    deltas = {"without": 0.0, "reversed": 0.0}
+    for sign, label in ((+1.0, "toward"), (-1.0, "away")):
+        right = di_first_coeffs("right", sign, (a_ref, b_ref))
+        for variant in ("without", "reversed"):
+            wrong = di_first_coeffs(variant, sign, (a_ref, b_ref))
+            worst_abs = max(abs(wrong[k][o] - right[k][o]) for k in right for o in range(2))
+            deltas[variant] = max(deltas[variant], worst_abs)
+            per_size = [worst_abs / e for e in eps]
+            print(f"    observer moving {label:6s} the target: row {variant:9s}: max |wrong - right| = {worst_abs:.4e} rad/m = {max(per_size):.0f} eps (at h = {HS[per_size.index(max(per_size))]:.0f} m)  [per size: {['%.0f' % q for q in per_size]}]")
+        print("        the model's row (rad/m): " + ", ".join(f"{k}: ({v[0]:.4e}, {v[1]:.4e})" for k, v in right.items()))
+    if check:
+        ok = abs(nu / FROZEN_DIURNAL["nu"] - 1) < 1e-4
+        print("the frozen nu of this geometry reproduced:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        ok = all(abs(a / b - 1) < 1e-3 for a, b in zip(eps, FROZEN_DIURNAL["eps"])) and abs(max(eps) / FROZEN_DIURNAL["b_pred"] - 1) < 1e-3
+        print("the frozen eps(h) and B_pred of this geometry reproduced:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        ok = di_ceil3(1.05 * FROZEN_DIURNAL["fine_extra"]) == FROZEN_DIURNAL["f_extra"] or abs(di_ceil3(1.05 * FROZEN_DIURNAL["fine_extra"]) / FROZEN_DIURNAL["f_extra"] - 1) < 1e-9
+        print("the frozen F_extra is 1.05 x the fine scan, rounded up to three digits:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        ok = abs(deltas["without"] / FROZEN_DIURNAL["delta_without"] - 1) < 1e-3 and abs(deltas["reversed"] / FROZEN_DIURNAL["delta_reversed"] - 1) < 1e-3
+        print("the frozen row differences (without A', A' reversed) reproduced:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+        # the literals are whole numbers of epsilon: agree to the rounding (0.6) or to 0.2 %, whichever is larger
+        ok = all(abs(deltas["without"] / e - q) <= max(0.6, 2e-3 * q) for e, q in zip(eps, FROZEN_DIURNAL["power_without"])) and all(abs(deltas["reversed"] / e - q) <= max(0.6, 2e-3 * q) for e, q in zip(eps, FROZEN_DIURNAL["power_reversed"]))
+        print("the frozen predicted powers of the two controls (in eps, at the five sizes) reproduced:", "ok" if ok else "NOT REPRODUCED")
+        bad += 0 if ok else 1
+    if scan:
+        sup_diff, sup_pure, wr = di_extra_scan((a_ref, b_ref))
+        print(f"series scan (10-degree grid, ends and centre, both signs): sup |full - pure| = ({sup_diff[0]:.4e}, {sup_diff[1]:.4e}) /rho^3;  sup |pure| = ({sup_pure[0]:.4f}, {sup_pure[1]:.4f}), worst ratio to F_pure(h; 30 deg) {wr:.12f}")
+        ok = wr <= 1.0 + 1e-9
+        print(f"    the pure geometric formula at phi = 30 deg bounds the pure third derivatives of the scan (the north axis at the centre attains it exactly): {'yes' if ok else 'NO'}")
+        bad += 0 if ok else 1
+        if check:
+            ok = abs(max(sup_diff) / FROZEN_DIURNAL["fine_extra"] - 1) < 1e-3
+            print(f"    the frozen fine scan {FROZEN_DIURNAL['fine_extra']:.4e} reproduced:", "ok" if ok else "NOT REPRODUCED")
+            bad += 0 if ok else 1
+        full_bound = max(f_pure_at(h, DI_EL_DEG) * DI_RHO ** 3 + f_extra for h in HS)
+        # the largest full third derivative over the scan stays below the largest F_a
+        print(f"    F_a (the largest of the five sizes) = {full_bound:.4f} /rho^3 against the pure sup {max(sup_pure):.4f}")
+    return bad
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scan", action="store_true", help="the exact series scan of the angle third derivatives (a few seconds)")
@@ -886,6 +1061,7 @@ def main() -> int:
     try:
         bad += amended(a.scan, a.check)
         bad += angle_report(a.scan, a.check)
+        bad += diurnal_report(a.scan, a.check)
     except FileNotFoundError as err:
         print(f"missing input: {err}", file=sys.stderr)
         return 2
