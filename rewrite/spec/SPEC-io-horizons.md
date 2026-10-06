@@ -4,8 +4,8 @@
 |---|---|
 | **Spec ID** | `IOHZ` |
 | **Status** | **draft** 2026-09-25, for review |
-| **Version** | 1.0 |
-| **Date** | 2026-09-25 |
+| **Version** | 1.1 |
+| **Date** | 2026-09-25 (v1.1: 2026-10-06) |
 | **Layer** | L6 `io-measurements` (`../plan/PLAN.md` §3.7), step 2 (Horizons client) |
 | **Depends on** | `core` (`odl::Result`), `time` (`Calendar`, `TimeScale`) |
 | **Depended on by** | L6 step 3 (`sgp4`) — oracle case `T-01`'s own required-disagreement gate compares this reader's own output against the TLE reader's (`SPEC-io-formats.md`) own SGP4-propagated, TEME-to-J2000-converted state |
@@ -131,6 +131,18 @@ exactly the "requested, not verified" gap §3.1 already refuses to leave open.
 - **IOHZ-R-003.** The header's own `Output units`, `Reference frame` and `Output type` lines are
   read and checked (`KM-S`, `ICRF`, `GEOMETRIC cartesian states`) before any record is trusted —
   §3.2.
+- **IOHZ-R-004.** (v1.1) `write_horizons` serialises a table in the layout the reader reads — the
+  two body names, the three checked header lines, `$$SOE`/`$$EOE`, three lines per record — and
+  `read_horizons(write_horizons(e)) == e` to the last bit of every position and velocity (17
+  significant digits are written) and of every record's seconds. **Why a reader that receives a
+  service's response has a writer (v1.1, 2026-10-06):** the layer's exit gate (`PLAN.md` §3.7) is
+  "every format round-trips", `SPEC-measmod.md` `MEAS-A-102` lists this one with the others, and a
+  format that cannot be written cannot be shown to round-trip; the writer is small, is not used by
+  the Horizons client, and was added by the executor of `measmod` for that gate, **flagged for the
+  manager, who may instead retire the clause** — a decision for the manager, taken here only so that
+  the gate holds as written. The text it writes is not a copy of any real response: the Julian date
+  on a record's first line is informational (the reader reads past it, §3.3) and the real header's
+  start/stop/step/EOP lines are not reproduced.
 
 ---
 
@@ -148,6 +160,7 @@ exactly the "requested, not verified" gap §3.1 already refuses to leave open.
   `Target body name`/`Center body name` lines, carried verbatim (not parsed further) so a caller
   can at least log which object and center a table was actually for.
 - `read_horizons(text: string) -> Result<HorizonsEphemeris, HorizonsError>`.
+- `write_horizons(HorizonsEphemeris) -> Result<string, HorizonsError>` (v1.1) — `IOHZ-F-002` for a record in a time system other than TDB, `IOHZ-F-006` for a non-finite component, a month outside 1 … 12 or a body name with a line break.
 - **The query itself, stated for whoever runs the fetch (§9), not a function in this module**: 
   `EPHEM_TYPE=VECTORS`, `VEC_TABLE=2`, `VEC_CORR=NONE`, `REF_SYSTEM=ICRF`, `TIME_TYPE=TDB`,
   `OUT_UNITS=KM-S`, `CENTER=500@399` (Earth body center, geocentric — matching a TEME/J2000 state,
@@ -176,6 +189,7 @@ tree (`SPEC-io-formats.md` §5's own precedent).
 | `IOHZ-F-003` | The header's own `Output units` line does not read `KM-S` | the text found |
 | `IOHZ-F-004` | The header's own `Reference frame` line does not read `ICRF` | the text found |
 | `IOHZ-F-005` | The header's own `Output type` line does not read `GEOMETRIC cartesian states` | the text found, and why (§3.2: a light-time or aberration correction changes the physical quantity) |
+| `IOHZ-F-006` | (v1.1) `write_horizons` is given a record with a component that is not finite or a month outside 1 … 12, or a body name that holds a line break — the table could not be read back | which record and what |
 | (inherited) `R-ERR-1`/`R-ERR-2`/`R-ERR-3` | `SPEC-template.md` §5's own standing rules | unchanged; no persistent error state, no silently-dropped dependency warning, no named override anywhere in this module |
 
 ---
@@ -199,6 +213,8 @@ states this rather than overclaiming.
 | `IOHZ-A-006` | A response missing its own `$$EOE` line entirely refuses `IOHZ-F-001`; ordinary header/footer prose surrounding `$$SOE`/`$$EOE` (present in every real response) is never mistaken for a malformed record | the refusal; the surrounding prose does not itself trigger a refusal | `IOHZ-F-001` | — | R-001, F-001 |
 | `IOHZ-A-007` | `to_time_scale(HorizonsTimeSystem::Tdb)` succeeds with `TimeScale::TDB`; `to_time_scale(HorizonsTimeSystem::Ut)` refuses `IOHZ-F-002` | both outcomes | §3.1 | — | F-002 |
 | `IOHZ-A-008` | **Real-data.** `read_horizons` on the manifest's own real, pinned ACS3 capture (`horizons-acs3-vectors`, `FACTUAL-DATA-CITED`, §9) parses cleanly: 5 real records, the real target/center body names, every position/velocity within a plausible LEO range (994×1023 km altitude) | 5 records parse; every value plausible | a real query, committed (§9) | plausibility bound, not exact | R-001, R-002, R-003 |
+| `IOHZ-A-009` | (v1.1) **round trip:** `read_horizons(write_horizons(read_horizons(x))) == read_horizons(x)` on the manifest's real pinned ACS3 capture (5 records) and on a hand-built table of awkward values (components of 10⁻³⁰⁰ and 10³⁰⁰, a negative zero, thirds, a seconds field of 59.123456789, an empty table), every position, velocity and seconds field to the last bit; the written text is a function of the structure alone (writing the re-read table gives the same text) | the structures equal | the real capture; self-consistency | exact | R-004 |
+| `IOHZ-A-010` | (v1.1) the writer's refusals: a record in `Ut` refuses `IOHZ-F-002`; a NaN or an infinite component, a month 13 and a centre-body name that holds a line break refuse `IOHZ-F-006`; the table that has none of them writes | the refusals | `IOHZ-F-002`, `-F-006` | — | R-004, F-002, F-006 |
 
 **Coverage.** Every requirement and refusal above is discharged by a row; none require excusing.
 

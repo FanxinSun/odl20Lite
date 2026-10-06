@@ -65,6 +65,13 @@ struct HorizonsEphemeris {
 /// found between `$$SOE`/`$$EOE`, never by a fixed count (`IOHZ-R-001`).
 [[nodiscard]] odl::Result<HorizonsEphemeris, HorizonsError> read_horizons(std::string_view text);
 
+/// Serialises a vector table in the layout `read_horizons` reads (`IOHZ-R-004`): the header's body names and the three checked lines (`KM-S`, `GEOMETRIC cartesian states`, `ICRF`), the
+/// `$$SOE`/`$$EOE` sentinels and three lines per record. The round trip is SEMANTIC, as `write_sp3`'s is: `read_horizons(write_horizons(e)) == e` to the last bit of every position and
+/// velocity (17 significant digits are written, Horizons' own 16 would not hold an arbitrary double), not a byte-identical copy of any real response — the Julian date printed on a record's
+/// first line is informational (the reader reads past it, `SPEC-io-horizons.md` §3.3) and the stop/step/EOP lines of a real header are not reproduced. `IOHZ-F-002` for a record in any time
+/// system but TDB (the reader would refuse it); `IOHZ-F-006` for a component that is not finite or a body name that holds a line break.
+[[nodiscard]] odl::Result<std::string, HorizonsError> write_horizons(const HorizonsEphemeris& eph);
+
 [[nodiscard]] bool operator==(const HorizonsStateRecord& a, const HorizonsStateRecord& b) noexcept;
 [[nodiscard]] bool operator==(const HorizonsEphemeris& a, const HorizonsEphemeris& b) noexcept;
 

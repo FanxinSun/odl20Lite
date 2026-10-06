@@ -9,14 +9,17 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <odl/io/horizons.hpp>
 
 #include <fstream>
+#include <limits>
 #include <sstream>
 
 using namespace odl;
 using namespace odl::io;
+using Catch::Matchers::ContainsSubstring;
 using Catch::Matchers::WithinAbs;
 
 namespace {
@@ -203,3 +206,96 @@ TEST_CASE("IOHZ-A-007  to_time_scale(Tdb) succeeds with TimeScale::TDB; "
     REQUIRE_FALSE(ut.has_value());
     CHECK(ut.error().id == "IOHZ-F-002");
 }
+
+// --- IOHZ-A-009, IOHZ-A-010 (v1.1): the writer, which makes the layer's exit gate "every format round-trips" literal for this format too ------------------------------------------
+
+TEST_CASE("IOHZ-A-009  write_horizons round-trips (v1.1): read(write(read(x))) == read(x) on the real pinned ACS3 capture, and on a hand-built table of awkward values (negative and "
+          "tiny components, a seconds field with nine decimals, an empty table); the text is stable under a second pass",
+          "[io][horizons]") {
+    std::ifstream in(ODL_HORIZONS_ACS3_TXT);
+    REQUIRE(in.good());
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    auto real = read_horizons(ss.str());
+    REQUIRE(real.has_value());
+    REQUIRE(real->states.size() == 5);
+    auto text = write_horizons(*real);
+    REQUIRE(text.has_value());
+    auto back = read_horizons(*text);
+    REQUIRE(back.has_value());
+    CHECK(*back == *real);
+    auto again = write_horizons(*back);
+    REQUIRE(again.has_value());
+    CHECK(*again == *text);                                       // the writer is a function of the structure alone
+
+    HorizonsEphemeris h;
+    h.target_body = "Test body (-999)";
+    h.center_body = "Earth (399)";
+    HorizonsStateRecord a;
+    a.epoch = time::Calendar{2026, 9, 25, 0, 0, 0.0};
+    a.position_km = Vec3{7049.479204680989, -1823.447981968663, 760.5020081570782};
+    a.velocity_km_s = Vec3{0.4906605773465501, -1.093395175266581, -7.262466176454558};
+    HorizonsStateRecord b = a;
+    b.epoch = time::Calendar{1999, 12, 31, 23, 59, 59.123456789};
+    b.position_km = Vec3{-1.0e-300, 2.5e+300, -0.0};
+    b.velocity_km_s = Vec3{1.0 / 3.0, -2.0 / 3.0, 123456789.12345679};
+    HorizonsStateRecord c = a;
+    c.epoch = time::Calendar{2026, 1, 1, 3, 4, 5.5};
+    h.states = {a, b, c};
+    auto ht = write_horizons(h);
+    REQUIRE(ht.has_value());
+    auto hb = read_horizons(*ht);
+    REQUIRE(hb.has_value());
+    CHECK(*hb == h);                                              // every position and velocity to the last bit, the seconds to the last bit
+    CHECK_THAT(*ht, ContainsSubstring("$$SOE"));
+    CHECK_THAT(*ht, ContainsSubstring("1999-Dec-31 23:59:59.123456789 TDB"));
+
+    HorizonsEphemeris empty;
+    empty.target_body = "Nothing";
+    empty.center_body = "Nowhere";
+    auto et = write_horizons(empty);
+    REQUIRE(et.has_value());
+    auto eb = read_horizons(*et);
+    REQUIRE(eb.has_value());
+    CHECK(*eb == empty);
+}
+
+TEST_CASE("IOHZ-A-010  write_horizons refuses what the reader could not read back (v1.1): a record in a time system other than TDB refuses IOHZ-F-002; a component that is not finite, a month "
+          "outside 1 .. 12 and a body name that holds a line break refuse IOHZ-F-006",
+          "[io][horizons]") {
+    HorizonsEphemeris h;
+    h.target_body = "T";
+    h.center_body = "C";
+    HorizonsStateRecord r;
+    r.epoch = time::Calendar{2026, 9, 25, 0, 0, 0.0};
+    r.position_km = Vec3{1.0, 2.0, 3.0};
+    r.velocity_km_s = Vec3{0.1, 0.2, 0.3};
+    h.states = {r};
+    REQUIRE(write_horizons(h).has_value());
+
+    HorizonsEphemeris ut = h;
+    ut.states.front().time_system = HorizonsTimeSystem::Ut;
+    auto a = write_horizons(ut);
+    REQUIRE_FALSE(a.has_value());
+    CHECK(a.error().id == "IOHZ-F-002");
+
+    for (double bad : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()}) {
+        HorizonsEphemeris nf = h;
+        nf.states.front().velocity_km_s.z = bad;
+        auto b = write_horizons(nf);
+        REQUIRE_FALSE(b.has_value());
+        CHECK(b.error().id == "IOHZ-F-006");
+    }
+    HorizonsEphemeris month = h;
+    month.states.front().epoch.month = 13;
+    auto m = write_horizons(month);
+    REQUIRE_FALSE(m.has_value());
+    CHECK(m.error().id == "IOHZ-F-006");
+
+    HorizonsEphemeris line = h;
+    line.center_body = "Earth\n$$SOE";
+    auto l = write_horizons(line);
+    REQUIRE_FALSE(l.has_value());
+    CHECK(l.error().id == "IOHZ-F-006");
+}
+

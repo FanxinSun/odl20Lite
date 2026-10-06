@@ -172,3 +172,21 @@ target_link_libraries(odl_l5_exit_gate_tests
 target_compile_definitions(odl_l5_exit_gate_tests PRIVATE
   ODL_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../spec")
 catch_discover_tests(odl_l5_exit_gate_tests EXTRA_ARGS --warn NoAssertions)
+
+# L6's exit gate (the plan's §3.7; SPEC-measmod.md MEAS-A-102, -102b): every format round-trips on the layer's real pinned files and published
+# fixtures, and a measurement model returns residual and partials for all three observation types from real-format sources. Linked here for the
+# reason l5_exit_gate.cpp states: the property spans the layer. It reuses the measmod tests' own test-side inputs (g5_inputs.hpp: the real pass,
+# the real orbit as the model's target through the real chain), so it takes the measmod tests' own compile definitions — the manifest-supplied
+# paths — as they stand rather than restating them, and adds the one input of its own (the real ACS3 element set).
+add_executable(odl_l6_exit_gate_tests l6_exit_gate.cpp)
+target_link_libraries(odl_l6_exit_gate_tests
+  PRIVATE odl::core odl::time odl::eop odl::frames odl::ephemerides odl::io odl::measmod
+          Catch2::Catch2WithMain odl_warnings)
+target_include_directories(odl_l6_exit_gate_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../modules/measmod/tests")
+if(BUILD_TESTING)
+  get_target_property(_measmod_test_definitions odl_measmod_tests COMPILE_DEFINITIONS)
+  target_compile_definitions(odl_l6_exit_gate_tests PRIVATE ${_measmod_test_definitions})
+  odl_manifest_get(celestrak-acs3-tle-20261005 _gate_tle)
+  target_compile_definitions(odl_l6_exit_gate_tests PRIVATE ODL_ACS3_TLE_FILE="${_gate_tle_CACHE_PATH}")
+endif()
+catch_discover_tests(odl_l6_exit_gate_tests EXTRA_ARGS --warn NoAssertions)

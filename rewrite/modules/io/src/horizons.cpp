@@ -1,6 +1,9 @@
 #include <odl/io/horizons.hpp>
 
 #include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
 #include <charconv>
 #include <cstdlib>
 #include <optional>
@@ -259,6 +262,72 @@ odl::Result<HorizonsEphemeris, HorizonsError> read_horizons(std::string_view tex
     }
 
     return eph;
+}
+
+namespace {
+
+/// The seconds field of a record's time as the shortest fixed-notation text that reads back to the same double, at least two integer digits and four decimals (`SS.ffff`, as Horizons prints it).
+std::string seconds_text(double seconds) {
+    char buf[64];
+    auto [end, ec] = std::to_chars(buf, buf + sizeof buf, seconds, std::chars_format::fixed);
+    std::string t = ec == std::errc{} ? std::string(buf, end) : std::string("0");
+    const auto dot = t.find('.');
+    std::string integral = dot == std::string::npos ? t : t.substr(0, dot);
+    std::string fraction = dot == std::string::npos ? std::string() : t.substr(dot + 1);
+    const bool negative = !integral.empty() && integral.front() == '-';
+    if (negative) integral.erase(0, 1);
+    if (integral.size() < 2) integral.insert(0, 2 - integral.size(), '0');
+    if (fraction.size() < 4) fraction.append(4 - fraction.size(), '0');
+    return (negative ? "-" : "") + integral + "." + fraction;
+}
+
+std::string number_text(double v) {
+    char buf[64];
+    std::snprintf(buf, sizeof buf, "% .16E", v);   // a blank for a positive sign, as Horizons prints (the reader does not take a leading '+')
+    return buf;
+}
+
+}  // namespace
+
+odl::Result<std::string, HorizonsError> write_horizons(const HorizonsEphemeris& eph) {
+    static constexpr std::array<const char*, 12> kMonths{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    for (const std::string* name : {&eph.target_body, &eph.center_body}) {
+        if (name->find_first_of("\r\n") != std::string::npos) {
+            return odl::err(HorizonsError{"IOHZ-F-006", "a body name holds a line break: the table could not be read back"});
+        }
+    }
+    std::string out;
+    out += "*******************************************************************************\n";
+    out += "Target body name: " + eph.target_body + "\n";
+    out += "Center body name: " + eph.center_body + "\n";
+    out += "Output units    : KM-S\n";
+    out += "Output type     : GEOMETRIC cartesian states\n";
+    out += "Reference frame : ICRF\n";
+    out += "*******************************************************************************\n";
+    out += "$$SOE\n";
+    for (std::size_t i = 0; i < eph.states.size(); ++i) {
+        const HorizonsStateRecord& r = eph.states[i];
+        if (r.time_system != HorizonsTimeSystem::Tdb) {
+            return odl::err(HorizonsError{"IOHZ-F-002", "record " + std::to_string(i) + " is in a time system other than TDB, which the reader refuses"});
+        }
+        const double comps[6] = {r.position_km.x, r.position_km.y, r.position_km.z, r.velocity_km_s.x, r.velocity_km_s.y, r.velocity_km_s.z};
+        for (double v : comps) {
+            if (!std::isfinite(v)) return odl::err(HorizonsError{"IOHZ-F-006", "record " + std::to_string(i) + " has a component that is not finite"});
+        }
+        if (r.epoch.month < 1 || r.epoch.month > 12) {
+            return odl::err(HorizonsError{"IOHZ-F-006", "record " + std::to_string(i) + " has a month outside 1 .. 12"});
+        }
+        using namespace std::chrono;
+        const sys_days day = sys_days{year{r.epoch.year} / month{static_cast<unsigned>(r.epoch.month)} / std::chrono::day{static_cast<unsigned>(r.epoch.day)}};
+        const double jd = 2440587.5 + static_cast<double>(day.time_since_epoch().count()) + (r.epoch.hour * 3600.0 + r.epoch.minute * 60.0 + r.epoch.second) / 86400.0;
+        char head[160];
+        std::snprintf(head, sizeof head, "%.9f = A.D. %04d-%s-%02d %02d:%02d:", jd, r.epoch.year, kMonths[static_cast<std::size_t>(r.epoch.month - 1)], r.epoch.day, r.epoch.hour, r.epoch.minute);
+        out += std::string(head) + seconds_text(r.epoch.second) + " TDB \n";
+        out += " X =" + number_text(r.position_km.x) + " Y =" + number_text(r.position_km.y) + " Z =" + number_text(r.position_km.z) + "\n";
+        out += " VX=" + number_text(r.velocity_km_s.x) + " VY=" + number_text(r.velocity_km_s.y) + " VZ=" + number_text(r.velocity_km_s.z) + "\n";
+    }
+    out += "$$EOE\n";
+    return out;
 }
 
 bool operator==(const HorizonsStateRecord& a, const HorizonsStateRecord& b) noexcept {
