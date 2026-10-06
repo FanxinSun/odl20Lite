@@ -9,7 +9,8 @@
 // metres, each following the units its normative source publishes.
 // `core/units.hpp` named the crossing before there was a caller; this is the
 // first caller, and `FRAME-R-062`'s *no other site performs it* is enforced from
-// here on by `tools/unitcheck.py`, which is `ci.sh` gate 10.
+// here on by `tools/unitcheck.cpp` (it was unitcheck.py until L0 step 8), which
+// is `ci.sh` gate 12 (gate 10 when this was written).
 //
 // THE SET REPORTS WHAT IT SUMMED (DYN-R-023).  `tests/l2_floors.cpp` had to
 // reconstruct L2's acceleration comparison by hand across three specifications,

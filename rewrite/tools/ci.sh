@@ -111,16 +111,16 @@ gate "budget-row arithmetic (specifications' only untested numbers)"
 "$BUILD/tools/budgetcheck" --quiet
 
 gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
-"$PY" tools/constraint8.py
+"$BUILD/tools/constraint8"
 
 gate "RKF7(8)'s tableau satisfies the order conditions exactly (SPEC-integrators INTG-A-001)"
 "$PY" tools/rk_coefficients.py --check
 
 gate "no build input can reach a literature entry (plan §5 constraint 3)"
-"$PY" tools/literaturecheck.py --quiet
+"$BUILD/tools/literaturecheck" --quiet
 
 gate "every factor of a thousand is accounted for (SPEC-dynamics DYN-R-040)"
-"$PY" tools/unitcheck.py --quiet
+"$BUILD/tools/unitcheck" --quiet
 
 gate "build is reproducible"
 "$PY" tools/reprocheck.py --build-dir "$BUILD"

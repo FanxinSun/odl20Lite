@@ -1,5 +1,6 @@
 #include <odl/devkit/pytext.hpp>
 
+#include <odl/devkit/fs.hpp>
 #include <odl/devkit/text.hpp>
 
 #include <algorithm>
@@ -251,6 +252,11 @@ std::string universal_newlines(std::string_view s) {
     return out;
 }
 
+std::string read_text_lossy(const std::filesystem::path& file) {
+    const Bytes b = read_bytes(file);
+    return universal_newlines(decode_utf8_replace(ByteView{b.data(), b.size()}));
+}
+
 // ------------------------------------------------------------------------------------------------------------------------ str methods
 
 std::string decode_utf8_replace(ByteView bytes) {
@@ -328,6 +334,23 @@ std::uint32_t code_point_at(std::string_view s, std::size_t i, std::size_t& afte
     }
     after = i + 1;
     return 0xFFFD;
+}
+
+bool code_point_before(std::string_view s, std::size_t end, std::size_t& start, std::uint32_t& cp) noexcept {
+    if (end == 0 || end > s.size()) return false;
+    start = end - 1;
+    while (start > 0 && (static_cast<unsigned char>(s[start]) & 0xC0U) == 0x80U) --start;   // back over the continuation bytes to where a code point would begin
+    std::size_t after = start;
+    return next_code_point(s, after, cp) && after == end;   // a code point from there that ends exactly at `end`; next_code_point moves `after` only when it succeeds
+}
+
+bool word_boundary_at(std::string_view s, std::size_t i) noexcept {
+    std::size_t start = 0;
+    std::uint32_t cp = 0;
+    const bool before = code_point_before(s, i, start, cp) && is_py_word(cp);   // false at the start of the text, past its end, and where the bytes are not a code point
+    std::size_t next = 0;
+    const bool after = i < s.size() && is_py_word(code_point_at(s, i, next));   // code_point_at reads the byte at i: it must be there
+    return before != after;
 }
 
 std::string lstrip_py(std::string_view s) {

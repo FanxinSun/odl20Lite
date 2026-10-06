@@ -50,8 +50,28 @@ add_test(NAME budgetcheck.behaviour
 add_test(NAME budgetcheck.real_tree
   COMMAND odl_devtools_tests "[budgetcheck][real_tree]")
 
+# The constraint-8 checker (ci.sh's gate 9) is C++ since L0 step 8, group C5: tools/constraint8.cpp.  constraint8.result_only runs the built tool on the real tree, as it always did.  What came with
+# the port, in the Catch2 cases of tests/devtools/constraint8_tests.cpp (the Python tool had no test of its own): each of its two scanners against the pattern it replaces, what it prints and
+# refuses on synthetic trees, which files it reads, and the real tree recounted another way.
 add_test(NAME constraint8.result_only
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/constraint8.py")
+  COMMAND constraint8)
+add_test(NAME constraint8.behaviour
+  COMMAND odl_devtools_tests "[constraint8][behaviour]")
+add_test(NAME constraint8.real_tree
+  COMMAND odl_devtools_tests "[constraint8][real_tree]")
+
+# The literature checker (ci.sh's gate 11, plan section 5 constraint 3) and the factor-of-a-thousand register (gate 12, SPEC-dynamics DYN-R-040) are C++ since the same group:
+# tools/literaturecheck.cpp and tools/unitcheck.cpp.  They have no ctest that runs the built tool (the gates do); what they have is the Catch2 cases of their own, which are new -- the Python
+# tools had none: what each prints and refuses, which files each reads and what it looks for, the scanners of unitcheck against the patterns they replace, and the real tree (recounted another
+# way, and with defects injected into a copy of the real sources).
+add_test(NAME literaturecheck.behaviour
+  COMMAND odl_devtools_tests "[literaturecheck][behaviour]")
+add_test(NAME literaturecheck.real_tree
+  COMMAND odl_devtools_tests "[literaturecheck][real_tree]")
+add_test(NAME unitcheck.behaviour
+  COMMAND odl_devtools_tests "[unitcheck][behaviour]")
+add_test(NAME unitcheck.real_tree
+  COMMAND odl_devtools_tests "[unitcheck][real_tree]")
 
 # The specification coverage checker (ci.sh's gate 7) is C++ since L0 step 8, group C3: tools/speccheck.cpp.  Its three tests, which were Python (the names are kept), are Catch2
 # cases of tests/devtools/speccheck_tests.cpp in the one devtools executable, each ctest running the tag of the test it replaces, with the same synthetic inputs and the same
@@ -131,15 +151,27 @@ set_tests_properties(boundary.undeclared_dependency_refused PROPERTIES WILL_FAIL
 
 # SPEC-perturbations PERT-A-009, the source half: the secular pole is DEFINED
 # once, in gravity, and consumed by the pole tide.  The runtime half is in the
-# tides tests.
+# tides tests.  The check is C++ since L0 step 8, group C5 (tests/devtools/one_secular_pole.cpp, the
+# port of test_one_secular_pole.py): tides.one_secular_pole runs the built program on the real tree, as it always did; secular_pole.behaviour and
+# secular_pole.real_tree are the Catch2 cases of tests/devtools/one_secular_pole_tests.cpp, which came with the port -- the defect injected (a second copy within the window, a definition
+# that lost a constant or let them drift apart), what is printed, which sources are read, and the real tree recounted another way and with defects injected into a copy of it.
 add_test(NAME tides.one_secular_pole
-         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_one_secular_pole.py)
+         COMMAND one_secular_pole)
+add_test(NAME secular_pole.behaviour
+  COMMAND odl_devtools_tests "[secular_pole][behaviour]")
+add_test(NAME secular_pole.real_tree
+  COMMAND odl_devtools_tests "[secular_pole][real_tree]")
 
-# A stale configure tests a subset and reports 100%. See the script's header for
-# why this is a test rather than a line in tools/ci.sh.
+# A stale configure tests a subset and reports 100%. See the program's header
+# (tests/devtools/configure_is_current.cpp, the C++ port of test_configure_is_current.py, L0 step 8 group C5) for why this is a test rather than a line in tools/ci.sh.
+# build.configure_is_current runs the built program on THIS build directory; configure_is_current.behaviour and .real_tree are the Catch2 cases of
+# tests/devtools/configure_is_current_tests.cpp (files of chosen ages, what is printed and refused, the real tree against a build system generated in the future and at the dawn of time).
 add_test(NAME build.configure_is_current
-         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_configure_is_current.py
-                 ${CMAKE_BINARY_DIR})
+         COMMAND configure_is_current ${CMAKE_BINARY_DIR})
+add_test(NAME configure_is_current.behaviour
+  COMMAND odl_devtools_tests "[configure_is_current][behaviour]")
+add_test(NAME configure_is_current.real_tree
+  COMMAND odl_devtools_tests "[configure_is_current][real_tree]")
 
 # The three L2 floors in one place with one reference point.  It links three
 # modules on purpose: the numbers it compares live in three specifications, and

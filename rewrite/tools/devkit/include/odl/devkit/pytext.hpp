@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -39,6 +40,10 @@ namespace odl::devkit {
 /// What a text-mode read in Python hands back: universal newlines.  "\r\n" and a lone "\r" both become "\n"; everything else is as it was.
 [[nodiscard]] std::string universal_newlines(std::string_view s);
 
+/// The text of a file as Python's read_text(encoding="utf-8", errors="replace") returned it: each maximal ill-formed subsequence of bytes is ONE U+FFFD (decode_utf8_replace), then universal
+/// newlines ("\r\n" and a lone "\r" become "\n").  Refuses, like read_bytes, what is not a regular file.
+[[nodiscard]] std::string read_text_lossy(const std::filesystem::path& file);
+
 /// str.rstrip(): without trailing whitespace (is_py_space).
 [[nodiscard]] std::string rstrip_py(std::string_view s);
 
@@ -57,6 +62,13 @@ namespace odl::devkit {
 /// The code point that starts at byte i of s (i < s.size()) and the index after it.  A byte that does not begin well-formed UTF-8 is read as ONE U+FFFD of one byte, so that a
 /// scanner steps over text that is not UTF-8 and never takes it for a word, a digit or a blank.
 [[nodiscard]] std::uint32_t code_point_at(std::string_view s, std::size_t i, std::size_t& after) noexcept;
+
+/// The code point that ENDS at byte `end` of `s` (end > 0): where it starts and its value; false when the bytes there are not one well-formed code point.
+[[nodiscard]] bool code_point_before(std::string_view s, std::size_t end, std::size_t& start, std::uint32_t& cp) noexcept;
+
+/// `\b` of a str pattern at byte `i` of `s`: exactly one of the code points on either side of i is a word character (is_py_word); the start and the end of the text count as non-word, and so
+/// does a byte sequence that is not well-formed.
+[[nodiscard]] bool word_boundary_at(std::string_view s, std::size_t i) noexcept;
 
 /// str.splitlines() (keepends False): \n, \r, \r\n, \v, \f, 0x1c, 0x1d, 0x1e, U+0085, U+2028, U+2029 end a line; a final terminator does not start another.
 [[nodiscard]] std::vector<std::string> splitlines_py(std::string_view s);

@@ -2,6 +2,7 @@
 
 #include <odl/devkit/text.hpp>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -48,6 +49,48 @@ std::string read_text(const std::filesystem::path& file) {
     std::string text(as_text(ByteView{b.data(), b.size()}));
     if (!valid_utf8(text)) throw std::runtime_error(file.string() + " is not well-formed UTF-8");
     return text;
+}
+
+std::string path_suffix(std::string_view name) {
+    const std::size_t dot = name.rfind('.');
+    if (dot == std::string_view::npos || dot == 0 || dot + 1 >= name.size()) return std::string();
+    return std::string(name.substr(dot));
+}
+
+std::vector<std::vector<std::string>> files_below(const std::filesystem::path& base, const std::function<bool(const std::string&)>& skip_directory) {
+    namespace fs = std::filesystem;
+    std::vector<std::vector<std::string>> found;
+    std::string trail;   // the components below `base` of the directory being read, joined by '/' (a vector of them draws a false -Wnull-dereference from GCC 15)
+    const auto walk = [&](const auto& self, const fs::path& dir) -> void {
+        // A directory that cannot be read, or is no directory at all (base included: a file, an absent path, an empty one), gives the end iterator at once and is passed over; so does what cannot
+        // be examined.  The error codes are therefore not looked at.
+        std::error_code ignored;
+        for (fs::directory_iterator it(dir, ignored), end; it != end; it.increment(ignored)) {
+            const std::string name = it->path().filename().string();
+            if (!it->is_symlink(ignored) && it->is_directory(ignored)) {
+                if (skip_directory && skip_directory(name)) continue;
+                const std::size_t keep = trail.size();
+                if (!trail.empty()) trail += '/';
+                trail += name;
+                self(self, it->path());
+                trail.resize(keep);
+            } else if (it->is_regular_file(ignored)) {   // follows a link: a link to a regular file is that file
+                const std::string whole = trail.empty() ? name : trail + '/' + name;
+                std::vector<std::string> parts;
+                std::size_t from = 0;
+                while (true) {
+                    const std::size_t slash = whole.find('/', from);
+                    parts.push_back(whole.substr(from, slash == std::string::npos ? std::string::npos : slash - from));
+                    if (slash == std::string::npos) break;
+                    from = slash + 1;
+                }
+                found.push_back(std::move(parts));
+            }
+        }
+    };
+    walk(walk, base);
+    std::sort(found.begin(), found.end());
+    return found;
 }
 
 void write_bytes(const std::filesystem::path& file, ByteView data) {

@@ -15,8 +15,9 @@
 //     * every signature names odl::Result, never tl::expected;
 //     * no and_then, or_else, transform or transform_error, ever.
 //
-// tools/constraint8.py enforces both and CI runs it, because a constraint that
-// depends on everyone remembering it is a constraint that expires quietly.
+// tools/constraint8.cpp (it was constraint8.py until L0 step 8) enforces both
+// and CI runs it, because a constraint that depends on everyone remembering it
+// is a constraint that expires quietly.
 //
 // WHY A RETURN VALUE AND NOT AN EXCEPTION.  SPEC-template.md §5 R-ERR-1: a
 // diagnostic is a returned value, and there is no module-level accumulator that

@@ -6,13 +6,16 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <odl/devkit/fs.hpp>
 #include <odl/devkit/pyfmt.hpp>
 #include <odl/devkit/pytext.hpp>
 #include <odl/devkit/text.hpp>
 
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 using namespace odl::devkit;
@@ -308,4 +311,97 @@ TEST_CASE("strip, lstrip(chars), split() and the code point at a byte, and Pytho
     CHECK(py_format_g(-std::numeric_limits<double>::infinity()) == "-inf");
     CHECK(py_format_g(std::numeric_limits<double>::quiet_NaN()) == "nan");
     CHECK(py_format_g(std::copysign(std::numeric_limits<double>::quiet_NaN(), -1.0)) == "nan");   // printf would write -nan
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------- group C5: reading text, the code point before a byte, and \b
+
+TEST_CASE("read_text_lossy is read_text(encoding='utf-8', errors='replace'): U+FFFD for each maximal ill-formed subsequence, then universal newlines", "[devkit][text]") {
+    TempDir td;
+    const auto written = [&](const std::string& content) {
+        write_text(td.path() / "f.txt", content);
+        return read_text_lossy(td.path() / "f.txt");
+    };
+    CHECK(written("") == "");
+    CHECK(written("plain\n") == "plain\n");
+    CHECK(written("a\r\nb\rc\nd") == "a\nb\nc\nd");                        // CR LF and a lone CR become LF
+    CHECK(written("\r\r\n\n\r") == "\n\n\n\n");                             // CR, CR LF, LF, CR
+    CHECK(written("caf\xC3\xA9") == "caf\xC3\xA9");                         // well-formed UTF-8 as it is
+    CHECK(written("caf\xE9") == "caf\xEF\xBF\xBD");                         // a Latin-1 e acute is one ill-formed byte
+    CHECK(written("a\xE2\x82" "b") == "a\xEF\xBF\xBD" "b");                // a truncated three-byte sequence is ONE replacement (a maximal subpart)
+    CHECK(written("\xFF\xFE") == "\xEF\xBF\xBD\xEF\xBF\xBD");               // two bytes that start nothing: two
+    CHECK(written("a\xED\xA0\x80" "b") == "a\xEF\xBF\xBD\xEF\xBF\xBD\xEF\xBF\xBD" "b");   // a surrogate: ED then two lone continuation bytes: three
+    CHECK(written("\xEF\xBB\xBF" "x") == "\xEF\xBB\xBF" "x");               // a byte-order mark is kept (this is utf-8, not utf-8-sig)
+    CHECK(written("a\xE2\x80\xA8" "b") == "a\xE2\x80\xA8" "b");              // U+2028 is not a newline to a text read
+    CHECK(written("a\xFF\r\nb") == "a\xEF\xBF\xBD\nb");                     // the replacement and the newline translation compose
+    // what is not a regular file is refused as read_bytes refuses it
+    CHECK_THROWS_AS(read_text_lossy(td.path()), std::runtime_error);
+    CHECK_THROWS_AS(read_text_lossy(td.path() / "absent.txt"), std::runtime_error);
+}
+
+TEST_CASE("code_point_before finds the well-formed code point that ENDS at a byte, and says no when there is none", "[devkit][text]") {
+    std::size_t start = 99;
+    std::uint32_t cp = 99;
+    const auto at = [&](std::string_view s, std::size_t end) { return code_point_before(s, end, start, cp); };
+    REQUIRE(at("abc", 3));
+    CHECK(start == 2);
+    CHECK(cp == U'c');
+    REQUIRE(at("abc", 1));
+    CHECK(start == 0);
+    CHECK(cp == U'a');
+    REQUIRE(at("\xC3\xA9", 2));                                  // e acute: two bytes
+    CHECK(start == 0);
+    CHECK(cp == 0xE9);
+    REQUIRE(at("a\xE2\x82\xAC", 4));                             // the euro sign: three
+    CHECK(start == 1);
+    CHECK(cp == 0x20AC);
+    REQUIRE(at("\xF0\x9F\x98\x80" "x", 4));                      // a four-byte code point, and a byte after the end that is not looked at
+    CHECK(start == 0);
+    CHECK(cp == 0x1F600);
+    REQUIRE(at("\xEF\xBF\xBD", 3));                              // an encoded U+FFFD is a code point like any other
+    CHECK(cp == 0xFFFD);
+    // none
+    CHECK_FALSE(at("abc", 0));                                   // nothing before the first byte
+    CHECK_FALSE(at("abc", 4));                                   // past the end
+    CHECK_FALSE(at("", 0));
+    CHECK_FALSE(at("\xC3\xA9", 1));                              // inside a sequence: the bytes up to there are not a code point
+    CHECK_FALSE(at("\xE2\x82", 2));                              // a truncated sequence
+    CHECK_FALSE(at("\x80", 1));                                  // a lone continuation byte
+    CHECK_FALSE(at("a\x80\x80", 3));
+    CHECK_FALSE(at("\xFF", 1));
+    CHECK_FALSE(at("\xC0\x80", 2));                              // overlong
+    CHECK_FALSE(at("\xED\xA0\x80", 3));                          // a surrogate
+    CHECK_FALSE(at("\xF4\x90\x80\x80", 4));                      // beyond U+10FFFF
+}
+
+TEST_CASE("word_boundary_at is the word boundary of a str pattern: exactly one side is a word character, and the ends of the text and ill-formed bytes are none", "[devkit][text]") {
+    const std::string s = "ab cd";
+    CHECK(word_boundary_at(s, 0));        // the start, then a word character
+    CHECK_FALSE(word_boundary_at(s, 1));  // between a and b
+    CHECK(word_boundary_at(s, 2));        // b, then a space
+    CHECK(word_boundary_at(s, 3));        // a space, then c
+    CHECK_FALSE(word_boundary_at(s, 4));
+    CHECK(word_boundary_at(s, 5));        // d, then the end
+    CHECK_FALSE(word_boundary_at(s, 6));  // past the end: nothing either side
+    CHECK_FALSE(word_boundary_at("", 0));
+    CHECK_FALSE(word_boundary_at(" ", 0));
+    CHECK_FALSE(word_boundary_at(" ", 1));
+    CHECK_FALSE(word_boundary_at("  ", 1));
+    CHECK(word_boundary_at("_", 0));      // an underscore is a word character
+    CHECK(word_boundary_at("5", 1));      // so is a digit
+    CHECK(word_boundary_at("x.y", 1));    // a point is not
+    CHECK(word_boundary_at("x.y", 2));
+    CHECK_FALSE(word_boundary_at("x_y", 1));
+    // letters and digits of other scripts are word characters, symbols are not
+    CHECK_FALSE(word_boundary_at("a\xC3\xA9", 1));              // a, e acute
+    CHECK(word_boundary_at("\xC3\xA9", 0));
+    CHECK(word_boundary_at("\xC3\xA9", 2));
+    CHECK(word_boundary_at("a\xC2\xB7", 1));                    // a, middle dot (not a word character)
+    CHECK(word_boundary_at("\xC2\xB7" "a", 2));
+    CHECK_FALSE(word_boundary_at("1\xC2\xB2", 1));              // a digit, a superscript two (alphanumeric to Python)
+    // a byte sequence that is not well-formed counts as no word character, on either side
+    CHECK(word_boundary_at("a\xFF", 1));
+    CHECK(word_boundary_at("\xFF" "a", 1));
+    CHECK_FALSE(word_boundary_at("\xFF\xFF", 1));
+    CHECK(word_boundary_at("a\xE2\x82", 1));                    // a truncated sequence after the boundary
+    CHECK(word_boundary_at("\xE2\x82" "a", 2));                 // and before it
 }

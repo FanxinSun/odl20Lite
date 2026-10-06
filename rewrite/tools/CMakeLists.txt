@@ -75,6 +75,31 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(budgetcheck PRIVATE -ffp-contract=off)
 endif()
 
+# The checkers of group C5 (plan L0 step 8; tools/constraint8.cpp, literaturecheck.cpp, unitcheck.cpp) and the two small checks that were Python tests (tests/devtools/one_secular_pole.cpp,
+# configure_is_current.cpp): each is an executable that ci.sh's gates 9, 11 and 12 or a ctest runs (constraint8.result_only, tides.one_secular_pole, build.configure_is_current), and an object library with
+# its main left out, which the tests call in-process on synthetic trees.
+foreach(checker constraint8 literaturecheck unitcheck)
+  add_library(odl_tool_${checker} OBJECT ${checker}.cpp)
+  target_compile_definitions(odl_tool_${checker} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_include_directories(odl_tool_${checker} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(odl_tool_${checker} PUBLIC odl_devkit PRIVATE odl_warnings)
+
+  add_executable(${checker} ${checker}.cpp)
+  target_compile_definitions(${checker} PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_link_libraries(${checker} PRIVATE odl_devkit odl_warnings)
+endforeach()
+foreach(check one_secular_pole configure_is_current)
+  add_library(odl_tool_${check} OBJECT ${CMAKE_SOURCE_DIR}/tests/devtools/${check}.cpp)
+  target_compile_definitions(odl_tool_${check} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_include_directories(odl_tool_${check} PUBLIC ${CMAKE_SOURCE_DIR}/tests/devtools)
+  target_link_libraries(odl_tool_${check} PUBLIC odl_devkit PRIVATE odl_warnings)
+
+  add_executable(${check} ${CMAKE_SOURCE_DIR}/tests/devtools/${check}.cpp)
+  target_compile_definitions(${check} PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_include_directories(${check} PRIVATE ${CMAKE_SOURCE_DIR}/tests/devtools)
+  target_link_libraries(${check} PRIVATE odl_devkit odl_warnings)
+endforeach()
+
 if(BUILD_TESTING)
   # One executable for the devkit's own tests and the tools' (the Python tests of tests/ ported): each ctest of the old names runs the tag of the
   # test it replaces (tests/CMakeLists.txt), and every devkit case is its own ctest.
@@ -83,12 +108,14 @@ if(BUILD_TESTING)
     devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp devkit/tests/pytext_tests.cpp devkit/tests/fs_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/gfz_derive_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/notice_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/speccheck_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/budgetcheck_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/budgetcheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/constraint8_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/literaturecheck_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/unitcheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/one_secular_pole_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/configure_is_current_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   target_compile_definitions(odl_devtools_tests PRIVATE
     ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}" ODL_MANIFEST_VENDORED_ROOT="${ODL_VENDORED_DIR}"
     ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
-  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_devkit Catch2::Catch2WithMain odl_warnings)
+  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck
+    odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
   # test executable, which the tests find at run time and put first on PATH: no test of this tree touches the network.  (Its place is NOT a compile
