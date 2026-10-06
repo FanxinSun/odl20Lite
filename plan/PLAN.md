@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L6 closed; **L7 open** — steps 1–2 done, steps 3–5 to come; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** **L0 step 8 open** (added 2026-10-06: the tree's development code in C++, §5 constraint 11); L1–L6 closed; **L7 paused before step 3** — steps 1–2 done, steps 3–5 after L0 step 8; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -203,7 +203,7 @@ still TODO, and the explanation says so. §3.11 says how any one step is execute
 
 ---
 
-### 3.1 L0 `foundation` — **7 of 7 done; exit gate passed 2026-09-18**
+### 3.1 L0 `foundation` — 7 of 8 done; exit gate passed 2026-09-18; **step 8 added 2026-10-06 and open**
 
 **Entry:** none, this is the floor. **Language: C++20** (D1, decided 2026-09-18).
 
@@ -217,6 +217,7 @@ runs existed. It is now last, which is what was actually executed.*
 5. **DONE** — Spec-coverage checker → [`subplan_L0/L0-5.md`](subplan_L0/L0-5.md)
 6. **DONE** — Reproducible-build flags → [`subplan_L0/L0-6.md`](subplan_L0/L0-6.md)
 7. **DONE** — CI running the gates offline from the cache → [`subplan_L0/L0-7.md`](subplan_L0/L0-7.md)
+8. **TODO** — The tree's development code in C++ (§5 constraint 11) → [`subplan_L0/L0-8.md`](subplan_L0/L0-8.md) — *added 2026-10-06; runs now, before L7 step 3*
 
 **Exit gate — passed.** A clean clone builds, tests and regenerates NOTICE with one command,
 CI green from cached data alone. Verified independently 2026-09-18 from a clean copy of the
@@ -1002,6 +1003,20 @@ governs. Three rules apply to all of them:
    figures would leave a frozen number whose source no longer exists. This binds a substitution
    as much as an upgrade — `de440.bsp` → `de440t.bsp` at L2 step 3 re-runs step 1's full
    `testpo.440` sweep, and reproducing 1.06 mm on the new kernel is itself worth having.
+11. **The development code of this tree's C++ modules is C++.** This is the user's directive of
+    2026-10-06, in the user's own words and order: *"please abandon any python usage and keep C++
+    between you and odl Executor, and further development"*; *"rewrite in C++"*; *"replace
+    anything in Python by C++ in odl project"*; and, settling the scope: *"1. leave them, no need
+    to rewrite 2. for newly developped/added modules, which has been done by Claude based on
+    original odl20Lite, if the module is C/C++ based, rewrite all developping codes to C++, all
+    from the beginning, not from L7 3. for python based modules or plotting, ok2python 4. ask odl
+    Executor to do the rewrite"*.
+    - **C++:** every tool, generator, checker, test and exploratory computation that serves this
+      tree's modules, all of which are C++, from L0's tools on. That includes the agents' own
+      scratch work. L0 step 8 rewrites the Python the tree held.
+    - **Left untouched:** the original ODL20Lite's own Python files (point 1).
+    - **May stay Python:** a module that is itself Python, such as the revival's converters, and
+      plotting (point 3). Nothing in the build, the tests or CI depends on one.
 
 ## 6. What carries over, what is dropped
 
