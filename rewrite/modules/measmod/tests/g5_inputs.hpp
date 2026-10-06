@@ -83,24 +83,36 @@ struct DhfRecord {
     double value = 0.0, sigma = 0.0;
 };
 
+/// A SINEX epoch `YY:DDD:SSSSS` as a sortable key (years 00-49 are 20YY, 50-99 are 19YY, as the registry reads the same files); `00:000:00000` is "no epoch" (`unset`). The DHF's own blocks write the end of a
+/// day as `86400` (the time-bias block), which the registry's decoder, written for the SLRF files' `86399`, refuses: so this test-side reader decodes for itself.
+struct SinexKey {
+    bool unset = false;
+    long key = 0;
+};
+
+inline SinexKey sinex_key_of(const std::string& text) {
+    const int yy = std::stoi(text.substr(0, 2)), doy = std::stoi(text.substr(3, 3)), sod = std::stoi(text.substr(7, 5));
+    SinexKey k;
+    k.unset = (yy == 0 && doy == 0 && sod == 0);
+    const int year = yy < 50 ? 2000 + yy : 1900 + yy;
+    k.key = static_cast<long>(year) * 100000000L + static_cast<long>(doy) * 100000L + sod;
+    return k;
+}
+
 /// Every record of the DHF — any of its blocks — that names `pad` and whose span `[start, end]` contains `when` (UTC). `00:000:00000` is open. A record is recognised by the two
 /// SINEX epochs in tokens 4 and 5, which the three blocks that carry spans share.
 inline std::vector<DhfRecord> dhf_records_covering(int pad, const Calendar& when) {
     const std::regex sinex_time(R"(^\d\d:\d\d\d:\d\d\d\d\d$)");
     const long when_key = static_cast<long>(when.year) * 100000000L + static_cast<long>(day_of_year(when.year, when.month, when.day)) * 100000L +
                           static_cast<long>(when.hour * 3600 + when.minute * 60 + static_cast<int>(when.second));
-    auto key_of = [](const odl::measmod::SinexTime& t) { return static_cast<long>(t.year) * 100000000L + static_cast<long>(t.day_of_year) * 100000L + t.seconds_of_day; };
     std::vector<DhfRecord> out;
     for (const std::string& line : text_lines(slurp(ODL_DHF_FILE))) {
         const auto tok = split_ws(line);
         if (tok.size() < 7 || tok[0] != std::to_string(pad)) continue;
         if (!std::regex_match(tok[4], sinex_time) || !std::regex_match(tok[5], sinex_time)) continue;
-        auto s = odl::measmod::decode_sinex_epoch(tok[4]);
-        auto e = odl::measmod::decode_sinex_epoch(tok[5]);
-        REQUIRE(s.has_value());
-        REQUIRE(e.has_value());
-        const bool after_start = s->unset || key_of(*s) <= when_key;
-        const bool before_end = e->unset || when_key <= key_of(*e);
+        const SinexKey s = sinex_key_of(tok[4]), e = sinex_key_of(tok[5]);
+        const bool after_start = s.unset || s.key <= when_key;
+        const bool before_end = e.unset || when_key <= e.key;
         if (!(after_start && before_end)) continue;
         DhfRecord r{line, tok[1], tok[6], 0.0, 0.0};
         if (r.type == "R" && tok.size() >= 9) {
