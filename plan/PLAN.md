@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L6 closed; **L7 open** — step 1 done, steps 2–5 to come; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L6 closed; **L7 open** — steps 1–2 done, steps 3–5 to come; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -545,7 +545,7 @@ T-01's time offset, a candidate cause unconfirmed (`subplan_L6/L6-3.md`).
 
 ---
 
-### 3.8 L7 `estimation` — 1 of 5 done; **the open layer**
+### 3.8 L7 `estimation` — 2 of 5 done; **the open layer**
 
 Two of the predecessor's defects are design requirements here rather than lessons learned.
 
@@ -563,7 +563,7 @@ Two of the predecessor's defects are design requirements here rather than lesson
 > and it may need an integrator amendment in L3, made on `DYN-Q-001`'s terms.
 
 1. **DONE** — The whole force model through the registry → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md) — *added 2026-09-24*
-2. **TODO** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
+2. **DONE** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
 3. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md)
 4. **TODO** — A priori constraints → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md)
 5. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-5.md`](subplan_L7/L7-5.md)
