@@ -25,8 +25,10 @@ add_test(NAME notice.matches_manifest
 
 # The manifest verifies offline.  This is the property CI depends on (step 4):
 # green means the pinned bytes are the bytes, not that the network was up.
+# ODL_VERIFY_ARGS is empty, so every entry, literature included, is verified -- except under
+# `tools/ci.sh --skip-literature`, GitHub's workflow alone (the top-level CMakeLists.txt says why).
 add_test(NAME manifest.verify_offline
-  COMMAND "${ODL_FETCH_TOOL}" verify)
+  COMMAND "${ODL_FETCH_TOOL}" verify ${ODL_VERIFY_ARGS})
 
 add_test(NAME manifest.licences_permissive
   COMMAND "${ODL_FETCH_TOOL}" check-licences)

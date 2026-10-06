@@ -85,7 +85,8 @@ fs::path write_manifest(const fs::path& dir, const std::vector<Json>& entries) {
     ++seq;
     const fs::path m = dir / ("manifest-" + std::to_string(seq) + ".json");
     Json::Array list(entries.begin(), entries.end());
-    write_text(m, object({{"schema", Json(std::int64_t{1})}, {"cache", Json("cache")}, {"vendored", Json("vendored")}, {"entries", Json(std::move(list))}}).dumps(2));
+    write_text(m, object({{"schema", Json(std::int64_t{1})}, {"cache", Json("cache")}, {"vendored", Json("vendored")}, {"literature", Json("papers")},
+                          {"entries", Json(std::move(list))}}).dumps(2));
     return m;
 }
 
@@ -108,6 +109,15 @@ Json data_entry(const std::string& id, const std::string& name, const std::strin
     return object({{"id", Json(id)}, {"kind", Json("data")}, {"licence", Json(licence)}, {"url", Json("https://example.invalid/" + name)},
                    {"filename", Json(name)}, {"sha256", Json(digest)}});
 }
+
+// A literature entry: a provenance record, `terms` and no `licence`.  Its file lands in the manifest's `literature` directory, which these synthetic manifests set to `papers`
+// (write_manifest): a test that named the tree's own would be a build input that mentions it, which literaturecheck (ci.sh gate 11) refuses.
+Json literature_entry(const std::string& id, const std::string& name, const std::string& digest) {
+    return object({{"id", Json(id)}, {"kind", Json("literature")}, {"terms", Json("NOT ESTABLISHED: the search found nothing")},
+                   {"url", Json("https://example.invalid/" + name)}, {"filename", Json(name)}, {"sha256", Json(digest)}});
+}
+
+Json code_entry(const std::string& id, const std::string& name, const std::string& digest) { return with(data_entry(id, name, digest), "kind", Json("code")); }
 
 // Environment variables set for the length of a test and put back after it, whatever the test does.
 class EnvScope {
@@ -586,9 +596,16 @@ TEST_CASE("the command line: usage errors are argparse's code 2, and -h is not a
     CHECK(run_plain({"verify", "extra"}).code == kArgument);
     CHECK(run_plain({"path"}).code == kArgument);
     CHECK(run_plain({"verify-populated", "only-one-argument"}).code == kArgument);
+    // --skip-literature belongs to `verify` and `fetch`, and to no other command: it cannot be mistaken for something every command takes
+    for (const char* other : {"list", "check-licences", "path", "verify-populated"}) {
+        INFO("command " << other);
+        CHECK(run_plain({other, "--skip-literature"}).code == kArgument);
+    }
+    CHECK(run_plain({"verify", "--skip-literature=yes"}).code == kArgument);   // and it is a flag: it takes no value
     r = run_plain({"-h"});
     CHECK(r.code == kOk);
     CHECK(contains(r.out, "verify-populated"));
+    CHECK(contains(r.out, "--skip-literature"));
     CHECK(run_plain({"--manifest", "/nonexistent/manifest.json", "verify"}).code == kMalformed);   // an unreadable manifest is malformed, not a crash
 }
 
@@ -660,6 +677,9 @@ TEST_CASE("a download: the flags curl is given, and the file lands only after it
     CHECK(value_after(args, "--max-redirs") == "10");
     CHECK(value_after(args, "--retry") == "4");
     CHECK(value_after(args, "--retry-delay") == "5");
+    CHECK(value_after(args, "--connect-timeout") == "30");       // a host that does not answer at all is given 30 s, not the 120 that cost two hours (section 41.7) ...
+    CHECK(value_after(args, "--speed-limit") == "1");            // ... and a transfer that has started is given 120 s of silence, as before
+    CHECK(value_after(args, "--speed-time") == "120");
     CHECK(value_after(args, "--output") == (root / "cache" / "thing" / "thing.bin.part").string());   // into a .part, renamed after the hash
 
     // the second time it is in the cache, and curl is not called at all
@@ -898,4 +918,272 @@ TEST_CASE("an upstream_mutable entry must be vendored or name an immutable snaps
     CHECK(r.code == kMalformed);
     CHECK(contains(r.err, "LICENCE NOT ON THE PERMISSIVE LIST"));
     CHECK(contains(r.err, "SNAPSHOT  other"));
+}
+
+TEST_CASE("--skip-literature: verify neither requires nor checks a literature entry, says how many it left, and can hide neither a data nor a code entry", "[fetcher]") {
+    // GitHub's workflow cannot reach several literature hosts (PROVENANCE.md section 41.7), so it leaves literature alone; the flag is a filter on an entry's KIND and on
+    // nothing else, and everything below that is not about the papers is about the entries the flag must never be able to hide.
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string paper = "a paper that no build input reads";
+    const std::string paper_digest = sha256_hex(as_bytes(paper));
+    const std::string data_digest = make_blob(root, "dat", "dat.bin", "data the build reads");
+    const std::string code_digest = make_blob(root, "cod", "cod.bin", "code the build reads");
+    const fs::path m = write_manifest(root, {data_entry("dat", "dat.bin", data_digest), code_entry("cod", "cod.bin", code_digest),
+                                             literature_entry("paper-one", "one.pdf", paper_digest), literature_entry("paper-two", "two.pdf", paper_digest)});
+
+    // without the flag the papers are required like everything else, and nothing is said about skipping
+    Result r = run(root, m, {"verify"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "MISSING  paper-one"));
+    CHECK(contains(r.err, "MISSING  paper-two"));
+    CHECK_FALSE(contains(r.out, "skipped"));
+
+    // with it: neither required nor verified, the count and the reason are said, and the others are verified as ever
+    r = run(root, m, {"verify", "--skip-literature"});
+    CHECK(r.code == kOk);
+    CHECK(r.err.empty());
+    CHECK(contains(r.out, "skipped  2 literature entries: neither required nor verified (--skip-literature).\n"));
+    CHECK(contains(r.out, "no build input and no test reads"));
+    CHECK(contains(r.out, "refuse GitHub's runners"));
+    CHECK(contains(r.out, "Every run WITHOUT the"));
+    CHECK(contains(r.out, "requires and verifies them"));
+    CHECK(contains(r.out, "ok       dat"));
+    CHECK(contains(r.out, "ok       cod"));
+    CHECK_FALSE(contains(r.out, "ok       paper"));   // nothing is said ok about what was not looked at
+
+    // a paper that IS there is not looked at either, a corrupt one included: the flag is about not reaching for them, and the run says so
+    make_blob(root, "paper-one", "one.pdf", "NOT the paper", "papers");
+    CHECK(run(root, m, {"verify", "--skip-literature"}).code == kOk);
+    CHECK(run(root, m, {"verify"}).code == kMismatch);   // and without the flag the corruption is found
+    CHECK(contains(run(root, m, {"verify", "--skip-literature"}).out, "skipped  2 literature entries"));   // the count is what was left, not what was missing
+
+    // THE FLAG CANNOT HIDE AN ENTRY THE BUILD READS.  A data entry missing, a code entry missing and a data entry corrupt each still fail under the flag, by name,
+    // and the papers are not blamed; the run still says what it left.
+    const fs::path dat = root / "cache" / "dat" / "dat.bin";
+    const fs::path cod = root / "cache" / "cod" / "cod.bin";
+    fs::remove(dat);
+    r = run(root, m, {"verify", "--skip-literature"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "MISSING  dat"));
+    CHECK_FALSE(contains(r.err, "paper-"));
+    CHECK(contains(r.out, "skipped  2 literature entries"));
+    make_blob(root, "dat", "dat.bin", "data the build reads");
+    fs::remove(cod);
+    r = run(root, m, {"verify", "--skip-literature"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "MISSING  cod"));
+    CHECK_FALSE(contains(r.err, "paper-"));
+    make_blob(root, "cod", "cod.bin", "code the build reads");
+    write_text(dat, "corrupted");
+    r = run(root, m, {"verify", "--skip-literature"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "HASH MISMATCH"));
+    CHECK(contains(r.err, "entry     dat"));
+    make_blob(root, "dat", "dat.bin", "data the build reads");
+    CHECK(run(root, m, {"verify", "--skip-literature"}).code == kOk);
+
+    // an entry is literature by its KIND, not by its name or its file: a data entry that looks like a paper is still required
+    const fs::path lookalike = write_manifest(root, {data_entry("paper-three", "three.pdf", paper_digest), literature_entry("paper-four", "four.pdf", paper_digest)});
+    r = run(root, lookalike, {"verify", "--skip-literature"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "MISSING  paper-three"));
+    CHECK_FALSE(contains(r.err, "paper-four"));
+    CHECK(contains(r.out, "skipped  1 literature entry: "));   // and the singular is the singular
+
+    // the notice is printed whenever the flag is given, whatever the count: a log that shows a green run shows what that green did not cover
+    const fs::path none = write_manifest(root, {data_entry("dat", "dat.bin", data_digest)});
+    r = run(root, none, {"verify", "--skip-literature"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "skipped  0 literature entries: "));
+}
+
+TEST_CASE("--skip-literature: fetch does not reach for a literature entry, fetches everything else as ever, and a refusing host cannot make it wait", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string content = "the bytes every URL serves\n";
+    write_text(root / "body.bin", content);
+    const std::string good = sha256_hex(as_bytes(content));
+    FakeCurl curl(root);
+    curl.deliver(root / "body.bin");
+    // paper.txt, not paper.pdf: the sniff would refuse a "PDF" that is not one, and this case is about which URLs are asked for
+    const fs::path m = write_manifest(root, {data_entry("dat", "dat.bin", good), literature_entry("paper", "paper.txt", good), code_entry("cod", "cod.bin", good)});
+
+    Result r = run(root, m, {"fetch", "--skip-literature"});
+    REQUIRE(r.code == kOk);
+    CHECK(contains(r.out, "skipped  1 literature entry: not fetched (--skip-literature).\n"));
+    REQUIRE(curl.calls().size() == 2);
+    for (const auto& call : curl.calls()) CHECK(call.back() != "https://example.invalid/paper.txt");
+    CHECK(fs::exists(root / "cache" / "dat" / "dat.bin"));
+    CHECK(fs::exists(root / "cache" / "cod" / "cod.bin"));
+    CHECK_FALSE(fs::exists(root / "papers" / "paper" / "paper.txt"));
+    const Json receipts = Json::parse(read_text(root / "cache" / "receipts.json"));
+    REQUIRE(receipts.find("receipts")->as_array().size() == 2);   // the two that were fetched; the paper has none
+
+    // the same manifest without the flag reaches for all three, and the paper lands where literature lands
+    fs::remove_all(root / "cache");
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK(curl.calls().size() == 2 + 3);
+    CHECK(fs::exists(root / "papers" / "paper" / "paper.txt"));
+    CHECK_FALSE(contains(r.out, "skipped"));
+
+    // a host that refuses the runner, for a paper: under the flag nobody asks it, so nobody waits for it ...
+    fs::remove_all(root / "cache");
+    fs::remove_all(root / "papers");
+    curl.fail_only("paper.txt", 28, "curl: (28) Connection timed out after 30001 milliseconds");
+    const std::size_t before = curl.calls().size();
+    r = run(root, m, {"fetch", "--keep-going", "--skip-literature"});
+    CHECK(r.code == kOk);
+    CHECK(curl.calls().size() == before + 2);
+
+    // ... while the same refusal of a DATA entry is still a failure under the flag, listed by name: it cannot hide an input the build reads
+    fs::remove_all(root / "cache");
+    curl.fail_only("dat.bin", 28, "curl: (28) Connection timed out after 30001 milliseconds");
+    r = run(root, m, {"fetch", "--keep-going", "--skip-literature"});
+    CHECK(r.code == kNetwork);
+    CHECK(contains(r.err, "fetch: 1 of 2 entries did not make it"));
+    CHECK(contains(r.err, pad_right("dat", 34) + " exit 4\n"));
+    CHECK(fs::exists(root / "cache" / "cod" / "cod.bin"));   // the one that could be fetched was
+}
+
+TEST_CASE("an archive entry that vendors its members: the tracked members ARE the entry, each against its own pin, and the directory holds exactly them", "[fetcher]") {
+    // The shape of vallado-sgp4-verification-vectors (PROVENANCE.md section 41.7): a zip of which the tree reads 33 test files and which also holds source
+    // code it must not redistribute.  The archive is not held; its pin stays as upstream's identity.
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string one = "member one\r\nwith a DOS line ending\r\n";   // bytes, kept exactly
+    const std::string two = "member two\n";
+    const std::string archive_pin(64, 'a');                              // no file here has this hash
+    const auto member = [](const std::string& path, const std::string& content) {
+        return object({{"member", Json(path)}, {"sha256", Json(sha256_hex(as_bytes(content)))}, {"role", Json("a test file")}, {"extract", Json(true)}});
+    };
+    const Json entry = object({{"id", Json("bundle")}, {"kind", Json("data")}, {"vendored", Json(true)}, {"vendored_members", Json(true)}, {"licence", Json("CC0-1.0")},
+                               {"url", Json("https://example.invalid/bundle.zip")}, {"filename", Json("bundle.zip")}, {"sha256", Json(archive_pin)},
+                               {"unpack", Json("zip")}, {"consumes", Json("declared-members")},
+                               {"members", Json(Json::Array{member("pkg/dir/one.dat", one), member("pkg/two.dat", two)})}});
+    const fs::path dir = root / "vendored" / "bundle";
+    make_blob(root, "bundle", "one.dat", one, "vendored");
+    make_blob(root, "bundle", "two.dat", two, "vendored");
+    const fs::path m = write_manifest(root, {entry});
+    FakeCurl curl(root);
+
+    // verify: there is nothing to hash but the members, and it says so
+    Result r = run(root, m, {"verify"});
+    CHECK(r.code == kOk);
+    CHECK(r.err.empty());
+    CHECK(contains(r.out, "archive not held (its hash is upstream's identity); 2 members tracked in vendored/bundle/"));
+    CHECK(contains(r.out, "member pkg/dir/one.dat"));
+    CHECK(contains(r.out, "verified in the repository (tracked)"));
+    CHECK(contains(r.out, "consumes declared-members, 2 member(s) read individually"));
+    CHECK(run(root, m, {"check-licences"}).code == kOk);
+
+    // fetch: nothing is downloaded, not even under --refresh (there is nothing to compare a download with, and nothing it could repair), and the receipt is the pin
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "vendored bundle"));
+    CHECK(contains(r.out, "2 members tracked in the repository, never fetched; the archive is not held"));
+    CHECK(run(root, m, {"fetch", "--refresh"}).code == kOk);
+    CHECK(curl.calls().empty());
+    const Json receipts = Json::parse(read_text(root / "cache" / "receipts.json"));
+    REQUIRE(receipts.find("receipts")->as_array().size() == 1);
+    CHECK(receipts.find("receipts")->as_array()[0].find("sha256")->as_string() == archive_pin);
+    CHECK(receipts.find("receipts")->as_array()[0].find("url")->as_string() == "https://example.invalid/bundle.zip");
+
+    // `path`: the directory, or one member by its file name or by its name in the archive
+    CHECK(run(root, m, {"path", "bundle"}).out == dir.string() + "\n");
+    CHECK(run(root, m, {"path", "bundle", "--member", "one.dat"}).out == (dir / "one.dat").string() + "\n");
+    CHECK(run(root, m, {"path", "bundle", "--member", "pkg/two.dat"}).out == (dir / "two.dat").string() + "\n");
+    CHECK(run(root, m, {"path", "bundle", "--member", "nope.dat"}).code == kUsage);
+
+    // a member that is not there: named, with where to restore it from; `fetch` refuses in its own words and downloads nothing
+    fs::remove(dir / "two.dat");
+    r = run(root, m, {"verify"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "MISSING  bundle"));
+    CHECK(contains(r.err, "vendored member pkg/two.dat -- restore from git, do not fetch: vendored/bundle/two.dat"));
+    CHECK(contains(r.err, "1 vendored entry is missing their own tracked file(s). `fetch fetch` will not help"));
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "vendors its members but 1 of its tracked files is missing"));
+    CHECK(contains(r.err, "git checkout -- vendored/bundle"));
+    CHECK(curl.calls().empty());
+    make_blob(root, "bundle", "two.dat", two, "vendored");
+
+    // a member that is not the declared one: refused by its own pin, naming both hashes, and left as it was found
+    write_text(dir / "one.dat", "tampered");
+    r = run(root, m, {"verify"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "VENDORED MEMBER HASH MISMATCH"));
+    CHECK(contains(r.err, "member   pkg/dir/one.dat"));
+    CHECK(contains(r.err, "declared " + sha256_hex(as_bytes(one))));
+    CHECK(contains(r.err, "got      " + sha256_hex(as_bytes(std::string("tampered")))));
+    CHECK(run(root, m, {"fetch"}).code == kMismatch);
+    CHECK(read_text(dir / "one.dat") == "tampered");
+    make_blob(root, "bundle", "one.dat", one, "vendored");
+
+    // THE DIRECTORY HOLDS EXACTLY THE DECLARED MEMBERS: a file nobody declared (a source file, a copy of the archive, one in a subdirectory) is refused, by name,
+    // by both commands -- "none of the code" is checked, not promised
+    for (const std::string stray : {"extra.txt", "bundle.zip", "sub/code.cpp"}) {
+        INFO("stray file " << stray);
+        fs::create_directories((dir / stray).parent_path());
+        write_text(dir / stray, "what the entry does not declare");
+        r = run(root, m, {"verify"});
+        CHECK(r.code == kMismatch);
+        CHECK(contains(r.err, "VENDORED DIRECTORY HOLDS WHAT THE ENTRY DOES NOT DECLARE"));
+        CHECK(contains(r.err, "undeclared " + stray));
+        CHECK(run(root, m, {"fetch"}).code == kMismatch);
+        fs::remove_all(dir / *fs::path(stray).begin());
+    }
+    // every stray file is named, in one sorted list, whatever order the directory lists them in (created in alphabetical order, which a file system that lists
+    // the newest first, as tmpfs does, hands back reversed: five files are not sorted by luck)
+    for (const char* name : {"a.txt", "b.txt", "c.txt", "d.txt", "e.txt"}) write_text(dir / name, "stray");
+    r = run(root, m, {"verify"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "undeclared a.txt, b.txt, c.txt, d.txt, e.txt\n"));
+    for (const char* name : {"a.txt", "b.txt", "c.txt", "d.txt", "e.txt"}) fs::remove(dir / name);
+    // a symbolic link is a file too, and the cheapest way to put something in a directory without holding its bytes here: pointing at a file that is there, and at one that is not
+    write_text(root / "elsewhere.txt", "kept somewhere else");
+    for (const fs::path& target : {root / "elsewhere.txt", root / "no-such-file.txt"}) {
+        INFO("symlink to " << target);
+        fs::create_symlink(target, dir / "link.txt");
+        r = run(root, m, {"verify"});
+        CHECK(r.code == kMismatch);
+        CHECK(contains(r.err, "undeclared link.txt"));
+        fs::remove(dir / "link.txt");
+    }
+    CHECK(run(root, m, {"verify"}).code == kOk);   // and clean again
+}
+
+TEST_CASE("an archive entry that vendors its members must say what it vendors, or the manifest is malformed", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const auto member = [](const std::string& path, const std::string& digest) {
+        return object({{"member", Json(path)}, {"sha256", Json(digest)}, {"extract", Json(true)}});
+    };
+    const std::string h1(64, '1');
+    const std::string h2(64, '2');
+    const Json entry = object({{"id", Json("bundle")}, {"kind", Json("data")}, {"vendored", Json(true)}, {"vendored_members", Json(true)}, {"licence", Json("CC0-1.0")},
+                               {"url", Json("https://example.invalid/bundle.zip")}, {"filename", Json("bundle.zip")}, {"sha256", Json(std::string(64, 'a'))},
+                               {"unpack", Json("zip")}, {"consumes", Json("declared-members")}, {"members", Json(Json::Array{member("pkg/one.dat", h1), member("pkg/two.dat", h2)})}});
+    const auto refused = [&](const Json& e, const std::string& words) {
+        const Result r = run(root, write_manifest(root, {e}), {"verify"});
+        INFO("expected: " << words << "; got: " << r.err);
+        CHECK(r.code == kMalformed);
+        CHECK(contains(r.err, words));
+    };
+    refused(without(entry, "vendored"), "vendored_members is set, but the entry is not vendored");
+    refused(with(entry, "vendored_members", Json("yes")), "vendored_members must be true or false");
+    refused(with(entry, "members", Json(Json::Array{})), "vendored_members names no members");
+    refused(without(entry, "members"), "vendored_members names no members");
+    refused(with(entry, "members", Json(Json::Array{member("a/same.dat", h1), member("b/same.dat", h2)})), "two members are both called 'same.dat'");
+    refused(with(entry, "members", Json(Json::Array{member("pkg/one.dat", "not-a-hash")})), "has no sha256 of 64 hex characters");
+    refused(with(entry, "members", Json(Json::Array{object({{"member", Json("pkg/one.dat")}})})), "has no sha256 of 64 hex characters");
+    refused(with(entry, "members", Json(Json::Array{object({{"member", Json(std::int64_t{3})}, {"sha256", Json(h1)}})})), "every member of a vendored_members entry must be an object");
+    refused(with(entry, "members", Json(Json::Array{member("dir/", h1)})), "every member of a vendored_members entry must be an object");
+
+    // false is the ordinary vendored entry: the archive itself is the tracked file, and it is not there
+    const Result plain = run(root, write_manifest(root, {with(entry, "vendored_members", Json(false))}), {"verify"});
+    CHECK(plain.code == kMissing);
+    CHECK(contains(plain.err, "vendored/bundle/bundle.zip"));
 }

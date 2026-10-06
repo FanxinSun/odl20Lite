@@ -6,6 +6,13 @@
 # ARE SEPARATE JOBS.  The gates run with the cache restored and are expected to
 # pass with no network, so a green tick means the pinned bytes are the bytes —
 # not that a download happened to succeed today.
+#
+# One thing a green tick here does NOT cover, on purpose: the literature.  A literature
+# entry is a provenance record that no build input and no test reads (plan §5 constraint 3,
+# a checked property), and the hosts of several refuse GitHub's runners, so this workflow
+# neither fetches nor verifies literature (`--skip-literature`, here and in tools/ci.sh) and
+# says how many entries it left.  tools/ci.sh run WITHOUT the flag, on a machine that has
+# them, verifies everything (PROVENANCE.md section 41.7).
 
 name: rewrite
 
@@ -36,21 +43,19 @@ jobs:
 
       # The cache key is the manifest's own hash.  Change a pin and the cache
       # misses, which is correct: a different manifest is a different input set.
-      # The cache holds BOTH places the fetcher writes: data/cache, and data/literature
-      # (the pinned papers and standards).  The first version of this workflow cached only
-      # the first, so every run that hit the cache found nothing for `verify` in the second
-      # and failed on its first gate, from 2026-09-18 16:14 UTC (PROVENANCE.md section 41).
-      #
-      # Not for a pull request from a fork.  Its workflow runs code the repository's owner has not reviewed, and could read what the cache holds,
-      # the literature PDFs among it; such a run misses, fetches from origin and saves nothing.
+      # The cache holds data/cache, where the fetcher puts every code and data entry it downloads.
+      # It does NOT hold data/literature, and nothing here fetches or verifies literature: group C1b
+      # (2026-10-06) cached it too, because every run that hit the cache had found nothing for `verify`
+      # there and failed on its first gate from 2026-09-18, and the first run past that showed the other
+      # half -- CelesTrak and the UNT library never answer a GitHub runner, five literature entries of the
+      # six the fetch could not get -- so literature leaves this workflow (`--skip-literature` below), and
+      # the cache step is again unconditional: nothing it holds is anything a fork could not fetch itself,
+      # and `verify` checks every byte it restores against the manifest (PROVENANCE.md section 41.7).
       - name: Restore the manifest cache
         id: cache
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/cache@v4
         with:
-          path: |
-            rewrite/data/cache
-            rewrite/data/literature
+          path: rewrite/data/cache
           key: manifest-${{ hashFiles('rewrite/manifest/manifest.json') }}
 
       # The ONLY step permitted to touch the network, and only on a cache miss.  The tool is C++ (tools/fetch.cpp): compiled first, by the helper
@@ -60,15 +65,23 @@ jobs:
       # a GitHub runner is found with a drifted pin, not behind it).  `fetch` skips what is already cached and hash-correct, so running it again
       # retries exactly what failed: a dropped connection (exit 4; some origins drop many) is retried, twice more, a minute apart; anything else, a
       # HASH MISMATCH (exit 2) above all, is final.  The exit code is the FIRST failure's, in manifest order.
+      #
+      # `--skip-literature`: the literature entries are not fetched (see the cache step above; the tool says how many it left).
+      #
+      # `timeout-minutes` is the backstop under the 30-second connect timeout of tools/fetch.cpp.  A host that refuses the runner now costs one entry 170 s a
+      # pass where it cost 620, but a host with many entries would still cost hours, and on 2026-10-06 two such hosts made this step last about two hours
+      # (PROVENANCE.md section 41.7).  Forty minutes is a deliberate guess: nobody has timed a clean fetch of the whole manifest on a runner, and the first green run's time
+      # for this step is the number to tighten it with.  A step that reaches it has found a host that refuses us, which is the finding.
       - name: Populate the cache from origin
         if: steps.cache.outputs.cache-hit != 'true'
+        timeout-minutes: 40
         env:
           CXX: g++-13
         run: |
           cmake -DODL_HOST_OUT=build-ci/host -DODL_CXX="$CXX" -P cmake/OdlBuildHostTool.cmake
           for attempt in 1 2 3; do
             status=0
-            build-ci/host/fetch fetch --keep-going || status=$?
+            build-ci/host/fetch fetch --keep-going --skip-literature || status=$?
             [ "$status" -eq 4 ] || exit "$status"
             [ "$attempt" -lt 3 ] && sleep 60
           done
@@ -76,7 +89,9 @@ jobs:
 
       # Everything below is offline by construction; ci.sh poisons the proxies
       # so that anything reaching for the network fails instead of succeeding.
+      # `--skip-literature`: gate 1, the configure, the ctest verify and the reproducibility gate leave the
+      # literature entries alone, and the log says how many (and the last line says the run did not cover them).
       - name: Run every gate, offline
         env:
           CXX: g++-13
-        run: tools/ci.sh --prove-offline
+        run: tools/ci.sh --prove-offline --skip-literature

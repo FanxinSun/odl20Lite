@@ -45,13 +45,17 @@ if(BUILD_TESTING)
   endforeach()
 
   # L6 step 3's own gate: the published SGP4 verification vectors
-  # (SGP4-VER.TLE plus 32 .e files), extracted members of
+  # (SGP4-VER.TLE plus 32 .e files), the members of
   # vallado-sgp4-verification-vectors -- the same manifest-supplied-path
   # shape as ODL_HORIZONS_ACS3_TXT above, one directory rather than 33
   # separate definitions since the test reads every member by its own
   # already-known filename.
+  #
+  # L0 step 8, group C2b: the 33 members are TRACKED (the entry is `vendored_members`: CelesTrak does not
+  # answer GitHub's runners, PROVENANCE.md section 41.7), so the directory is the entry's tracked one and
+  # not the cache's `extracted/`.  Nothing else changed: the file names, and the test, are the same.
   target_compile_definitions(odl_io_tests PRIVATE
-    ODL_SGP4_VECTORS_DIR="${ODL_CACHE_DIR}/vallado-sgp4-verification-vectors/extracted")
+    ODL_SGP4_VECTORS_DIR="${ODL_VENDORED_DIR}/vallado-sgp4-verification-vectors")
 
   # L6 step 3's T-01 gate (SPEC-io-sgp4.md IOSG-R-012, tests/sgp4_t01_tests.cpp): the vendored ACS3
   # element set, the EOP pin (finals2000A holds predictions for the capture's epochs), the

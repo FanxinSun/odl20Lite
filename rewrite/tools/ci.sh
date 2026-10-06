@@ -19,20 +19,32 @@
 #
 # which is what tools/ci.sh --prove-offline does for you.
 #
-# Usage:  ci.sh [--prove-offline] [--build-dir DIR]
+# --skip-literature is for GitHub's workflow and for nothing else.  A literature entry is a provenance
+# record that no build input and no test reads (plan §5 constraint 3, a checked property), and several of
+# its hosts refuse GitHub's runners, so a runner cannot have the files and a red there says nothing about
+# the code (PROVENANCE.md section 41.7).  With the flag, gate 1 neither requires nor verifies them -- and
+# SAYS how many it left -- and so do the configure, the ctest manifest.verify_offline and the two configures
+# inside gate 13, which the one environment variable ODL_SKIP_LITERATURE=1 reaches (this script sets it
+# under the flag and unsets it otherwise, so a stray value in a shell cannot weaken a default run).  Without
+# the flag every entry is required and verified, literature included: that is the run to make on a machine
+# that has them, and the last line of a run with the flag says what that run did not cover.
+#
+# Usage:  ci.sh [--prove-offline] [--skip-literature] [--build-dir DIR]
 
 set -eu
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 BUILD="$ROOT/build-ci"
 PROVE=0
+LIT_ARG=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --prove-offline) PROVE=1 ;;
-    --build-dir)     shift; BUILD="$1" ;;
-    -h|--help)       sed -n '2,25p' "$0"; exit 0 ;;
-    *)               echo "ci.sh: unknown argument $1" >&2; exit 5 ;;
+    --prove-offline)   PROVE=1 ;;
+    --skip-literature) LIT_ARG="--skip-literature" ;;
+    --build-dir)       shift; BUILD="$1" ;;
+    -h|--help)         sed -n '2,/^# Usage:/p' "$0"; exit 0 ;;
+    *)                 echo "ci.sh: unknown argument $1" >&2; exit 5 ;;
   esac
   shift
 done
@@ -47,7 +59,16 @@ if [ "$PROVE" = "1" ]; then
     HTTP_PROXY=http://127.0.0.1:1 HTTPS_PROXY=http://127.0.0.1:1 \
     ALL_PROXY=http://127.0.0.1:1 all_proxy=http://127.0.0.1:1 \
     no_proxy= NO_PROXY= \
-    "$0" --build-dir "$BUILD"
+    "$0" --build-dir "$BUILD" $LIT_ARG
+fi
+
+# The flag decides, and the environment is not trusted: under it the variable the configures read is set, otherwise it is removed.
+if [ -n "$LIT_ARG" ]; then
+  ODL_SKIP_LITERATURE=1
+  export ODL_SKIP_LITERATURE
+  echo "== --skip-literature: literature entries are NOT required or verified in this run (GitHub's runner; every other run does) =="
+else
+  unset ODL_SKIP_LITERATURE
 fi
 
 PY=${PYTHON:-python3}
@@ -61,8 +82,12 @@ cd "$ROOT"
 HOST="$BUILD/host"
 cmake -DODL_HOST_OUT="$HOST" -DODL_CXX="${CXX:-c++}" -P "$ROOT/cmake/OdlBuildHostTool.cmake"
 
-gate "manifest verifies offline"
-"$HOST/fetch" verify
+if [ -n "$LIT_ARG" ]; then
+  gate "manifest verifies offline (--skip-literature: literature entries left to local verification)"
+else
+  gate "manifest verifies offline"
+fi
+"$HOST/fetch" verify $LIT_ARG
 
 gate "every dependency licence is permissive (plan §5 constraint 3)"
 "$HOST/fetch" check-licences
@@ -101,3 +126,6 @@ gate "build is reproducible"
 "$PY" tools/reprocheck.py --build-dir "$BUILD"
 
 printf '\n== all %d gates passed ==\n' "$step"
+if [ -n "$LIT_ARG" ]; then
+  printf '== BUT with --skip-literature: the literature entries were NOT required or verified in this run (gate 1 says how many). Run tools/ci.sh without it, on a machine that has them. ==\n'
+fi

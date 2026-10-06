@@ -27,6 +27,11 @@
 //   fetch --refresh     re-download everything and report upstream drift.
 //   fetch --keep-going  do not stop at the first entry that fails: try them all, list the failures at the end, exit with the FIRST one's code (so
 //                       that one run of CI names every entry a clean clone cannot fetch).  Without it the run stops at the first, as the Python tool did.
+//   verify|fetch --skip-literature
+//                       leave every `literature` entry alone -- neither required, nor fetched, nor verified -- and SAY how many were left.  For GitHub's
+//                       workflow alone (tools/ci.sh --skip-literature): literature is a provenance record that no build input and no test reads
+//                       (plan §5 constraint 3), and the hosts of several refuse a cloud runner (PROVENANCE.md section 41.7).  It is a filter on the
+//                       entry's KIND and nothing else: a code or data entry is verified and fetched exactly as without it.
 //   list [--json]       the entries, for humans.
 //   path <id>           the cache path of one entry.
 //   check-licences      plan §5 constraint 3: only licences on the permissive allowlist -- bar its ONE stage exception (a release blocker, listed on
@@ -57,6 +62,7 @@
 #include <iostream>
 #include <map>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -73,7 +79,20 @@ constexpr const char* kTool = "fetch";
 constexpr int kOk = 0, kMissing = 1, kMismatch = 2, kMalformed = 3, kNetwork = 4, kUsage = 5;
 constexpr int kArgumentError = 2;   // argparse's own code
 constexpr int kInternal = 70;       // an error the tool did not anticipate (an unwritable cache, a failed read): the Python tool's was a traceback, exit 1
-constexpr int kTimeoutSeconds = 120;
+// Two different questions, asked of curl separately.
+//
+// The CONNECT timeout is how long to wait for a host that has not answered AT ALL (curl counts the connection phase: DNS, TCP and the TLS handshake).  A
+// host that is answering does that in well under a second, and one that is not will not start because it was given two minutes: on 2026-10-06 (PROVENANCE.md
+// section 41.7) GitHub's runners waited 120 s, five attempts over, three passes, for each of the entries that CelesTrak and the UNT library never answered,
+// and the run took two hours to say so.  30 s covers five SYN transmissions (the kernel sends them at 0, 1, 3, 7 and 15 s) and every handshake that
+// completes, so it costs a healthy host nothing; and the retries STAY, because they are what cured the dropped handshakes of group C1b (a host that drops
+// one connection in a hundred is answered by the next attempt, not by a longer wait).  A refusing host now costs one entry 5 x 30 s + 4 x 5 s = 170 s per
+// pass, where it cost 620 s.
+//
+// The STALL limit (`--speed-limit 1 --speed-time N`: abort when fewer than one byte a second arrive for N seconds) is for a transfer that started and then
+// stopped.  It is a different failure and its value is unchanged.
+constexpr int kConnectTimeoutSeconds = 30;
+constexpr int kStallSeconds = 120;
 constexpr int kRetries = 4;
 constexpr int kRetryDelaySeconds = 5;
 constexpr const char* kUserAgent = "odl-self_built-fetch/1";
@@ -147,6 +166,37 @@ struct Manifest {
     }
 };
 
+bool looks_like_sha256(const std::string& h) {
+    const std::string hl = lower(h);
+    return hl.size() == 64 && std::all_of(hl.begin(), hl.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+}
+
+// What a `vendored_members` entry has to say for its tracked files to be checkable (see vendors_members below): that it IS vendored, and its members, each
+// with a hash of its own and a file name of its own -- the members land in ONE directory, so two members called alike would be one file.
+void check_vendored_members(Io& io, const std::string& where, const Json& e) {
+    const std::string& id = str_field(e, "id");
+    if (!truthy(e, "vendored")) die(io, kMalformed, where + " (" + id + "): vendored_members is set, but the entry is not vendored");
+    const Json* members = member_of(e, "members");
+    if (members == nullptr || !members->is_array() || members->as_array().empty()) {
+        die(io, kMalformed, where + " (" + id + "): vendored_members names no members, and the tracked files ARE the declared members: there must be some");
+    }
+    std::set<std::string> files;
+    for (const Json& x : members->as_array()) {
+        const Json* name = x.is_object() ? member_of(x, "member") : nullptr;
+        if (name == nullptr || !name->is_string() || fs::path(name->as_string()).filename().empty()) {
+            die(io, kMalformed, where + " (" + id + "): every member of a vendored_members entry must be an object whose 'member' is a file name");
+        }
+        const std::string file = fs::path(name->as_string()).filename().string();
+        const Json* hash = member_of(x, "sha256");
+        if (hash == nullptr || !hash->is_string() || !looks_like_sha256(hash->as_string())) {
+            die(io, kMalformed, where + " (" + id + "): member " + dk::py_repr(name->as_string()) + " has no sha256 of 64 hex characters, and a tracked member is checked against its own");
+        }
+        if (!files.insert(file).second) {
+            die(io, kMalformed, where + " (" + id + "): two members are both called " + dk::py_repr(file) + ", and they would be one tracked file");
+        }
+    }
+}
+
 Json load_manifest(Io& io, const fs::path& path) {
     std::string text;
     try {
@@ -215,6 +265,10 @@ Json load_manifest(Io& io, const fs::path& path) {
         const std::string hl = lower(h);
         const bool hex = std::all_of(hl.begin(), hl.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
         if (h.size() != 64 || !hex) die(io, kMalformed, where + " (" + id + "): sha256 " + dk::py_repr(h) + " is not 64 lowercase hex characters");
+        if (const Json* vm = member_of(e, "vendored_members"); vm != nullptr) {
+            if (!vm->is_bool()) die(io, kMalformed, where + " (" + id + "): vendored_members must be true or false, not " + py_repr_json(vm));
+            if (vm->as_bool()) check_vendored_members(io, where, e);
+        }
     }
     return doc;
 }
@@ -244,10 +298,26 @@ fs::path vendored_dir(const Manifest& m) { return m.root / m.setting("vendored",
 bool is_literature(const Json& e) { return text_of(e, "kind") == "literature"; }
 bool is_vendored(const Json& e) { return truthy(e, "vendored"); }
 
+// A `vendored_members` entry is an ARCHIVE whose declared members are tracked in the repository one by one, at data/vendored/<id>/<the member's file name>,
+// and whose archive is NOT.  The manifest's `filename` and `sha256` stay as upstream's identity -- what the members were taken from, which anyone can fetch
+// and compare -- but no file here has that hash.  It exists for an archive of which the tree reads a few members and which also holds what the tree must not
+// redistribute: vallado-sgp4-verification-vectors is a zip of Vallado's source code in six languages around the 33 test files the tests read (PROVENANCE.md
+// section 41.7).  `verify` checks each tracked member against its own pin, and that the directory holds exactly the declared members and nothing else, so that
+// "none of the code" is a property the tool checks and not a promise.
+bool vendors_members(const Json& e) { return is_vendored(e) && truthy(e, "vendored_members"); }
+
 fs::path entry_path(const Manifest& m, const Json& e) {
+    // a members-vendored entry has no archive file: asking for its path is a programming error, caught here rather than answered with a path that is not there
+    if (vendors_members(e)) throw std::logic_error("entry_path of " + str_field(e, "id") + ", which vendors its members and holds no archive");
     const fs::path base = is_vendored(e) ? vendored_dir(m) : is_literature(e) ? literature_dir(m) : cache_dir(m);
     return base / str_field(e, "id") / str_field(e, "filename");
 }
+
+std::string member_file_name(const Json& member) { return fs::path(text_of(member, "member")).filename().string(); }
+
+fs::path vendored_members_dir(const Manifest& m, const Json& e) { return vendored_dir(m) / str_field(e, "id"); }
+
+fs::path vendored_member_path(const Manifest& m, const Json& e, const Json& member) { return vendored_members_dir(m, e) / member_file_name(member); }
 
 // ------------------------------------------------------------------------------------------------------------------------ archives
 
@@ -511,8 +581,8 @@ std::string download(Io& io, const std::string& url, const fs::path& dest, const
     }
     const std::vector<std::string> argv = {"curl", "--silent", "--show-error", "--fail", "--location", "--max-redirs", "10", "--proto", "=https",
                                            "--proto-redir", "=https", "--http1.1", "--retry", std::to_string(kRetries), "--retry-delay", std::to_string(kRetryDelaySeconds),
-                                           "--retry-all-errors", "--user-agent", kUserAgent, "--connect-timeout", std::to_string(kTimeoutSeconds),
-                                           "--speed-limit", "1", "--speed-time", std::to_string(kTimeoutSeconds), "--output", part.string(), url};
+                                           "--retry-all-errors", "--user-agent", kUserAgent, "--connect-timeout", std::to_string(kConnectTimeoutSeconds),
+                                           "--speed-limit", "1", "--speed-time", std::to_string(kStallSeconds), "--output", part.string(), url};
     dk::ProcessResult r;
     try {
         r = dk::run_process(argv);
@@ -591,6 +661,7 @@ void write_receipt(Io& io, const Manifest& m, const std::vector<std::array<std::
 struct Args {
     bool refresh = false;
     bool keep_going = false;
+    bool skip_literature = false;
     bool json = false;
     std::string id;
     std::string member;
@@ -598,12 +669,112 @@ struct Args {
     std::string populated;
 };
 
-int cmd_verify(Io& io, const Manifest& m) {
+// --skip-literature: drops every `literature` entry from `list` and returns how many it dropped.  The criterion is the entry's KIND and nothing else, so a
+// code, data or tool entry is never dropped, whatever its id, its host or its licence: the flag cannot hide an input the build reads.
+std::size_t leave_literature(const Args& args, std::vector<const Json*>& list) {
+    if (!args.skip_literature) return 0;
+    const auto kept_end = std::remove_if(list.begin(), list.end(), [](const Json* e) { return is_literature(*e); });
+    const auto dropped = static_cast<std::size_t>(list.end() - kept_end);
+    list.erase(kept_end, list.end());
+    return dropped;
+}
+
+// What a run under --skip-literature says it did not do.  It is printed every time the flag is given, whatever the count, so a log that shows a green run
+// shows what that green did not cover.
+void say_literature_left(Io& io, std::size_t n, const char* what) {
+    io.out << "skipped  " << n << " literature " << (n == 1 ? "entry" : "entries") << ": " << what << " (--skip-literature).\n"
+           << "         A literature entry is a provenance record that no build input and no test reads (plan §5 constraint 3, a checked property), and the\n"
+           << "         hosts of several refuse GitHub's runners, so a red there says nothing about the code (PROVENANCE.md section 41.7).  Every run WITHOUT the\n"
+           << "         flag requires and verifies them, on a machine that has them.\n";
+}
+
+// The tracked files of a `vendored_members` entry (vendors_members), checked against the declared members and against nothing else.
+struct TrackedMembers {
+    std::vector<std::string> missing;                                           // declared members with no tracked file
+    std::vector<std::tuple<std::string, std::string, fs::path>> wrong;          // declared members whose tracked file has another hash: member, obtained, path
+    std::vector<std::string> undeclared;                                        // files in the entry's directory that no member declares (relative, sorted)
+};
+
+TrackedMembers check_tracked_members(Io& io, const Manifest& m, const Json& e) {
+    TrackedMembers out;
+    std::set<std::string> declared;
+    for (const Json* member : entry_members(e)) {
+        const fs::path p = vendored_member_path(m, e, *member);
+        declared.insert(member_file_name(*member));
+        if (!fs::exists(p)) {
+            out.missing.push_back(text_of(*member, "member"));
+            continue;
+        }
+        const std::string got = sha256_file(io, p);
+        if (got != lower(text_of(*member, "sha256"))) out.wrong.emplace_back(text_of(*member, "member"), got, p);
+    }
+    const fs::path dir = vendored_members_dir(m, e);
+    if (fs::is_directory(dir)) {
+        for (const auto& item : fs::recursive_directory_iterator(dir)) {
+            if (!item.is_regular_file() && !item.is_symlink()) continue;
+            // lexically: fs::relative resolves symbolic links, and a link is exactly the file this check must name as what it is, not as what it points to
+            const std::string rel = item.path().lexically_relative(dir).string();
+            if (declared.count(rel) == 0) out.undeclared.push_back(rel);
+        }
+        std::sort(out.undeclared.begin(), out.undeclared.end());
+    }
+    return out;
+}
+
+// The refusals about a members-vendored entry that `verify` and `fetch` share: a tracked member that is not the declared one, and a directory that holds more
+// than the declared members.  A missing member is not here: `verify` lists those with the rest, and `fetch` refuses them in its own words.
+void refuse_tracked_members(Io& io, const Manifest& m, const Json& e, const TrackedMembers& t) {
+    if (!t.wrong.empty()) {
+        const auto& [name, got, path] = t.wrong.front();
+        const Json* declared = nullptr;
+        for (const Json* member : entry_members(e)) {
+            if (text_of(*member, "member") == name) declared = member;
+        }
+        die(io, kMismatch,
+            "VENDORED MEMBER HASH MISMATCH — refusing.\n"
+            "  entry    " + str_field(e, "id") + "\n"
+            "  member   " + name + "\n"
+            "  declared " + text_of(*declared, "sha256") + "\n"
+            "  got      " + got + "\n"
+            "  at       " + path.string() + " (vendored -- not re-fetched, the tracked copy itself has changed)\n"
+            "\n"
+            "  Restore it from git (git checkout -- " + fs::relative(path, m.root).string() + "); a vendored member is never re-fetched, and the archive it\n"
+            "  was taken from is not held, so there is nothing to repair it from but the repository's own history.");
+    }
+    if (!t.undeclared.empty()) {
+        std::string names;
+        for (const std::string& n : t.undeclared) names += (names.empty() ? "" : ", ") + n;
+        die(io, kMismatch,
+            "VENDORED DIRECTORY HOLDS WHAT THE ENTRY DOES NOT DECLARE — refusing.\n"
+            "  entry      " + str_field(e, "id") + "\n"
+            "  directory  " + fs::relative(vendored_members_dir(m, e), m.root).string() + "\n"
+            "  undeclared " + names + "\n"
+            "\n"
+            "  A members-vendored entry tracks exactly the members it declares and nothing else.  The archive they were taken from holds what this tree must\n"
+            "  not redistribute, and this check is what makes that a property of the tree and not a promise.");
+    }
+}
+
+int cmd_verify(Io& io, const Manifest& m, const Args& args) {
     std::vector<const Json*> missing;
+    std::map<const Json*, std::vector<std::string>> missing_members;   // a members-vendored entry's declared members that have no tracked file
     std::vector<std::tuple<const Json*, std::string, fs::path>> bad;
     std::vector<const Json*> ok;
-    const std::vector<const Json*> fetch_list = fetchable(m);
+    std::vector<const Json*> fetch_list = fetchable(m);
+    const std::size_t literature_left = leave_literature(args, fetch_list);
     for (const Json* e : fetch_list) {
+        if (vendors_members(*e)) {
+            // there is no archive file to hash: the tracked members ARE the entry, each against its own pin
+            const TrackedMembers t = check_tracked_members(io, m, *e);
+            refuse_tracked_members(io, m, *e, t);
+            if (!t.missing.empty()) {
+                missing.push_back(e);
+                missing_members[e] = t.missing;
+            } else {
+                ok.push_back(e);
+            }
+            continue;
+        }
         const fs::path p = entry_path(m, *e);
         if (!fs::exists(p)) {
             missing.push_back(e);
@@ -688,6 +859,16 @@ int cmd_verify(Io& io, const Manifest& m) {
 
     ArchiveCache cache;
     for (const Json* e : ok) {
+        if (vendors_members(*e)) {
+            const std::vector<const Json*> members = entry_members(*e);
+            io.out << "ok       " << dk::pad_right(str_field(*e, "id"), 16) << " " << first16(str_field(*e, "sha256")) << "…  archive not held (its hash is upstream's identity); "
+                   << members.size() << " members tracked in " << fs::relative(vendored_members_dir(m, *e), m.root).string() << "/\n";
+            for (const Json* member : members) {
+                io.out << "  member " << dk::pad_right(text_of(*member, "member"), 30) << " " << first16(text_of(*member, "sha256")) << "…  verified in the repository (tracked)\n";
+            }
+            io.out << "  consumes " << text_of(*e, "consumes") << ", " << members.size() << " member(s) read individually\n";
+            continue;
+        }
         io.out << "ok       " << dk::pad_right(str_field(*e, "id"), 16) << " " << first16(str_field(*e, "sha256")) << "…  " << entry_path(m, *e).string() << '\n';
         std::vector<std::string> names;
         try {
@@ -717,7 +898,12 @@ int cmd_verify(Io& io, const Manifest& m) {
     }
     for (const Json* e : fetch_list) {
         if (!in_missing(e)) continue;
-        if (is_vendored(*e)) {
+        if (vendors_members(*e)) {
+            for (const std::string& name : missing_members[e]) {
+                io.err << "MISSING  " << dk::pad_right(str_field(*e, "id"), 16) << " vendored member " << name << " -- restore from git, do not fetch: "
+                       << fs::relative(vendored_members_dir(m, *e) / fs::path(name).filename(), m.root).string() << '\n';
+            }
+        } else if (is_vendored(*e)) {
             io.err << "MISSING  " << dk::pad_right(str_field(*e, "id"), 16) << " vendored -- restore from git, do not fetch: "
                    << fs::relative(entry_path(m, *e), m.root).string() << '\n';
         } else {
@@ -729,6 +915,7 @@ int cmd_verify(Io& io, const Manifest& m) {
             io.out << "host     " << dk::pad_right(str_field(e, "id"), 16) << " " << text_of(e, "version") << "  (not fetched: provided by the build host)\n";
         }
     }
+    if (args.skip_literature) say_literature_left(io, literature_left, "neither required nor verified");
 
     if (vendored_missing > 0 && vendored_missing == missing.size()) {
         io.err << "\n" << missing.size() << (missing.size() == 1 ? " vendored entry is" : " vendored entries are")
@@ -745,8 +932,26 @@ int cmd_verify(Io& io, const Manifest& m) {
 // One entry's turn in `fetch`: kOk, or the code to stop with where the tool returns rather than dies (upstream drift under --refresh).  A refusal is
 // a dk::Exit thrown by die().
 int fetch_entry(Io& io, const Manifest& m, const Args& args, const Json* e, std::vector<std::array<std::string, 3>>& results) {
-    const fs::path p = entry_path(m, *e);
     const std::string& id = str_field(*e, "id");
+    if (vendors_members(*e)) {
+        // The same rule as a vendored file, for an entry that has no file: its tracked members are checked and nothing is downloaded, not even under
+        // --refresh.  The archive is not held, so there is nothing to compare a download with and nothing a download could repair.
+        const TrackedMembers t = check_tracked_members(io, m, *e);
+        if (!t.missing.empty()) {
+            const fs::path first = vendored_members_dir(m, *e) / fs::path(t.missing.front()).filename();
+            die(io, kMissing,
+                id + " vendors its members but " + std::to_string(t.missing.size()) + " of its tracked files " + (t.missing.size() == 1 ? "is" : "are") +
+                    " missing, the first: " + first.string() + "\n"
+                    "  A vendored entry is never fetched. Restore the files from git (git checkout -- " + fs::relative(vendored_members_dir(m, *e), m.root).string() +
+                    ") rather than re-fetching them.");
+        }
+        refuse_tracked_members(io, m, *e, t);
+        io.out << "vendored " << dk::pad_right(id, 16) << " " << first16(str_field(*e, "sha256")) << "…  (" << entry_members(*e).size()
+               << " members tracked in the repository, never fetched; the archive is not held)\n";
+        results.push_back({id, truthy(*e, "url") ? text_of(*e, "url") : std::string("(vendored members)"), lower(str_field(*e, "sha256"))});
+        return kOk;
+    }
+    const fs::path p = entry_path(m, *e);
     const std::string want = lower(str_field(*e, "sha256"));
     if (is_vendored(*e)) {
         // NEVER re-fetched, NOT EVEN under --refresh: the whole reason an entry is vendored is that a live re-fetch cannot reproduce its own
@@ -801,7 +1006,10 @@ int cmd_fetch(Io& io, const Manifest& m, const Args& args) {
     std::vector<std::array<std::string, 3>> results;
     std::vector<std::pair<std::string, int>> failed;   // --keep-going: the entries that did not make it, in manifest order, with the code each stopped with
     std::size_t tried = 0;
-    for (const Json* e : fetchable(m)) {
+    std::vector<const Json*> fetch_list = fetchable(m);
+    const std::size_t literature_left = leave_literature(args, fetch_list);
+    if (args.skip_literature) say_literature_left(io, literature_left, "not fetched");
+    for (const Json* e : fetch_list) {
         ++tried;
         int code = kOk;
         if (args.keep_going) {
@@ -842,6 +1050,21 @@ int cmd_path(Io& io, const Manifest& m, const Args& args) {
     for (const Json& e : m.entries()) {
         if (str_field(e, "id") != args.id) continue;
         if (truthy(e, "provided_by_host")) die(io, kUsage, args.id + " is provided by the build host and has no cache path");
+        if (vendors_members(e)) {
+            // the tracked members, not a cache: one file by `--member`, otherwise the directory that holds them all
+            if (!args.have_member) {
+                io.out << vendored_members_dir(m, e).string() << '\n';
+                return kOk;
+            }
+            for (const Json* member : entry_members(e)) {
+                const std::string name = text_of(*member, "member");
+                if (member_file_name(*member) == args.member || name == args.member) {
+                    io.out << vendored_member_path(m, e, *member).string() << '\n';
+                    return kOk;
+                }
+            }
+            die(io, kUsage, args.id + " declares no member " + dk::py_repr(args.member));
+        }
         if (args.have_member) {
             for (const Json* member : entry_members(e)) {
                 if (!truthy(*member, "extract")) continue;
@@ -1144,9 +1367,10 @@ const char kHelpText[] =
     "from origin into a cache, and checked there.\n"
     "\n"
     "commands:\n"
-    "  verify              offline: is every entry cached and hash-correct?\n"
-    "  fetch [--refresh] [--keep-going]   download what is missing (--refresh: re-download everything and report upstream drift;\n"
+    "  verify [--skip-literature]   offline: is every entry cached and hash-correct?\n"
+    "  fetch [--refresh] [--keep-going] [--skip-literature]   download what is missing (--refresh: re-download everything and report upstream drift;\n"
     "                      --keep-going: do not stop at the first entry that fails, report them all and exit with the first one's code)\n"
+    "  --skip-literature   (verify, fetch) leave every literature entry alone, and say how many: for GitHub's workflow, which cannot reach their hosts\n"
     "  list [--json]       show the entries\n"
     "  path <id> [--member NAME]   print the cache path of one entry (or of an extracted archive member)\n"
     "  check-licences      plan §5 constraint 3: only licences on the permissive allowlist\n"
@@ -1214,6 +1438,8 @@ int run(const std::vector<std::string>& argv, Io io) {
                 args.refresh = true;
             } else if (a == "--keep-going" && cmd == "fetch") {
                 args.keep_going = true;
+            } else if (a == "--skip-literature" && (cmd == "verify" || cmd == "fetch")) {
+                args.skip_literature = true;
             } else if (a == "--json" && cmd == "list") {
                 args.json = true;
             } else if (a == "--member" && cmd == "path") {
@@ -1248,7 +1474,7 @@ int run(const std::vector<std::string>& argv, Io io) {
         Manifest m;
         m.root = root;
         m.doc = load_manifest(io, manifest_path);
-        if (cmd == "verify") return cmd_verify(io, m);
+        if (cmd == "verify") return cmd_verify(io, m, args);
         if (cmd == "fetch") return cmd_fetch(io, m, args);
         if (cmd == "list") return cmd_list(io, m, args);
         if (cmd == "path") return cmd_path(io, m, args);

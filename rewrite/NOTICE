@@ -642,7 +642,26 @@ DATA INPUTS
               implementation (software/cpp/SGP4/)" -- leaving open whether
               that carve-out also covers this archive's own test data. The
               primary source's own grant is not so scoped: it covers exactly
-              what this entry redistributes.
+              what this entry redistributes. REDISTRIBUTION, READ 2026-10-06
+              (PROVENANCE.md section 41.7), and the reading is stated here in
+              plain words: IMPLIED, NOT STATED. The raw text says 'use it for
+              any purpose', not 'copy' or 'redistribute', and it is worded
+              about 'the SGP4 code'; but it is unconditional, it names
+              commercial use 'as you wish', and its one request, to cite the
+              source 'in your documentation and source code', presupposes
+              copies of the code in other people's trees; the paper's own page
+              says it 'provides source code, test cases, results', and the
+              test cases are part of that package. On that reading, which has
+              been this tree's since L6 step 3, this tree tracks the 33 test-
+              data members it reads (SGP4-VER.TLE and the 32 .e files, 90,294
+              bytes) and NONE of the code, not even the archive. THE CITATION
+              THE AUTHORS ASK FOR: Vallado, David A., Paul Crawford, Richard
+              Hujsak, and T.S. Kelso, 'Revisiting Spacetrack Report #3',
+              AIAA/AAS Astrodynamics Specialist Conference, Keystone, CO, 2006
+              August 21-24 (AIAA 2006-6753); the main page,
+              https://celestrak.org/publications/AIAA/2006-6753/ , is the link
+              they ask citations to carry, 'to facilitate communications
+              regarding any questions on the theory or source code'.
 
   horizons-acs3-vectors  queried 2026-09-25, geocentric, ICRF, TDB, geometric (no light-time correction), 2 h window, 30-min step
     role      JPL Horizons vector-table ephemeris for ACS3 (SPK -159588), the real object oracle cases T-01/O-* use — a real-response fixture for SPEC-io-horizons.md's own acceptance test (IOHZ-A-008), alongside its hand-built ones

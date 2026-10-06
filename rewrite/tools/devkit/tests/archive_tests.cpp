@@ -109,7 +109,7 @@ TEST_CASE("zip refuses a bad CRC, a wrong size, encryption, an unknown method an
     CHECK_THROWS_AS(zip_entries(ByteView{}), FormatError);
 }
 
-#if defined(ODL_MANIFEST_PATH) && defined(ODL_MANIFEST_CACHE_ROOT)
+#if defined(ODL_MANIFEST_PATH) && defined(ODL_MANIFEST_CACHE_ROOT) && defined(ODL_MANIFEST_VENDORED_ROOT)
 TEST_CASE("every member the manifest pins reads out of its real cached archive and hashes as declared", "[devkit][archive][manifest]") {
     const Json doc = Json::parse(read_text(ODL_MANIFEST_PATH));
     std::size_t members = 0;
@@ -118,8 +118,24 @@ TEST_CASE("every member the manifest pins reads out of its real cached archive a
         const Json* unpack = e.find("unpack");
         if (unpack == nullptr || !unpack->is_string()) continue;
         const std::string& id = e.find("id")->as_string();
-        const std::filesystem::path file = std::filesystem::path(ODL_MANIFEST_CACHE_ROOT) / id / e.find("filename")->as_string();
         INFO("entry " << id);
+        if (e.find("vendored_members") != nullptr && e.find("vendored_members")->truthy()) {
+            // An archive entry that vendors its members (tools/fetch.cpp, PROVENANCE.md section 41.7): the archive is NOT held, here or on GitHub's runner, so what
+            // reads out and hashes as declared is each TRACKED member.  (The first version of this case asked for the archive of this entry too, and only a rehearsal
+            // of the runner -- a cache that does not have it -- found that out.)
+            const Json* tracked = e.find("members");
+            REQUIRE(tracked != nullptr);
+            for (const Json& m : tracked->as_array()) {
+                const std::string& name = m.find("member")->as_string();
+                INFO("tracked member " << name);
+                const std::filesystem::path member_file = std::filesystem::path(ODL_MANIFEST_VENDORED_ROOT) / id / std::filesystem::path(name).filename();
+                REQUIRE(std::filesystem::exists(member_file));
+                CHECK(sha256_file_hex(member_file) == m.find("sha256")->as_string());
+                ++members;
+            }
+            continue;
+        }
+        const std::filesystem::path file = std::filesystem::path(ODL_MANIFEST_CACHE_ROOT) / id / e.find("filename")->as_string();
         REQUIRE(std::filesystem::exists(file));
         const Bytes raw = read_bytes(file);
         ++archives;

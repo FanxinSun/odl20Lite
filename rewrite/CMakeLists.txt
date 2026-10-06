@@ -44,9 +44,22 @@ find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
 # --------------------------------------------------------------------------- #
 # The manifest is checked at configure time, not merely at fetch time.  A tree
 # whose cache has drifted since it was populated should not build at all.
+#
+# Literature is checked with everything else, EXCEPT under `tools/ci.sh --skip-literature`, which is GitHub's workflow and nothing else: a literature
+# entry is a provenance record that no build input and no test reads (plan §5 constraint 3, a checked property), and several of its hosts refuse GitHub's
+# runners (PROVENANCE.md section 41.7).  The one switch is ci.sh's; it reaches every configure and every ctest verify that ci.sh runs, the two inside
+# tools/reprocheck.py included, through the ONE environment variable only ci.sh sets, ODL_SKIP_LITERATURE=1 (ci.sh unsets it otherwise, so a stray value in
+# a shell cannot weaken a default run).  It is read here, on every configure, and not cached: a build directory configured under the flag does not keep it.
+# ODL_VERIFY_ARGS is what the configure's verify below and the ctest `manifest.verify_offline` (tests/CMakeLists.txt) both pass to `fetch verify`.
+set(ODL_VERIFY_ARGS "")
+if("$ENV{ODL_SKIP_LITERATURE}" STREQUAL "1")
+  set(ODL_VERIFY_ARGS --skip-literature)
+  message(STATUS "ODL_SKIP_LITERATURE=1 (tools/ci.sh --skip-literature): literature entries are NEITHER REQUIRED NOR VERIFIED by this configure, "
+                 "nor by the ctest manifest.verify_offline")
+endif()
 
 execute_process(
-  COMMAND "${ODL_FETCH_TOOL}" verify
+  COMMAND "${ODL_FETCH_TOOL}" verify ${ODL_VERIFY_ARGS}
   RESULT_VARIABLE _odl_verify_rc
   OUTPUT_VARIABLE _odl_verify_out
   ERROR_VARIABLE  _odl_verify_err)
