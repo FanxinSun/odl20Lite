@@ -985,6 +985,14 @@ governs. Three rules apply to all of them:
 
    Where a paper's terms cannot be established, **record the search rather than the conclusion**
    (rule 4): the exemption rests on this tree not redistributing, not on a grant nobody found.
+
+   **One exception, for this stage only.** By the user's decision of 2026-10-06 — *"find a
+   replacement first; if no hit, accept non-commercial for this stage"* — DRAO's 10.7 cm solar
+   flux table is vendored under terms that permit only non-commercial reproduction. It is the
+   fixture of one cross-check, and CI needs its bytes because the live file changes daily. It is
+   the only entry of its kind. The manifest and NOTICE flag it as a **release blocker**: no
+   commercial release may include it, and replacing it is a precondition of one. The licence gate
+   accepts that flag on that entry alone.
 4. **Refuse rather than approximate.** Out-of-range data, an unknown timescale, unparseable
    input: a diagnostic naming the request and the limit — never a silent fallback. The
    predecessor's most expensive defect class was not a crash but a plausible wrong number.
