@@ -66,6 +66,8 @@ add_test(NAME measmod.reference_header_matches_its_generator
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/measmod_reference.py" --check)
 add_test(NAME measmod.height_sensitivity_prediction_reproduces
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/measmod_height_sensitivity.py" --check)
+add_test(NAME measmod.g5_selection_reproduces
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/measmod_g5_select.py" --check)
 
 # --------------------------------------------------------------------------- #
 # The module boundary is a link boundary — proved both ways.
