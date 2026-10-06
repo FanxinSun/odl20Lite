@@ -223,6 +223,15 @@ runs existed. It is now last, which is what was actually executed.*
 CI green from cached data alone. Verified independently 2026-09-18 from a clean copy of the
 tree: **9 of 9 tests pass**, including `boundary.undeclared_dependency_refused`.
 
+> **Correction found 2026-10-06, at L0 step 8: the exit gate's "clean clone" stopped holding on
+> 2026-09-18.** GitHub's workflow has failed on every push since 16:14 that day, 42 runs. A clean
+> clone cannot fill its cache. Four entries whose upstream changes — USNO's `finals2000A`, GFZ's
+> Kp/Ap/F10.7 file, DRAO's flux table and the IERS leap-second file — are pinned by hash but were
+> never vendored, so a fresh fetch meets bytes the pin refuses, as it must. The manager's
+> verifications ran from the local cache and could not see it, and the workflow's results were
+> never read. L0 step 8's gate now includes the workflow green on GitHub from a clean clone, and
+> the manager reads the workflow's result after every push.
+
 **What L0 did about C++20's structural risk, and it is the part to show a reviewer.** In C++ a
 directory is not a boundary; a link target is. Every §2 module is its own CMake target with its
 own `PUBLIC` include directory, seeing exactly what it names in `DEPENDS`, so reaching across
