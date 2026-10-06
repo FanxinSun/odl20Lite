@@ -1,7 +1,7 @@
 #pragma once
 // rkf78_coefficients.hpp — GENERATED.  Do not edit.
 //
-// Produced by tools/rk_coefficients.py from Fehlberg, NASA TR R-287 (1968),
+// Produced by tools/rk_coefficients.cpp from Fehlberg, NASA TR R-287 (1968),
 // Table X (report p.65), sha256 5553a2a3eb53785a461762cc2b29428015f1b32c3ad0a5cb57f85a421256a0c8
 //
 // READ FROM THE PAGE IMAGE, NOT THE TEXT LAYER.  The report is a 1968 scan and

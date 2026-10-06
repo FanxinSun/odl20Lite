@@ -1160,6 +1160,12 @@ const Permitted kPermissive[] = {
     {"MIT-0", "permissive, no attribution"},
     {"NCSA", "permissive"},
     {"PSF-2.0", "Python Software Foundation; permissive"},
+    {"UNICODE-3.0", "the Unicode License v3 (SPDX: Unicode-3.0), permissive and of the MIT kind: 'Permission is hereby granted, free of charge, to any person "
+                    "obtaining a copy of data files ... to deal in the Data Files or Software without restriction, including without limitation the rights to "
+                    "use, copy, modify, merge, publish, distribute, and/or sell copies', on ONE condition: that the copyright and permission notice appear with "
+                    "all copies or in associated Documentation -- each entry's licence_note carries it, and NOTICE is generated from that. The Terms of Use "
+                    "(unicode.org/terms_of_use.html, read 2026-10-07) put every Data File under unicode.org/Public/ under it. The tree redistributes none of "
+                    "it: pin-only, an oracle for one test (the UCD 15.1.0 files). Data, never linked."},
     {"UNLICENSE", "public-domain dedication"},
     {"ZLIB", "permissive"},
     {"IERS-PUBLIC", "not an SPDX identifier: IERS data products and documents. No licence statement was found on the IERS pages searched (2026-10-06, "

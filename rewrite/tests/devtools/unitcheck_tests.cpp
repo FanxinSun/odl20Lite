@@ -24,6 +24,7 @@
 #include <regex>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -188,15 +189,15 @@ TEST_CASE("number_tokens: the numbers of a line of code, as NUMBER's lookbehind,
     CHECK(tokens("1,000") == "1|000");
     CHECK(tokens("9999999999999999999999 1000") == "9999999999999999999999|1000");
     // glued to a word character or a point on either side: no token (and no shorter one is carved out of it)
-    CHECK(tokens("1000f") == "");
-    CHECK(tokens("1000.0f") == "");                      // a float literal with a suffix is invisible to this register
-    CHECK(tokens("1000u 1000UL 1e3f 1e3L") == "");
+    CHECK(tokens("1000f") == "");                        // not C++ (an integer literal has no f suffix): a letter glued to the number, no token
+    CHECK(tokens("1000.0f") == "1000.0f");               // CHANGED in group C6: a standard suffix is part of the literal (these were invisible to the Python's NUMBER)
+    CHECK(tokens("1000u 1000UL 1e3f 1e3L") == "1000u|1000UL|1e3f|1e3L");
     CHECK(tokens("x1000") == "");
     CHECK(tokens("_1000") == "");
     CHECK(tokens("1000_") == "");
     CHECK(tokens("1_000") == "");
     CHECK(tokens("a.1000") == "");
-    CHECK(tokens("1000.f") == "");
+    CHECK(tokens("1000.f") == "1000.f");                 // CHANGED in group C6, like 1000.0f
     CHECK(tokens("1000..") == "");
     CHECK(tokens("1000.0.0") == "");
     CHECK(tokens("1.5.3") == "");
@@ -222,6 +223,64 @@ TEST_CASE("number_tokens: the numbers of a line of code, as NUMBER's lookbehind,
     CHECK(tokens("1000" "\xFF") == "1000");
 }
 
+TEST_CASE("number_tokens: the standard suffixes of C++ are part of the literal and no other letters are (group C6)", "[unitcheck][behaviour][scan]") {
+    // after an INTEGER literal: u, l, ul, lu, ll, ull, llu in either case (`ll` and `LL` keep their case)
+    for (const char* literal : {"1000u", "1000U", "1000l", "1000L", "1000ul", "1000UL", "1000uL", "1000Ul", "1000lu", "1000LU", "1000lU", "1000Lu", "1000ll", "1000LL", "1000ull", "1000ULL", "1000uLL",
+                                "1000Ull", "1000llu", "1000LLU", "1000llU", "1000LLu", "1'000u"}) {
+        INFO(literal);
+        CHECK(tokens(literal) == literal);
+    }
+    // after a FLOATING one (a point or an exponent): f, F, l, L
+    for (const char* literal : {"1000.0f", "1000.0F", "1000.0l", "1000.0L", "1000.f", "1000.F", "1000.L", "1e3f", "1e3F", "1e3l", "1e3L", "1.0e+3f", "1.0E-3F", "0.001f", "1.e3f", "1000.0e0L"}) {
+        INFO(literal);
+        CHECK(tokens(literal) == literal);
+    }
+    // anything else leaves the number glued to a word character, which refuses the token: a suffix of the other kind (not C++), `lL` (not a suffix), a user-defined or a library one (`1000_km`, the
+    // chrono `1000ms`), a C++23 one, and the letters of an exponent that is not one
+    for (const char* text : {"1000f", "1000F", "1000.0u", "1000.0U", "1000.0ul", "1e3u", "1e3ll", "1000lL", "1000Ll", "1000uu", "1000ulu", "1000lul", "1000ullu", "1000fl", "1000.0ff", "1000.0fl", "1000ms", "1000s",
+                             "1000h", "1000us", "1000_km", "1000.0_f", "1e3_m", "1000z", "1000uz", "1000f16", "1000.0f32", "1000e", "1000ee3", "1000i", "1000.0il"}) {
+        INFO(text);
+        CHECK(tokens(text) == "");
+    }
+    // the lookahead still holds after a suffix, and so does the lookbehind before the literal
+    CHECK(tokens("1000u.") == "");
+    CHECK(tokens("1000.0f.5") == "");
+    CHECK(tokens("1000ul_") == "");
+    CHECK(tokens("1000.0fx") == "");
+    CHECK(tokens("x1000u") == "");
+    CHECK(tokens("a.1000.0f") == "");
+    // in a line of code, with other literals around
+    CHECK(tokens("float a = 1000.0f * 2u + 1e3L;") == "1000.0f|2u|1e3L");
+    CHECK(tokens("f(1000.0f,1000u)") == "1000.0f|1000u");
+    CHECK(tokens("v[0] = 1000UL; v[1] = 10ull;") == "0|1000UL|1|10ull");
+}
+
+TEST_CASE("number_tokens: digit separators are part of the number when they stand between two digits (group C6)", "[unitcheck][behaviour][scan]") {
+    for (const char* literal : {"1'000", "1'000.0", "1'000.", "0.0'01", "1'0'0'0", "1'000'000", "1'000.000'1", "1e1'0", "1'0e2", "1.0e+0'3", "1'000u", "1'000.0f", "1'0e-1'0L", "00'1.0e-3"}) {
+        INFO(literal);
+        CHECK(tokens(literal) == literal);
+    }
+    // an apostrophe that does not stand between two digits is not a separator: the number ends before it
+    CHECK(tokens("1''000") == "1|000");
+    CHECK(tokens("1'") == "1");
+    CHECK(tokens("1'x") == "1");
+    CHECK(tokens("1000'") == "1000");
+    CHECK(tokens("'1000") == "1000");
+    CHECK(tokens("1'.5") == "1");                      // the 5 follows a point: no token begins there
+    CHECK(tokens("1.'5") == "1.|5");                   // a point then an apostrophe: `1.` is a literal, and the 5 after the apostrophe (which is not between digits) is a number of its own
+    CHECK(tokens("1e'3") == "3");                      // an exponent needs a digit, so the e stays glued to the 1 (no token there); the 3 after the apostrophe is a number of its own
+    // character literals of digits are their own numbers, as they always were
+    CHECK(tokens("c == '1'") == "1");
+    CHECK(tokens("'0','1'") == "0|1");
+    // a letter before the first digit refuses the token there, and the digits after the apostrophe begin a token of their own (the lookbehind allows an apostrophe), as in the old regular expression
+    CHECK(tokens("x1'000") == "000");
+    // in a line of code
+    CHECK(tokens("long d = 1'000, e = 1'000'000 / 1'000;") == "1'000|1'000'000|1'000");
+    // glued to a word character or a point after it: still no token
+    CHECK(tokens("1'000x") == "");
+    CHECK(tokens("1'000.0.0") == "");
+}
+
 TEST_CASE("is_thousand: float(token) is exactly 1000.0 or exactly 0.001, however it is spelt", "[unitcheck][behaviour][scan]") {
     for (const char* spelling : {"1000", "1000.0", "1000.", "1e3", "1E3", "1.0e3", "1.0E+3", "1e+3", "10e2", "100e1", "1000e0", "0.1e4", "01000", "0001000.000", "1.0e+03", "0.001", "1e-3", "1E-3", "1.0e-03",
                                  "0.0010", "000.001", "10e-4", "100e-5", "0.00100000000000000000000001", "1000.0000000000000000000000000001"}) {
@@ -236,6 +295,171 @@ TEST_CASE("is_thousand: float(token) is exactly 1000.0 or exactly 0.001, however
     CHECK(uc::scan::is_thousand("\xD9\xA1\xD9\xA0\xD9\xA0\xD9\xA0"));                               // ARABIC-INDIC DIGITS: float() reads them
     CHECK_FALSE(uc::scan::is_thousand("1000x"));                                                    // float() refuses what is not wholly a number
     CHECK(uc::scan::is_thousand("\xEF\xBC\x91\xEF\xBC\x90\xEF\xBC\x90\xEF\xBC\x90"));                // FULLWIDTH DIGITS
+}
+
+TEST_CASE("is_thousand: the separators and the standard suffix of a literal are its spelling and its type, not its value (group C6)", "[unitcheck][behaviour][scan]") {
+    for (const char* spelling : {"1000u", "1000U", "1000UL", "1000ull", "1000LLU", "1000.0f", "1000.f", "1000.0F", "1000.0L", "1e3f", "1e3L", "1.0E+3f", "0.001f", "0.001L", "1.0e-03F", "1'000", "1'000.0", "1'000.f",
+                                 "10'00", "1'0'0'0", "1'0e2", "1'0e2L", "0.0'01", "00'1.0e-3", "1'000u", "1'000ull", "0.0'01f", "1e0'3", "100e0'1"}) {
+        INFO(spelling);
+        CHECK(uc::scan::is_thousand(spelling));
+    }
+    for (const char* spelling : {"1'001", "1'000'0", "0'001", "999u", "1001UL", "1000.5f", "0.0011f", "1e0'4", "1'0e3", "1000f", "1000.0u", "1000ms", "1000_km", "1000lL", "1000ee3", "1'000x", "1'", "'1000", "1''000",
+                                 "1000 ", "1000u ", "1'000'", "1.'5", "1000.0.0"}) {
+        INFO(spelling);
+        CHECK_FALSE(uc::scan::is_thousand(spelling));
+    }
+}
+
+TEST_CASE("comment_start: the first // that is not inside a string, a character literal, a raw string or a block comment (group C6)", "[unitcheck][behaviour][scan]") {
+    const auto where = [](const std::string& line) {
+        uc::scan::LexState state;
+        const std::size_t at = uc::scan::comment_start(line, state);
+        return at == std::string::npos ? std::string("none") : line.substr(at);
+    };
+    // the plain cases
+    CHECK(where("") == "none");
+    CHECK(where("int a = 1;") == "none");
+    CHECK(where("int a = 1; // c") == "// c");
+    CHECK(where("// c") == "// c");
+    CHECK(where("a = b / c; // d") == "// d");
+    CHECK(where("a //* b */ c") == "//* b */ c");           // `//` comes first: a line comment, not a block comment
+    CHECK(where("// say \"hi") == "// say \"hi");
+    // inside a string literal
+    CHECK(where("s = \"http://x\"; // real") == "// real");
+    CHECK(where("s = \"//\";") == "none");
+    CHECK(where("s = \"a\\\"//b\"; // c") == "// c");           // an escaped quote does not end the string
+    CHECK(where("s = \"a\\\\\"; // c") == "// c");              // an escaped backslash does not escape the quote after it
+    CHECK(where("s = \"\xC3\xA9//x\"; // c") == "// c");        // a multi-byte character inside the string
+    CHECK(where("s = \"/*\"; // c") == "// c");                  // a /* inside a string opens no comment
+    CHECK(where("s = L\"//\"; u8\"//\"; // c") == "// c");       // encoding prefixes of an ordinary string
+    // inside a character literal
+    CHECK(where("c = '\"'; // c") == "// c");                     // the quote inside a character literal opens no string
+    CHECK(where("c = '//'; // c") == "// c");
+    CHECK(where("c = '\\''; // c") == "// c");                    // an escaped quote
+    CHECK(where("c = '/'; d = '/'; // c") == "// c");
+    // digit separators and numbers
+    CHECK(where("a = 1'000; // c") == "// c");                    // the apostrophe of a separator opens no character literal
+    CHECK(where("a = 1'000 + '/'; // c") == "// c");
+    CHECK(where("a = 0x1'F; b = 0b1'0; // c") == "// c");
+    CHECK(where("a = 1'000.5e+1'0; // c") == "// c");
+    CHECK(where("a = .5e+3 + 3.; // c") == "// c");
+    CHECK(where("a = 0xAB'CD; // c") == "// c");                  // letters before the apostrophe: a hexadecimal number
+    CHECK(where("a = 9'000; // c") == "// c");                    // the digit 9 begins a number like the others
+    CHECK(where("a = 0'7; // c") == "// c");
+    CHECK(where("a = 1'; // c") == "none");                       // an apostrophe that no letter or digit follows is no separator: it opens a character literal, which this line never closes
+    CHECK(where("a = 1000' + 1; // c") == "none");
+    CHECK(where("a = 1'000;") == "none");
+    // raw string literals: every prefix, delimiters, a closer that is not the right one, and the things that are not raw
+    CHECK(where("s = R\"(//)\"; // c") == "// c");
+    CHECK(where("s = R\"x(//)x\"; // c") == "// c");
+    CHECK(where("s = R\"x(a)\"b//)x\"; // c") == "// c");         // `)"` is no closer when the delimiter is x: the string goes on to `)x"`
+    CHECK(where("s = LR\"(//)\"; uR\"(//)\"; UR\"(//)\"; u8R\"(//)\"; // c") == "// c");
+    // each prefix, with a quote inside the raw string (an ordinary string would end there, and the `//` after it would be the comment)
+    CHECK(where("s = R\"(a\"//)\"; // c") == "// c");
+    CHECK(where("s = LR\"(a\"//)\"; // c") == "// c");
+    CHECK(where("s = uR\"(a\"//)\"; // c") == "// c");
+    CHECK(where("s = UR\"(a\"//)\"; // c") == "// c");
+    CHECK(where("s = u8R\"(a\"//)\"; // c") == "// c");
+    CHECK(where("s = R\"x(a\"//)x\"; // c") == "// c");
+    // an identifier longer than a prefix before the quote (a letter, an underscore, a multi-byte letter) makes it an ordinary string: it ends at the second quote and the `//` after it is the comment
+    CHECK(where("s = fooR\"(a\"//)\"; // c") == "//)\"; // c");
+    CHECK(where("s = foo_R\"(a\"//)\"; // c") == "//)\"; // c");
+    CHECK(where("s = \xC3\xA9R\"(a\"//)\"; // c") == "//)\"; // c");
+    CHECK(where("s = R\"0123456789abcdef(//)0123456789abcdef\"; // c") == "// c");   // a delimiter of sixteen characters
+    CHECK(where("s = R\"0123456789abcdef(a\"//)0123456789abcdef\"; // c") == "// c");
+    CHECK(where("s = R\"0123456789abcde(a\"//)0123456789abcde\"; // c") == "// c");   // fifteen
+    // characters that no delimiter may hold, each making the text an ordinary string that ends at the next quote
+    CHECK(where("s = R\"a)b(\"; // c") == "// c");
+    CHECK(where("s = R\"a\\b(\"; // c") == "// c");
+    CHECK(where("s = R\"a\tb(\"; // c") == "// c");
+    CHECK(where("s = R\"a\vb(\"; // c") == "// c");
+    CHECK(where("s = R\"a\fb(\"; // c") == "// c");
+    CHECK(where("s = fooR\"(//\" x; // c") == "// c");            // `fooR` is no prefix: an ordinary string, which the first quote after `(//` closes
+    CHECK(where("s = R \"(//\" x; // c") == "// c");              // a space after the R: not a raw string either
+    CHECK(where("s = R\"a b(\"; // c") == "// c");                // a space in the delimiter: not raw, so the string ends at the next quote
+    CHECK(where("s = R\"0123456789abcdefg(\"; // c") == "// c");   // a delimiter of seventeen: not raw
+    CHECK(where("s = R\"(//)\"") == "none");
+    // inside a block comment (on one line)
+    CHECK(where("a = b /* x // y */ + c; // d") == "// d");
+    CHECK(where("a = b /* x // y */ + c;") == "none");
+    CHECK(where("/* a */ b; /* c */ d; // e") == "// e");
+    CHECK(where("a /*/ // b */ c; // d") == "// d");               // `/*/` is still open: its slash is not the end of a comment
+    CHECK(where("a /**/ b; // c") == "// c");
+    CHECK(where("a /* x *//* y */ b; // c") == "// c");             // the slash that closes a comment is not the first slash of a `//` that follows it
+    // a quote is just a character after a // (the comment starts first) and inside a block comment
+    CHECK(where("a = 1; /* don't */ b = 2; // c") == "// c");
+    CHECK(where("a = 1; /* \" */ b = 2; // c") == "// c");
+    // what is not closed ends with its line
+    CHECK(where("s = \"abc // y") == "none");
+    CHECK(where("c = 'a // y") == "none");
+
+    // across lines
+    const auto trail = [](const std::vector<std::string>& lines) {
+        std::string out;
+        uc::scan::LexState state;
+        for (const std::string& line : lines) {
+            const std::size_t at = uc::scan::comment_start(line, state);
+            out += (out.empty() ? "" : "|") + (at == std::string::npos ? std::string("none") : line.substr(at));
+        }
+        return out;
+    };
+    CHECK(trail({"auto s = R\"sql(", "select 1 // not a comment", ")sql\"; // real"}) == "none|none|// real");
+    CHECK(trail({"auto s = R\"(", ")\"; /* x", "*/ // c"}) == "none|none|// c");
+    CHECK(trail({"/* open", " // inside", " close */ x; // real"}) == "none|none|// real");
+    CHECK(trail({"/*/ // x", "*/ y; // z"}) == "none|// z");
+    CHECK(trail({"/* a */ b; /* c", "d */ e; // f"}) == "none|// f");
+    CHECK(trail({"s = \"abc\\", "//def\"; // real"}) == "none|// real");             // a backslash at the end of the line carries the string over
+    CHECK(trail({"s = \"abc\\", "def\\", "//ghi\"; // real"}) == "none|none|// real");
+    CHECK(trail({"s = \"abc // y", "z; // c"}) == "none|// c");                       // an ordinary string without a backslash ends with its line
+    CHECK(trail({"c = 'a // y", "z; // c"}) == "none|// c");
+    CHECK(trail({"c = '\\", "// c"}) == "none|// c");                                // a character literal is not carried over
+    CHECK(trail({"s = \"abc\\\"", "// real"}) == "none|// real");                    // the backslash escapes the quote: the line does not end on a splice, the string is just unterminated
+    CHECK(trail({"s = R\"abc", "// real"}) == "none|// real");                       // no `(`: not a raw string
+    CHECK(trail({"// a comment \\", "// and the next line is not part of it for this register"}) == "// a comment \\|// and the next line is not part of it for this register");
+    CHECK(trail({"auto s = R\"(", "x", "y"}) == "none|none|none");                   // an unterminated raw string runs to the end of the file
+}
+
+TEST_CASE("the scanners read the view they are given and nothing beyond it, whatever the larger text holds after the view (group C6)", "[unitcheck][behaviour][scan]") {
+    // The register hands the scanners views into bigger texts (`line.substr(0, comment_at)` is followed in memory by the `//` it was cut at), so a read one past the end of a view is a read of the text around it.  Here the
+    // character after the view is the one that would change the answer: a suffix letter, a point, a slash that completes a `//`, a star that completes a `/*`.
+    const auto first = [](const std::string& whole, std::size_t n) { return std::string_view(whole).substr(0, n); };
+    CHECK(uc::scan::is_thousand(first("1000u", 4)));        // a suffix after the digits is not the view's
+    CHECK(uc::scan::is_thousand(first("1000L", 4)));
+    CHECK(uc::scan::is_thousand(first("1000.0f", 6)));      // nor is the suffix of a floating literal
+    CHECK(uc::scan::is_thousand(first("1000.5", 4)));       // a point after the digits is not the view's: with it the literal would be `1000.`, longer than the view
+    CHECK(uc::scan::is_thousand(first("1'000'5", 5)));      // nor is a separator after them
+    CHECK(tokens(first("1000.5", 4)) == "1000");
+    CHECK(tokens(first("1'000'5", 5)) == "1'000");
+    CHECK(tokens(first("1000u", 4)) == "1000");
+    {
+        const std::string whole = "a //";
+        uc::scan::LexState state;
+        CHECK(uc::scan::comment_start(first(whole, 3), state) == std::string::npos);   // the slash that ends the view is not the first of a `//`
+        CHECK(state.mode == uc::scan::LexState::Mode::Code);
+    }
+    {
+        const std::string whole = "a /*";
+        uc::scan::LexState state;
+        CHECK(uc::scan::comment_start(first(whole, 3), state) == std::string::npos);   // ... nor of a `/*`: no block comment is opened
+        CHECK(state.mode == uc::scan::LexState::Mode::Code);
+    }
+}
+
+TEST_CASE("LexState: where a line starts, and the in-string flag the register uses (group C6)", "[unitcheck][behaviour][scan]") {
+    uc::scan::LexState state;
+    CHECK_FALSE(state.in_string_literal());
+    (void)uc::scan::comment_start("auto s = R\"d(", state);
+    CHECK(state.in_string_literal());
+    CHECK(state.mode == uc::scan::LexState::Mode::RawString);
+    CHECK(state.raw_delimiter == "d");
+    (void)uc::scan::comment_start("text )d\" /* open", state);
+    CHECK_FALSE(state.in_string_literal());
+    CHECK(state.mode == uc::scan::LexState::Mode::BlockComment);
+    (void)uc::scan::comment_start("close */ s = \"x\\", state);
+    CHECK(state.in_string_literal());
+    CHECK(state.mode == uc::scan::LexState::Mode::String);
+    (void)uc::scan::comment_start("y\";", state);
+    CHECK(state.mode == uc::scan::LexState::Mode::Code);
 }
 
 TEST_CASE("names_km: the kilometre pattern, case-insensitively and Unicode-aware", "[unitcheck][behaviour][scan]") {
@@ -348,10 +572,12 @@ TEST_CASE("literals are matched by VALUE: every spelling of 1000 and 1/1000 is o
     annotated += "double w = 1e3 + 1000; // NOT-A-UNIT-CROSSING: two on one line\n";
     Tree t;
     t.write("modules/a/spelt.cpp", annotated);
-    // none of these is a factor of a thousand (and the last five are not tokens at all: a suffix, a letter or a point is glued to them)
+    // none of these is a factor of a thousand (and the last ones are not tokens at all: a suffix of the wrong kind, a user-defined or library suffix, a letter or a point is glued to them; the standard
+    // suffixes and digit separators are read since group C6, and have their own cases below)
     t.write("modules/a/other.cpp",
             "double v[] = {1000.5, 999.99, 1e4, 1e-4, 100, 0.01, 1001, 0.0010000001, 1e2, 1000.000000001, 1e999};\n"
-            "float f = 1000.0f; unsigned u = 1000u; double x1000 = 0; double y = a.1000; double z = 1_000;\n");
+            "float f = 1000f; double u = 1000.0u; auto k = 1000_km; auto d = 1000ms; double x1000 = 0; double y = a.1000; double z = 1_000;\n"
+            "unsigned w[] = {1001u, 999UL, 1'001, 1'000'0, 0.0011f, 1000.5f, 10'000.0f};\n");
     const Result r = t.run({"--quiet"});
     CHECK(r.code == kOk);
     CHECK(r.out == denominator(Counts{2, 0, 0, spellings.size() + 2, 0, 0}) + kVerdict);
@@ -360,7 +586,7 @@ TEST_CASE("literals are matched by VALUE: every spelling of 1000 and 1/1000 is o
     CHECK(contains(loud.out, annotated_row("modules/a/spelt.cpp", spellings.size() + 1, "1e3", "two on one line") + annotated_row("modules/a/spelt.cpp", spellings.size() + 1, "1000", "two on one line")));
 }
 
-TEST_CASE("what is not looked at: a line that begins with //, * or /*, and everything after the first // of any other line (a // inside a string hides the rest of the line too)", "[unitcheck][behaviour]") {
+TEST_CASE("what is not looked at: a line that begins with //, * or /*, and everything after the first // that begins a comment on any other line", "[unitcheck][behaviour]") {
     Tree t;
     t.write("modules/a/skips.cpp",
             "// 1000\n"
@@ -369,13 +595,134 @@ TEST_CASE("what is not looked at: a line that begins with //, * or /*, and every
             " * 1000\n"
             "*1000\n"
             "int a = 5; // 1000\n"
-            "const char* u = \"http://x\"; int n = 1000;\n"     // the // inside the string hides the 1000: the Python's behaviour, kept
+            "const char* u = \"http://x\"; int n = 1000;\n"     // CHANGED in group C6: the // inside the string is no comment, so the 1000 after it IS read (the Python lost it)
             "int b = 5; /* 1000 */\n"                            // a block comment that begins after code hides nothing: the register is not a parser, so this one counts
             "\t\xE3\x80\x80" "int c = 5;\n");
     const Result r = t.run({"--quiet"});
     CHECK(r.code == kFailed);
+    CHECK(r.out == denominator(Counts{1, 0, 0, 0, 2, 0}));
+    CHECK(r.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row("modules/a/skips.cpp", 7, "1000", "const char* u = \"http://x\"; int n = 1000;") +
+                       unaccounted_row("modules/a/skips.cpp", 8, "1000", "int b = 5; /* 1000 */") + kUnaccountedTrailer);
+}
+
+TEST_CASE("inside a block comment a line that begins with // is not read either, as the Python read none that began so; a line that begins otherwise is read (group C6)", "[unitcheck][behaviour]") {
+    Tree t;
+    t.write("modules/a/blockcomment.cpp",
+            "int a = 5;\n"                                                                               // 1
+            "/* a block comment that goes on\n"                                                          // 2  begins with /*: not read
+            "// 1000 begins with slashes: not read, as no line that begins so is\n"                      // 3  not read
+            "   1000 begins with neither: read (the register is not a parser of block comments)\n"       // 4  unaccounted
+            "*/\n");                                                                                     // 5
+    const Result r = t.run({"--quiet"});
+    CHECK(r.code == kFailed);
     CHECK(r.out == denominator(Counts{1, 0, 0, 0, 1, 0}));
-    CHECK(r.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row("modules/a/skips.cpp", 8, "1000", "int b = 5; /* 1000 */") + kUnaccountedTrailer);
+    CHECK(r.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row("modules/a/blockcomment.cpp", 4, "1000", "1000 begins with neither: read (the register is not a parser of block comments)") + kUnaccountedTrailer);
+}
+
+TEST_CASE("a factor of a thousand written with a standard suffix or with digit separators is read like any other (group C6; the Python's NUMBER was blind to both)", "[unitcheck][behaviour]") {
+    const std::vector<std::pair<std::string, std::string>> forms = {   // the source line, the literal as written
+        {"float a = 1000.0f;", "1000.0f"},
+        {"unsigned b = 1000u;", "1000u"},
+        {"float c = 1e3f;", "1e3f"},
+        {"long d = 1'000;", "1'000"},
+        {"double e = 1'000.0;", "1'000.0"},
+        {"double f = 0.001f;", "0.001f"},
+        {"auto g = 1000UL;", "1000UL"},
+        {"long double h = 1'0e2L;", "1'0e2L"},
+        {"auto i = 1000ull;", "1000ull"},
+        {"double j = 1.0E-3F;", "1.0E-3F"},
+        {"double k = 0.0'01;", "0.0'01"},
+    };
+    std::string bare, annotated;
+    for (const auto& form : forms) {
+        bare += form.first + "\n";
+        annotated += form.first + "  // NOT-A-UNIT-CROSSING: form\n";
+    }
+    {
+        Tree t;
+        t.write("modules/a/forms.cpp", bare);
+        const Result r = t.run({"--quiet"});
+        CHECK(r.code == kFailed);
+        CHECK(r.out == denominator(Counts{1, 0, 0, 0, forms.size(), 0}));
+        std::string expected = "\nUNACCOUNTED FACTOR OF A THOUSAND:\n";
+        for (std::size_t i = 0; i < forms.size(); ++i) expected += unaccounted_row("modules/a/forms.cpp", i + 1, forms[i].second, forms[i].first);
+        CHECK(r.err == expected + kUnaccountedTrailer);
+    }
+    {
+        Tree t;
+        t.write("modules/a/forms.cpp", annotated);
+        const Result r = t.run();
+        CHECK(r.code == kOk);
+        CHECK(r.err.empty());
+        for (std::size_t i = 0; i < forms.size(); ++i) CHECK(contains(r.out, annotated_row("modules/a/forms.cpp", i + 1, forms[i].second, "form")));
+        CHECK(contains(r.out, denominator(Counts{1, 0, 0, forms.size(), 0, 0})));
+    }
+}
+
+TEST_CASE("a comment that follows a literal with nothing between them leaves the literal whole (group C6)", "[unitcheck][behaviour]") {
+    Tree t;
+    t.write("modules/a/glued.cpp", "int a = 1000// NOT-A-UNIT-CROSSING: glued\ndouble b = 1e-3f// UNIT-CROSSING: mas -> rad\n");
+    const Result r = t.run();
+    CHECK(r.code == kOk);
+    CHECK(r.err.empty());
+    CHECK(contains(r.out, "\n  unit conversions, 1, each naming what it converts:\n" + annotated_row("modules/a/glued.cpp", 2, "1e-3f", "mas -> rad") + "\n  not conversions at all, 1:\n" +
+                              annotated_row("modules/a/glued.cpp", 1, "1000", "glued")));
+    CHECK(contains(r.out, denominator(Counts{1, 0, 1, 1, 0, 0})));
+}
+
+TEST_CASE("a // inside a string literal, a character literal, a raw string or a block comment is no comment: what follows it is read, and what it says is no marker (group C6)", "[unitcheck][behaviour]") {
+    Tree t;
+    t.write("modules/a/strings.cpp",
+            "const char* u = \"http://x\"; int n1 = 1000;\n"                                                   // 1  the 1000 after a // in a string: unaccounted (the Python lost it)
+            "const char* v = \"//\"; double n2 = 1e3;  // NOT-A-UNIT-CROSSING: after a string\n"             // 2  declared by the real comment
+            "int n3 = 1000; const char* w = \"// NOT-A-UNIT-CROSSING: fake\";\n"                             // 3  the text in the string is no marker: unaccounted (the Python took it for one)
+            "const char c = '\"'; int n4 = 1000; // NOT-A-UNIT-CROSSING: after a char literal\n"             // 4  the quote in a character literal opens no string
+            "const char* r = R\"(a // b)\"; int n5 = 1000;\n"                                                  // 5  unaccounted: after a raw string
+            "int a = 1; /* http://x */ int n6 = 1000;\n"                                                       // 6  unaccounted: the // is inside a block comment
+            "int s = 1'000; // NOT-A-UNIT-CROSSING: a separator opens no character literal\n"                  // 7  declared (a character literal would have hidden the comment)
+            "const char* t = R\"(\n"                                                                           // 8  a raw string over several lines
+            "// 1000 inside the raw string is text, not a comment\n"                                           // 9  unaccounted: the line begins inside a string
+            ")\";\n"                                                                                           // 10
+            "const char* z = \"abc\\\n"                                                                        // 11 a string carried over by a backslash
+            " * 1000 is text too\";\n"                                                                        // 12 unaccounted: the line begins inside a string
+            "const char* x = \"// UNIT-CROSSING: fake -> fake\"; int n7 = 1000;  // NOT-A-UNIT-CROSSING: real\n");   // 13 declared by the REAL comment: the fake marker in the string is no marker
+    const Result r = t.run({"--quiet"});
+    CHECK(r.code == kFailed);
+    CHECK(r.out == denominator(Counts{1, 0, 0, 4, 6, 0}));
+    CHECK(r.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row("modules/a/strings.cpp", 1, "1000", "const char* u = \"http://x\"; int n1 = 1000;") +
+                       unaccounted_row("modules/a/strings.cpp", 3, "1000", "int n3 = 1000; const char* w = \"// NOT-A-UNIT-CROSSING: fake\";") +
+                       unaccounted_row("modules/a/strings.cpp", 5, "1000", "const char* r = R\"(a // b)\"; int n5 = 1000;") +
+                       unaccounted_row("modules/a/strings.cpp", 6, "1000", "int a = 1; /* http://x */ int n6 = 1000;") +
+                       unaccounted_row("modules/a/strings.cpp", 9, "1000", "// 1000 inside the raw string is text, not a comment") +
+                       unaccounted_row("modules/a/strings.cpp", 12, "1000", "* 1000 is text too\";") + kUnaccountedTrailer);
+    const Result loud = t.run();
+    CHECK(contains(loud.out, "\n  not conversions at all, 4:\n" + annotated_row("modules/a/strings.cpp", 2, "1e3", "after a string") + annotated_row("modules/a/strings.cpp", 4, "1000", "after a char literal") +
+                                 annotated_row("modules/a/strings.cpp", 7, "1'000", "a separator opens no character literal") + annotated_row("modules/a/strings.cpp", 13, "1000", "real")));
+}
+
+TEST_CASE("the line above is a marker's place only when it is a comment line: one that begins inside a string literal is not (group C6)", "[unitcheck][behaviour]") {
+    Tree t;
+    t.write("modules/a/above.cpp",
+            "const char* s = R\"(\n"                  // 1
+            "// NOT-A-UNIT-CROSSING: fake)\";\n"       // 2  begins inside the raw string and ends it: text, no marker
+            "double v = 1000.0;\n"                     // 3  unaccounted: the line above is not a comment line (the Python read it as one)
+            "// NOT-A-UNIT-CROSSING: real\n"           // 4
+            "double w = 1000.0;\n");                   // 5  declared by the comment line above it, as ever
+    const Result r = t.run({"--quiet"});
+    CHECK(r.code == kFailed);
+    CHECK(r.out == denominator(Counts{1, 0, 0, 1, 1, 0}));
+    CHECK(r.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row("modules/a/above.cpp", 3, "1000.0", "double v = 1000.0;") + kUnaccountedTrailer);
+}
+
+TEST_CASE("a line that begins with * or /* is still not read, whatever it continues: a KNOWN LIMIT, kept as the Python had it (group C6)", "[unitcheck][behaviour]") {
+    Tree t;
+    t.write("modules/a/limit.cpp",
+            "double x = a\n"
+            "    * 1000.0;\n"                  // a multiplication continued on a line that begins with *: invisible, and no finding on the real tree today (the report says so)
+            "/* c */ double y = 1000.0;\n");   // a statement after a block comment that opens the line
+    const Result r = t.run({"--quiet"});
+    CHECK(r.code == kOk);
+    CHECK(r.out == denominator(Counts{1, 0, 0, 0, 0, 0}) + kVerdict);
 }
 
 TEST_CASE("the text shown is the line stripped of white space (Unicode's too), and the home rows show 80 code points, not bytes", "[unitcheck][behaviour]") {
@@ -546,7 +893,14 @@ std::string lstrip_blanks(const std::string& s) {
 // the register of the real production sources, made a second way: std::regex (ECMAScript, ASCII word characters) in place of the hand-written scanners, `strtod` for the value, the standard
 // directory iterator for the files; it shares no code with the tool.  The tree is ASCII wherever a number touches a letter, which the equality of the two counts also shows.
 Recount recount(const fs::path& root) {
-    static const std::regex number(R"re((^|[^\w.])(\d+\.?\d*(?:[eE][+-]?\d+)?)(?![\w.]))re");
+    // the numbers the tool reads, as a regular expression of the other kind: digits with digit separators, then a point and a fraction, or an exponent (floating: suffix f F l L), or neither (integer: suffix
+    // u l ul lu ll ull llu), each followed by a lookahead that refuses a word character or a point (group C6 extended the Python's pattern with the separators and the suffixes)
+    static const std::regex number(
+        R"re((^|[^\w.])()re"
+        R"re(\d+(?:'\d+)*\.(?:\d+(?:'\d+)*)?(?:[eE][+-]?\d+(?:'\d+)*)?[fFlL]?|)re"
+        R"re(\d+(?:'\d+)*[eE][+-]?\d+(?:'\d+)*[fFlL]?|)re"
+        R"re(\d+(?:'\d+)*(?:[uU](?:ll|LL|l|L)?|(?:ll|LL|l|L)[uU]?)?)re"
+        R"re()(?![\w.]))re");
     static const std::regex marker(R"re(//.*?\b(NOT-A-UNIT-CROSSING|UNIT-CROSSING)\s*:\s*(.+?)\s*$)re");
     static const std::regex kilometres(R"re(\bkm\b|kilomet)re", std::regex::icase);
     Recount out;
@@ -578,7 +932,13 @@ Recount recount(const fs::path& root) {
             if (code.find_first_of("0123456789") == std::string::npos) continue;   // no digit, no number: spares the slow regular expression most of the tree
             std::size_t found = 0;
             for (std::sregex_iterator m(code.begin(), code.end(), number), done; m != done; ++m) {
-                const double v = std::strtod((*m)[2].str().c_str(), nullptr);
+                // the value: the literal without its digit separators and its suffix letters
+                std::string spelling;
+                for (const char ch : (*m)[2].str()) {
+                    if (ch != '\'') spelling += ch;
+                }
+                while (!spelling.empty() && std::string("uUlLfF").find(spelling.back()) != std::string::npos) spelling.pop_back();
+                const double v = std::strtod(spelling.c_str(), nullptr);
                 if (v == 1000.0 || v == 0.001) ++found;
             }
             if (found == 0) continue;
@@ -698,4 +1058,19 @@ TEST_CASE("controls on a copy of the real sources: the copy passes and prints wh
     const Result far = t.run({"--quiet"});
     CHECK(far.code == kFailed);
     CHECK(far.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row(victim, next_line + 2, "0.001", "double injected_far = 0.001;") + kUnaccountedTrailer);
+
+    // (5) the forms the Python could not see (group C6): a standard suffix, a digit separator, and a literal that follows a // inside a string
+    const std::vector<std::pair<std::string, std::string>> invisible_to_the_python = {
+        {"double injected_f = value * 1000.0f;", "1000.0f"},
+        {"unsigned injected_u = 1000u;", "1000u"},
+        {"long injected_sep = 1'000;", "1'000"},
+        {"const char* injected_url = \"http://x\"; double injected_scale = 1e3;", "1e3"},
+    };
+    for (const auto& [text, literal] : invisible_to_the_python) {
+        INFO(text);
+        t.write(victim, original + "\n" + text + "\n");
+        const Result r = t.run({"--quiet"});
+        CHECK(r.code == kFailed);
+        CHECK(r.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row(victim, next_line, literal, text) + kUnaccountedTrailer);
+    }
 }

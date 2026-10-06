@@ -42,10 +42,29 @@
 //   * A glob match that is not a regular file (a directory called x.cpp, a link to nothing, a FIFO) is skipped by rule; the Python's read_text raised on it.  A link to a directory is not entered.  Files
 //     are read as the Python read them, errors="replace".
 //   * `re.I` in `\bkm\b|kilomet` is read as ASCII case-insensitivity plus the three non-ASCII characters Python's IGNORECASE equates with one of those letters: the Kelvin sign (U+212A, with k), the
-//     capital I with a dot above (U+0130, with i) and the dotless i (U+0131, with i).  (The first draft of this port named only the Kelvin sign and the dotless i.)
+//     capital I with a dot above (U+0130, with i) and the dotless i (U+0131, with i).  (The first draft of this port named only the Kelvin sign and the dotless i.)  Since group C6 the three are DERIVED, in
+//     tests/devtools/unicode_tables_tests.cpp, from the Unicode Character Database 15.1.0 files the manifest pins, and this reading is held to the derivation over every code point.
 //   * `\w`, `\d`, `\s` and `\b` are Unicode-aware as Python's are, within the limit odl/devkit/pytext.hpp states.  The messages name `unitcheck`; argparse's abbreviations are not accepted and `-h`
 //     prints this tool's own text.  An option's value is whatever follows it unless that begins with `--` (argparse refuses one that begins with a single dash too, so a directory called -x is a
 //     value here), and `-h=x` is refused.
+//
+// THREE BLIND SPOTS OF THE PYTHON, FIXED IN GROUP C6 (the maintainer's ruling of 2026-10-07; each has Catch2 cases, and the changes are neutral on every recorded tree: the ten gate-12 sections and the real
+// tree's non-quiet register come out byte for byte as before, since none of these forms occurs in the production sources):
+//   * A literal with a STANDARD SUFFIX is a number: `1000.0f`, `1000u`, `1000UL`, `1e3f`, `1e3L`.  The suffix is the one of its kind -- [uU](ll|LL|l|L)? or (ll|LL|l|L)[uU]? after an integer literal, [fFlL]
+//     after a floating one (a point or an exponent); `1000f` and `1000.0u` are not C++ and stay invisible, and so does a user-defined or library suffix (`1000_km`, the chrono `1000ms`).  The Python's
+//     NUMBER refused any number with a letter after it, so these were invisible to the register.
+//   * C++ DIGIT SEPARATORS are part of the number: `1'000`, `1'000.0`, `1e1'0` (an apostrophe BETWEEN TWO DIGITS).  The Python read `1'000` as the two numbers 1 and 000.
+//   * A `//` inside a STRING literal, a character literal, a raw string (R"d( ... )d", which may span lines) or a block comment is not a comment: the comment starts at the first `//` that C++ lexes as
+//     one, and a line that begins inside a string is not a comment line even if it begins with `//` or `*`.  The Python took the first `//` of the line, wherever it stood, so a `//` in a string hid
+//     the rest of the line (a factor of a thousand after it was lost) and could serve as a marker.
+//
+// KNOWN LIMITS, KEPT AND DOCUMENTED (not changed without a ruling):
+//   * A line whose first non-blank characters are `//`, `*` or `/*` is not read at all, as in the Python: a statement that continues on a line that begins with `*` (a multiplication broken before its
+//     operator) or follows a block comment that opens the line is invisible.  No such line holds a factor of a thousand in the production sources today (read-only scan, report of group C6).
+//   * Numbers INSIDE string literals still count (the register holds two: normal_equations.cpp's message for 2^-1000 .. 2^1000), and so do the digits of a block comment that is not a line of its own.
+//   * Hexadecimal (0x3E8, hex floats), binary (0b1111101000), octal (01750) and leading-point (.001) literals, and user-defined or library suffixes (1000_km, the chrono 1000ms), are invisible: the digits
+//     are glued to a letter or follow a point.  (The hex floats 0x1p-1000 and 0x1p+1000 are in the register all the same, by the digits of their exponents.)
+//   * A `//` comment that ends in a backslash carries onto the next line in C++; here it does not (the tree's -Wall -Werror refuses such a comment: -Wcomment).  Trigraphs are not read.
 
 #include <odl/devkit/fs.hpp>
 #include <odl/devkit/pytext.hpp>
@@ -114,35 +133,80 @@ bool lookahead_ok(std::string_view s, std::size_t e) {
     return !(is_word(cp) || cp == U'.');
 }
 
-// [eE][+-]?\d+ at p: the end of the exponent, kNpos when there is none
+// `\d+(?:'\d+)*` from i: decimal digits with C++14 digit separators.  An apostrophe belongs to the number only BETWEEN TWO DIGITS (it is a separator there and a character literal's quote anywhere else); the end
+// of the longest such run, or i when no digit starts at i.  (Group C6: the Python's NUMBER knew no separator, so `1'000` was the two numbers 1 and 000.)
+std::size_t digit_seq_end(std::string_view s, std::size_t i) {
+    std::size_t end = digits_end(s, i);
+    if (end == i) return i;
+    while (end < s.size() && s[end] == '\'') {
+        const std::size_t more = digits_end(s, end + 1);
+        if (more == end + 1) break;   // no digit after the apostrophe: not a separator
+        end = more;
+    }
+    return end;
+}
+
+// [eE][+-]?\d+ at p (digits with separators): the end of the exponent, kNpos when there is none
 std::size_t exponent_end(std::string_view s, std::size_t p) {
     if (p >= s.size() || (s[p] != 'e' && s[p] != 'E')) return kNpos;
     std::size_t q = p + 1;
     if (q < s.size() && (s[q] == '+' || s[q] == '-')) ++q;
-    const std::size_t end = digits_end(s, q);
+    const std::size_t end = digit_seq_end(s, q);
     return end > q ? end : kNpos;
 }
 
-// NUMBER matched at i, the end of the match or kNpos.  `\d+\.?\d*(?:[eE][+-]?\d+)?` followed by a lookahead that only the full-length candidates can satisfy: a shorter run of digits is followed by a digit
-// (a word character), and a point that is not taken is followed by the point.  So the candidates, in the engine's order, are: after `D.F`, the exponent first and then none; after `D` with no point, the
-// exponent first when an e follows (the bare `D` is followed by the e, a word character), else `D` alone.
-std::size_t number_end_at(std::string_view s, std::size_t i) {
-    if (!lookbehind_ok(s, i)) return kNpos;
-    const std::size_t d_end = digits_end(s, i);
-    if (d_end == i) return kNpos;
-    if (d_end < s.size() && s[d_end] == '.') {
-        const std::size_t f_end = digits_end(s, d_end + 1);
-        const std::size_t with_exponent = exponent_end(s, f_end);
-        if (with_exponent != kNpos && lookahead_ok(s, with_exponent)) return with_exponent;
-        if (lookahead_ok(s, f_end)) return f_end;
-        return kNpos;
+// The end of the standard suffix at p, or p when there is none (group C6).  After an INTEGER literal: [uU](ll|LL|l|L)? or (ll|LL|l|L)[uU]? -- `ll` and `LL` must keep their case, `lL` is no suffix.  After a
+// FLOATING one (a point or an exponent was seen): [fF] or [lL].  A suffix of the other kind is not C++ (`1000f`, `1000.0u`), and a user-defined suffix (`1000_km`, `1000ms`) is not a standard one: neither is
+// taken, so what follows the number stays glued to it and the lookahead refuses the token, as it always did.
+std::size_t suffix_end(std::string_view s, std::size_t p, bool floating) {
+    const auto at = [&](std::size_t k) { return k < s.size() ? s[k] : '\0'; };
+    if (floating) {
+        const char c = at(p);
+        return (c == 'f' || c == 'F' || c == 'l' || c == 'L') ? p + 1 : p;
     }
-    const std::size_t with_exponent = exponent_end(s, d_end);
-    if (with_exponent != kNpos) return lookahead_ok(s, with_exponent) ? with_exponent : kNpos;
-    return lookahead_ok(s, d_end) ? d_end : kNpos;
+    const auto long_end = [&](std::size_t k) -> std::size_t {   // (ll|LL|l|L) at k, or k
+        if ((at(k) == 'l' && at(k + 1) == 'l') || (at(k) == 'L' && at(k + 1) == 'L')) return k + 2;
+        if (at(k) == 'l' || at(k) == 'L') return k + 1;
+        return k;
+    };
+    if (at(p) == 'u' || at(p) == 'U') return long_end(p + 1);
+    const std::size_t q = long_end(p);
+    if (q == p) return p;
+    return (at(q) == 'u' || at(q) == 'U') ? q + 1 : q;
 }
 
-// the digits of any script as ASCII, for strtod
+// the end of a literal that has `value_end` as the end of its digits, with the standard suffix when there is one, as the lookahead (?![\w.]) lets it: kNpos when the character after it is a word character or a point.
+// The longest suffix is the only one that can pass (a shorter one leaves a suffix letter after it, which is a word character), and so is the bare number only when no suffix letter follows.
+std::size_t with_suffix(std::string_view s, std::size_t value_end, bool floating) {
+    const std::size_t end = suffix_end(s, value_end, floating);
+    if (end != value_end && lookahead_ok(s, end)) return end;
+    return lookahead_ok(s, value_end) ? value_end : kNpos;
+}
+
+// NUMBER matched at i, the end of the match or kNpos; `value_end` is where the digits end and the suffix, if any, begins.  The Python's `\d+\.?\d*(?:[eE][+-]?\d+)?` followed by a lookahead that only the
+// full-length candidates can satisfy: a shorter run of digits is followed by a digit (a word character), and a point that is not taken is followed by the point.  So the candidates, in the engine's order,
+// are: after `D.F`, the exponent first and then none; after `D` with no point, the exponent first when an e follows (the bare `D` is followed by the e, a word character), else `D` alone.  Group C6 makes
+// the digits runs with separators and adds the optional standard suffix after the exponent.
+std::size_t number_end_at(std::string_view s, std::size_t i, std::size_t& value_end) {
+    if (!lookbehind_ok(s, i)) return kNpos;
+    const std::size_t d_end = digit_seq_end(s, i);
+    if (d_end == i) return kNpos;
+    const bool point = d_end < s.size() && s[d_end] == '.';
+    const std::size_t mantissa_end = point ? digit_seq_end(s, d_end + 1) : d_end;   // `1.` takes its point: the end is d_end + 1 when no digit follows it
+    const std::size_t with_exponent = exponent_end(s, mantissa_end);
+    if (with_exponent != kNpos) {
+        const std::size_t end = with_suffix(s, with_exponent, true);
+        if (end != kNpos) {
+            value_end = with_exponent;
+            return end;
+        }
+    }
+    const std::size_t end = with_suffix(s, mantissa_end, point);
+    if (end != kNpos) value_end = mantissa_end;
+    return end;
+}
+
+// the digits of any script as ASCII, for strtod, and without the digit separators
 std::string ascii_digits(std::string_view s) {
     std::string out;
     for (std::size_t i = 0; i < s.size();) {
@@ -150,7 +214,7 @@ std::string ascii_digits(std::string_view s) {
         const Cp cp = dk::code_point_at(s, i, after);
         const int digit = dk::py_decimal_value(cp);
         if (digit >= 0) out.push_back(static_cast<char>('0' + digit));
-        else out.append(s.substr(i, after - i));
+        else if (cp != U'\'') out.append(s.substr(i, after - i));
         i = after;
     }
     return out;
@@ -158,8 +222,9 @@ std::string ascii_digits(std::string_view s) {
 
 // the case-insensitive match of one code point with the ASCII letter `c`, as re.I reads it for the letters of "kilomet" and "km": the text's character is lower-cased (Python's sre takes the first
 // code point of the full lower-case mapping) and compared with the pattern's letter, and the letters i and s have one extra equivalent each (the dotless i and the long s).  The non-ASCII characters
-// that come out equal to one of these ASCII letters are exactly three (every code point was mapped, with Perl's lc as the witness): the Kelvin sign (to k), the capital I with a dot above (to i, the
-// first of the two code points of its full lower case) and the dotless i (the extra equivalent of i).
+// that come out equal to one of these ASCII letters are exactly three: the Kelvin sign (to k), the capital I with a dot above (to i, the first of the two code points of its full lower case) and the dotless i
+// (the extra equivalent of i).  They are DERIVED from the pinned Unicode Character Database 15.1.0 by tests/devtools/unicode_tables_tests.cpp, which holds names_km to that derivation over every code
+// point; the fourth character `re` equates with an ASCII letter, the long s, goes with s, which neither word has.
 bool ci_is(Cp cp, char c) {
     const Cp upper = static_cast<Cp>(c - 'a' + 'A');
     if (cp == static_cast<Cp>(static_cast<unsigned char>(c)) || cp == upper) return true;
@@ -189,9 +254,128 @@ bool km_at(std::string_view s, std::size_t i) {
     return true;
 }
 
+bool is_ascii_digit(char c) { return c >= '0' && c <= '9'; }
+
+// an identifier character as the lexer below sees it: an ASCII letter or digit, the underscore, or any byte of a multi-byte UTF-8 sequence
+bool ident_char(char c) {
+    const auto u = static_cast<unsigned char>(c);
+    return (u >= '0' && u <= '9') || (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || u == '_' || u >= 0x80;
+}
+
+// The end of the quoted literal that begins just before i (its opening quote is s[i - 1]): the index after the closing quote, or s.size() when the line ends first.  A backslash takes the next
+// character with it (\" \\ \'); `continued` says that the line ended on a backslash inside the literal -- a line splice, which carries a string over to the next line.
+std::size_t quoted_end(std::string_view s, std::size_t i, char quote, bool& continued) {
+    continued = false;
+    while (i < s.size()) {
+        const char c = s[i];
+        if (c == '\\') {
+            if (i + 1 >= s.size()) {
+                continued = true;
+                return s.size();
+            }
+            i += 2;
+        } else if (c == quote) {
+            return i + 1;
+        } else {
+            ++i;
+        }
+    }
+    return s.size();
+}
+
+// A raw string literal opens at the quote at q when the identifier [ident_begin, q) just before it is one of the prefixes R, LR, uR, UR, u8R and a delimiter of at most sixteen characters (none a space, a
+// parenthesis, a backslash or a tab, vertical tab or form feed) is followed by `(`.  Gives the delimiter and the index after the `(`.
+bool raw_string_open(std::string_view s, std::size_t q, std::size_t ident_begin, std::string& delimiter, std::size_t& content) {
+    const std::string_view prefix = s.substr(ident_begin, q - ident_begin);
+    if (prefix != "R" && prefix != "LR" && prefix != "uR" && prefix != "UR" && prefix != "u8R") return false;
+    std::size_t k = q + 1;
+    while (k < s.size() && s[k] != '(') {
+        const char c = s[k];
+        if (c == ' ' || c == ')' || c == '\\' || c == '\t' || c == '\v' || c == '\f' || k - (q + 1) >= 16) return false;
+        ++k;
+    }
+    if (k >= s.size()) return false;
+    delimiter.assign(s.substr(q + 1, k - (q + 1)));
+    content = k + 1;
+    return true;
+}
+
 }  // namespace
 
 namespace scan {
+
+std::size_t comment_start(std::string_view s, LexState& state) {
+    using Mode = LexState::Mode;
+    std::size_t i = 0;
+    std::size_t ident_begin = 0;   // where the identifier token that came last begins: the text from there to a quote is a raw string's prefix only if it is exactly one of the five
+    while (i < s.size()) {
+        if (state.mode == Mode::BlockComment) {
+            const std::size_t end = s.find("*/", i);
+            if (end == kNpos) return kNpos;   // the rest of the line is comment, and the comment goes on
+            i = end + 2;
+            state.mode = Mode::Code;
+            continue;
+        }
+        if (state.mode == Mode::RawString) {
+            const std::string closer = ")" + state.raw_delimiter + "\"";
+            const std::size_t end = s.find(closer, i);
+            if (end == kNpos) return kNpos;
+            i = end + closer.size();
+            state.mode = Mode::Code;
+            continue;
+        }
+        if (state.mode == Mode::String) {   // a string that a backslash at the end of the line carried over
+            bool continued = false;
+            i = quoted_end(s, i, '"', continued);
+            if (continued) return kNpos;
+            state.mode = Mode::Code;
+            continue;
+        }
+        const char c = s[i];
+        if (c == '/' && i + 1 < s.size() && s[i + 1] == '/') return i;
+        if (c == '/' && i + 1 < s.size() && s[i + 1] == '*') {
+            state.mode = Mode::BlockComment;
+            i += 2;   // the `*` of the opener is not the `*` of a closer: `/*/` is still open
+            continue;
+        }
+        if (c == '"') {
+            std::string delimiter;
+            std::size_t content = 0;
+            if (raw_string_open(s, i, ident_begin, delimiter, content)) {
+                state.mode = Mode::RawString;
+                state.raw_delimiter = delimiter;
+                i = content;
+                continue;
+            }
+            bool continued = false;
+            i = quoted_end(s, i + 1, '"', continued);
+            if (continued) {
+                state.mode = Mode::String;
+                return kNpos;
+            }
+            continue;
+        }
+        if (c == '\'') {   // a character literal; it ends with its line if nothing closes it (a digit separator is taken with its number, below, and never reaches here)
+            bool continued = false;
+            i = quoted_end(s, i + 1, '\'', continued);
+            continue;
+        }
+        if (is_ascii_digit(c)) {
+            // a number: digits, letters and underscores, and an apostrophe before one of them -- a digit separator, which must not open a character literal.  (A point or the sign of an exponent ends the run and the
+            // next digit begins another; that changes nothing here, where only the apostrophes matter.)
+            ++i;
+            while (i < s.size() && (ident_char(s[i]) || (s[i] == '\'' && i + 1 < s.size() && ident_char(s[i + 1])))) ++i;
+            continue;
+        }
+        if (ident_char(c)) {
+            ident_begin = i;
+            while (i < s.size() && ident_char(s[i])) ++i;
+            continue;
+        }
+        ++i;
+    }
+    return kNpos;
+}
 
 std::optional<Marker> marker(std::string_view line) {
     static constexpr std::string_view kNames[] = {"NOT-A-UNIT-CROSSING", "UNIT-CROSSING"};
@@ -234,7 +418,8 @@ std::optional<Marker> marker(std::string_view line) {
 std::vector<std::string> number_tokens(std::string_view code) {
     std::vector<std::string> tokens;
     for (std::size_t i = 0; i < code.size();) {
-        const std::size_t end = number_end_at(code, i);
+        std::size_t value_end = 0;
+        const std::size_t end = number_end_at(code, i, value_end);
         if (end != kNpos) {
             tokens.emplace_back(code.substr(i, end - i));
             i = end;
@@ -248,10 +433,14 @@ std::vector<std::string> number_tokens(std::string_view code) {
 }
 
 bool is_thousand(std::string_view token) {
-    const std::string ascii = ascii_digits(token);
+    // a token is a literal wholly: float(tok) raised ValueError on what was not wholly a number.  The separators and the suffix are the literal's spelling and type, not its value (group C6): `1'000`, `1000.0f`
+    // and `1e3L` are 1000.
+    std::size_t value_end = 0;
+    if (number_end_at(token, 0, value_end) != token.size()) return false;
+    const std::string ascii = ascii_digits(token.substr(0, value_end));
     char* end = nullptr;
     const double v = std::strtod(ascii.c_str(), &end);
-    if (end != ascii.c_str() + ascii.size()) return false;   // float(tok) raised ValueError
+    if (end != ascii.c_str() + ascii.size()) return false;
     return v == 1000.0 || v == 0.001;
 }
 
@@ -400,20 +589,34 @@ int run(const std::vector<std::string>& argv, Io io) {
                 return kArgument;
             }
             const std::vector<std::string_view> lines = split_on_newline(text);
+            // How C++ lexes the file (group C6): where each line's comment begins -- the first `//` that is not inside a string, a character literal, a raw string or a block comment -- and whether the line
+            // begins inside a string literal (a raw string, or a string carried over by a backslash), where `//` and `*` are text.  The Python took the first `//` of the line wherever it stood.
+            struct LineLex {
+                std::size_t comment_at = kNpos;
+                bool starts_in_string = false;
+            };
+            std::vector<LineLex> lex(lines.size());
+            scan::LexState state;
+            for (std::size_t k = 0; k < lines.size(); ++k) {
+                lex[k].starts_in_string = state.in_string_literal();
+                lex[k].comment_at = scan::comment_start(lines[k], state);
+            }
             for (std::size_t index = 0; index < lines.size(); ++index) {
                 const std::string_view line = lines[index];
                 const std::string_view prev = index >= 1 ? lines[index - 1] : std::string_view();
                 const std::string stripped = dk::lstrip_py(line);
-                if (stripped.rfind("//", 0) == 0 || stripped.rfind("*", 0) == 0 || stripped.rfind("/*", 0) == 0) continue;
-                const std::size_t slashes = line.find("//");
-                const std::string_view code = slashes == kNpos ? line : line.substr(0, slashes);
+                // a line that BEGINS as a comment is not read, as the Python did not read it -- unless it begins inside a string literal, where what looks like a comment is text
+                if (!lex[index].starts_in_string && (stripped.rfind("//", 0) == 0 || stripped.rfind("*", 0) == 0 || stripped.rfind("/*", 0) == 0)) continue;
+                const std::size_t comment_at = lex[index].comment_at;
+                const std::string_view code = comment_at == kNpos ? line : line.substr(0, comment_at);
                 std::vector<std::string> found;
                 for (std::string& token : scan::number_tokens(code)) {
                     if (scan::is_thousand(token)) found.push_back(std::move(token));
                 }
                 if (found.empty()) continue;
-                std::optional<scan::Marker> mark = scan::marker(line);
-                if (!mark && dk::lstrip_py(prev).rfind("//", 0) == 0) mark = scan::marker(prev);
+                // the marker is read from the line's own comment, which starts where the comment starts (the regular expression's `//.*?` begins at the first `//` it is given)
+                std::optional<scan::Marker> mark = comment_at == kNpos ? std::nullopt : scan::marker(line.substr(comment_at));
+                if (!mark && index >= 1 && !lex[index - 1].starts_in_string && dk::lstrip_py(prev).rfind("//", 0) == 0) mark = scan::marker(prev);
                 for (const std::string& literal : found) {
                     Row row{rel, index + 1, literal, dk::strip_py(line), std::string()};
                     if (rel == kCrossingHome) {

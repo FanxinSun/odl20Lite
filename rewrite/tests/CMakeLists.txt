@@ -173,6 +173,26 @@ add_test(NAME configure_is_current.behaviour
 add_test(NAME configure_is_current.real_tree
   COMMAND odl_devtools_tests "[configure_is_current][real_tree]")
 
+# The Unicode facts two of those tools rest on (L0 step 8 group C6; tests/devtools/unicode_tables_tests.cpp, tagged [unicode]): the ten non-ASCII characters whose upper case is pure ASCII (literaturecheck,
+# `terms.upper().startswith("NOT ESTABLISHED")`) and the non-ASCII characters re.IGNORECASE equates with an ASCII letter (unitcheck, `\bkm\b|kilomet`), DERIVED from the Unicode Character Database
+# files the manifest pins (ucd-unicodedata, ucd-specialcasing), and each tool held to the derivation over every scalar value.  They replace a one-off witness that was not in the tree.
+# `parser` needs no file; `derivation` reads the pinned bytes from the cache.
+add_test(NAME unicode_tables.parser
+  COMMAND odl_devtools_tests "[unicode][parser]")
+add_test(NAME unicode_tables.derivation
+  COMMAND odl_devtools_tests "[unicode][derivation]")
+
+# RKF7(8)'s tableau and the proof about it (ci.sh's gate 10, SPEC-integrators INTG-A-001) are C++ since L0 step 8, group C6: tools/rk_coefficients.cpp, on the devkit's BigInt and Rational
+# (tools/devkit/tests/bigint_tests.cpp and rational_tests.cpp, tagged [devkit], which are ctests of their own).  rk_coefficients.check runs the built tool on the tree, as gate 10 does; what came with the
+# port, in the Catch2 cases of tests/devtools/rk_coefficients_tests.cpp (the Python tool had no test of its own), is the rooted trees and their order conditions against what is known in closed
+# form, the proof and each of its failures on damaged copies of the table, the generated header, the command line and the file it writes, and the real tree.
+add_test(NAME rk_coefficients.check
+  COMMAND rk_coefficients --check)
+add_test(NAME rk_coefficients.behaviour
+  COMMAND odl_devtools_tests "[rk_coefficients][behaviour]")
+add_test(NAME rk_coefficients.real_tree
+  COMMAND odl_devtools_tests "[rk_coefficients][real_tree]")
+
 # The three L2 floors in one place with one reference point.  It links three
 # modules on purpose: the numbers it compares live in three specifications, and
 # stating each against its own reference point is what let two of them disagree

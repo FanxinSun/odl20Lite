@@ -114,7 +114,7 @@ gate "plan §5 constraint 8 — odl::Result only, no monadic chaining"
 "$BUILD/tools/constraint8"
 
 gate "RKF7(8)'s tableau satisfies the order conditions exactly (SPEC-integrators INTG-A-001)"
-"$PY" tools/rk_coefficients.py --check
+"$BUILD/tools/rk_coefficients" --check
 
 gate "no build input can reach a literature entry (plan §5 constraint 3)"
 "$BUILD/tools/literaturecheck" --quiet

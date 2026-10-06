@@ -1,7 +1,7 @@
 # --------------------------------------------------------------------------- #
 # The development tools' support library, and the tools themselves (plan L0 step 8, §5 constraint 11: every tool of this tree is C++).
 #
-# odl_devkit is SHA-256, JSON, inflate/gzip/tar/zip, Python-compatible text helpers and process spawning, written for this tree.  It links
+# odl_devkit is SHA-256, JSON, inflate/gzip/tar/zip, Python-compatible text helpers, big integers and exact rationals (group C6) and process spawning, written for this tree.  It links
 # NOTHING of the modules (odl::...), so that a generator can never share code with the thing it checks; tools/devkit/include is its whole surface.
 #
 # A tool is tools/<stem>.cpp, one function `run(argv, streams)` and a main.  It is compiled twice where something needs it before the build can
@@ -10,7 +10,7 @@
 
 add_library(odl_devkit STATIC
   devkit/src/tool.cpp devkit/src/text.cpp devkit/src/pyfmt.cpp devkit/src/sha256.cpp devkit/src/json.cpp
-  devkit/src/inflate.cpp devkit/src/archive.cpp devkit/src/fs.cpp devkit/src/process.cpp devkit/src/pytext.cpp)
+  devkit/src/inflate.cpp devkit/src/archive.cpp devkit/src/fs.cpp devkit/src/process.cpp devkit/src/pytext.cpp devkit/src/bigint.cpp devkit/src/rational.cpp)
 target_include_directories(odl_devkit PUBLIC devkit/include)
 target_compile_features(odl_devkit PUBLIC cxx_std_20)
 target_link_libraries(odl_devkit PRIVATE odl_warnings)
@@ -75,10 +75,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(budgetcheck PRIVATE -ffp-contract=off)
 endif()
 
-# The checkers of group C5 (plan L0 step 8; tools/constraint8.cpp, literaturecheck.cpp, unitcheck.cpp) and the two small checks that were Python tests (tests/devtools/one_secular_pole.cpp,
-# configure_is_current.cpp): each is an executable that ci.sh's gates 9, 11 and 12 or a ctest runs (constraint8.result_only, tides.one_secular_pole, build.configure_is_current), and an object library with
+# The checkers of groups C5 and C6 (plan L0 step 8; tools/constraint8.cpp, literaturecheck.cpp, unitcheck.cpp, rk_coefficients.cpp) and the two small checks that were Python tests (tests/devtools/one_secular_pole.cpp,
+# configure_is_current.cpp): each is an executable that ci.sh's gates 9, 10, 11 and 12 or a ctest runs (constraint8.result_only, rk_coefficients.check, tides.one_secular_pole, build.configure_is_current), and an object library with
 # its main left out, which the tests call in-process on synthetic trees.
-foreach(checker constraint8 literaturecheck unitcheck)
+foreach(checker constraint8 literaturecheck unitcheck rk_coefficients)
   add_library(odl_tool_${checker} OBJECT ${checker}.cpp)
   target_compile_definitions(odl_tool_${checker} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
   target_include_directories(odl_tool_${checker} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -105,16 +105,17 @@ if(BUILD_TESTING)
   # test it replaces (tests/CMakeLists.txt), and every devkit case is its own ctest.
   add_executable(odl_devtools_tests
     devkit/tests/sha256_tests.cpp devkit/tests/json_tests.cpp devkit/tests/inflate_tests.cpp devkit/tests/archive_tests.cpp
-    devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp devkit/tests/pytext_tests.cpp devkit/tests/fs_tests.cpp
+    devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp devkit/tests/pytext_tests.cpp devkit/tests/fs_tests.cpp devkit/tests/bigint_tests.cpp devkit/tests/rational_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/gfz_derive_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/notice_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/speccheck_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/budgetcheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/constraint8_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/literaturecheck_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/unitcheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/one_secular_pole_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/configure_is_current_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/unitcheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/one_secular_pole_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/configure_is_current_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/unicode_tables_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/rk_coefficients_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   target_compile_definitions(odl_devtools_tests PRIVATE
     ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}" ODL_MANIFEST_VENDORED_ROOT="${ODL_VENDORED_DIR}"
     ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
-  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck
+  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck odl_tool_rk_coefficients
     odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the

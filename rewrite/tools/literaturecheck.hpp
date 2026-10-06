@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace odl::tools::literaturecheck {
@@ -16,5 +17,13 @@ int run(const std::vector<std::string>& argv, odl::devkit::Streams io);
 
 /// The tree this tool was built from (ODL_TREE_ROOT) or the current directory: what `--root` defaults to.
 std::filesystem::path default_root();
+
+namespace scan {
+
+/// terms.upper().startswith("NOT ESTABLISHED"): does a literature entry's `terms` say that its search found nothing?  Python's upper() is the FULL case mapping, so a few non-ASCII characters stand for
+/// ASCII letters; tests/devtools/unicode_tables_tests.cpp derives which from the pinned Unicode data and holds this function to the derivation over every code point.
+[[nodiscard]] bool starts_not_established(std::string_view terms);
+
+}  // namespace scan
 
 }  // namespace odl::tools::literaturecheck

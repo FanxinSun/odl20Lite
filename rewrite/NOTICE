@@ -110,6 +110,8 @@ SUMMARY
   nist-strd-nls-eckerle4 Eckerle4.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/nls/data/LINKS/DATA/, 2 871 bytes NIST-PUBLIC      data
   nist-strd-nls-rat43 Rat43.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/nls/data/LINKS/DATA/, 2 168 bytes NIST-PUBLIC      data
   nist-strd-nls-bennett5 Bennett5.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/nls/data/LINKS/DATA/, 7 088 bytes NIST-PUBLIC      data
+  ucd-unicodedata    UnicodeData.txt, Unicode Character Database 15.1.0, Public/15.1.0/ucd/, 1 914 200 bytes Unicode-3.0      data
+  ucd-specialcasing  SpecialCasing.txt, Unicode Character Database 15.1.0 (file header: Date: 2023-01-05, 20:35:03 GMT), Public/15.1.0/ucd/, 16 832 bytes Unicode-3.0      data
 
   Every licence above is permissive, with one exception: the stage exception
   (a release blocker), named in its entry below.  Plan §5 constraint 3
@@ -2954,6 +2956,144 @@ DATA INPUTS
               as facts with this citation: NIST/ITL Statistical Reference
               Datasets, NIST Standard Reference Database 140,
               https://www.itl.nist.gov/div898/strd/ .
+
+  ucd-unicodedata  UnicodeData.txt, Unicode Character Database 15.1.0, Public/15.1.0/ucd/, 1 914 200 bytes
+    role      UnicodeData.txt of the Unicode Character Database, Version 15.1.0: one line per code point (fifteen ';'-separated fields; a range is a <..., First> / <..., Last> pair), fields 12 and 13 being the SIMPLE uppercase and lowercase mappings (UAX #44, section 5.7.1). L0 step 8 (group C6, the manager's ruling of 2026-10-07 on a Perl one-liner used as a throwaway witness): THE ORACLE the C++ development tools' two Unicode emulations are checked against -- Python's str.upper() (tools/literaturecheck.cpp, the 'NOT ESTABLISHED' test of a literature entry's terms) and re.IGNORECASE (tools/unitcheck.cpp, the km / kilomet test) -- the Python of the recorded results (the ci logs of ten commits, kept with the L0-8 report as C5_baselines/) the tools were proved byte for byte against. tests/devtools/unicode_tables_tests.cpp DERIVES from this file and ucd-specialcasing the ten non-ASCII characters whose full upper-case is pure ASCII and the non-ASCII characters Python's re equates with an ASCII letter, and compares the tools with the derivation over every code point. 15.1.0 is the Unicode version of that Python (3.13: unicodedata.unidata_version is 15.1.0, docs.python.org/3.13/library/unicodedata.html). A test reads it; nothing built from the tree does.
+    licence   Unicode-3.0
+    url       https://www.unicode.org/Public/15.1.0/ucd/UnicodeData.txt
+    sha256    2fc713e6a31a87c4850a37fe2caffa4218180fadb5de86b43a143ddb4581fb86
+    retrieved 2026-10-07
+    note      THE UNICODE LICENSE V3 (SPDX: Unicode-3.0), a permissive licence
+              of the MIT kind. The Unicode Consortium's Terms of Use
+              (unicode.org/terms_of_use.html, read 2026-10-07) say that
+              "Unicode Data Files" "include all computer data files under the
+              following directories: https://www.unicode.org/Public/ ..."
+              (three further locations follow) "but exclude any materials
+              present in the above directories that are not computer data
+              files, such as PDF code charts and Technical Reports", and: "All
+              Unicode Data Files and Unicode Software are subject to the terms
+              and conditions of the free and open-source Unicode License v3,
+              unless otherwise indicated by specific restriction, permission,
+              or license identified at the point of release or in such
+              software, data file, or other documentation." This file is under
+              https://www.unicode.org/Public/15.1.0/ucd/; that directory's
+              ReadMe.txt ("Date: 2023-08-28") and the header of its
+              SpecialCasing-15.1.0.txt ("Date: 2023-01-05, 20:35:03 GMT")
+              carry only "© 2023 Unicode®, Inc." and "For terms of use, see
+              https://www.unicode.org/terms_of_use.html": no specific
+              restriction, permission or licence was identified at the point
+              of release, so the v3 licence applies. THE LICENCE, from
+              unicode.org/license.txt (read 2026-10-07; its line breaks are
+              not kept here): "UNICODE LICENSE V3 COPYRIGHT AND PERMISSION
+              NOTICE Copyright © 1991-2026 Unicode, Inc. NOTICE TO USER:
+              Carefully read the following legal agreement. BY DOWNLOADING,
+              INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+              SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY,
+              ALL OF THE TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT
+              AGREE, DO NOT DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE
+              DATA FILES OR SOFTWARE. Permission is hereby granted, free of
+              charge, to any person obtaining a copy of data files and any
+              associated documentation (the "Data Files") or software and any
+              associated documentation (the "Software") to deal in the Data
+              Files or Software without restriction, including without
+              limitation the rights to use, copy, modify, merge, publish,
+              distribute, and/or sell copies of the Data Files or Software,
+              and to permit persons to whom the Data Files or Software are
+              furnished to do so, provided that either (a) this copyright and
+              permission notice appear with all copies of the Data Files or
+              Software, or (b) this copyright and permission notice appear in
+              associated Documentation. THE DATA FILES AND SOFTWARE ARE
+              PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+              IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+              MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+              NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE
+              COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE BE LIABLE
+              FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+              OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+              PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+              TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+              PERFORMANCE OF THE DATA FILES OR SOFTWARE. Except as contained
+              in this notice, the name of a copyright holder shall not be used
+              in advertising or otherwise to promote the sale, use or other
+              dealings in these Data Files or Software without prior written
+              authorization of the copyright holder." THIS TREE REDISTRIBUTES
+              NOTHING: no Unicode file is copied into the tree; the cache
+              holds the pinned bytes and one test
+              (tests/devtools/unicode_tables_tests.cpp) reads them, so the
+              licence's condition (a) or (b) -- that this copyright and
+              permission notice appear with all copies of the Data Files, or
+              in associated Documentation -- is met by carrying it here, in
+              NOTICE, which is generated from this note. The files are used as
+              an ORACLE FOR TESTS, never linked and never shipped.
+
+  ucd-specialcasing  SpecialCasing.txt, Unicode Character Database 15.1.0 (file header: Date: 2023-01-05, 20:35:03 GMT), Public/15.1.0/ucd/, 16 832 bytes
+    role      SpecialCasing.txt of the Unicode Character Database, Version 15.1.0 (header: SpecialCasing-15.1.0.txt): the FULL case mappings that UnicodeData.txt cannot hold because they change the length of the string. The entries WITHOUT a condition list are unconditional (U+00DF -> SS, U+FB00 -> FF, ...) and are what Python's str.upper() applies on top of UnicodeData's simple mappings; those WITH a condition list (final sigma, Lithuanian, Turkish, Azeri) depend on context or locale and are not. L0 step 8 (group C6): the other half of THE ORACLE described in the entry ucd-unicodedata, and used by the same test (tests/devtools/unicode_tables_tests.cpp).
+    licence   Unicode-3.0
+    url       https://www.unicode.org/Public/15.1.0/ucd/SpecialCasing.txt
+    sha256    55a477efd933a52cd27e6a9bf70265bb2d8814af31aab07767abc8eb421f27ef
+    retrieved 2026-10-07
+    note      THE UNICODE LICENSE V3 (SPDX: Unicode-3.0), a permissive licence
+              of the MIT kind. The Unicode Consortium's Terms of Use
+              (unicode.org/terms_of_use.html, read 2026-10-07) say that
+              "Unicode Data Files" "include all computer data files under the
+              following directories: https://www.unicode.org/Public/ ..."
+              (three further locations follow) "but exclude any materials
+              present in the above directories that are not computer data
+              files, such as PDF code charts and Technical Reports", and: "All
+              Unicode Data Files and Unicode Software are subject to the terms
+              and conditions of the free and open-source Unicode License v3,
+              unless otherwise indicated by specific restriction, permission,
+              or license identified at the point of release or in such
+              software, data file, or other documentation." This file is under
+              https://www.unicode.org/Public/15.1.0/ucd/; that directory's
+              ReadMe.txt ("Date: 2023-08-28") and the header of its
+              SpecialCasing-15.1.0.txt ("Date: 2023-01-05, 20:35:03 GMT")
+              carry only "© 2023 Unicode®, Inc." and "For terms of use, see
+              https://www.unicode.org/terms_of_use.html": no specific
+              restriction, permission or licence was identified at the point
+              of release, so the v3 licence applies. THE LICENCE, from
+              unicode.org/license.txt (read 2026-10-07; its line breaks are
+              not kept here): "UNICODE LICENSE V3 COPYRIGHT AND PERMISSION
+              NOTICE Copyright © 1991-2026 Unicode, Inc. NOTICE TO USER:
+              Carefully read the following legal agreement. BY DOWNLOADING,
+              INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+              SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY,
+              ALL OF THE TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT
+              AGREE, DO NOT DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE
+              DATA FILES OR SOFTWARE. Permission is hereby granted, free of
+              charge, to any person obtaining a copy of data files and any
+              associated documentation (the "Data Files") or software and any
+              associated documentation (the "Software") to deal in the Data
+              Files or Software without restriction, including without
+              limitation the rights to use, copy, modify, merge, publish,
+              distribute, and/or sell copies of the Data Files or Software,
+              and to permit persons to whom the Data Files or Software are
+              furnished to do so, provided that either (a) this copyright and
+              permission notice appear with all copies of the Data Files or
+              Software, or (b) this copyright and permission notice appear in
+              associated Documentation. THE DATA FILES AND SOFTWARE ARE
+              PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+              IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+              MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+              NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE
+              COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE BE LIABLE
+              FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+              OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+              PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+              TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+              PERFORMANCE OF THE DATA FILES OR SOFTWARE. Except as contained
+              in this notice, the name of a copyright holder shall not be used
+              in advertising or otherwise to promote the sale, use or other
+              dealings in these Data Files or Software without prior written
+              authorization of the copyright holder." THIS TREE REDISTRIBUTES
+              NOTHING: no Unicode file is copied into the tree; the cache
+              holds the pinned bytes and one test
+              (tests/devtools/unicode_tables_tests.cpp) reads them, so the
+              licence's condition (a) or (b) -- that this copyright and
+              permission notice appear with all copies of the Data Files, or
+              in associated Documentation -- is met by carrying it here, in
+              NOTICE, which is generated from this note. The files are used as
+              an ORACLE FOR TESTS, never linked and never shipped.
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

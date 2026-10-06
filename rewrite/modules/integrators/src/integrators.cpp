@@ -21,7 +21,7 @@ constexpr double sum(const std::array<double, kStages>& v) {
 }
 
 // Both weight vectors sum to 1. In the rationals this is exact; in doubles it is
-// exact to rounding, and the EXACT statement is tools/rk_coefficients.py's.
+// exact to rounding, and the EXACT statement is tools/rk_coefficients.cpp's.
 static_assert(sum(kC)    > 1.0 - 1e-15 && sum(kC)    < 1.0 + 1e-15,
               "INTG-A-001: the 7th-order weights must sum to 1");
 static_assert(sum(kCHat) > 1.0 - 1e-15 && sum(kCHat) < 1.0 + 1e-15,

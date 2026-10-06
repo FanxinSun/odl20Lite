@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `INTG` |
 | **Status** | **draft** 2026-09-18, for review |
-| **Version** | 1.0 |
+| **Version** | 1.0a |
 | **Date** | 2026-09-18 |
 | **Layer** | L3 `dynamics`, step 2 (`../plan/PLAN.md` §3.4) |
 | **Depends on** | `SPEC-dynamics.md` (the force surface it integrates), `SPEC-frames.md`, `SPEC-time.md`, `core` |
@@ -74,7 +74,7 @@ and the truncation term `FEHLBERG` (134):
 > TE = (41/840)(f₀ + f₁₀ − f₁₁ − f₁₂) *h*
 
 - **INTG-R-001.** The coefficients are **generated source**, emitted by
-  `tools/rk_coefficients.py`, never hand-typed into C++. The tool holds the rationals, proves
+  `tools/rk_coefficients.cpp` (v1.0a: it was `tools/rk_coefficients.py`), never hand-typed into C++. The tool holds the rationals, proves
   them, and writes the doubles.
 
 ### 3.2 Why reading numbers off a 1968 scan is acceptable here, and would not be elsewhere
@@ -303,4 +303,5 @@ must not "fix" the controller to match a number that was never a gate.
 
 | version | date | change |
 |---|---|---|
+| 1.0a | 2026-10-07 | **L0 step 8 (the tree's development code is C++, plan §5 constraint 11):** `INTG-R-001` names the generator as `tools/rk_coefficients.cpp` (it was `tools/rk_coefficients.py`); the tool holds the same rationals, makes the same proof (the same 13 rows, 85 + 200 order conditions, 40 of 115 at order 8) and writes the same header, whose first comment lines name the new generator. No requirement, number or acceptance row changed. |
 | 1.0 | 2026-09-18 | First draft, for review. Records that `FEHLBERG`'s OCR is unusable and its page images are exact; that the coefficients are therefore **read and then proved**, which is plan §4 rule 6's converse; that the **order conditions and Table XI establish different claims**, with the free-parameter gap named; the **40-of-115** agreement between the report's prose and mathematics applied to its table; the estimator's **identical vanishing on quadrature**, with a test that exhibits it; and `INTG-P-2`'s expectations for Table XI **written before the first run**. |

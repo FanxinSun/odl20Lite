@@ -39,7 +39,8 @@
 //   * `terms.upper().startswith("NOT ESTABLISHED")` is read through Python's FULL case mapping for the characters that can matter: the ASCII letters, and the ten non-ASCII characters whose upper
 //     case is pure ASCII (the dotless i, the long s, the sharp s, the six f- and s-ligatures), of which only the four that can occur in the phrase are mapped; any other non-ASCII character
 //     fails the comparison, as it does there.
-//     (The first draft of this port named only the dotless i and the long s; the full mapping, run over every code point, shows ten.)
+//     (The first draft of this port named only the dotless i and the long s; the full mapping shows ten.  Since group C6 the ten are DERIVED, by tests/devtools/unicode_tables_tests.cpp, from the
+//     Unicode Character Database 15.1.0 files the manifest pins (ucd-unicodedata, ucd-specialcasing), and this reading is held to that derivation over every code point.)
 //   * The messages name `literaturecheck`; argparse's abbreviations are not accepted and `-h` prints this tool's own text.  An option's value is whatever follows it unless that begins with `--`
 //     (argparse refuses one that begins with a single dash too, so a directory called -x is a value here), and `-h=x` is refused.
 
@@ -80,33 +81,6 @@ std::string first_code_points(std::string_view s, std::size_t n) {
         i = after;
     }
     return std::string(s.substr(0, i));
-}
-
-// terms.upper().startswith("NOT ESTABLISHED"): the first characters of terms.upper(), made one code point at a time.  Python's upper() is the FULL case mapping, so ten non-ASCII characters become
-// ASCII letters: the dotless i and the long s (one letter each), the sharp s (SS) and the ff, fi, fl, ffi, ffl, long-s-t and st ligatures (FF, FI, FL, FFI, FFL, ST, ST).  (The ten were found by
-// mapping every code point, with Perl's full case mapping as the witness, and keeping the ones whose result is pure ASCII.)  Only four of them can be part of the phrase -- SS, FF, FI, FL, FFI
-// and FFL occur nowhere in "NOT ESTABLISHED" -- so only those four are mapped; every other non-ASCII character, those six included, becomes a byte no phrase holds, which can only make the
-// comparison fail, as the real mapping would.
-bool starts_not_established(std::string_view terms) {
-    constexpr std::string_view kWanted = "NOT ESTABLISHED";
-    std::string upper;
-    for (std::size_t i = 0; i < terms.size();) {
-        std::size_t after = 0;
-        const std::uint32_t cp = dk::code_point_at(terms, i, after);
-        i = after;
-        if (cp < 0x80) {
-            upper += static_cast<char>(cp >= U'a' && cp <= U'z' ? cp - U'a' + U'A' : cp);
-            continue;
-        }
-        switch (cp) {
-            case 0x0131: upper += "I"; break;     // LATIN SMALL LETTER DOTLESS I
-            case 0x017F: upper += "S"; break;     // LATIN SMALL LETTER LONG S
-            case 0xFB05: upper += "ST"; break;    // LATIN SMALL LIGATURE LONG S T
-            case 0xFB06: upper += "ST"; break;    // LATIN SMALL LIGATURE ST
-            default: upper += '\x01'; break;
-        }
-    }
-    return upper.compare(0, kWanted.size(), kWanted) == 0;
 }
 
 bool ends_with(std::string_view s, std::string_view suffix) { return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0; }
@@ -170,6 +144,38 @@ const char kHelpText[] =
     "exit codes: 0 no build input reaches a literature entry   1 one does   2 an argument error, a manifest that cannot be read, or nothing to search\n";
 
 }  // namespace
+
+namespace scan {
+
+// terms.upper().startswith("NOT ESTABLISHED"): the first characters of terms.upper(), made one code point at a time.  Python's upper() is the FULL case mapping (the unconditional entries of
+// SpecialCasing.txt, else UnicodeData's simple mapping), so ten non-ASCII characters become ASCII letters: the dotless i and the long s (one letter each), the sharp s (SS) and the ff, fi, fl, ffi, ffl,
+// long-s-t and st ligatures (FF, FI, FL, FFI, FFL, ST, ST).  The ten are DERIVED from the pinned Unicode Character Database 15.1.0 (manifest entries ucd-unicodedata and ucd-specialcasing) by
+// tests/devtools/unicode_tables_tests.cpp, which also holds this function to that derivation over every code point.  Only four of them can be part of the phrase -- SS, FF, FI, FL, FFI and FFL occur
+// nowhere in "NOT ESTABLISHED" -- so only those four are mapped; every other non-ASCII character, those six included, becomes a byte no phrase holds, which can only make the comparison fail, as the
+// real mapping would.
+bool starts_not_established(std::string_view terms) {
+    constexpr std::string_view kWanted = "NOT ESTABLISHED";
+    std::string upper;
+    for (std::size_t i = 0; i < terms.size();) {
+        std::size_t after = 0;
+        const std::uint32_t cp = dk::code_point_at(terms, i, after);
+        i = after;
+        if (cp < 0x80) {
+            upper += static_cast<char>(cp >= U'a' && cp <= U'z' ? cp - U'a' + U'A' : cp);
+            continue;
+        }
+        switch (cp) {
+            case 0x0131: upper += "I"; break;     // LATIN SMALL LETTER DOTLESS I
+            case 0x017F: upper += "S"; break;     // LATIN SMALL LETTER LONG S
+            case 0xFB05: upper += "ST"; break;    // LATIN SMALL LIGATURE LONG S T
+            case 0xFB06: upper += "ST"; break;    // LATIN SMALL LIGATURE ST
+            default: upper += '\x01'; break;
+        }
+    }
+    return upper.compare(0, kWanted.size(), kWanted) == 0;
+}
+
+}  // namespace scan
 
 std::filesystem::path default_root() {
 #ifdef ODL_TREE_ROOT
@@ -312,7 +318,7 @@ int run(const std::vector<std::string>& argv, Io io) {
                 io.out << "  " << e.id << '\n';
                 io.out << "    fetched to  " << lit_root << '/' << e.id << '/' << e.filename << '\n';
                 // A literature entry carries `terms`, never `licence`: read the recorded search, distinguishing found nothing (terms text starting "NOT ESTABLISHED") from found something.
-                io.out << "    terms       " << (starts_not_established(e.terms) ? "NOT established \xE2\x80\x94 see the entry" : "found \xE2\x80\x94 see the entry") << '\n';
+                io.out << "    terms       " << (scan::starts_not_established(e.terms) ? "NOT established \xE2\x80\x94 see the entry" : "found \xE2\x80\x94 see the entry") << '\n';
             }
         }
         io.out << "\n  literature entries              " << right(lit.size(), 5) << '\n';

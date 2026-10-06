@@ -26,6 +26,11 @@
 //   * A match that is not a regular file (a directory called CMakeLists.txt, a link to nothing) is skipped by rule.  The messages name the program; argparse's abbreviations are not accepted and `-h`
 //     prints this program's own text.  An option's value is whatever follows it unless that begins with `--` (argparse refuses one that begins with a single dash too, so a directory called -x is a
 //     value here), and `-h=x` is refused; a lone `-` is a name, as there.
+//
+// A KNOWN LIMIT, KEPT AND DOCUMENTED (the maintainer's ruling of 2026-10-07; group C6): the times are compared as DOUBLES, as the Python compared them, and a double holding seconds since the epoch (about
+// 1.8e9 now) is spaced 2^-22 s, about 238 ns, apart.  A CMakeLists.txt newer than the generated build system by less than that can read as not newer, and the configure then passes as current.  What this
+// test is for is a build directory configured before somebody edited the tree, which is seconds, hours or days old; nothing a person or a script does between two commands comes within a quarter of a
+// microsecond of it.  Comparing the integer nanoseconds (st_mtim.tv_sec, tv_nsec) would be exact and is a three-line change, made when anything needs it.
 
 #include <odl/devkit/fs.hpp>
 #include <odl/devkit/text.hpp>

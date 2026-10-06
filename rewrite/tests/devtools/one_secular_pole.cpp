@@ -33,6 +33,12 @@
 //   * `\b` is Unicode-aware as Python's is, within the limit odl/devkit/pytext.hpp states.  The messages name `one_secular_pole`; argparse's abbreviations are not accepted and `-h` prints this
 //     program's own text.  An option's value is whatever follows it unless that begins with `--` (argparse refuses one that begins with a single dash too, so a directory called -x is a value
 //     here), and `-h=x` is refused.
+//
+// A KNOWN LIMIT, KEPT AND DOCUMENTED (the maintainer's ruling of 2026-10-07; group C6): "within WINDOW lines" is a window of WINDOW lines EITHER SIDE OF EVERY LINE of a file (the code below, as the Python
+// had it), so two of the constants count as adjacent when their lines are at most TWO WINDOWS, four lines, apart: the line between them has both in reach.  The help text's phrase "within two lines of each
+// other" and the Python's "WINDOW lines of each other" say the shorter thing.  No specification defines it either way: SPEC-perturbations PERT-A-009 says only that the four constants appear nowhere in the
+// module's source but gravity's secular_pole.hpp, and the window is this test's own discriminator (see above, why adjacency).  Kept as it reads: a tighter window would let a wrapped expression of four
+// lines slip through, a wider one would find coincidences.  A pair five or more lines apart is not found; neither is one constant restated alone.
 
 #include <odl/devkit/fs.hpp>
 #include <odl/devkit/pytext.hpp>
