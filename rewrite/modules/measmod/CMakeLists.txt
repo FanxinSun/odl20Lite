@@ -1,7 +1,7 @@
 odl_add_module(measmod
   SOURCES      src/registry.cpp src/troposphere.cpp src/shapiro.cpp src/tracks.cpp src/lighttime.cpp src/range.cpp src/position.cpp src/angles.cpp
   DEPENDS      odl::core odl::time odl::eop odl::frames odl::ephemerides odl::io
-  TEST_SOURCES tests/registry_tests.cpp tests/troposphere_tests.cpp tests/shapiro_tests.cpp tests/lighttime_tests.cpp tests/range_tests.cpp tests/gate_tests.cpp tests/position_tests.cpp tests/angles_tests.cpp tests/angle_geometry_tests.cpp tests/angle_gate_tests.cpp tests/angle_diurnal_tests.cpp)
+  TEST_SOURCES tests/registry_tests.cpp tests/troposphere_tests.cpp tests/shapiro_tests.cpp tests/lighttime_tests.cpp tests/range_tests.cpp tests/gate_tests.cpp tests/position_tests.cpp tests/angles_tests.cpp tests/angle_geometry_tests.cpp tests/angle_gate_tests.cpp tests/angle_diurnal_tests.cpp tests/solid_tide_tests.cpp)
 
 # ERFA is PRIVATE: a caller of odl::measmod must not have to know it exists (the geodetic conversions are its).
 target_link_libraries(odl_measmod PRIVATE erfa)
