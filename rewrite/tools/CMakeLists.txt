@@ -23,17 +23,36 @@ target_compile_definitions(odl_tool_fetch PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT=
 target_include_directories(odl_tool_fetch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(odl_tool_fetch PUBLIC odl_devkit PRIVATE odl_warnings)
 
+# The derivative of GFZ's Kp/ap/F10.7 file that the tree vendors (plan L0 step 8, group C1b; tools/gfz_derive.hpp says why): `gfz_derive <the pinned
+# upstream file> <output>` reproduces it, and the object library is what the tests call in-process.
+add_library(odl_tool_gfz_derive OBJECT gfz_derive.cpp)
+target_compile_definitions(odl_tool_gfz_derive PUBLIC ODL_TOOL_NO_MAIN)
+target_include_directories(odl_tool_gfz_derive PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(odl_tool_gfz_derive PUBLIC odl_devkit PRIVATE odl_warnings)
+
+add_executable(gfz_derive gfz_derive.cpp)
+target_link_libraries(gfz_derive PRIVATE odl_devkit odl_warnings)
+
 if(BUILD_TESTING)
   # One executable for the devkit's own tests and the tools' (the Python tests of tests/ ported): each ctest of the old names runs the tag of the
   # test it replaces (tests/CMakeLists.txt), and every devkit case is its own ctest.
   add_executable(odl_devtools_tests
     devkit/tests/sha256_tests.cpp devkit/tests/json_tests.cpp devkit/tests/inflate_tests.cpp devkit/tests/archive_tests.cpp
     devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/gfz_derive_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   target_compile_definitions(odl_devtools_tests PRIVATE
-    ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}")
-  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_devkit Catch2::Catch2WithMain odl_warnings)
+    ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}"
+    ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
+  target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_devkit Catch2::Catch2WithMain odl_warnings)
+
+  # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
+  # test executable, which the tests find at run time and put first on PATH: no test of this tree touches the network.  (Its place is NOT a compile
+  # definition: a build directory's path in an executable would make two builds differ, and tools/reprocheck.py compares them.)
+  add_executable(odl_fake_curl ${CMAKE_SOURCE_DIR}/tests/devtools/fake_curl.cpp)
+  set_target_properties(odl_fake_curl PROPERTIES OUTPUT_NAME curl RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
+  target_link_libraries(odl_fake_curl PRIVATE odl_warnings)
+  add_dependencies(odl_devtools_tests odl_fake_curl)
   catch_discover_tests(odl_devtools_tests TEST_SPEC "[devkit]" TEST_PREFIX "devkit: " EXTRA_ARGS --warn NoAssertions)
 endif()
 

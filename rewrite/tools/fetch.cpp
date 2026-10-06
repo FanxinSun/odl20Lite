@@ -16,11 +16,17 @@
 // Host program: `curl` (the manifest's `curl` tool entry, developed against 8.18.0), spawned by `fetch` ONLY, to download.  `verify`,
 // `check-licences`, `verify-populated`, the build and the tests never need it.
 //
+// The wire protocol is HTTP/1.1 (`--http1.1`), which is what the Python tool's urllib spoke; curl's default offers HTTP/2.  A download is retried
+// (`--retry 4 --retry-delay 5 --retry-all-errors`, curl >= 7.71): the first real download of the whole manifest (PROVENANCE.md section 41, group
+// C1b) lost eleven of its 110 entries to dropped TLS handshakes (the Paris Observatory's servers, mostly) and one cut transfer; none was a bad URL.
+//
 // Commands
 // --------
 //   verify              offline.  Every entry present in the cache and hash-correct?
 //   fetch               download what is missing, verify, then stop.
 //   fetch --refresh     re-download everything and report upstream drift.
+//   fetch --keep-going  do not stop at the first entry that fails: try them all, list the failures at the end, exit with the FIRST one's code (so
+//                       that one run of CI names every entry a clean clone cannot fetch).  Without it the run stops at the first, as the Python tool did.
 //   list [--json]       the entries, for humans.
 //   path <id>           the cache path of one entry.
 //   check-licences      plan §5 constraint 3: only licences on the permissive allowlist.
@@ -28,6 +34,7 @@
 //
 // Exit codes are distinct because CI reads them:
 //   0 ok   1 missing from cache   2 HASH MISMATCH   3 manifest malformed   4 network failure   5 usage error   (argument errors: 2, as argparse)
+//   70 an error the tool did not anticipate (an unwritable cache, a failed read): reported, never a crash
 
 #include <odl/devkit/archive.hpp>
 #include <odl/devkit/fs.hpp>
@@ -64,7 +71,10 @@ using dk::Json;
 constexpr const char* kTool = "fetch";
 constexpr int kOk = 0, kMissing = 1, kMismatch = 2, kMalformed = 3, kNetwork = 4, kUsage = 5;
 constexpr int kArgumentError = 2;   // argparse's own code
+constexpr int kInternal = 70;       // an error the tool did not anticipate (an unwritable cache, a failed read): the Python tool's was a traceback, exit 1
 constexpr int kTimeoutSeconds = 120;
+constexpr int kRetries = 4;
+constexpr int kRetryDelaySeconds = 5;
 constexpr const char* kUserAgent = "odl-self_built-fetch/1";
 
 // ------------------------------------------------------------------------------------------------------------------------ small helpers
@@ -197,7 +207,9 @@ Json load_manifest(Io& io, const fs::path& path) {
                         "; an entry that is not provided_by_host must be pinned by URL and hash");
             }
         }
-        if (!member_of(e, "sha256")->is_string()) die(io, kMalformed, where + " (" + id + "): sha256 must be a string");
+        for (const char* field : {"url", "filename", "sha256"}) {
+            if (!member_of(e, field)->is_string()) die(io, kMalformed, where + " (" + id + "): " + field + " must be a string");
+        }
         const std::string& h = str_field(e, "sha256");
         const std::string hl = lower(h);
         const bool hex = std::all_of(hl.begin(), hl.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
@@ -497,7 +509,8 @@ std::string download(Io& io, const std::string& url, const fs::path& dest, const
         die(io, kMalformed, str_field(e, "id") + ": the URL " + dk::py_repr(url) + " is not https; this tool downloads over TLS only");
     }
     const std::vector<std::string> argv = {"curl", "--silent", "--show-error", "--fail", "--location", "--max-redirs", "10", "--proto", "=https",
-                                           "--proto-redir", "=https", "--user-agent", kUserAgent, "--connect-timeout", std::to_string(kTimeoutSeconds),
+                                           "--proto-redir", "=https", "--http1.1", "--retry", std::to_string(kRetries), "--retry-delay", std::to_string(kRetryDelaySeconds),
+                                           "--retry-all-errors", "--user-agent", kUserAgent, "--connect-timeout", std::to_string(kTimeoutSeconds),
                                            "--speed-limit", "1", "--speed-time", std::to_string(kTimeoutSeconds), "--output", part.string(), url};
     dk::ProcessResult r;
     try {
@@ -543,7 +556,11 @@ void write_receipt(Io& io, const Manifest& m, const std::vector<std::array<std::
         try {
             const Json old = Json::parse(dk::read_text(rec));
             if (const Json* list = member_of(old, "receipts"); list != nullptr && list->is_array()) {
-                for (const Json& r : list->as_array()) existing[str_field(r, "id")] = r;
+                for (const Json& r : list->as_array()) {
+                    const Json* id = r.is_object() ? member_of(r, "id") : nullptr;
+                    if (id == nullptr || !id->is_string()) throw std::runtime_error("a receipt without an id");   // Python's KeyError/TypeError: all discarded
+                    existing[id->as_string()] = r;
+                }
             }
         } catch (const std::exception&) {
             existing.clear();
@@ -572,6 +589,7 @@ void write_receipt(Io& io, const Manifest& m, const std::vector<std::array<std::
 
 struct Args {
     bool refresh = false;
+    bool keep_going = false;
     bool json = false;
     std::string id;
     std::string member;
@@ -723,61 +741,85 @@ int cmd_verify(Io& io, const Manifest& m) {
     return kOk;
 }
 
-int cmd_fetch(Io& io, const Manifest& m, const Args& args) {
-    std::vector<std::array<std::string, 3>> results;
-    for (const Json* e : fetchable(m)) {
-        const fs::path p = entry_path(m, *e);
-        const std::string& id = str_field(*e, "id");
-        const std::string want = lower(str_field(*e, "sha256"));
-        if (is_vendored(*e)) {
-            // NEVER re-fetched, NOT EVEN under --refresh: the whole reason an entry is vendored is that a live re-fetch cannot reproduce its own
-            // pinned bytes (vendored_dir's own account).  The tracked file IS the source of truth from here on.
-            if (!fs::exists(p)) {
-                die(io, kMissing,
-                    id + " is vendored but its tracked file is missing: " + p.string() + "\n"
-                    "  A vendored entry is never fetched. Restore the file from git (git checkout -- " + fs::relative(p, m.root).string() +
-                        ") rather than re-fetching it.");
-            }
-            const std::string got = sha256_file(io, p);
-            if (got != want) mismatch(io, *e, got, p.string() + " (vendored -- not re-fetched, the tracked copy itself has changed)");
-            io.out << "vendored " << dk::pad_right(id, 16) << " " << first16(got) << "…  (tracked in the repository, never fetched)\n";
-            results.push_back({id, truthy(*e, "url") ? text_of(*e, "url") : std::string("(vendored)"), got});
-            continue;
+// One entry's turn in `fetch`: kOk, or the code to stop with where the tool returns rather than dies (upstream drift under --refresh).  A refusal is
+// a dk::Exit thrown by die().
+int fetch_entry(Io& io, const Manifest& m, const Args& args, const Json* e, std::vector<std::array<std::string, 3>>& results) {
+    const fs::path p = entry_path(m, *e);
+    const std::string& id = str_field(*e, "id");
+    const std::string want = lower(str_field(*e, "sha256"));
+    if (is_vendored(*e)) {
+        // NEVER re-fetched, NOT EVEN under --refresh: the whole reason an entry is vendored is that a live re-fetch cannot reproduce its own
+        // pinned bytes (vendored_dir's own account).  The tracked file IS the source of truth from here on.
+        if (!fs::exists(p)) {
+            die(io, kMissing,
+                id + " is vendored but its tracked file is missing: " + p.string() + "\n"
+                "  A vendored entry is never fetched. Restore the file from git (git checkout -- " + fs::relative(p, m.root).string() +
+                    ") rather than re-fetching it.");
         }
-        if (fs::exists(p) && !args.refresh) {
-            const std::string got = sha256_file(io, p);
-            if (got != want) mismatch(io, *e, got, p.string());
-            io.out << "cached   " << dk::pad_right(id, 16) << " " << first16(str_field(*e, "sha256")) << "…\n";
-            for (const auto& [member, how] : extract_members(io, m, *e)) {
-                io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
-            }
-            results.push_back({id, text_of(*e, "url"), got});
-            continue;
-        }
-
-        io.out << "fetching " << dk::pad_right(id, 16) << " " << text_of(*e, "url") << '\n';
-        const fs::path part = p.string() + ".part";
-        const std::string got = download(io, text_of(*e, "url"), p, *e);
-        std::error_code ignored;
-        if (got != want) {
-            if (args.refresh && fs::exists(p)) {
-                fs::remove(part, ignored);
-                io.err << "\nUPSTREAM DRIFT: " << id << " now hashes " << got << ", manifest says " << str_field(*e, "sha256") << ".\n"
-                       << "The cached copy is untouched.  This is the condition R11 exists to detect.\n";
-                return kMismatch;
-            }
-            fs::remove(part, ignored);
-            mismatch(io, *e, got, text_of(*e, "url") + " (download discarded)");
-        }
-        fs::rename(part, p);
-        io.out << "ok       " << dk::pad_right(id, 16) << " " << first16(got) << "…\n";
+        const std::string got = sha256_file(io, p);
+        if (got != want) mismatch(io, *e, got, p.string() + " (vendored -- not re-fetched, the tracked copy itself has changed)");
+        io.out << "vendored " << dk::pad_right(id, 16) << " " << first16(got) << "…  (tracked in the repository, never fetched)\n";
+        results.push_back({id, truthy(*e, "url") ? text_of(*e, "url") : std::string("(vendored)"), got});
+        return kOk;
+    }
+    if (fs::exists(p) && !args.refresh) {
+        const std::string got = sha256_file(io, p);
+        if (got != want) mismatch(io, *e, got, p.string());
+        io.out << "cached   " << dk::pad_right(id, 16) << " " << first16(str_field(*e, "sha256")) << "…\n";
         for (const auto& [member, how] : extract_members(io, m, *e)) {
             io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
         }
         results.push_back({id, text_of(*e, "url"), got});
+        return kOk;
+    }
+
+    io.out << "fetching " << dk::pad_right(id, 16) << " " << text_of(*e, "url") << '\n';
+    const fs::path part = p.string() + ".part";
+    const std::string got = download(io, text_of(*e, "url"), p, *e);
+    std::error_code ignored;
+    if (got != want) {
+        if (args.refresh && fs::exists(p)) {
+            fs::remove(part, ignored);
+            io.err << "\nUPSTREAM DRIFT: " << id << " now hashes " << got << ", manifest says " << str_field(*e, "sha256") << ".\n"
+                   << "The cached copy is untouched.  This is the condition R11 exists to detect.\n";
+            return kMismatch;
+        }
+        fs::remove(part, ignored);
+        mismatch(io, *e, got, text_of(*e, "url") + " (download discarded)");
+    }
+    fs::rename(part, p);
+    io.out << "ok       " << dk::pad_right(id, 16) << " " << first16(got) << "…\n";
+    for (const auto& [member, how] : extract_members(io, m, *e)) {
+        io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
+    }
+    results.push_back({id, text_of(*e, "url"), got});
+    return kOk;
+}
+
+int cmd_fetch(Io& io, const Manifest& m, const Args& args) {
+    std::vector<std::array<std::string, 3>> results;
+    std::vector<std::pair<std::string, int>> failed;   // --keep-going: the entries that did not make it, in manifest order, with the code each stopped with
+    std::size_t tried = 0;
+    for (const Json* e : fetchable(m)) {
+        ++tried;
+        int code = kOk;
+        if (args.keep_going) {
+            try {
+                code = fetch_entry(io, m, args, e, results);
+            } catch (const dk::Exit& stop) {
+                code = stop.code;   // its message is already on io.err
+            }
+        } else {
+            code = fetch_entry(io, m, args, e, results);
+            if (code != kOk) return code;
+        }
+        if (code != kOk) failed.emplace_back(str_field(*e, "id"), code);
     }
     write_receipt(io, m, results);
-    return kOk;
+    if (failed.empty()) return kOk;
+    io.err << "\nfetch: " << failed.size() << " of " << tried << " entries did not make it; the others are fetched and verified and have their receipts:\n";
+    for (const auto& [id, code] : failed) io.err << "  " << dk::pad_right(id, 34) << " exit " << code << '\n';
+    return failed.front().second;
 }
 
 int cmd_list(Io& io, const Manifest& m, const Args& args) {
@@ -896,7 +938,10 @@ const Permitted kPermissive[] = {
     {"PSF-2.0", "Python Software Foundation; permissive"},
     {"UNLICENSE", "public-domain dedication"},
     {"ZLIB", "permissive"},
-    {"IERS-PUBLIC", "not an SPDX identifier: IERS public data products, published for unrestricted use. Data, never linked."},
+    {"IERS-PUBLIC", "not an SPDX identifier: IERS data products and documents. No licence statement was found on the IERS pages searched (2026-10-06, "
+                    "PROVENANCE.md section 41.4; the earlier reason here, 'published for unrestricted use', had no source and is withdrawn), so the tree "
+                    "redistributes none of them -- pin-only -- except where an entry vendors one and quotes the terms it found (eop-finals2000a: USNO's own "
+                    "Distribution Statement A). Data, never linked."},
     {"NASA-PUBLIC", "not an SPDX identifier: NASA/JPL published data products (NAIF generic kernels, JPL SSD test sets). Data, never linked."},
     {"CC-BY-4.0", "Creative Commons Attribution 4.0; permissive with attribution. NOT CC-BY-NC-4.0 or CC-BY-SA-4.0, which are different licences "
                   "that differ from it by one token in the identifier."},
@@ -1040,7 +1085,8 @@ const char kHelpText[] =
     "\n"
     "commands:\n"
     "  verify              offline: is every entry cached and hash-correct?\n"
-    "  fetch [--refresh]   download what is missing (--refresh: re-download everything and report upstream drift)\n"
+    "  fetch [--refresh] [--keep-going]   download what is missing (--refresh: re-download everything and report upstream drift;\n"
+    "                      --keep-going: do not stop at the first entry that fails, report them all and exit with the first one's code)\n"
     "  list [--json]       show the entries\n"
     "  path <id> [--member NAME]   print the cache path of one entry (or of an extracted archive member)\n"
     "  check-licences      plan §5 constraint 3: only licences on the permissive allowlist\n"
@@ -1106,6 +1152,8 @@ int run(const std::vector<std::string>& argv, Io io) {
             const std::string& a = argv[i];
             if (a == "--refresh" && cmd == "fetch") {
                 args.refresh = true;
+            } else if (a == "--keep-going" && cmd == "fetch") {
+                args.keep_going = true;
             } else if (a == "--json" && cmd == "list") {
                 args.json = true;
             } else if (a == "--member" && cmd == "path") {
@@ -1148,6 +1196,9 @@ int run(const std::vector<std::string>& argv, Io io) {
         return cmd_verify_populated(io, m, args);
     } catch (const dk::Exit& x) {
         return x.code;
+    } catch (const std::exception& exc) {
+        io.err << kTool << ": internal error: " << exc.what() << '\n';
+        return kInternal;
     }
 }
 

@@ -71,7 +71,7 @@
 //
 //   /tmp/orbex_galileo_check COD0MGXFIN_20232800000_01D_05M_ORB.SP3 \
 //                            COD0MGXFIN_20232800000_01D_30S_ATT.OBX \
-//                            <data/cache>/iers-leap-seconds/Leap_Second.dat \
+//                            <data/vendored>/iers-leap-seconds/Leap_Second.dat \
 //                            <data/cache>/eop-c04-20/eopc04.1962-now \
 //                            <data/cache>/de440s-spk/de440s.bsp
 //

@@ -21,8 +21,8 @@ SUMMARY
   calceph            4.0.5        CeCILL-B         code
   python3            >=3.9        PSF-2.0          tool
   cmake              >=3.21       BSD-3-Clause     tool
-  curl               8.18.0 (developed against; the floor is untested) curl             tool
-  iers-leap-seconds  through IERS Bulletin C 72, July 2026; expires 2027-06-28 IERS-public      data
+  curl               8.18.0 (developed against); needs 7.71.0 or later (--retry-all-errors), and nothing older than 8.18.0 was run here curl             tool
+  iers-leap-seconds  through IERS Bulletin C 72, July 2026; expires 2027-06-28 FACTUAL-DATA-CITED data
   eop-c04-20         20 C04 v3 (ITRF2020-u2023), archived 2026-02-05 IERS-public      data
   eop-finals2000a    as published 2026-09-18 IERS-public      data
   tn36-chapter5      2010         IERS-public      data
@@ -204,13 +204,27 @@ DATA INPUTS
 
   iers-leap-seconds  through IERS Bulletin C 72, July 2026; expires 2027-06-28
     role      TAI − UTC, the leap-second table (SPEC-time §4.5, §4.7)
-    licence   IERS-public
+    licence   FACTUAL-DATA-CITED
     url       https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat
     sha256    6cb6f5d4b819f2e568e25db4b0b26d89dedf031fdffb18bc94d40f4e94e268d7
     retrieved 2026-09-18
-    note      IERS public product, published by the Earth Orientation Centre
-              for unrestricted use. Not redistributed by this tree: the pin is
-              the IERS's own URL and the hash is the identity.
+    note      No terms are stated for this file, or for IERS Bulletin C, by
+              its publisher (the IERS Earth Orientation Centre, Observatoire
+              de Paris): the file's own 13 comment lines say nothing about
+              use; the IERS Data Centre's metadata for Bulletin C
+              (datacenter.iers.org/productMetadata.php?id=16) has no licence,
+              copyright, terms-of-use or access-condition field; the IERS
+              'Legal & Privacy' page carries only BKG's liability sentence
+              (the search, 2026-10-06: PROVENANCE.md §41.4). The file is 28
+              rows of (MJD, date, integer seconds): factual data, not an
+              expression -- RS14's own reasoning (SPEC-spacecraft.md §2.2) --
+              so this tree, which VENDORS it, cites the source rather than
+              claiming a grant nobody found. Source: IERS Earth Orientation
+              Centre, Observatoire de Paris, Bulletin C
+              (hpiers.obspm.fr/iers/bul/bulc/). An earlier text of this note
+              said the file was published 'for unrestricted use'; no source
+              for that was found and it is withdrawn (PROVENANCE.md §41.4
+              keeps the first text).
 
   eop-c04-20  20 C04 v3 (ITRF2020-u2023), archived 2026-02-05
     role      IERS EOP 20 C04 — the final Earth orientation series (SPEC-eop §4.1)
@@ -227,7 +241,20 @@ DATA INPUTS
     url       https://maia.usno.navy.mil/ser7/finals2000A.all
     sha256    c672540e026d3cd4840c0858d4ce2bc4a18c3bc9751f9636c3285e11950d58a1
     retrieved 2026-09-18
-    note      IERS/USNO public product.
+    note      IERS/USNO public product. VENDORED, so REDISTRIBUTION WAS
+              CHECKED (L0 step 8 group C1b, 2026-10-06; PROVENANCE.md §41):
+              the file is produced by the U.S. Naval Observatory (U.S. Navy)
+              as the IERS Rapid Service / Prediction Centre.
+              maia.usno.navy.mil states, on its home page, "Distribution
+              Statement A. Approved for public release: distribution
+              unlimited.", and 17 U.S.C. 105(a) says "Copyright protection
+              under this title is not available for any work of the United
+              States Government, but the United States Government is not
+              precluded from receiving and holding copyrights transferred to
+              it by assignment, bequest, or otherwise." USNO's own copyright
+              page (www.cnmoc.usff.navy.mil) answers HTTP 403 to every client
+              this tree may use and could not be read; 17 U.S.C. 105 is United
+              States law.
 
   tn36-chapter5  2010
     role      IERS Conventions (2010) TN36 chapter 5 — Tables 5.1a and 5.1b, libration in EOP
@@ -439,7 +466,7 @@ DATA INPUTS
     role      GFZ Kp/ap/Ap and the DRAO F10.7 it redistributes — the space-weather input (SPEC-atmosphere §4.3a)
     licence   CC-BY-4.0
     url       https://kp.gfz-potsdam.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt
-    sha256    0121821b20799731f00cccc3d1393789d8cca136b5f3cfbae9c464cc029e3a73
+    sha256    3f67ee8dc9d6fa60ebf4f00803d013c0ba00f369427a7a493a15539f4804c7ad
     retrieved 2026-09-18
     note      THE LICENCE OF WHAT THIS TREE CONSUMES, which is not the licence
               of the whole file. The file is CC BY 4.0 except the sunspot-
@@ -450,7 +477,36 @@ DATA INPUTS
               is precisely what that allowlist exists to prevent. The columns
               mechanism makes the exclusion checkable rather than asserted:
               the verifier refuses if a declared column carries an excluded
-              licence (SPEC-atmosphere ATMO-R-032, ATMO-F-016).
+              licence (SPEC-atmosphere ATMO-R-032, ATMO-F-016). VENDORED AS A
+              DERIVATIVE (L0 step 8 group C1b, 2026-10-06): the file in this
+              tree is ADAPTED MATERIAL, not the upstream file, because a
+              repository that redistributes may not carry non-commercial data.
+              CHANGED: the sunspot-number column SN (CC BY-NC 4.0) of every
+              data row is replaced by the file's own missing-value marker -1;
+              nothing else is changed (see `derivation`). The upstream file at
+              `url` still contains that column, and a reader who fetches it
+              for their own use is subject to CC BY-NC 4.0 for that part of
+              it. ATTRIBUTION (CC BY 4.0, section 3(a)): source and creator of
+              Kp, ap and Ap: Geomagnetic Observatory Niemegk, GFZ Helmholtz
+              Centre for Geosciences (Matzka, J., Stolle, C., Yamazaki, Y.,
+              Bronkalla, O. and Morschhauser, A., 2021. The geomagnetic Kp
+              index and derived indices of geomagnetic activity. Space
+              Weather, https://doi.org/10.1029/2020SW002641; data publication
+              Matzka, J., Bronkalla, O., Tornow, K., Elger, K. and Stolle, C.,
+              2021. Geomagnetic Kp index. V. 1.0. GFZ Data Services,
+              https://doi.org/10.5880/Kp.0001); the F10.7 columns are, in the
+              file's own words, 'provided by Dominion Radio Astrophysical
+              Observatory and Natural Resources Canada' (described in Tapping,
+              K.F., 2013. The 10.7 cm solar radio flux (F10.7). Space Weather,
+              11, 394-406, https://doi.org/10.1002/swe.20064), redistributed
+              by GFZ under CC BY 4.0 on GFZ's statement. Licence: Creative
+              Commons Attribution 4.0 International,
+              https://creativecommons.org/licenses/by/4.0/ ; the material is
+              provided as is, without warranties of any kind (that licence's
+              section 5). Material: https://kp.gfz-
+              potsdam.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt . The
+              vendored copy keeps every notice of the file's own 40 header
+              lines, the licence line included.
     EXCLUDED  CC-BY-NC-4.0: SN
               the file contains the above under CC-BY-NC-4.0, which is NOT the
               licence named above and NOT on this tree's permissive allowlist.
@@ -470,7 +526,19 @@ DATA INPUTS
     retrieved 2026-09-18
     note      Open Government Licence - Canada, the default for Government of
               Canada data. Attribution: Dominion Radio Astrophysical
-              Observatory / Natural Resources Canada.
+              Observatory / Natural Resources Canada. [2026-10-06, L0 step 8
+              group C1b: THE CLAIM IN THIS NOTE IS NOT ESTABLISHED. The data
+              pages state no licence; their footer links Canada.ca's 'Terms
+              and conditions', whose default is non-commercial reproduction
+              only (commercial redistribution needs the copyright
+              administrator's prior written permission), and the Open
+              Government catalogue holds no record of this table (the search
+              and the quotations: PROVENANCE.md §41.4). Nothing here
+              redistributes the file -- it is NOT vendored, and so cannot be
+              fetched on a clean clone either, because upstream moves daily;
+              whether to redistribute non-commercial data is licence policy
+              and is HELD FOR THE USER. Until the user decides, the gate that
+              needs these bytes is red on GitHub's runners.]
     columns   consumed: fluxdate, fluxtime, fluxobsflux
 
   nrlmsise00-datavsmodels  2002
@@ -2846,7 +2914,7 @@ BUILD-TIME TOOLS
               FetchContent's SOURCE_DIR/FIND_PACKAGE_ARGS behaviour settling
               by 3.21.
 
-  curl  8.18.0 (developed against; the floor is untested)
+  curl  8.18.0 (developed against); needs 7.71.0 or later (--retry-all-errors), and nothing older than 8.18.0 was run here
     role      downloads the manifest's pinned inputs: tools/fetch.cpp's `fetch` command spawns it and nothing else does (verify, check-licences, verify-populated, the build and the tests never need it)
     licence   curl
     source    provided by the build host; not fetched

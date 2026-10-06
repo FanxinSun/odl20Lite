@@ -72,7 +72,7 @@
 //
 //   /tmp/orbex_shape_e_check COD0MGXFIN_20230980000_01D_05M_ORB.SP3 \
 //                            COD0MGXFIN_20230980000_01D_30S_ATT.OBX \
-//                            <path-to-data/cache>/iers-leap-seconds/Leap_Second.dat \
+//                            <path-to-data/vendored>/iers-leap-seconds/Leap_Second.dat \
 //                            <path-to-data/cache>/eop-c04-20/eopc04.1962-now \
 //                            <path-to-data/cache>/de440s-spk/de440s.bsp
 //

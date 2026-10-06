@@ -13,7 +13,7 @@
 namespace odl::tools::fetch {
 
 /// The tool.  `argv` is its arguments WITHOUT the program name; the result is its exit code (0 ok, 1 missing from the cache, 2 hash mismatch,
-/// 3 manifest malformed, 4 network failure, 5 usage error, 2 for an argument the parser refuses).
+/// 3 manifest malformed, 4 network failure, 5 usage error, 2 for an argument the parser refuses, 70 for an error it did not anticipate).
 [[nodiscard]] int run(const std::vector<std::string>& argv, odl::devkit::Streams io);
 
 /// Refuses an HTML page (a 404 saved with exit status 0) and a file that does not begin like its extension says: writes the message to

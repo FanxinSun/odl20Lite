@@ -18,6 +18,10 @@
 #include "fetch.hpp"
 #include "inflate_vectors.hpp"
 
+#include <algorithm>
+#include <cstdlib>
+#include <map>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -103,6 +107,82 @@ Bytes hello_gz() {
 Json data_entry(const std::string& id, const std::string& name, const std::string& digest, const char* licence = "CC0-1.0") {
     return object({{"id", Json(id)}, {"kind", Json("data")}, {"licence", Json(licence)}, {"url", Json("https://example.invalid/" + name)},
                    {"filename", Json(name)}, {"sha256", Json(digest)}});
+}
+
+// Environment variables set for the length of a test and put back after it, whatever the test does.
+class EnvScope {
+public:
+    EnvScope() = default;
+    EnvScope(const EnvScope&) = delete;
+    EnvScope& operator=(const EnvScope&) = delete;
+    ~EnvScope() {
+        for (const auto& [name, saved] : saved_) {
+            if (saved.has_value()) ::setenv(name.c_str(), saved->c_str(), 1);
+            else ::unsetenv(name.c_str());
+        }
+    }
+    void set(const std::string& name, const std::string& value) {
+        remember(name);
+        ::setenv(name.c_str(), value.c_str(), 1);
+    }
+    void unset(const std::string& name) {
+        remember(name);
+        ::unsetenv(name.c_str());
+    }
+
+private:
+    void remember(const std::string& name) {
+        if (saved_.count(name) != 0) return;
+        const char* old = std::getenv(name.c_str());
+        saved_.emplace(name, old != nullptr ? std::optional<std::string>(old) : std::nullopt);
+    }
+    std::map<std::string, std::optional<std::string>> saved_;
+};
+
+// Where the stand-in `curl` is: `fakebin/` beside this executable (tools/CMakeLists.txt builds it there).  Found at RUN time and not compiled in: a
+// build directory's path inside the executable would make the build differ between two build paths (tools/reprocheck.py compares them).
+std::string fake_curl_dir() { return (fs::canonical("/proc/self/exe").parent_path() / "fakebin").string(); }
+
+// The stand-in `curl` (tests/devtools/fake_curl.cpp, built as `curl`) first on PATH; `calls()` is every argument list it was given.
+struct FakeCurl {
+    EnvScope env;
+    fs::path log;
+
+    explicit FakeCurl(const fs::path& scratch) : log(scratch / "fake-curl.log") {
+        const char* path = std::getenv("PATH");
+        env.set("PATH", fake_curl_dir() + ":" + (path != nullptr ? path : ""));
+        env.set("ODL_FAKE_CURL_LOG", log.string());
+        for (const char* steering : {"ODL_FAKE_CURL_BODY", "ODL_FAKE_CURL_EXIT", "ODL_FAKE_CURL_STDERR", "ODL_FAKE_CURL_ONLY_URL"}) env.unset(steering);
+    }
+    void deliver(const fs::path& body) { env.set("ODL_FAKE_CURL_BODY", body.string()); }
+    void fail(int status, const std::string& message) {
+        env.set("ODL_FAKE_CURL_EXIT", std::to_string(status));
+        env.set("ODL_FAKE_CURL_STDERR", message);
+    }
+    void fail_only(const std::string& url_part, int status, const std::string& message) {   // only a URL containing `url_part` fails
+        fail(status, message);
+        env.set("ODL_FAKE_CURL_ONLY_URL", url_part);
+    }
+    [[nodiscard]] std::vector<std::vector<std::string>> calls() const {
+        std::vector<std::vector<std::string>> out;
+        if (!fs::exists(log)) return out;
+        std::istringstream in(read_text(log));
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line == "--- call") out.emplace_back();
+            else if (line != "--- end" && !out.empty()) out.back().push_back(line);
+        }
+        return out;
+    }
+};
+
+bool has(const std::vector<std::string>& args, const std::string& flag) { return std::find(args.begin(), args.end(), flag) != args.end(); }
+
+// The argument after `flag`, or "<absent>" when there is none (bounds-checked: an argument list the tool changed must fail a CHECK, not read past its end).
+std::string value_after(const std::vector<std::string>& args, const std::string& flag) {
+    const auto at = std::find(args.begin(), args.end(), flag);
+    if (at == args.end() || at + 1 == args.end()) return "<absent>";
+    return *(at + 1);
 }
 
 }  // namespace
@@ -444,10 +524,13 @@ TEST_CASE("fetch refuses what it will not download, and a failed download leaves
     Result r = run(root, write_manifest(root, {with(data_entry("thing", "thing.bin", digest), "url", Json("http://example.invalid/thing.bin"))}), {"fetch"});
     CHECK(r.code == kMalformed);
     CHECK(contains(r.err, "not https"));
-    // https to a host that cannot resolve (the .invalid TLD never does): a network failure, with curl's own reason, and no .part
+    // https to a host that cannot resolve (the .invalid TLD never does): a network failure, with curl's own reason, and no .part.  curl is the
+    // stand-in: the real one, told to retry, would spend twenty seconds of this test on the delays.
+    FakeCurl curl(root);
+    curl.fail(6, "curl: (6) Could not resolve host: example.invalid");
     r = run(root, write_manifest(root, {data_entry("thing", "thing.bin", digest)}), {"fetch"});
     CHECK(r.code == kNetwork);
-    CHECK(contains(r.err, "download failed for https://example.invalid/thing.bin"));
+    CHECK(contains(r.err, "download failed for https://example.invalid/thing.bin: curl exited 6: curl: (6) Could not resolve host: example.invalid"));
     CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin.part"));
     CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin"));
 }
@@ -507,4 +590,221 @@ TEST_CASE("the command line: usage errors are argparse's code 2, and -h is not a
     CHECK(r.code == kOk);
     CHECK(contains(r.out, "verify-populated"));
     CHECK(run_plain({"--manifest", "/nonexistent/manifest.json", "verify"}).code == kMalformed);   // an unreadable manifest is malformed, not a crash
+}
+
+TEST_CASE("what the tool did not anticipate is reported with its own code, not a crash", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string digest(64, '1');
+    // the cache's own directory is a FILE: nothing can be created under it
+    write_text(root / "cache", "not a directory");
+    Result r = run(root, write_manifest(root, {data_entry("thing", "thing.bin", digest)}), {"fetch"});
+    CHECK(r.code == 70);
+    CHECK(contains(r.err, "internal error"));
+    // an entry whose url, filename or hash is not a string is a malformed manifest, not a crash
+    for (const char* field : {"url", "filename"}) {
+        INFO("field " << field);
+        r = run(root, write_manifest(root, {with(data_entry("thing", "thing.bin", digest), field, Json(std::int64_t{7}))}), {"verify"});
+        CHECK(r.code == kMalformed);
+        CHECK(contains(r.err, std::string(field) + " must be a string"));
+    }
+}
+
+TEST_CASE("a damaged receipts file is replaced, not trusted and not fatal", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string content = "x";
+    const std::string digest = make_blob(root, "thing", "thing.bin", content);
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", digest)});
+    REQUIRE(run(root, m, {"fetch"}).code == kOk);
+    for (const char* damage : {"not json at all", "{\"receipts\": [{\"url\": \"u\"}]}", "{\"receipts\": [7]}", "[]"}) {
+        INFO("receipts.json was: " << damage);
+        write_text(root / "cache" / "receipts.json", damage);
+        REQUIRE(run(root, m, {"fetch"}).code == kOk);
+        const Json fresh = Json::parse(read_text(root / "cache" / "receipts.json"));
+        REQUIRE(fresh.find("receipts")->as_array().size() == 1);
+        CHECK(fresh.find("receipts")->as_array()[0].find("id")->as_string() == "thing");
+    }
+}
+
+// The cases below put a stand-in `curl` first on PATH (tests/devtools/fake_curl.cpp), so the download path is exercised without a network.  Until
+// they existed nothing tested it: the Python tool's test never reached a download either, and the first real download of the whole manifest
+// (PROVENANCE.md section 41, group C1b) found what curl's defaults had changed.
+
+TEST_CASE("a download: the flags curl is given, and the file lands only after its hash has been checked", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string content = "the pinned bytes\n";
+    write_text(root / "body.bin", content);
+    FakeCurl curl(root);
+    curl.deliver(root / "body.bin");
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", sha256_hex(as_bytes(content)))});
+
+    Result r = run(root, m, {"fetch"});
+    REQUIRE(r.code == kOk);
+    CHECK(contains(r.out, "fetching thing"));
+    CHECK(contains(r.out, "ok       thing"));
+    CHECK(read_text(root / "cache" / "thing" / "thing.bin") == content);
+    CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin.part"));
+
+    const auto calls = curl.calls();
+    REQUIRE(calls.size() == 1);
+    const auto& args = calls[0];
+    CHECK(args.back() == "https://example.invalid/thing.bin");   // the URL, last
+    for (const char* flag : {"--silent", "--show-error", "--fail", "--location", "--http1.1", "--retry-all-errors"}) {
+        INFO("flag " << flag);
+        CHECK(has(args, flag));
+    }
+    CHECK(value_after(args, "--proto") == "=https");             // TLS only, and not downgraded by a redirect either
+    CHECK(value_after(args, "--proto-redir") == "=https");
+    CHECK(value_after(args, "--max-redirs") == "10");
+    CHECK(value_after(args, "--retry") == "4");
+    CHECK(value_after(args, "--retry-delay") == "5");
+    CHECK(value_after(args, "--output") == (root / "cache" / "thing" / "thing.bin.part").string());   // into a .part, renamed after the hash
+
+    // the second time it is in the cache, and curl is not called at all
+    r = run(root, m, {"fetch"});
+    CHECK(contains(r.out, "cached   thing"));
+    CHECK(curl.calls().size() == 1);
+    CHECK(run(root, m, {"verify"}).code == kOk);
+}
+
+TEST_CASE("a download that arrives with the wrong hash is discarded, an HTML page is refused, and neither leaves a file", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "what the manifest pinned\n";
+    const std::string served = "what upstream serves today\n";
+    write_text(root / "wrong.bin", served);
+    write_text(root / "page.bin", "<!DOCTYPE html><html><body>404 Not Found</body></html>\n");
+    FakeCurl curl(root);
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", sha256_hex(as_bytes(pinned)))});
+    const fs::path landed = root / "cache" / "thing" / "thing.bin";
+
+    curl.deliver(root / "wrong.bin");
+    Result r = run(root, m, {"fetch"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "HASH MISMATCH"));
+    CHECK(contains(r.err, "(download discarded)"));
+    CHECK(contains(r.err, sha256_hex(as_bytes(served))));        // what it obtained, in full
+    CHECK_FALSE(fs::exists(landed));
+    CHECK_FALSE(fs::exists(landed.string() + ".part"));
+
+    curl.deliver(root / "page.bin");
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "returned an HTML document"));
+    CHECK_FALSE(fs::exists(landed));
+    CHECK_FALSE(fs::exists(landed.string() + ".part"));
+    CHECK(curl.calls().size() == 2);
+}
+
+TEST_CASE("a curl that fails, one that wrote nothing, and one that is not there are each a network failure, in their own words", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", std::string(64, 'a'))});
+    const fs::path landed = root / "cache" / "thing" / "thing.bin";
+    {
+        FakeCurl curl(root);
+        curl.fail(22, "curl: (22) The requested URL returned error: 404");
+        const Result r = run(root, m, {"fetch"});
+        CHECK(r.code == kNetwork);
+        CHECK(contains(r.err, "download failed for https://example.invalid/thing.bin: curl exited 22: curl: (22) The requested URL returned error: 404"));
+        CHECK_FALSE(fs::exists(landed));
+        CHECK_FALSE(fs::exists(landed.string() + ".part"));
+    }
+    {
+        FakeCurl curl(root);   // exit status 0 and no output file
+        const Result r = run(root, m, {"fetch"});
+        CHECK(r.code == kNetwork);
+        CHECK(contains(r.err, "download failed for https://example.invalid/thing.bin"));
+        CHECK_FALSE(fs::exists(landed));
+        CHECK_FALSE(fs::exists(landed.string() + ".part"));
+    }
+    {
+        EnvScope env;          // no curl on PATH at all
+        fs::create_directories(root / "empty");
+        env.set("PATH", (root / "empty").string());
+        const Result r = run(root, m, {"fetch"});
+        CHECK(r.code == kNetwork);
+        CHECK(contains(r.err, "curl is the one host program"));
+        CHECK_FALSE(fs::exists(landed.string() + ".part"));
+    }
+}
+
+TEST_CASE("fetch --refresh downloads what is already cached, and reports upstream drift with the cached copy untouched", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "pinned\n";
+    const std::string digest = make_blob(root, "thing", "thing.bin", pinned);
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", digest)});
+    const fs::path cached = root / "cache" / "thing" / "thing.bin";
+    write_text(root / "drifted.bin", "upstream moved\n");
+    write_text(root / "same.bin", pinned);
+    FakeCurl curl(root);
+
+    curl.deliver(root / "drifted.bin");
+    Result r = run(root, m, {"fetch", "--refresh"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "UPSTREAM DRIFT: thing now hashes "));
+    CHECK(contains(r.err, "The cached copy is untouched."));
+    CHECK(read_text(cached) == pinned);
+    CHECK_FALSE(fs::exists(cached.string() + ".part"));
+
+    curl.deliver(root / "same.bin");
+    r = run(root, m, {"fetch", "--refresh"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "fetching thing"));                   // it downloaded although the file was there
+    CHECK(read_text(cached) == pinned);
+    CHECK(curl.calls().size() == 2);
+}
+
+TEST_CASE("fetch stops at the first entry that fails; --keep-going tries them all, lists the failures, and exits with the first one's code", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string content = "the bytes every URL serves\n";
+    write_text(root / "body.bin", content);
+    const std::string good = sha256_hex(as_bytes(content));
+    const auto entries = [&] {
+        return std::vector<Json>{data_entry("first", "first.bin", good), data_entry("drops", "drops.bin", good),
+                                 data_entry("moved", "moved.bin", std::string(64, 'b')), data_entry("last", "last.bin", good)};
+    };
+    const fs::path m = write_manifest(root, entries());
+    FakeCurl curl(root);
+    curl.deliver(root / "body.bin");
+    curl.fail_only("drops.bin", 35, "curl: (35) TLS connect error");
+
+    // the default: the second entry's connection drops and the run stops there, the last entry untried
+    Result r = run(root, m, {"fetch"});
+    CHECK(r.code == kNetwork);
+    CHECK(curl.calls().size() == 2);
+    CHECK(fs::exists(root / "cache" / "first" / "first.bin"));
+    CHECK_FALSE(fs::exists(root / "cache" / "last" / "last.bin"));
+    CHECK_FALSE(fs::exists(root / "cache" / "receipts.json"));   // as the Python tool: a run that dies writes no receipts
+
+    // --keep-going: every entry is tried, the third (a hash that moved) is refused and discarded, the fourth lands
+    fs::remove_all(root / "cache");
+    r = run(root, m, {"fetch", "--keep-going"});
+    CHECK(r.code == kNetwork);                                  // the FIRST failure's code, not the last's (a mismatch, 2)
+    CHECK(curl.calls().size() == 2 + 4);
+    CHECK(fs::exists(root / "cache" / "first" / "first.bin"));
+    CHECK(fs::exists(root / "cache" / "last" / "last.bin"));
+    CHECK_FALSE(fs::exists(root / "cache" / "drops" / "drops.bin"));
+    CHECK_FALSE(fs::exists(root / "cache" / "moved" / "moved.bin"));
+    CHECK_FALSE(fs::exists(root / "cache" / "moved" / "moved.bin.part"));
+    CHECK(contains(r.err, "download failed for https://example.invalid/drops.bin"));    // each failure's own message is still there ...
+    CHECK(contains(r.err, "HASH MISMATCH"));
+    CHECK(contains(r.err, "fetch: 2 of 4 entries did not make it"));                    // ... and the summary names them, in manifest order
+    CHECK(contains(r.err, pad_right("drops", 34) + " exit 4\n"));
+    CHECK(contains(r.err, pad_right("moved", 34) + " exit 2\n"));
+    CHECK(r.err.find("drops   ") < r.err.find("moved   "));
+    const Json receipts = Json::parse(read_text(root / "cache" / "receipts.json"));   // the receipts are the two that made it
+    const auto& list = receipts.find("receipts")->as_array();
+    REQUIRE(list.size() == 2);
+    CHECK(list[0].find("id")->as_string() == "first");
+    CHECK(list[1].find("id")->as_string() == "last");
+
+    // when nothing fails the flag changes nothing; and it belongs to `fetch` only
+    const fs::path ok = write_manifest(root, {data_entry("first", "first.bin", good), data_entry("last", "last.bin", good)});
+    CHECK(run(root, ok, {"fetch", "--keep-going"}).code == kOk);
+    CHECK(run(root, ok, {"verify", "--keep-going"}).code == kArgument);
 }

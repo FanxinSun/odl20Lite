@@ -10,6 +10,11 @@ catch_discover_tests(odl_toolchain_tests EXTRA_ARGS --warn NoAssertions)
 add_test(NAME fetcher.behaviour
   COMMAND odl_devtools_tests "[fetcher]")
 
+# The derivative of GFZ's file that the tree vendors (L0 step 8 group C1b; tests/devtools/gfz_derive_tests.cpp, tagged [gfz]): the transformation, its
+# refusals, the vendored file's invariants, and the injection of an unchanged sunspot number shown refused.
+add_test(NAME gfz.derivation
+  COMMAND odl_devtools_tests "[gfz]")
+
 # The manifest verifies offline.  This is the property CI depends on (step 4):
 # green means the pinned bytes are the bytes, not that the network was up.
 add_test(NAME manifest.verify_offline

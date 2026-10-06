@@ -53,6 +53,7 @@ does not.
 | `upstream_mutable` | for data | `true` where upstream is known to revise in place. Such an entry SHOULD also carry `archived_url` pinning an immutable snapshot the publisher maintains — and MUST be `vendored` instead where the publisher offers no such snapshot at all (below). |
 | `archived_url` | for mutable data | the publisher's own archive path. The IERS maintains superseded EOP series at stable paths, so pinning records a URL and redistributes nothing. |
 | `vendored` | for data with no stable re-fetch | `true` where the SAME `url`, fetched again, is not merely liable to drift occasionally but structurally cannot reproduce the pinned bytes at all — see "Vendoring" below. The bytes live as a TRACKED file under `data/vendored/<id>/<filename>`, never `data/cache/`; `fetch`/`fetch --refresh` never attempt to re-acquire a vendored entry, and `verify` checks the tracked copy directly. `url` is still recorded, as provenance for where the bytes originally came from, and `licence`/`licence_note` still state the basis for redistributing them — vendoring do not need `archived_url`, since the tracked copy already is the permanent snapshot. |
+| `derived_from_sha256`, `derivation`, `derivation_tool` | for a `vendored` entry whose bytes are not upstream's | the vendored file is ADAPTED from upstream's. `derived_from_sha256` is the hash of the upstream file the entry pinned, `derivation` states the change byte-exactly (which field, which rows, which marker), `derivation_tool` names the C++ tool of this tree that makes it and that refuses an input or an output whose hash is not the pinned one. `sha256` is then the hash of the DERIVATIVE, which is what `verify` checks. Used once, by `gfz-kp-ap-f107`, whose upstream file carries a CC BY-NC 4.0 column that the tree may not redistribute (`tools/gfz_derive.cpp`, `PROVENANCE.md` §41.3). |
 | `retrieved` | on fetch | the date the pin was established |
 
 ### Vendoring: when a stable `url` cannot mean a stable re-fetch
@@ -78,6 +79,13 @@ and `verify` (and `odl_manifest_get` in CMake) resolve the entry's own path to t
 re-fetch of an entry's own `url` cannot be relied on to reproduce its own pinned bytes — not
 "occasionally drifts", but "structurally cannot match", the way a response with its own embedded
 timestamp cannot — vendor it from the start, rather than reaching for `upstream_mutable` alone.
+
+**Vendoring redistributes, so the origin's terms are read BEFORE the bytes are committed** (found at L0 step 8, group C1b, `PROVENANCE.md` §41.3 — four `upstream_mutable` entries had been left unvendored for eighteen days, and GitHub's workflow failed on every run for it). The entry's `licence_note` quotes what was found, and what was found decides:
+
+- a stated grant (USNO's "Distribution Statement A. Approved for public release: distribution unlimited."): vendor the bytes, and quote the grant;
+- no terms stated anywhere that was searched, for facts rather than an expression: `FACTUAL-DATA-CITED`, with the search written up where `search_recorded` points (the leap-second table);
+- a stated licence that the tree's allowlist refuses for part of the file: vendor a DERIVATIVE that lacks that part, byte-exactly stated, made by a C++ tool and checked by a test (`derived_from_sha256`, above), with the licence's attribution and its indication of the change in the entry and in NOTICE;
+- a stated licence that the allowlist refuses for the whole file (non-commercial terms only): NOT vendored, and the entry cannot be fetched on a clean clone either — the decision is the user's (`drao-fluxtable`).
 
 ### A worked entry for mutable data
 

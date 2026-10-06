@@ -36,22 +36,43 @@ jobs:
 
       # The cache key is the manifest's own hash.  Change a pin and the cache
       # misses, which is correct: a different manifest is a different input set.
+      # The cache holds BOTH places the fetcher writes: data/cache, and data/literature
+      # (the pinned papers and standards).  The first version of this workflow cached only
+      # the first, so every run that hit the cache found nothing for `verify` in the second
+      # and failed on its first gate, from 2026-09-18 16:14 UTC (PROVENANCE.md section 41).
+      #
+      # Not for a pull request from a fork.  Its workflow runs code the repository's owner has not reviewed, and could read what the cache holds,
+      # the literature PDFs among it; such a run misses, fetches from origin and saves nothing.
       - name: Restore the manifest cache
         id: cache
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/cache@v4
         with:
-          path: rewrite/data/cache
+          path: |
+            rewrite/data/cache
+            rewrite/data/literature
           key: manifest-${{ hashFiles('rewrite/manifest/manifest.json') }}
 
       # The ONLY step permitted to touch the network, and only on a cache miss.  The tool is C++ (tools/fetch.cpp): compiled first, by the helper
       # ci.sh uses, with the compiler the gates will use, into the directory ci.sh will find it built in.
+      #
+      # `--keep-going`: the run does not stop at the first entry that fails, so ONE run lists every entry that cannot be fetched (an origin refusing
+      # a GitHub runner is found with a drifted pin, not behind it).  `fetch` skips what is already cached and hash-correct, so running it again
+      # retries exactly what failed: a dropped connection (exit 4; some origins drop many) is retried, twice more, a minute apart; anything else, a
+      # HASH MISMATCH (exit 2) above all, is final.  The exit code is the FIRST failure's, in manifest order.
       - name: Populate the cache from origin
         if: steps.cache.outputs.cache-hit != 'true'
         env:
           CXX: g++-13
         run: |
           cmake -DODL_HOST_OUT=build-ci/host -DODL_CXX="$CXX" -P cmake/OdlBuildHostTool.cmake
-          build-ci/host/fetch fetch
+          for attempt in 1 2 3; do
+            status=0
+            build-ci/host/fetch fetch --keep-going || status=$?
+            [ "$status" -eq 4 ] || exit "$status"
+            [ "$attempt" -lt 3 ] && sleep 60
+          done
+          exit 4
 
       # Everything below is offline by construction; ci.sh poisons the proxies
       # so that anything reaching for the network fails instead of succeeding.
