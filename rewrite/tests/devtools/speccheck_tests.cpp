@@ -16,6 +16,8 @@
 
 #include "speccheck.hpp"
 
+#include <sys/stat.h>
+
 #include <cstdlib>
 #include <filesystem>
 #include <map>
@@ -605,15 +607,35 @@ TEST_CASE("the tree-wide scan: the root's own build*/ and data/ are not read, ne
         REQUIRE_FALSE(ec);
         CHECK(scanned.run({"--quiet"}).code == kOk);
     }
-    {   // a directory named x.cpp is a match that reads as nothing; a file that is not UTF-8 is skipped; both leave a real duplicate to be found
+    {   // a directory named x.cpp is a match that reads as nothing, and so are a link to it, a link to nothing and a FIFO (SKIPPED BY RULE: they are not regular files -- C3 left it to what
+        // reading one did, which was an exception on GitHub's ext4 and an error on tmpfs, PROVENANCE section 41.10); a file that is not UTF-8 is skipped; all leave a real duplicate to be found
         Tree t;
         t.spec_file("SPEC-synthetic.md", kMinimalSpec);
         fs::create_directories(t.root / "odd.cpp");
+        std::error_code ec;
+        fs::create_directory_symlink(t.root / "odd.cpp", t.root / "dir_link.cpp", ec);
+        REQUIRE_FALSE(ec);
+        fs::create_symlink(t.root / "nowhere", t.root / "dangling.cpp", ec);
+        REQUIRE_FALSE(ec);
+        REQUIRE(::mkfifo((t.root / "fifo.cpp").c_str(), 0600) == 0);   // opening one would wait for ever
         t.write("latin1.cpp", std::string("// caf\xE9\n") + claim("SRPA-A-011", "hidden by an encoding error: skipped, as the Python skipped it"));
         t.write("a_tests.cpp", claim("SRPA-A-011", "the one"));
-        CHECK(t.run({"--quiet"}).code == kOk);   // the only readable claim is single
+        const Result single = t.run({"--quiet"});
+        CHECK(single.code == kOk);   // the only readable claim is single
+        CHECK_FALSE(contains(single.both(), "internal error"));
         t.write("b_tests.cpp", claim("SRPA-A-011", "the other"));
         CHECK(t.run({"--quiet"}).code == kGaps);
+    }
+    {   // a link to a regular file is that file, as pathlib read it: the same source under two names claims its id twice
+        Tree t;
+        t.spec_file("SPEC-synthetic.md", kMinimalSpec);
+        t.write("a_tests.cpp", claim("SRPA-A-011", "the one"));
+        std::error_code ec;
+        fs::create_symlink(t.root / "a_tests.cpp", t.root / "alias_tests.cpp", ec);
+        REQUIRE_FALSE(ec);
+        const Result r = t.run({"--quiet"});
+        CHECK(r.code == kGaps);
+        CHECK(contains(r.err, "alias_tests.cpp"));
     }
     {   // a --cpp-root that is not there has nothing to claim
         Tree t;

@@ -708,6 +708,10 @@ bool check_duplicate_test_case_claims(Io& io, const std::string& root_given, boo
             relative += (relative.empty() ? "" : "/") + part;
             file /= part;
         }
+        // A name that matches is not yet a source file: a directory called x.cpp, a link to nothing, a FIFO hold none, and are skipped BY RULE here, not by what reading one happens to
+        // do on this filesystem (C3 relied on the latter and exited 70 on GitHub's runner, whose ext4 answers differently from tmpfs: PROVENANCE section 41.10).
+        std::error_code kind_error;
+        if (!fs::is_regular_file(file, kind_error)) continue;
         std::string text;
         try {
             text = dk::universal_newlines(dk::read_text(file));

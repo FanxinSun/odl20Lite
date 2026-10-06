@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <new>
 #include <stdexcept>
 #include <system_error>
 
@@ -18,13 +19,25 @@ namespace {
 }  // namespace
 
 Bytes read_bytes(const std::filesystem::path& file) {
+    // WHAT A FILE IS IS DECIDED BEFORE IT IS OPENED, by its type and not by what the filesystem says about its size.  C3 read the size of a DIRECTORY (a source tree may hold one called
+    // x.cpp) as "seek to the end, tell": tmpfs answers -1 there, ext4 -- GitHub's runner, whose /tmp is a disk -- answers 2^63-1, the vector of that size threw std::bad_alloc, which is no
+    // std::runtime_error, and speccheck exited 70 on the runner and 0 here (plan L0 step 8, group C4, PROVENANCE section 41.10).  A FIFO would not even be opened: it blocks.
+    std::error_code kind_error;
+    const std::filesystem::file_status kind = std::filesystem::status(file, kind_error);   // follows a link, as opening it does
+    if (kind_error) throw std::runtime_error("cannot read " + file.string() + ": " + kind_error.message());
+    if (!std::filesystem::is_regular_file(kind)) throw std::runtime_error("cannot read " + file.string() + ": it is not a regular file");
     std::ifstream in(file, std::ios::binary);
     if (!in) throw std::runtime_error("cannot read " + file.string() + ": " + reason(errno));
     in.seekg(0, std::ios::end);
     const std::streamoff size = in.tellg();
     if (size < 0) throw std::runtime_error("cannot read " + file.string() + ": it is not a regular file");
     in.seekg(0, std::ios::beg);
-    Bytes out(static_cast<std::size_t>(size));
+    Bytes out;
+    try {
+        out.resize(static_cast<std::size_t>(size));
+    } catch (const std::bad_alloc&) {   // a file too large for the memory there is is still a refusal that names the file, never an internal error
+        throw std::runtime_error("cannot read " + file.string() + ": it is too large to read into memory");
+    }
     if (!out.empty()) in.read(reinterpret_cast<char*>(out.data()), size);
     if (!in) throw std::runtime_error("cannot read " + file.string() + ": a read failed");
     return out;
