@@ -198,3 +198,5 @@ add_test(NAME gravity.gradient_reference_header_matches_its_generator
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/gradient_reference.py" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/gravity/tests/gradient_reference.hpp")
 add_test(NAME forcemodel.fd_sizing_reproduces
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/forcemodel_fd_sizing.py" --check)
+add_test(NAME forcemodel.comparator_header_matches_its_generator
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/forcemodel_comparator_header.py" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/forcemodel/tests/comparator_polynomials.hpp")

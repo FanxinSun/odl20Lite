@@ -165,6 +165,8 @@ add_subdirectory(modules/spacecraft)
 # L6 io-measurements: formats in, measurements out (PLAN.md §3.7).
 add_subdirectory(modules/io)
 add_subdirectory(modules/measmod)
+# L7 step 1 (SPEC-forcemodel.md): L2's models as dyn::Force plugins, APART FROM THE ESTIMATOR (the manager's ruling R1).
+add_subdirectory(modules/forcemodel)
 
 add_subdirectory(tools)
 
