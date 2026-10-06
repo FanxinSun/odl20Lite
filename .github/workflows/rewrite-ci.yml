@@ -69,12 +69,14 @@ jobs:
       # `--skip-literature`: the literature entries are not fetched (see the cache step above; the tool says how many it left).
       #
       # `timeout-minutes` is the backstop under the 30-second connect timeout of tools/fetch.cpp.  A host that refuses the runner now costs one entry 170 s a
-      # pass where it cost 620, but a host with many entries would still cost hours, and on 2026-10-06 two such hosts made this step last about two hours
-      # (PROVENANCE.md section 41.7).  Forty minutes is a deliberate guess: nobody has timed a clean fetch of the whole manifest on a runner, and the first green run's time
-      # for this step is the number to tighten it with.  A step that reaches it has found a host that refuses us, which is the finding.
+      # pass where it cost 620, but a host with many entries would still cost hours.  Its number is a MEASUREMENT (read from the log of run 37465937705, 2026-10-06):
+      # that run spent 65 min 11 s in this step (12:48:54Z to 13:54:05Z) and stopped after its first pass; about 60 of those minutes were the six entries no
+      # runner could reach (5 attempts x 120 s each), and the ~107 good downloads took about 5.  With literature skipped and Vallado vendored, a cache-miss pass
+      # should take about 5 minutes, so 20 is four times the measured real time.  A step that reaches it has found a host that refuses us, which is the finding
+      # (PROVENANCE.md section 41.7).
       - name: Populate the cache from origin
         if: steps.cache.outputs.cache-hit != 'true'
-        timeout-minutes: 40
+        timeout-minutes: 20
         env:
           CXX: g++-13
         run: |

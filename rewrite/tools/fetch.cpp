@@ -83,8 +83,8 @@ constexpr int kInternal = 70;       // an error the tool did not anticipate (an 
 //
 // The CONNECT timeout is how long to wait for a host that has not answered AT ALL (curl counts the connection phase: DNS, TCP and the TLS handshake).  A
 // host that is answering does that in well under a second, and one that is not will not start because it was given two minutes: on 2026-10-06 (PROVENANCE.md
-// section 41.7) GitHub's runners waited 120 s, five attempts over, three passes, for each of the entries that CelesTrak and the UNT library never answered,
-// and the run took two hours to say so.  30 s covers five SYN transmissions (the kernel sends them at 0, 1, 3, 7 and 15 s) and every handshake that
+// section 41.7) GitHub's runners waited 120 s, five attempts over, for each of the six entries that CelesTrak and the UNT library never answered: about 60 of
+// the 65 minutes the fetch step took.  30 s covers five SYN transmissions (the kernel sends them at 0, 1, 3, 7 and 15 s) and every handshake that
 // completes, so it costs a healthy host nothing; and the retries STAY, because they are what cured the dropped handshakes of group C1b (a host that drops
 // one connection in a hundred is answered by the next attempt, not by a longer wait).  A refusing host now costs one entry 5 x 30 s + 4 x 5 s = 170 s per
 // pass, where it cost 620 s.
