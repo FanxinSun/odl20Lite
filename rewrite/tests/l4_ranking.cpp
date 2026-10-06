@@ -91,6 +91,41 @@
 // PLUGINS over one photon-pressure kernel"). Erp is measured at the GPS point
 // alongside Srp for the same reason box-wing composition is: Earth radiation
 // pressure is real and this table should not omit it silently.
+//
+// ============================================================================
+// CORRECTION, 2026-10-06 (L7 step 1, the manager's ruling R3). EVERYTHING ABOVE
+// IS KEPT AS WRITTEN; where it describes the relativity rows it is the FIRST
+// text, and this block governs.
+//
+// EVERY de Sitter ROW OF THIS TABLE WAS 1000x TOO LARGE. relativity_terms()
+// built the Earth-about-the-Sun state by applying km_from_metres to the two
+// Vec3s of Ephemeris::RelativeState, which are ALREADY km and km/s -- a second
+// division by 1000. De Sitter goes as Rdot/R^2, so it came out 1000x too large
+// (3.98e-8 m/s^2 at the 300 km point; the truth is 4e-11). Schwarzschild and
+// Lense-Thirring take only the satellite's state and were right.
+//
+// HOW IT PASSED, from this header's own words: the relativity band's first-
+// registered upper edge (1e-8) was breached by the slipped value (de Sitter
+// 2.25e-8 at the GPS point) and the edge was WIDENED by a decade as "estimation
+// slop, under 5x", then shared by all three terms ("cannot be a decade wide and
+// still catch all three"). The first edge was in the right place and was the
+// detector; widening it switched the detector off, and the "under 5x" was a
+// thousandfold. A miss was read as slop and a band moved toward the measurement.
+//
+// WHAT REPLACES IT, registered at PROVENANCE.md 40.4 and committed BEFORE this
+// code was compiled or run: (1) the Earth-about-the-Sun state is built from the
+// TYPED State (the Sun's geocentric_state, negated: no unit crossing at all),
+// with the untagged relative_state as a bounded cross-check; (2) ONE BAND PER
+// TERM from closed forms of TN36-10 (10.12) for this fixture's circular
+// equatorial orbit -- Schwarzschild and Lense-Thirring to +-1e-6, de Sitter
+// bracketed a priori to [0.85, 1.06] x A_c from the Earth's perihelion,
+// aphelion and obliquity -- with TN36-10 s10.3's published magnitudes beside;
+// (3) the ORDERING ("the smallest force the model keeps") is derived from the
+// bands and asserted; (4) a CONTROL at every one of the four geometries: the
+// slip, restored, must fall outside the de Sitter band (plan s4 rule 5). The
+// bands "widened one decade" in the text above, and the call sites' notes on
+// them, are the first text and are no longer how the relativity rows are gated.
+// ============================================================================
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -239,16 +274,114 @@ double ocean_tide_floor(double r_m, double newtonian_m_s2) {
 /// rather than l2_floors.cpp's own hand-built circular heliocentric
 /// approximation -- more precise, same physical quantity the function asks
 /// for.
+///
+/// [CORRECTED 2026-10-06, L7 step 1, R3: the paragraph above is the first text and
+/// is kept. As first written this function built the state with
+/// `km_from_metres(earth_about_sun->position_km)` and `...velocity_km_s)` -- values
+/// ALREADY in km and km/s, divided by 1000 a second time (the header's dated block).
+/// The state now comes from `earth_about_sun()` below; the first construction is kept,
+/// on purpose, as the CONTROL in `report_l2_terms`.]
+///
+/// THE TYPED ROUTE. The Sun's `geocentric_state` is a `State<GCRS>` -- km and km/s, the
+/// Sun as seen from the Earth -- and the Earth as seen from the Sun is its negation
+/// (de Sitter's Rdot x R is unchanged by negating both). There is no unit crossing at
+/// all, and no bare double passes through a unit helper. The `State<BCRS>` tag is the
+/// argument type of `Correction::by_term`, as in tests/l2_floors.cpp; the value is
+/// Sun-centred, as the function's own doc comment requires.
+///
+/// THE CROSS-CHECK. The untagged `relative_state(Earth, Sun)` is the same kernel
+/// difference taken the other way, so the two differ by a few ulp of 1.5e8 km (3e-8 km)
+/// and of 30 km/s (4e-15 km/s): the bounds below, 1e-6 km and 1e-12 km/s, are 34 and 280
+/// ulp (PROVENANCE.md 40.4). They are premises: if one fails the table is not evaluated.
+frames::State<frames::Frame::BCRS> earth_about_sun(const odl::time::Epoch& when) {
+    auto sun = ephemeris().geocentric_state(eph::Body::Sun, when, leaps());
+    REQUIRE(sun.has_value());
+    const Vec3 r = -1.0 * sun->position();    // km
+    const Vec3 v = -1.0 * sun->velocity();    // km/s
+
+    auto rel = ephemeris().relative_state(eph::Body::Earth, eph::Body::Sun, when, leaps());
+    REQUIRE(rel.has_value());
+    REQUIRE(std::abs(r.x - rel->position_km.x) <= 1.0e-6);
+    REQUIRE(std::abs(r.y - rel->position_km.y) <= 1.0e-6);
+    REQUIRE(std::abs(r.z - rel->position_km.z) <= 1.0e-6);
+    REQUIRE(std::abs(v.x - rel->velocity_km_s.x) <= 1.0e-12);
+    REQUIRE(std::abs(v.y - rel->velocity_km_s.y) <= 1.0e-12);
+    REQUIRE(std::abs(v.z - rel->velocity_km_s.z) <= 1.0e-12);
+
+    // The Earth is inside its own orbit's range, 0.98 - 1.02 AU: a unit slip puts it at 1.5e5 km or
+    // 1.5e11 km, and this is the premise the closed forms' a-priori interval rests on.
+    constexpr double kAuKm = 1.495978707e8;
+    REQUIRE(r.norm() / kAuKm > 0.98);
+    REQUIRE(r.norm() / kAuKm < 1.02);
+    return frames::State<frames::Frame::BCRS>{when, r, v};
+}
+
 std::vector<relativity::NamedAcceleration> relativity_terms(const Vec3& r_m, const Vec3& v_m_s,
                                                               const odl::time::Epoch& when) {
     const frames::State<frames::Frame::GCRS> sat{when, odl::km_from_metres(r_m), odl::km_from_metres(v_m_s)};
-    auto earth_about_sun = ephemeris().relative_state(eph::Body::Earth, eph::Body::Sun, when, leaps());
-    REQUIRE(earth_about_sun.has_value());
-    const frames::State<frames::Frame::BCRS> earth{when, odl::km_from_metres(earth_about_sun->position_km),
-                                                    odl::km_from_metres(earth_about_sun->velocity_km_s)};
-    auto parts = relativity::Correction::by_term(sat, earth);
+    auto parts = relativity::Correction::by_term(sat, earth_about_sun(when));
     REQUIRE(parts.has_value());
     return *parts;
+}
+
+// --- The relativity rows' bands: ONE PER TERM, from closed forms (2026-10-06, R3) ---------
+// REGISTERED at PROVENANCE.md 40.4 and committed BEFORE this code was compiled or run. The
+// closed forms are TN36-10 (10.12) reduced for THIS fixture's orbit -- circular (r.v = 0) and
+// equatorial in the GCRS (r and v both perpendicular to J, which the module takes along the
+// GCRS z-axis) -- and the premises are ASSERTED, not assumed. They use the module's exposed
+// constants, and nothing the module or this table computes.
+
+struct RelativityBands {
+    double s_lo, s_hi;      ///< Schwarzschild      GM_E (4 GM_E / r - v^2) / (c^2 r^2),   +-1e-6 relative
+    double lt_lo, lt_hi;    ///< Lense-Thirring     2 GM_E J v / (c^2 r^3),               +-1e-6 relative
+    double ds_lo, ds_hi;    ///< de Sitter          [0.85, 1.06] x 3 (GM_S/(c^2 AU^2)) sqrt(GM_S/AU) v
+    double ds_circ;         ///< the de Sitter closed form for the Earth on a circular 1 AU orbit (A_c)
+    relativity::Term smallest;   ///< DERIVED from the three bands alone: the one whose upper edge is below the others' lower
+};
+
+RelativityBands relativity_bands(const Vec3& r_m, const Vec3& v_m_s) {
+    using relativity::Correction;
+    const double r = r_m.norm();
+    const double v = v_m_s.norm();
+    // THE PREMISES of the closed forms.
+    REQUIRE(std::abs(r_m.dot(v_m_s)) <= 1.0e-12 * r * v);   // circular
+    REQUIRE(std::abs(r_m.z) <= 1.0e-12 * r);                // r perpendicular to J
+    REQUIRE(std::abs(v_m_s.z) <= 1.0e-12 * v);              // v perpendicular to J
+
+    constexpr double kRelTol = 1.0e-6;               // registered: Schwarzschild, Lense-Thirring
+    constexpr double kDsLoFactor = 0.85;             // registered: de Sitter's a-priori interval,
+    constexpr double kDsHiFactor = 1.06;             //   [0.85, 1.06] x A_c (PROVENANCE.md 40.4)
+    constexpr double kAu = 1.495978707e11;           // IAU 2012, as tests/l2_floors.cpp uses it
+    const double c2 = Correction::kC * Correction::kC;
+    const double gme = Correction::kGmEarth;
+    const double gms = Correction::kGmSun;
+
+    const double s = gme * (4.0 * gme / r - v * v) / (c2 * r * r);
+    const double lt = 2.0 * gme * Correction::kEarthAngularMomentumPerMass * v / (c2 * r * r * r);
+    const double ds_c = 3.0 * (gms / (c2 * kAu * kAu)) * std::sqrt(gms / kAu) * v;
+
+    RelativityBands b{};
+    b.s_lo = s * (1.0 - kRelTol);   b.s_hi = s * (1.0 + kRelTol);
+    b.lt_lo = lt * (1.0 - kRelTol); b.lt_hi = lt * (1.0 + kRelTol);
+    b.ds_lo = kDsLoFactor * ds_c;   b.ds_hi = kDsHiFactor * ds_c;
+    b.ds_circ = ds_c;
+
+    // The ordering the layers above consume ("the smallest force the model keeps"), decided by the
+    // bands alone: a term is the smallest only if its band lies wholly below the other two.
+    struct Row { relativity::Term t; double lo, hi; };
+    const Row rows[3] = {{relativity::Term::Schwarzschild, b.s_lo, b.s_hi},
+                         {relativity::Term::LenseThirring, b.lt_lo, b.lt_hi},
+                         {relativity::Term::DeSitter, b.ds_lo, b.ds_hi}};
+    int decided = 0;
+    b.smallest = relativity::Term::Schwarzschild;
+    for (int i = 0; i < 3; ++i) {
+        bool below_all = true;
+        for (int j = 0; j < 3; ++j)
+            if (j != i && !(rows[i].hi < rows[j].lo)) below_all = false;
+        if (below_all) { b.smallest = rows[i].t; ++decided; }
+    }
+    REQUIRE(decided == 1);   // the registered bands decide the ordering, and decide it once
+    return b;
 }
 
 /// Every L2 term this table now ranks, at one call site, so every reference
@@ -258,8 +391,10 @@ std::vector<relativity::NamedAcceleration> relativity_terms(const Vec3& r_m, con
 /// this function's own first draft did that, silently, and is fixed here).
 void report_l2_terms(const Vec3& r_m, const Vec3& v_m_s, const odl::time::Epoch& when,
                      double newtonian_m_s2, double harm_lo, double harm_hi, double sun_lo, double sun_hi,
-                     double moon_lo, double moon_hi, double tide_lo, double tide_hi, double rel_lo,
-                     double rel_hi) {
+                     double moon_lo, double moon_hi, double tide_lo, double tide_hi) {
+    // [2026-10-06, R3: the trailing `double rel_lo, double rel_hi` -- ONE band shared by the three
+    // relativity terms, [1e-13, 1e-7] at every call site -- are gone; the relativity rows below carry
+    // one band per term, derived inside `relativity_bands()` from closed forms.]
     const double harm = harmonics_beyond_point_mass(r_m, when);
     report_row("gravity, EGM2008 deg 2 ord 0 minus point mass (J2 and below)", harm, harm_lo, harm_hi);
     CHECK(harm > harm_lo);
@@ -282,10 +417,60 @@ void report_l2_terms(const Vec3& r_m, const Vec3& v_m_s, const odl::time::Epoch&
     CHECK(tide > tide_lo);
     CHECK(tide < tide_hi);
 
+    // --- the three relativity terms, ONE BAND EACH (2026-10-06, R3; PROVENANCE.md 40.4) ---
+    const RelativityBands rb = relativity_bands(r_m, v_m_s);
+    WARN("    relativity: closed forms for this circular equatorial orbit -- Schwarzschild "
+         << 0.5 * (rb.s_lo + rb.s_hi) << ", Lense-Thirring " << 0.5 * (rb.lt_lo + rb.lt_hi)
+         << ", de Sitter A_c " << rb.ds_circ << " (band [0.85, 1.06] x A_c); the smallest, by the bands alone: "
+         << relativity::name_of(rb.smallest));
+    int n_terms = 0;
+    double measured_smallest_a = 1.0e300;
+    relativity::Term measured_smallest = relativity::Term::Schwarzschild;
     for (const auto& p : relativity_terms(r_m, v_m_s, when)) {
-        report_row(relativity::name_of(p.term), p.a_m_s2.norm(), rel_lo, rel_hi);
-        CHECK(p.a_m_s2.norm() > rel_lo);
-        CHECK(p.a_m_s2.norm() < rel_hi);
+        const double a = p.a_m_s2.norm();
+        double lo = 0.0, hi = 0.0, tn_lo = 0.0, tn_hi = 0.0;
+        switch (p.term) {
+            case relativity::Term::Schwarzschild:
+                lo = rb.s_lo;  hi = rb.s_hi;  tn_lo = 1.0e-10; tn_hi = 1.0e-8;  break;
+            case relativity::Term::LenseThirring:
+                lo = rb.lt_lo; hi = rb.lt_hi; tn_lo = 1.0e-13; tn_hi = 1.0e-10; break;
+            case relativity::Term::DeSitter:
+                lo = rb.ds_lo; hi = rb.ds_hi; tn_lo = 1.0e-13; tn_hi = 1.0e-10; break;
+        }
+        report_row(relativity::name_of(p.term), a, lo, hi);
+        CHECK(a > lo);
+        CHECK(a < hi);
+        // TN36-10 s10.3's published magnitudes, as PERT-P-4 records them, beside the closed forms and
+        // independent of them: Schwarzschild "a few parts in 1e10 (high orbits) to 1e9 (low)" of the main
+        // acceleration, Lense-Thirring and de Sitter "1e-11 to 1e-12" of it, a decade either side.
+        CHECK(a / newtonian_m_s2 > tn_lo);
+        CHECK(a / newtonian_m_s2 < tn_hi);
+        if (a < measured_smallest_a) { measured_smallest_a = a; measured_smallest = p.term; }
+        ++n_terms;
+    }
+    REQUIRE(n_terms == 3);   // a count with its denominator: three terms ran, none skipped
+    // THE ORDERING the layers above consume, as the bands derived it. As first written this table said
+    // Lense-Thirring was the smallest at the three low points; it is de Sitter.
+    CHECK(measured_smallest == rb.smallest);
+
+    // THE CONTROL (plan s4 rule 5: a guard is proven by making it fire, in the place it will have to fire
+    // from), at THIS point's own geometry. The slip of 2026-09-24 -- `km_from_metres` applied to the Earth
+    // state's km and km/s -- restored, on the side, must fall OUTSIDE the de Sitter band by orders of
+    // magnitude (PROVENANCE.md 40.4 registers 825x - 930x at the four points; asserted at 100x), and where
+    // de Sitter is the smallest it must reorder the table.
+    {
+        const frames::State<frames::Frame::BCRS> earth = earth_about_sun(when);
+        const frames::State<frames::Frame::BCRS> slipped{when, odl::km_from_metres(earth.position()),
+                                                          odl::km_from_metres(earth.velocity())};
+        const frames::State<frames::Frame::GCRS> sat{when, odl::km_from_metres(r_m), odl::km_from_metres(v_m_s)};
+        auto ds = relativity::Correction::by_term(sat, slipped, relativity::Terms::only(relativity::Term::DeSitter));
+        REQUIRE(ds.has_value());
+        REQUIRE(ds->size() == 1);
+        const double a_slipped = (*ds)[0].a_m_s2.norm();
+        WARN("    CONTROL (expected OUTSIDE its band): de Sitter with the 2026-09-24 slip restored   " << a_slipped
+             << " m/s^2 = " << a_slipped / rb.ds_hi << " x the band's upper edge");
+        CHECK(a_slipped > 100.0 * rb.ds_hi);
+        if (rb.smallest == relativity::Term::DeSitter) CHECK(a_slipped > rb.lt_hi);   // the ordering would flip
     }
 }
 
@@ -525,7 +710,11 @@ TEST_CASE("L4 ranking: the GPS point -- G01-like cannonball SRP, ERP, antenna "
     // (a backwards comparison, >10x): both misses here are under 5x.
     report_l2_terms(orbit.r, orbit.v, when, newtonian,
                      /*harm*/ 5.0e-7, 1.0e-4, /*sun*/ 1.0e-7, 1.0e-4, /*moon*/ 1.0e-7, 1.0e-4,
-                     /*tide*/ 1.0e-15, 1.0e-12, /*rel*/ 1.0e-13, 1.0e-7);
+                     /*tide*/ 1.0e-15, 1.0e-12);
+    // [2026-10-06, R3: the call was `... /*tide*/ 1.0e-15, 1.0e-12, /*rel*/ 1.0e-13, 1.0e-7);` -- one band for
+    // the three relativity terms, "widened one decade" above. That band hid the 1000x de Sitter slip (the
+    // header's dated block); the relativity rows now carry one band per term, from closed forms,
+    // inside report_l2_terms. The first text above is kept.]
 
     CHECK(srp_mag > 1.0e-8);
     CHECK(srp_mag < 1.0e-6);
@@ -611,7 +800,9 @@ TEST_CASE("L4 ranking: the LEO drag point, two radii -- one point would hide "
         // file's one >10x finding).
         report_l2_terms(orbit.r, orbit.v, when, newtonian,
                          /*harm*/ 1.0e-3, 1.0e-1, /*sun*/ 1.0e-7, 1.0e-4, /*moon*/ 1.0e-7, 1.0e-4,
-                         /*tide*/ 1.0e-11, 1.0e-8, /*rel*/ 1.0e-13, 1.0e-7);
+                         /*tide*/ 1.0e-11, 1.0e-8);
+        // [2026-10-06, R3: was `... /*tide*/ 1.0e-11, 1.0e-8, /*rel*/ 1.0e-13, 1.0e-7);`, the shared band
+        // "widened one decade" in the comment above; see the header's dated block. First text kept.]
     }
 }
 
@@ -698,7 +889,9 @@ TEST_CASE("L4 ranking: the sail point -- LightSail-2 (32 m^2, 4.93 kg), where "
     // rel band widened one decade, same reasoning as both other TEST_CASEs.
     report_l2_terms(orbit.r, orbit.v, when, kGm / (r_m * r_m),
                      /*harm*/ 1.0e-3, 1.0e-1, /*sun*/ 1.0e-7, 1.0e-4, /*moon*/ 1.0e-7, 1.0e-4,
-                     /*tide*/ 1.0e-11, 1.0e-8, /*rel*/ 1.0e-13, 1.0e-7);
+                     /*tide*/ 1.0e-11, 1.0e-8);
+    // [2026-10-06, R3: was `... /*tide*/ 1.0e-11, 1.0e-8, /*rel*/ 1.0e-13, 1.0e-7);`; see the header's
+    // dated block. First text kept.]
 
     CHECK(srp_mag > 1.0e-6);
     CHECK(srp_mag < 1.0e-3);
@@ -710,4 +903,39 @@ TEST_CASE("L4 ranking: the sail point -- LightSail-2 (32 m^2, 4.93 kg), where "
     // cannonball at the same altitude, which is exactly why "what is modelled
     // at all" cannot be decided from a single reference object.
     CHECK(srp_mag > drag_mag);
+}
+
+// --- The de Sitter closed form behind the bands, against tests/l2_floors.cpp's gated value ----------
+// (2026-10-06, R3; PROVENANCE.md 40.4.) The de Sitter band is built around A_c = 3 (GM_S/(c^2 AU^2))
+// sqrt(GM_S/AU) v, the Earth on a circular orbit at 1 AU. That formula is anchored here, where it is EXACT
+// -- tests/l2_floors.cpp's own geometry: r = 7331 km, v = (0, 0.8 v_c, 0.6 v_c), the Earth at (1 AU, 0, 0)
+// moving (0, V_c, 0), so that sin(phi) = |z x (0, 0.8, 0.6)| = 0.8 -- against the PRINTED value that file
+// gates (3.478e-11 m/s^2, to its four digits) and against the module at ONE part in a million.
+TEST_CASE("L4 ranking: the de Sitter closed form behind the bands reproduces tests/l2_floors.cpp's printed "
+          "3.478e-11 at that file's own geometry, and the module",
+          "[l4][spec][ranking]") {
+    using relativity::Correction;
+    constexpr double kGm = 3.986004415e14;     // l2_floors.cpp's own
+    constexpr double kR = 7331e3;              // l2_floors.cpp's own: TN36-6 Table 6.1's LEO row
+    constexpr double kAu = 1.495978707e11;
+    const double v = std::sqrt(kGm / kR);
+    const double v_earth = std::sqrt(Correction::kGmSun / kAu);
+    const double closed = 3.0 * 0.8 * (Correction::kGmSun / (Correction::kC * Correction::kC * kAu * kAu))
+                        * v_earth * v;
+
+    auto epoch = odl::time::Epoch::from_gps_week(2000, 0.0);
+    REQUIRE(epoch.has_value());
+    const frames::State<frames::Frame::GCRS> sat{*epoch, odl::km_from_metres(Vec3{kR, 0.0, 0.0}),
+                                                 odl::km_from_metres(Vec3{0.0, v * 0.8, v * 0.6})};
+    const frames::State<frames::Frame::BCRS> earth{*epoch, odl::km_from_metres(Vec3{kAu, 0.0, 0.0}),
+                                                   odl::km_from_metres(Vec3{0.0, v_earth, 0.0})};
+    auto parts = Correction::by_term(sat, earth, relativity::Terms::only(relativity::Term::DeSitter));
+    REQUIRE(parts.has_value());
+    REQUIRE(parts->size() == 1);
+    const double module = (*parts)[0].a_m_s2.norm();
+
+    WARN("de Sitter at tests/l2_floors.cpp's geometry: closed form " << closed << ", module " << module
+         << ", printed and gated 3.478e-11 m/s^2");
+    CHECK(std::abs(closed - 3.478e-11) <= 0.5e-14);      // 3.478 +- 0.0005, in units of 1e-11: the printed digits
+    CHECK(std::abs(module - closed) <= 1.0e-6 * closed);
 }
