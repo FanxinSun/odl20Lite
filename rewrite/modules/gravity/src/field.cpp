@@ -178,6 +178,23 @@ struct Synthesis {
     double potential = 0.0;
     Vec3 acceleration{};
     std::vector<Vec3> by_degree;
+    Mat3 gradient{};            ///< only when the synthesis was asked for it (SPEC-gravity §4.7)
+};
+
+/// WHERE THE COEFFICIENTS COME FROM (SPEC-gravity §4.7, v1.4).  The synthesis below was `synthesise(const
+/// ConventionalField&, ...)`, reading `f.c(n, m)`; it is now a template over this accessor, so that the field's own
+/// coefficients and a `CoefficientView` — a tide's increments — go through ONE copy of the arithmetic.  The
+/// instantiation for the field with no gradient is the code that was here, operation for operation, and
+/// GRAV-A-036 holds it to that, bit for bit.
+struct FieldCoefficients {
+    const ConventionalField& f;
+    [[nodiscard]] double c(int n, int m) const noexcept { return f.c(n, m); }
+    [[nodiscard]] double s(int n, int m) const noexcept { return f.s(n, m); }
+};
+struct ViewCoefficients {
+    const CoefficientView& v;
+    [[nodiscard]] double c(int n, int m) const noexcept { return v.c(n, m); }
+    [[nodiscard]] double s(int n, int m) const noexcept { return v.s(n, m); }
 };
 
 // The global scale factor, and the measurement that fixes it.
@@ -210,11 +227,10 @@ struct Synthesis {
 constexpr double kScale    = 1e-280;
 constexpr double kUnscale  = 1e280;
 
-Synthesis synthesise(const ConventionalField& f, const Vec3& pos_m, int N, int M,
-                     bool want_by_degree) {
+template <class Coefficients, bool kGradient>
+Synthesis synthesise(const RecursionTable& recursion, double gm, double ae, const Coefficients& co,
+                     const Vec3& pos_m, int N, int M, bool want_by_degree) {
     const Spherical sph = to_spherical(pos_m);
-    const double gm = f.scaling().gm_m3_s2();
-    const double ae = f.scaling().ae_m();
     const double ratio = ae / sph.r;
     const double c = sph.c;
     const double u = sph.u;
@@ -226,6 +242,12 @@ Synthesis synthesise(const ConventionalField& f, const Vec3& pos_m, int N, int M
     // anywhere else, so the pole is an ordinary point.
     std::vector<double> H1(n1, 0.0), H2(n1, 0.0), H3a(n1, 0.0), H3b(n1, 0.0);
     std::vector<double> P(n1, 0.0), dP(n1, 0.0);
+    // SPEC-gravity §4.7: the second derivative, and the six nests of the tensor — an "a" nest carrying c^m over
+    // every m and a "b" nest carrying c^(m-2) over m >= 2 (so that no negative power of c is ever formed,
+    // GRAV-R-062), for each of the three second-order sums.  Empty when no gradient was asked for.
+    const std::size_t ng = kGradient ? n1 : 0;
+    std::vector<double> d2P(ng, 0.0);
+    std::vector<double> Daa(ng, 0.0), Dab(ng, 0.0), Dpa(ng, 0.0), Dpb(ng, 0.0), Dla(ng, 0.0), Dlb(ng, 0.0);
 
     // cos(m lambda) and sin(m lambda) for m = M down to 0, by the standard
     // downward pair recursion from the two highest orders.  These are the
@@ -241,12 +263,16 @@ Synthesis synthesise(const ConventionalField& f, const Vec3& pos_m, int N, int M
     }
 
     for (int m = M; m >= 0; --m) {
-        legendre_column(f.recursion(), m, N, u, kScale, P.data(), dP.data());
+        if constexpr (kGradient) {
+            legendre_column2(recursion, m, N, u, kScale, P.data(), dP.data(), d2P.data());
+        } else {
+            legendre_column(recursion, m, N, u, kScale, P.data(), dP.data());
+        }
 
         const double dm = static_cast<double>(m);
         for (int n = m; n <= N; ++n) {
             const auto un = static_cast<std::size_t>(n);
-            const double C = f.c(n, m), S = f.s(n, m);
+            const double C = co.c(n, m), S = co.s(n, m);
             const double p = P[un], dp = dP[un];
             const double w  = C * cm + S * sm;          // C cos(m lambda) + S sin(m lambda)
             const double wp = S * cm - C * sm;          // S cos(m lambda) - C sin(m lambda)
@@ -255,6 +281,20 @@ Synthesis synthesise(const ConventionalField& f, const Vec3& pos_m, int N, int M
             if (m > 0) {
                 H2[un]  = dm * wp * p        + c * H2[un];
                 H3a[un] = -dm * u * w * p    + c * H3a[un];
+            }
+            if constexpr (kGradient) {
+                // SPEC-gravity §4.7.  Horner over m, as above: each "a" nest is sum_m c^m t_m (every m, down to 0);
+                // each "b" nest is sum_{m>=2} c^(m-2) s_m (m down to 2, so its last step carries no power of c).
+                const double p2 = d2P[un];
+                Daa[un] = w * (-dm * p - (2.0 * dm + 1.0) * u * dp + c * c * p2) + c * Daa[un];
+                Dpa[un] = dm * wp * dp                                           + c * Dpa[un];
+                Dla[un] = w * (-dm * p - u * dp)                                 + c * Dla[un];
+                if (m >= 2) {
+                    const double mm = dm * (dm - 1.0);
+                    Dab[un] =  mm * w * u * u * p + c * Dab[un];
+                    Dpb[un] = -mm * wp * u * p    + c * Dpb[un];
+                    Dlb[un] = -mm * w * p         + c * Dlb[un];
+                }
             }
         }
 
@@ -277,6 +317,8 @@ Synthesis synthesise(const ConventionalField& f, const Vec3& pos_m, int N, int M
     if (want_by_degree) out.by_degree.reserve(n1);
 
     double ar = 0.0, ath = 0.0, aph = 0.0, v = 0.0;
+    // The local-frame Hessian's six sums (radial, north, east), SPEC-gravity §4.7, before the factor GM/r^3.
+    double h_rr = 0.0, h_rn = 0.0, h_re = 0.0, h_nn = 0.0, h_ne = 0.0, h_ee = 0.0;
     double power = 1.0;
     for (int n = 0; n <= N; ++n) {
         const auto un = static_cast<std::size_t>(n);
@@ -300,6 +342,20 @@ Synthesis synthesise(const ConventionalField& f, const Vec3& pos_m, int N, int M
                 c * sl * ar_n + cl * ath_n - u * sl * aph_n,
                 u * ar_n + c * aph_n});
         }
+        if constexpr (kGradient) {
+            // §4.7, with the three sums already unscaled and (a_e/r)^n applied as `power`.  `t1`, `t2` and `t3`
+            // are the first, second and third sums of the acceleration, which the tensor reuses.
+            const double nn = static_cast<double>(n);
+            const double c_pp = (Daa[un] + Dab[un]) * kUnscale;
+            const double c_pl = (Dpa[un] + Dpb[un]) * kUnscale;
+            const double c_ll = (Dla[un] + Dlb[un]) * kUnscale;
+            h_rr += (nn + 1.0) * (nn + 2.0) * power * t1;
+            h_rn -= (nn + 2.0) * power * t3;
+            h_re -= (nn + 2.0) * power * t2;
+            h_nn += power * (c_pp - (nn + 1.0) * t1);
+            h_ne += power * c_pl;
+            h_ee += power * (c_ll - (nn + 1.0) * t1);
+        }
         power *= ratio;
     }
 
@@ -307,7 +363,31 @@ Synthesis synthesise(const ConventionalField& f, const Vec3& pos_m, int N, int M
     out.acceleration = Vec3{c * cl * ar - sl * ath - u * cl * aph,
                             c * sl * ar + cl * ath - u * sl * aph,
                             u * ar + c * aph};
+    if constexpr (kGradient) {
+        // T H T^T, T having the columns e_radial, e_north, e_east -- the rotation the acceleration uses.
+        const double g = gm * inv_r2 / sph.r;
+        const double H[3][3] = {{g * h_rr, g * h_rn, g * h_re},
+                                {g * h_rn, g * h_nn, g * h_ne},
+                                {g * h_re, g * h_ne, g * h_ee}};
+        const double T[3][3] = {{c * cl, -u * cl, -sl},
+                                {c * sl, -u * sl, cl},
+                                {u, c, 0.0}};
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) {
+                double sum = 0.0;
+                for (int a = 0; a < 3; ++a)
+                    for (int b = 0; b < 3; ++b) sum += T[i][a] * H[a][b] * T[j][b];
+                out.gradient.r[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)] = sum;
+            }
+    }
     return out;
+}
+
+/// The field's own coefficients through the one synthesis.
+template <bool kGradient>
+Synthesis synthesise_field(const ConventionalField& f, const Vec3& pos_m, int N, int M, bool want_by_degree) {
+    return synthesise<FieldCoefficients, kGradient>(f.recursion(), f.scaling().gm_m3_s2(), f.scaling().ae_m(),
+                                                    FieldCoefficients{f}, pos_m, N, M, want_by_degree);
 }
 
 odl::Result<std::pair<int, int>, GravityError>
@@ -346,7 +426,7 @@ odl::Result<frames::ItrsAcceleration, GravityError>
 ConventionalField::acceleration(const frames::ItrsPosition& at, Degree degree, Order order) const {
     auto extent = checked_extent(*this, at, degree, order);
     if (!extent) return odl::err(extent.error());
-    const auto s = synthesise(*this, at.metres(), extent->first, extent->second, false);
+    const auto s = synthesise_field<false>(*this, at.metres(), extent->first, extent->second, false);
     return frames::ItrsAcceleration{s.acceleration};
 }
 
@@ -354,7 +434,7 @@ odl::Result<double, GravityError>
 ConventionalField::potential(const frames::ItrsPosition& at, Degree degree, Order order) const {
     auto extent = checked_extent(*this, at, degree, order);
     if (!extent) return odl::err(extent.error());
-    return synthesise(*this, at.metres(), extent->first, extent->second, false).potential;
+    return synthesise_field<false>(*this, at.metres(), extent->first, extent->second, false).potential;
 }
 
 odl::Result<std::vector<Vec3>, GravityError>
@@ -362,7 +442,7 @@ ConventionalField::acceleration_by_degree(const frames::ItrsPosition& at, Degree
                                           Order order) const {
     auto extent = checked_extent(*this, at, degree, order);
     if (!extent) return odl::err(extent.error());
-    return synthesise(*this, at.metres(), extent->first, extent->second, true).by_degree;
+    return synthesise_field<false>(*this, at.metres(), extent->first, extent->second, true).by_degree;
 }
 
 odl::Result<double, GravityError>
@@ -392,6 +472,89 @@ ConventionalField::truncation_rms(double radius_m, Degree degree) const {
         power *= ratio;
     }
     return scaling().gm_m3_s2() / (radius_m * radius_m) * std::sqrt(total);
+}
+
+// --------------------------------------------------------------------------
+// SPEC-gravity §4.7 (v1.4): the second derivatives, and the synthesis of a view
+// --------------------------------------------------------------------------
+
+odl::Result<CoefficientView, GravityError>
+CoefficientView::of(int max_degree, std::span<const double> c, std::span<const double> s,
+                    std::optional<TideSystem> system, std::string source) {
+    if (max_degree < 0 || max_degree > kEgm2008MaxDegree) {
+        std::ostringstream m;
+        m << "a coefficient view of degree " << max_degree << "; the module carries degrees 0 to "
+          << kEgm2008MaxDegree << " (GRAV-F-009)";
+        return odl::err(GravityError{"GRAV-F-009", m.str()});
+    }
+    const std::size_t need = CoefficientSet::index(max_degree, max_degree) + 1;
+    if (c.size() < need || s.size() < need) {
+        std::ostringstream m;
+        m << "a coefficient view of degree " << max_degree << " needs " << need << " entries in each of its two arrays; "
+          << "the C array has " << c.size() << " and the S array has " << s.size()
+          << ". Reading past the end, or clamping the degree, would be a number where there is none (GRAV-F-009).";
+        return odl::err(GravityError{"GRAV-F-009", m.str()});
+    }
+    return CoefficientView{max_degree, c, s, system, std::move(source)};
+}
+
+namespace {
+
+/// What a view adds to `checked_extent` (GRAV-R-065, GRAV-R-067): its own degree, and its tide system.
+odl::Result<std::pair<int, int>, GravityError>
+checked_view_extent(const ConventionalField& f, const CoefficientView& view,
+                    const frames::ItrsPosition& at, Degree degree, Order order) {
+    auto extent = checked_extent(f, at, degree, order);
+    if (!extent) return odl::err(extent.error());
+    if (extent->first > view.max_degree()) {
+        std::ostringstream m;
+        m << "requested degree " << extent->first << " of a coefficient view that carries degree "
+          << view.max_degree() << (view.source().empty() ? "" : " (")
+          << view.source() << (view.source().empty() ? "" : ")")
+          << ". Zero-padding it would answer for coefficients nobody supplied (GRAV-F-004).";
+        return odl::err(GravityError{"GRAV-F-004", m.str()});
+    }
+    if (view.system() && *view.system() != f.tide_system()) {
+        std::ostringstream m;
+        m << "the coefficient view" << (view.source().empty() ? "" : " (" + view.source() + ")")
+          << " is expressed in the " << name_of(*view.system()) << " system and the field is "
+          << name_of(f.tide_system()) << " (its provenance: " << f.provenance().coefficient_file
+          << ", conventional substitutions of TN36-6 Table 6.2). Adding them, or converting silently, would "
+             "move C20 by the permanent tide (TN36-6 section 6.2.2; GRAV-F-008).";
+        return odl::err(GravityError{"GRAV-F-008", m.str()});
+    }
+    return extent;
+}
+
+}  // namespace
+
+odl::Result<ItrsGradient, GravityError>
+ConventionalField::gradient(const frames::ItrsPosition& at, Degree degree, Order order) const {
+    auto extent = checked_extent(*this, at, degree, order);
+    if (!extent) return odl::err(extent.error());
+    return ItrsGradient{synthesise_field<true>(*this, at.metres(), extent->first, extent->second, false).gradient};
+}
+
+odl::Result<frames::ItrsAcceleration, GravityError>
+ConventionalField::acceleration_of(const CoefficientView& coefficients, const frames::ItrsPosition& at,
+                                   Degree degree, Order order) const {
+    auto extent = checked_view_extent(*this, coefficients, at, degree, order);
+    if (!extent) return odl::err(extent.error());
+    const auto s = synthesise<ViewCoefficients, false>(recursion(), scaling().gm_m3_s2(), scaling().ae_m(),
+                                                       ViewCoefficients{coefficients}, at.metres(),
+                                                       extent->first, extent->second, false);
+    return frames::ItrsAcceleration{s.acceleration};
+}
+
+odl::Result<ItrsGradient, GravityError>
+ConventionalField::gradient_of(const CoefficientView& coefficients, const frames::ItrsPosition& at,
+                               Degree degree, Order order) const {
+    auto extent = checked_view_extent(*this, coefficients, at, degree, order);
+    if (!extent) return odl::err(extent.error());
+    const auto s = synthesise<ViewCoefficients, true>(recursion(), scaling().gm_m3_s2(), scaling().ae_m(),
+                                                      ViewCoefficients{coefficients}, at.metres(),
+                                                      extent->first, extent->second, false);
+    return ItrsGradient{s.gradient};
 }
 
 }  // namespace odl::gravity

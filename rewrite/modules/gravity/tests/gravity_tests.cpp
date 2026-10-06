@@ -10,14 +10,19 @@
 #include <odl/gravity/legendre.hpp>
 #include <odl/time/leap_table.hpp>
 
+#include "gradient_reference.hpp"
 #include "legendre_reference.hpp"
+#include "synthesis_baseline.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <numbers>
+#include <set>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -914,4 +919,430 @@ TEST_CASE("GRAV-A-029: the scale's margin is measured at BOTH ends", "[gravity]"
     CHECK(subnormal == 0);
     CHECK(smallest > 1e-300);
     CHECK(largest < 1e300);
+}
+
+// ===========================================================================
+// SPEC-gravity §4.7 (v1.4, 2026-10-06; L7 step 1, ruling R2): the second derivatives, and the synthesis of a view.
+//
+// EVERY tolerance, case list and case count below was registered in SPEC-gravity §8 (GRAV-A-030 … -039) and
+// PROVENANCE.md §40.5, and committed (980a238) BEFORE any line of the code under test existed.  The reference
+// data — 145 tensors from the definition, twelve values from the unchanged tree — were committed with them.
+// ===========================================================================
+
+namespace {
+
+constexpr double kEps = 2.220446049250313e-16;   // 2^-52, the epsilon every tolerance below is written in
+constexpr double kAeM = 6378136.3;               // EGM2008's a_e, as ScalingParameters carries it
+
+/// P8 of SPEC-gravity §8: the eight positions of GRAV-A-030, -032, -034, -035 and -037's symmetry, in units of a_e,
+/// each multiplied once in double precision.
+std::array<Vec3, 8> p8() {
+    const double q[8][3] = {{1.05, 0.0, 0.0},       {0.62, 0.55, 0.71},   {-0.43, 0.81, -0.74}, {0.0, 0.0, 1.07},
+                            {1.0e-3, -2.0e-3, 1.1}, {0.0, 0.0, -1.2},     {0.0, 1.5, 0.0},      {-1.05, -1.05, 0.2}};
+    std::array<Vec3, 8> out{};
+    for (std::size_t i = 0; i < 8; ++i) out[i] = Vec3{kAeM * q[i][0], kAeM * q[i][1], kAeM * q[i][2]};
+    return out;
+}
+
+frames::ItrsPosition at(const Vec3& p) { return frames::ItrsPosition{p}; }
+
+/// Owned storage for a view: ONE coefficient, or the field's own coefficients of degrees n0+1 … n1 (n0 = -1 for
+/// all of them), zero elsewhere.
+struct Storage {
+    std::vector<double> c, s;
+    int n_max = 0;
+
+    static Storage single(int n, int m, double c_amp, double s_amp) {
+        Storage st;
+        st.n_max = n;
+        st.c.assign(CoefficientSet::index(n, n) + 1, 0.0);
+        st.s.assign(CoefficientSet::index(n, n) + 1, 0.0);
+        st.c[CoefficientSet::index(n, m)] = c_amp;
+        st.s[CoefficientSet::index(n, m)] = s_amp;
+        return st;
+    }
+    static Storage slice(const ConventionalField& f, int n0, int n1) {
+        Storage st;
+        st.n_max = n1;
+        st.c.assign(CoefficientSet::index(n1, n1) + 1, 0.0);
+        st.s.assign(CoefficientSet::index(n1, n1) + 1, 0.0);
+        for (int n = n0 + 1; n <= n1; ++n)
+            for (int m = 0; m <= n; ++m) {
+                st.c[CoefficientSet::index(n, m)] = f.c(n, m);
+                st.s[CoefficientSet::index(n, m)] = f.s(n, m);
+            }
+        return st;
+    }
+    CoefficientView view(std::optional<TideSystem> system = std::nullopt) const {
+        auto v = CoefficientView::of(n_max, c, s, system, "test storage");
+        REQUIRE(v.has_value());
+        return *v;
+    }
+};
+
+double max_abs(const Mat3& g) {
+    double m = 0.0;
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j) m = std::max(m, std::abs(g.r[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)]));
+    return m;
+}
+double at_ij(const Mat3& g, int i, int j) { return g.r[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)]; }
+
+/// d_ij (3 z^2 r^-5 - r^-3), exactly (verified against the definition to 1.6e-69 before GRAV-A-030 was written).
+double j2_f_ij(const Vec3& p, int i, int j) {
+    const double x[3] = {p.x, p.y, p.z};
+    const double r2 = p.x * p.x + p.y * p.y + p.z * p.z;
+    const double r = std::sqrt(r2);
+    const double r5 = r2 * r2 * r, r7 = r5 * r2, r9 = r7 * r2;
+    const double z = p.z;
+    const double dij = (i == j) ? 1.0 : 0.0, diz = (i == 2) ? 1.0 : 0.0, djz = (j == 2) ? 1.0 : 0.0;
+    return 6.0 * diz * djz / r5 - 30.0 * z * (diz * x[j] + djz * x[i]) / r7 + 105.0 * z * z * x[i] * x[j] / r9
+         - 15.0 * z * z * dij / r7 + 3.0 * dij / r5 - 15.0 * x[i] * x[j] / r7;
+}
+
+}  // namespace
+
+TEST_CASE("GRAV-A-030: the point-mass and J2 tensors against their exact closed forms", "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    const double gm = f.scaling().gm_m3_s2();
+    const double j2 = -std::sqrt(5.0) * f.c(2, 0);
+    int cases = 0;
+    double worst_pm = 0.0, worst_j2 = 0.0;
+    for (const Vec3& p : p8()) {
+        const double r = p.norm();
+        const double scale = gm / (r * r * r);
+        const double x[3] = {p.x, p.y, p.z};
+        auto g0 = f.gradient(at(p), deg(0), ord(0));
+        auto g2 = f.gradient(at(p), deg(2), ord(0));
+        REQUIRE(g0.has_value());
+        REQUIRE(g2.has_value());
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) {
+                const double pm = scale * (3.0 * x[i] * x[j] / (r * r) - (i == j ? 1.0 : 0.0));
+                const double e0 = std::abs(at_ij(g0->per_second_squared(), i, j) - pm) / (kEps * scale);
+                worst_pm = std::max(worst_pm, e0);
+                CHECK(e0 <= 64.0);
+                const double total = pm + (-gm * kAeM * kAeM * j2 / 2.0) * j2_f_ij(p, i, j);
+                const double e2 = std::abs(at_ij(g2->per_second_squared(), i, j) - total) / (kEps * scale);
+                worst_j2 = std::max(worst_j2, e2);
+                CHECK(e2 <= 64.0);
+            }
+        ++cases;
+    }
+    REQUIRE(cases == 8);
+    WARN("GRAV-A-030: " << cases << " positions, all nine entries each; worst disagreement with the point-mass tensor "
+         << worst_pm << " eps GM/r^3 and with point mass + J2 " << worst_j2 << " eps GM/r^3 (bound 64)");
+}
+
+TEST_CASE("GRAV-A-031: the tensor of one coefficient against the tensor of the DEFINITION, 145 cases",
+          "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    const double gm_over_ae3 = f.scaling().gm_m3_s2() / (kAeM * kAeM * kAeM);
+    int cases = 0, exact_zero = 0, floor_governed = 0;
+    std::map<int, double> worst_by_degree;     // worst |difference| / (eps max|R|) per degree
+    // SPEC-gravity §8's amendment of 2026-10-06 (v1.4a): a reference below 1e-26 is beyond what §3.6a's scaled
+    // representation carries, and is held to the scale's resolution, 2e-38 absolute, instead of to a relative bound.
+    constexpr double kRepresentationFloor = 2.0e-38;
+    for (const auto& k : reference::kGradient) {
+        const Storage st = Storage::single(k.n, k.m, k.kind == 'C' ? 1.0 : 0.0, k.kind == 'S' ? 1.0 : 0.0);
+        const CoefficientView view = st.view();
+        auto g = f.gradient_of(view, at(Vec3{k.x, k.y, k.z}), deg(k.n), ord(k.m));
+        REQUIRE(g.has_value());
+        const double ref[3][3] = {{k.g[0], k.g[1], k.g[2]}, {k.g[1], k.g[3], k.g[4]}, {k.g[2], k.g[4], k.g[5]}};
+        double max_ref = 0.0;
+        for (const auto& row : ref) for (double v : row) max_ref = std::max(max_ref, std::abs(v));
+        double tol = 16.0 * (k.n + 8) * kEps * max_ref;      // as registered; zero for an exactly-zero reference
+        if (max_ref == 0.0) ++exact_zero;
+        if (max_ref > 0.0 && max_ref < 1.0e-26) { tol = kRepresentationFloor; ++floor_governed; }
+        double worst = 0.0;
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                worst = std::max(worst, std::abs(at_ij(g->per_second_squared(), i, j) / gm_over_ae3 - ref[i][j]));
+        CHECK(worst <= tol);
+        worst_by_degree[k.n] = std::max(worst_by_degree[k.n], worst / (kEps * max_ref));
+        ++cases;
+    }
+    REQUIRE(cases == 145);
+    REQUIRE(std::size(reference::kGradient) == 145);
+    REQUIRE(exact_zero == 13);        // counted from the reference file before the re-run (SPEC-gravity §8, v1.4a)
+    REQUIRE(floor_governed == 2);
+    std::ostringstream os;
+    for (const auto& [n, w] : worst_by_degree) os << " n=" << n << ": " << w << ";";
+    WARN("GRAV-A-031: " << cases << " cases, all nine entries each (" << exact_zero << " with an exactly-zero reference, "
+         << "held to exact zero; " << floor_governed << " below 1e-26, held to the representation floor); worst "
+         "disagreement in eps x max|R| by degree" << os.str() << " (bound 16(n+8))");
+}
+
+TEST_CASE("GRAV-A-032: Laplace's equation -- the trace of the real field's tensor is zero", "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    const double gm = f.scaling().gm_m3_s2();
+    const std::array<std::pair<int, int>, 7> nm{{{2, 0}, {4, 4}, {10, 10}, {36, 36}, {90, 90}, {200, 150}, {360, 360}}};
+    int cases = 0;
+    double worst = 0.0;
+    for (const Vec3& p : p8())
+        for (const auto& [n, m] : nm) {
+            auto g = f.gradient(at(p), deg(n), ord(m));
+            REQUIRE(g.has_value());
+            const Mat3& G = g->per_second_squared();
+            const double r = p.norm();
+            const double trace = (at_ij(G, 0, 0) + at_ij(G, 1, 1) + at_ij(G, 2, 2)) / (gm / (r * r * r));
+            worst = std::max(worst, std::abs(trace));
+            CHECK(std::abs(trace) <= 1.0e-13);
+            ++cases;
+        }
+    REQUIRE(cases == 56);
+    WARN("GRAV-A-032: " << cases << " cases; worst |trace| / (GM/r^3) = " << worst << " (bound 1e-13)");
+}
+
+TEST_CASE("GRAV-A-033: the second-derivative recursion satisfies the Legendre equation", "[gravity][gradient]") {
+    const RecursionTable& t = j2000_field().recursion();
+    const std::array<int, 8> ns{2, 3, 5, 10, 36, 90, 200, 360};
+    const std::array<double, 8> us{-1.0, -0.93, -0.5, 0.0, 0.3, 0.8, 0.99, 1.0};
+    int cases = 0;
+    double worst = 0.0;
+    for (int n : ns) {
+        std::set<int> ms{0, 1, 2, 3, n / 2, n - 1, n};
+        for (auto it = ms.begin(); it != ms.end();) it = (*it > n || *it < 0) ? ms.erase(it) : std::next(it);
+        for (int m : ms)
+            for (double u : us) {
+                std::vector<double> P(static_cast<std::size_t>(n) + 1), dP(P.size()), d2P(P.size());
+                legendre_column2(t, m, n, u, 1.0, P.data(), dP.data(), d2P.data());
+                const auto un = static_cast<std::size_t>(n);
+                const double p = P[un], p1 = dP[un], p2 = d2P[un];
+                const double a = 1.0 - u * u;
+                const double b = 2.0 * (m + 1) * u;
+                const double c = static_cast<double>(n) * (n + 1) - static_cast<double>(m) * (m + 1);
+                const double residual = a * p2 - b * p1 + c * p;
+                const double terms = std::abs(a * p2) + std::abs(b * p1) + std::abs(c * p);
+                CHECK(std::abs(residual) <= 1.0e-10 * terms);
+                if (terms > 0.0) worst = std::max(worst, std::abs(residual) / terms);
+                ++cases;
+            }
+    }
+    REQUIRE(cases == 384);
+    WARN("GRAV-A-033: " << cases << " (n, m, u) cases; worst |residual| / (sum of the terms' magnitudes) = " << worst
+         << " (bound 1e-10)");
+}
+
+TEST_CASE("GRAV-A-034: the synthesis is linear in the coefficients", "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    const double gm = f.scaling().gm_m3_s2();
+    const std::array<std::pair<int, int>, 3> splits{{{2, 10}, {10, 36}, {36, 90}}};
+    int cases = 0;
+    double worst_a = 0.0, worst_g = 0.0;
+    for (const Vec3& p : p8()) {
+        const double r = p.norm();
+        for (const auto& [n0, n1] : splits) {
+            const Storage st = Storage::slice(f, n0, n1);
+            const CoefficientView v = st.view();
+            auto a1 = f.acceleration(at(p), deg(n1), ord(n1));
+            auto a0 = f.acceleration(at(p), deg(n0), ord(n0));
+            auto av = f.acceleration_of(v, at(p), deg(n1), ord(n1));
+            auto g1 = f.gradient(at(p), deg(n1), ord(n1));
+            auto g0 = f.gradient(at(p), deg(n0), ord(n0));
+            auto gv = f.gradient_of(v, at(p), deg(n1), ord(n1));
+            REQUIRE(a1.has_value()); REQUIRE(a0.has_value()); REQUIRE(av.has_value());
+            REQUIRE(g1.has_value()); REQUIRE(g0.has_value()); REQUIRE(gv.has_value());
+            const Vec3 da = a1->metres_per_second_squared() - a0->metres_per_second_squared()
+                          - av->metres_per_second_squared();
+            const double ea = da.norm() / (kEps * gm / (r * r));
+            worst_a = std::max(worst_a, ea);
+            CHECK(ea <= 128.0);
+            double eg = 0.0;
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    eg = std::max(eg, std::abs(at_ij(g1->per_second_squared(), i, j) - at_ij(g0->per_second_squared(), i, j)
+                                               - at_ij(gv->per_second_squared(), i, j)) / (kEps * gm / (r * r * r)));
+            worst_g = std::max(worst_g, eg);
+            CHECK(eg <= 128.0);
+            ++cases;
+        }
+        // additivity of two views: degrees 3-5 and 6-9 against 3-9
+        const Storage sa = Storage::slice(f, 2, 5), sb = Storage::slice(f, 5, 9), sc = Storage::slice(f, 2, 9);
+        const CoefficientView va = sa.view(), vb = sb.view(), vc = sc.view();
+        auto xa = f.acceleration_of(va, at(p), deg(5), ord(5));
+        auto xb = f.acceleration_of(vb, at(p), deg(9), ord(9));
+        auto xc = f.acceleration_of(vc, at(p), deg(9), ord(9));
+        REQUIRE(xa.has_value()); REQUIRE(xb.has_value()); REQUIRE(xc.has_value());
+        const Vec3 dd = xa->metres_per_second_squared() + xb->metres_per_second_squared() - xc->metres_per_second_squared();
+        CHECK(dd.norm() <= 128.0 * kEps * gm / (r * r));
+        ++cases;
+    }
+    REQUIRE(cases == 32);
+    WARN("GRAV-A-034: " << cases << " cases; worst linearity residual " << worst_a << " eps GM/r^2 (acceleration), "
+         << worst_g << " eps GM/r^3 (tensor); bound 128");
+}
+
+TEST_CASE("GRAV-A-035: the field IS a view -- its own coefficients, handed in, reproduce it exactly",
+          "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    int cases = 0;
+    for (int n : {36, 90}) {
+        const Storage st = Storage::slice(f, -1, n);
+        const CoefficientView v = st.view();
+        for (const Vec3& p : p8()) {
+            auto a = f.acceleration(at(p), deg(n), ord(n));
+            auto av = f.acceleration_of(v, at(p), deg(n), ord(n));
+            auto g = f.gradient(at(p), deg(n), ord(n));
+            auto gv = f.gradient_of(v, at(p), deg(n), ord(n));
+            REQUIRE(a.has_value()); REQUIRE(av.has_value()); REQUIRE(g.has_value()); REQUIRE(gv.has_value());
+            CHECK(a->metres_per_second_squared().x == av->metres_per_second_squared().x);
+            CHECK(a->metres_per_second_squared().y == av->metres_per_second_squared().y);
+            CHECK(a->metres_per_second_squared().z == av->metres_per_second_squared().z);
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    CHECK(at_ij(g->per_second_squared(), i, j) == at_ij(gv->per_second_squared(), i, j));
+            ++cases;
+        }
+    }
+    REQUIRE(cases == 16);
+    WARN("GRAV-A-035: " << cases << " (degree, position) cases, acceleration and tensor, every component equal to 0 ulp");
+}
+
+TEST_CASE("GRAV-A-036: nothing already shipped moved -- potential and acceleration against the values recorded BEFORE "
+          "the change", "[gravity][gradient]") {
+    // The conventional field exactly as the characterisation probe built it: 2023-01-22 00:00 UTC, secular terms
+    // extrapolated beyond the pole fit as tests/l4_ranking.cpp does.
+    auto epoch = odl::time::Epoch::from_calendar(odl::time::TimeScale::UTC,
+                                                 odl::time::Calendar{2023, 1, 22, 0, 0, 0.0}, leaps());
+    REQUIRE(epoch.has_value());
+    auto f = model().conventional(*epoch, true);
+    REQUIRE(f.has_value());
+    int cases = 0;
+    for (const auto& row : baseline::kRows) {
+        const Vec3 p{row.x, row.y, row.z};
+        auto a = f->acceleration(at(p), deg(row.n), ord(row.m));
+        auto v = f->potential(at(p), deg(row.n), ord(row.m));
+        REQUIRE(a.has_value());
+        REQUIRE(v.has_value());
+        CHECK(*v == row.potential);
+        CHECK(a->metres_per_second_squared().x == row.a[0]);
+        CHECK(a->metres_per_second_squared().y == row.a[1]);
+        CHECK(a->metres_per_second_squared().z == row.a[2]);
+        ++cases;
+    }
+    REQUIRE(cases == 12);
+    WARN("GRAV-A-036: " << cases << " recorded (position, degree, order) cases, the potential and every acceleration "
+         "component equal to the pre-change value to 0 ulp");
+}
+
+TEST_CASE("GRAV-A-037: the pole is an ordinary point of the tensor, and the tensor is symmetric", "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    const double r = 1.07 * kAeM;
+    constexpr double kDelta = 1.0e-8;       // colatitude of the displaced points, rad
+    int cases = 0, zero_at_pole = 0;
+    double worst = 0.0;
+    for (const auto& [n, m] : std::array<std::pair<int, int>, 5>{{{2, 1}, {2, 2}, {3, 1}, {3, 2}, {3, 3}}}) {
+        const Storage st = Storage::single(n, m, 1.0, 0.7);
+        const CoefficientView v = st.view();
+        for (double sign : {1.0, -1.0}) {
+            auto g_pole = f.gradient_of(v, at(Vec3{0.0, 0.0, sign * r}), deg(n), ord(m));
+            REQUIRE(g_pole.has_value());
+            double scale = max_abs(g_pole->per_second_squared());
+            if (scale == 0.0) {
+                // SPEC-gravity §8's amendment of 2026-10-06 (v1.4a): the tensor of an order >= 3 term vanishes exactly
+                // on the polar axis, so the registered scale does not exist; use max|G| at colatitude 30 deg on the
+                // meridian lambda = 0 at the same radius.
+                const double col = std::numbers::pi / 6.0;
+                auto g_ref = f.gradient_of(v, at(Vec3{r * std::sin(col), 0.0, sign * r * std::cos(col)}), deg(n), ord(m));
+                REQUIRE(g_ref.has_value());
+                scale = max_abs(g_ref->per_second_squared());
+                ++zero_at_pole;
+            }
+            REQUIRE(scale > 0.0);
+            for (double lam : {0.0, std::numbers::pi / 2.0}) {
+                const Vec3 near{r * std::sin(kDelta) * std::cos(lam), r * std::sin(kDelta) * std::sin(lam),
+                                sign * r * std::cos(kDelta)};
+                auto g_near = f.gradient_of(v, at(near), deg(n), ord(m));
+                REQUIRE(g_near.has_value());
+                double diff = 0.0;
+                for (int i = 0; i < 3; ++i)
+                    for (int j = 0; j < 3; ++j)
+                        diff = std::max(diff, std::abs(at_ij(g_near->per_second_squared(), i, j)
+                                                       - at_ij(g_pole->per_second_squared(), i, j)));
+                const double bound = (4.0 * (n + 4) * kDelta + 64.0 * kEps) * scale;
+                CHECK(diff <= bound);
+                worst = std::max(worst, diff / bound);
+                ++cases;
+            }
+        }
+    }
+    REQUIRE(cases == 20);
+    REQUIRE(zero_at_pole == 2);      // the member (3,3) at the two poles, as the amendment says
+    double worst_sym = 0.0;
+    for (const Vec3& p : p8()) {
+        auto g = f.gradient(at(p), deg(36), ord(36));
+        REQUIRE(g.has_value());
+        const Mat3& G = g->per_second_squared();
+        const double scale = max_abs(G);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) {
+                const double asym = std::abs(at_ij(G, i, j) - at_ij(G, j, i)) / (kEps * scale);
+                worst_sym = std::max(worst_sym, asym);
+                CHECK(asym <= 16.0);
+            }
+    }
+    WARN("GRAV-A-037: " << cases << " pole-continuity cases, worst difference " << worst << " of its bound; "
+         "worst asymmetry " << worst_sym << " eps max|G| at the eight positions (bound 16)");
+}
+
+TEST_CASE("GRAV-A-038: the view's refusals", "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    const Vec3 p = p8()[1];
+
+    // GRAV-F-009: arrays shorter than the degree needs; a degree outside 0 ... 2190
+    const std::vector<double> few(10, 0.0);
+    auto short_view = CoefficientView::of(5, few, few);          // degree 5 needs index(5,5)+1 = 21 entries
+    REQUIRE(!short_view.has_value());
+    CHECK(short_view.error().id == "GRAV-F-009");
+    CHECK(short_view.error().message.find("21") != std::string::npos);
+    CHECK(short_view.error().message.find("10") != std::string::npos);
+    auto huge_view = CoefficientView::of(2191, few, few);
+    REQUIRE(!huge_view.has_value());
+    CHECK(huge_view.error().id == "GRAV-F-009");
+    CHECK(!CoefficientView::of(-1, few, few).has_value());
+
+    // GRAV-F-004: degree 10 of a view of degree 5, naming both
+    const Storage five = Storage::single(5, 2, 1.0, 0.0);
+    auto too_high = f.acceleration_of(five.view(), at(p), deg(10), ord(10));
+    REQUIRE(!too_high.has_value());
+    CHECK(too_high.error().id == "GRAV-F-004");
+    CHECK(too_high.error().message.find("10") != std::string::npos);
+    CHECK(too_high.error().message.find("5") != std::string::npos);
+    auto too_high_g = f.gradient_of(five.view(), at(p), deg(10), ord(10));
+    REQUIRE(!too_high_g.has_value());
+    CHECK(too_high_g.error().id == "GRAV-F-004");
+
+    // GRAV-F-008: a view in the tide-free system against the zero-tide conventional field, naming both
+    REQUIRE(f.tide_system() == TideSystem::ZeroTide);
+    auto mismatch = f.acceleration_of(five.view(TideSystem::TideFree), at(p), deg(5), ord(5));
+    REQUIRE(!mismatch.has_value());
+    CHECK(mismatch.error().id == "GRAV-F-008");
+    CHECK(mismatch.error().message.find(name_of(TideSystem::TideFree)) != std::string::npos);
+    CHECK(mismatch.error().message.find(name_of(TideSystem::ZeroTide)) != std::string::npos);
+    CHECK(!f.gradient_of(five.view(TideSystem::TideFree), at(p), deg(5), ord(5)).has_value());
+    // ... and a view declaring the field's own system, and one declaring none, are accepted
+    CHECK(f.acceleration_of(five.view(TideSystem::ZeroTide), at(p), deg(5), ord(5)).has_value());
+    CHECK(f.acceleration_of(five.view(), at(p), deg(5), ord(5)).has_value());
+}
+
+TEST_CASE("GRAV-A-039: what the tensor costs against the acceleration", "[gravity][gradient]") {
+    const ConventionalField& f = j2000_field();
+    const Vec3 p = p8()[1];
+    for (int n : {90, 360}) {
+        auto best = [&](auto&& call) {
+            double b = 1e300;
+            for (int rep = 0; rep < 5; ++rep) {
+                const auto t0 = std::chrono::steady_clock::now();
+                for (int k = 0; k < 20; ++k) { auto r = call(); REQUIRE(r.has_value()); }
+                b = std::min(b, std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() / 20.0);
+            }
+            return b;
+        };
+        const double ta = best([&] { return f.acceleration(at(p), deg(n), ord(n)); });
+        const double tg = best([&] { return f.gradient(at(p), deg(n), ord(n)); });
+        WARN("GRAV-A-039 / GRAV-P-9: at degree and order " << n << ", acceleration " << ta * 1e6 << " us, gradient "
+             << tg * 1e6 << " us, ratio " << tg / ta << " (predicted 1.5 to 3, asserted below 10)");
+        CHECK(tg / ta < 10.0);
+    }
 }

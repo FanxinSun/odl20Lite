@@ -24,6 +24,8 @@
 #include <odl/time/epoch.hpp>
 
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -49,6 +51,53 @@ struct Provenance {
     std::string scaling_source;
     GmCompatibility gm_compatibility = GmCompatibility::TT;
     bool extrapolated_beyond_pole_fit = false;
+};
+
+/// The matrix of second derivatives of the potential, d2V/dx_i dx_j, in s^-2 (m s^-2 per m), in the ITRS axes
+/// the field is fixed in (SPEC-gravity §4.7, GRAV-R-060).  A type that names its frame, for GRAV-R-050's reason:
+/// a gradient in the GCRS is a different object, reached by the rotation R^T G R and never by relabelling.
+/// Symmetric (it is a Hessian) and, in empty space, trace-free (Laplace).
+class ItrsGradient {
+public:
+    ItrsGradient() = delete;
+    explicit constexpr ItrsGradient(Mat3 per_second_squared) noexcept : g_(per_second_squared) {}
+    [[nodiscard]] constexpr const Mat3& per_second_squared() const noexcept { return g_; }
+    static constexpr frames::Frame frame = frames::Frame::ITRS;
+
+private:
+    Mat3 g_;
+};
+
+/// A BORROWED, read-only set of normalised coefficients C̄_nm and S̄_nm for 0 <= m <= n <= `max_degree`, in
+/// `CoefficientSet::index`'s packing (SPEC-gravity §4.7, GRAV-R-063).  It is how a coefficient set that is not
+/// the field's own — a tide's increments (PERT-R-001) — reaches the field's synthesis, so that `gravity` need not
+/// depend on `tides`, which depends on `gravity`.  The arrays belong to the caller and must outlive the view;
+/// the view says which tide system its values are expressed in, if they have one (GRAV-F-008's consumer).
+class CoefficientView {
+public:
+    CoefficientView() = delete;
+
+    /// GRAV-F-009: the arrays must hold `index(max_degree, max_degree) + 1` entries each, and the degree must lie
+    /// in 0 … 2190.  There is no way to build a view that reads past its arrays.
+    [[nodiscard]] static odl::Result<CoefficientView, GravityError>
+    of(int max_degree, std::span<const double> c, std::span<const double> s,
+       std::optional<TideSystem> system = std::nullopt, std::string source = {});
+
+    [[nodiscard]] int max_degree() const noexcept { return max_degree_; }
+    [[nodiscard]] double c(int n, int m) const noexcept { return c_[CoefficientSet::index(n, m)]; }
+    [[nodiscard]] double s(int n, int m) const noexcept { return s_[CoefficientSet::index(n, m)]; }
+    [[nodiscard]] const std::optional<TideSystem>& system() const noexcept { return system_; }
+    [[nodiscard]] const std::string& source() const noexcept { return source_; }
+
+private:
+    CoefficientView(int max_degree, std::span<const double> c, std::span<const double> s,
+                    std::optional<TideSystem> system, std::string source)
+        : max_degree_(max_degree), c_(c), s_(s), system_(system), source_(std::move(source)) {}
+
+    int max_degree_;
+    std::span<const double> c_, s_;
+    std::optional<TideSystem> system_;
+    std::string source_;
 };
 
 class ConventionalField;
@@ -132,6 +181,24 @@ public:
     /// alone and without evaluating the field anywhere.
     [[nodiscard]] odl::Result<double, GravityError>
     truncation_rms(double radius_m, Degree degree) const;
+
+    // ---- added at v1.4 (SPEC-gravity §4.7), additive: nothing above this line changed ----
+
+    /// GRAV-R-060: the matrix of second derivatives of the potential, in the ITRS axes, for the same truncation
+    /// as `acceleration`, from the same recursion one derivative further and in the same pass (GRAV-R-061).
+    [[nodiscard]] odl::Result<ItrsGradient, GravityError>
+    gradient(const frames::ItrsPosition& at, Degree degree, Order order) const;
+
+    /// GRAV-R-063: the acceleration, and the tensor, of the potential of a coefficient set that is not the field's
+    /// own, with THIS field's GM and a_e and the same code as the field's own.  The view's own n = 0 term, if it
+    /// has one, is part of its potential.  Refuses a degree above the view's (GRAV-F-004) and a tide system that is
+    /// not the field's (GRAV-F-008).
+    [[nodiscard]] odl::Result<frames::ItrsAcceleration, GravityError>
+    acceleration_of(const CoefficientView& coefficients, const frames::ItrsPosition& at,
+                    Degree degree, Order order) const;
+    [[nodiscard]] odl::Result<ItrsGradient, GravityError>
+    gradient_of(const CoefficientView& coefficients, const frames::ItrsPosition& at,
+                Degree degree, Order order) const;
 
     [[nodiscard]] TideSystem tide_system() const noexcept { return tide_system_; }
     [[nodiscard]] const std::vector<Substitution>& substitutions() const noexcept { return subs_; }

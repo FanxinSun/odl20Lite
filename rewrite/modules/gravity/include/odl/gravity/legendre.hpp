@@ -59,4 +59,24 @@ inline void legendre_column(const RecursionTable& t, int m, int n_max, double u,
     }
 }
 
+/// As `legendre_column`, with the SECOND derivative (SPEC-gravity §4.7, added at v1.4).  Differentiating the
+/// relations above once more with respect to u:
+///
+///     d2P'_mm = 0,   d2P'_{m+1,m} = 0,   d2P'_nm = a_nm (2 dP'_{n-1,m} + u d2P'_{n-1,m}) - b_nm d2P'_{n-2,m}.
+///
+/// P and dP are formed by `legendre_column` itself — the same arithmetic, so they are bit for bit what the
+/// acceleration uses — and `d2P` is formed after them.  The three satisfy the associated Legendre equation in the
+/// factored form (1-u^2) p'' - 2(m+1) u p' + [n(n+1) - m(m+1)] p = 0, which GRAV-A-033 holds the output to.
+inline void legendre_column2(const RecursionTable& t, int m, int n_max, double u, double scale,
+                             double* P, double* dP, double* d2P) noexcept {
+    legendre_column(t, m, n_max, u, scale, P, dP);
+    const auto um = static_cast<std::size_t>(m);
+    d2P[um] = 0.0;
+    if (m + 1 <= n_max) d2P[um + 1] = 0.0;
+    for (int n = m + 2; n <= n_max; ++n) {
+        const auto un = static_cast<std::size_t>(n);
+        d2P[un] = t.a(n, m) * (2.0 * dP[un - 1] + u * d2P[un - 1]) - t.b(n, m) * d2P[un - 2];
+    }
+}
+
 }  // namespace odl::gravity
