@@ -200,3 +200,10 @@ add_test(NAME forcemodel.fd_sizing_reproduces
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/forcemodel_fd_sizing.py" --check)
 add_test(NAME forcemodel.comparator_header_matches_its_generator
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/forcemodel_comparator_header.py" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/forcemodel/tests/comparator_polynomials.hpp")
+
+# L7 step 2 (SPEC-estimation.md v0.3): the estimator's frozen figures come from a tool that does NOT use the code under test (exact rational arithmetic on the
+# PINNED NIST files, 90-digit eigenvalues), and each is reproduced here so that a number in the specification or in the tests cannot drift from its generator.
+add_test(NAME estimation.sizing_header_matches_generator
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/estimation_sizing.py" --cache "${ODL_CACHE_DIR}" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/estimation/tests/registered_figures.hpp")
+add_test(NAME estimation.spec_table_matches_generator
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/estimation_sizing.py" --cache "${ODL_CACHE_DIR}" --verify-spec "${CMAKE_CURRENT_SOURCE_DIR}/../spec/SPEC-estimation.md")

@@ -167,6 +167,8 @@ add_subdirectory(modules/io)
 add_subdirectory(modules/measmod)
 # L7 step 1 (SPEC-forcemodel.md): L2's models as dyn::Force plugins, APART FROM THE ESTIMATOR (the manager's ruling R1).
 add_subdirectory(modules/forcemodel)
+# L7 step 2 (SPEC-estimation.md v0.3): the batch estimator, the normal equations scaled by default.  Depends on core alone.
+add_subdirectory(modules/estimation)
 
 add_subdirectory(tools)
 
