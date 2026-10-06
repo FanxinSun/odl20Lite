@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L6 closed; **L7 open** — steps 1–5 to come; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L6 closed; **L7 open** — step 1 done, steps 2–5 to come; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -470,7 +470,9 @@ L2's models as plugins, now L7 step 1.
 > Sitter, not Lense–Thirring, and that moves L7's gravity truncation by tens of degrees. The rows
 > are corrected with one band per term, registered before the re-run, the first text kept. What
 > was wrong was a unit crossing on bare doubles, in a test whose band was wide enough to hide any
-> one term's error, at a layer whose exit gate the manager verified.
+> one term's error, at a layer whose exit gate the manager verified. And the band had caught it
+> once: the slipped value breached its first registered edge, which was then widened by a decade
+> as slop instead of being explained. A breached bound is a finding, never slack.
 
 ---
 
@@ -543,7 +545,7 @@ T-01's time offset, a candidate cause unconfirmed (`subplan_L6/L6-3.md`).
 
 ---
 
-### 3.8 L7 `estimation` — 0 of 5 done; **the open layer**
+### 3.8 L7 `estimation` — 1 of 5 done; **the open layer**
 
 Two of the predecessor's defects are design requirements here rather than lessons learned.
 
@@ -560,7 +562,7 @@ Two of the predecessor's defects are design requirements here rather than lesson
 > So event location (or an equivalent) is central here, not a corner case. It is decided at L7,
 > and it may need an integrator amendment in L3, made on `DYN-Q-001`'s terms.
 
-1. **TODO** — The whole force model through the registry → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md) — *added 2026-09-24*
+1. **DONE** — The whole force model through the registry → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md) — *added 2026-09-24*
 2. **TODO** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
 3. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md)
 4. **TODO** — A priori constraints → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md)
