@@ -1018,6 +1018,15 @@ governs. Three rules apply to all of them:
     - **May stay Python:** a module that is itself Python, such as the revival's converters, and
       plotting (point 3). Nothing in the build, the tests or CI depends on one.
 
+    The user added, the same day: *"in the future when introducing a new module with basic
+    language not in C/C++, let me know to decide first"*, and *"otherwise keep C++"*.
+    - **C++ is the default.** Nothing is introduced in any language but C or C++ unless the user
+      decides it.
+    - **The decision comes first.** It is asked before anything is written: the manager asks in
+      the manager's session, the executor directly in its own.
+    - **This covers existing pieces too.** Any non-C/C++ code a step touches is brought to the
+      user the same way, not carried forward silently.
+
 ## 6. What carries over, what is dropped
 
 Carried over as-is (already owned; never linked against predecessor code): the revival-era
