@@ -65,4 +65,62 @@ inline constexpr double zenith_hydrostatic_m = 1.9329959722362897;
 inline constexpr double zenith_wet_m = 0.002233752731683583;
 inline constexpr double zenith_total_m = 1.9352297249679733;
 
+// section: np
+inline constexpr double np_first_tof_s = 0.051212898595;
+inline constexpr double np_first_observed_range_m = 7676620.3755498985;
+
+// section: lighttime
+inline constexpr double lt_lageos_s0_x = 4000000.0;
+inline constexpr double lt_lageos_s0_y = 3100000.0;
+inline constexpr double lt_lageos_s0_z = 3900000.0;
+inline constexpr double lt_lageos_vs_x = -250.0;
+inline constexpr double lt_lageos_vs_y = 380.0;
+inline constexpr double lt_lageos_vs_z = 0.0;
+inline constexpr double lt_lageos_r0_x = 9000000.0;
+inline constexpr double lt_lageos_r0_y = 5000000.0;
+inline constexpr double lt_lageos_r0_z = 6000000.0;
+inline constexpr double lt_lageos_vr_x = -3000.0;
+inline constexpr double lt_lageos_vr_y = 4500.0;
+inline constexpr double lt_lageos_vr_z = 2800.0;
+inline constexpr double lt_lageos_e2_tau_u_s = 0.019167597802924468;
+inline constexpr double lt_lageos_e2_tau_d_s = 0.019167609551548028;
+inline constexpr double lt_lageos_e2_tof_s = 0.038335207354472496;
+inline constexpr double lt_lageos_e2_range_m = 5746303.020368493;
+inline constexpr double lt_lageos_e2_d_range_dx = 0.8701154727303599;
+inline constexpr double lt_lageos_e2_d_range_dy = 0.33066110821683625;
+inline constexpr double lt_lageos_e2_d_range_dz = 0.3654616910022405;
+inline constexpr double lt_lageos_e1_tau_u_s = 0.019167598266304344;
+inline constexpr double lt_lageos_e1_tau_d_s = 0.019167610015888938;
+inline constexpr double lt_lageos_e1_tof_s = 0.03833520828219328;
+inline constexpr double lt_lageos_e1_range_m = 5746303.159430341;
+inline constexpr double lt_lageos_e1_d_range_dx = 0.8701246455832055;
+inline constexpr double lt_lageos_e1_d_range_dy = 0.3306473653211325;
+inline constexpr double lt_lageos_e1_d_range_dz = 0.3654523511448389;
+inline constexpr double lt_leo_s0_x = 6000000.0;
+inline constexpr double lt_leo_s0_y = -1500000.0;
+inline constexpr double lt_leo_s0_z = 1900000.0;
+inline constexpr double lt_leo_vs_x = 180.0;
+inline constexpr double lt_leo_vs_y = 440.0;
+inline constexpr double lt_leo_vs_z = 0.0;
+inline constexpr double lt_leo_r0_x = 7000000.0;
+inline constexpr double lt_leo_r0_y = -700000.0;
+inline constexpr double lt_leo_r0_z = 2400000.0;
+inline constexpr double lt_leo_vr_x = 2000.0;
+inline constexpr double lt_leo_vr_y = 6500.0;
+inline constexpr double lt_leo_vr_z = 3000.0;
+inline constexpr double lt_leo_e2_tau_u_s = 0.0045858449490811;
+inline constexpr double lt_leo_e2_tau_d_s = 0.004585833110178969;
+inline constexpr double lt_leo_e2_tof_s = 0.00917167805926007;
+inline constexpr double lt_leo_e2_range_m = 1374799.954685123;
+inline constexpr double lt_leo_e2_d_range_dx = 0.7273990384979561;
+inline constexpr double lt_leo_e2_d_range_dy = 0.5819345884343363;
+inline constexpr double lt_leo_e2_d_range_dz = 0.36370649087939566;
+inline constexpr double lt_leo_e1_tau_u_s = 0.004585754065402847;
+inline constexpr double lt_leo_e1_tau_d_s = 0.00458574222680625;
+inline constexpr double lt_leo_e1_tof_s = 0.009171496292209098;
+inline constexpr double lt_leo_e1_range_m = 1374772.7084896257;
+inline constexpr double lt_leo_e1_d_range_dx = 0.7273929674543915;
+inline constexpr double lt_leo_e1_d_range_dy = 0.5819143739647877;
+inline constexpr double lt_leo_e1_d_range_dz = 0.36369648372680824;
+
 }  // namespace odl::measmod::ref

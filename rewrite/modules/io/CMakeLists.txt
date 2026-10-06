@@ -5,7 +5,7 @@ odl_add_module(io
   TEST_SOURCES tests/sp3_tests.cpp tests/tle_tests.cpp tests/crd_tests.cpp tests/cpf_tests.cpp
                tests/iod_tests.cpp tests/sinex_tests.cpp tests/antex_tests.cpp
                tests/sp3_ephemeris_tests.cpp tests/horizons_tests.cpp tests/sgp4_tests.cpp
-               tests/sgp4_t01_tests.cpp)
+               tests/sgp4_t01_tests.cpp tests/crd_pass_tests.cpp)
 
 # IOFM-A-030/031's own real-data holdout accuracy checks read two real SP3
 # excerpts from disk rather than carrying them as string-literal fixtures --
@@ -23,6 +23,11 @@ if(BUILD_TESTING)
   # manifest-supplied-path shape ODL_DE440S_BSP/ODL_LEAP_SECOND_FILE already
   # use for l4_ranking_tests -- not a guessed path, and not a second copy of
   # the file placed under tests/data/.
+  # IOFM-A-034 … -037 (v1.1, the CRD pass view) read the manifest's own pinned real monthly LAGEOS-1 normal-point file the same way.
+  odl_manifest_get(ilrs-lageos1-np-202601 _lageos1_np)
+  target_compile_definitions(odl_io_tests PRIVATE
+    ODL_LAGEOS1_NP_FILE="${_lageos1_np_CACHE_PATH}")
+
   odl_manifest_get(horizons-acs3-vectors _horizons_acs3)
   target_compile_definitions(odl_io_tests PRIVATE
     ODL_HORIZONS_ACS3_TXT="${_horizons_acs3_CACHE_PATH}")

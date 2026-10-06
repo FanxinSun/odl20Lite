@@ -16,6 +16,11 @@ Sections (each added by the step that needs it; the spec names the row that uses
   vapour     MEAS-A-022   e = Rh * 6.11 * 10^(7.5 t / (237.3 + t)) (Marini & Murray 1973, eq. 22) at four (t, Rh), with 10^x as exp(x ln 10).
   zenith     MEAS-A-020   the zenith delay of TN36 ch.9 eqs (9.3)-(9.7) at the IERS FCUL_ZD_HPA prolog's printed inputs, evaluated in 60
                           digits (the IMPLEMENTATION is compared with this; the PRINTED value is within 1 mm of it, 3.8 um away).
+  np         MEAS-A-039   the observed one-way-equivalent range c ToF/2 of the real first normal point (ToF 0.051212898595 s), in 60 digits.
+  lighttime  MEAS-A-030/031/041  the two-way light time with target AND station in uniform motion, for both epoch events, from the CLOSED
+                          FORM — the two quadratics (c^2 - v^2) tau^2 -/+ 2 (D.v) tau - D^2 = 0 solved in 60 digits, independently of any iteration —
+                          at two geometries (LAGEOS-like and LEO-like), and the derivative of the range with respect to the target's position
+                          by a 60-digit central difference of that closed form (MEAS-A-041).
 
 Usage:  measmod_reference.py [--check] [--header PATH]
 Exit:   0 written / matches   1 --check found a difference   2 an input file is missing
@@ -193,6 +198,88 @@ def zenith_section() -> dict[str, float]:
 
 
 
+def np_section() -> dict[str, float]:
+    tof = Decimal("0.051212898595")                      # record 11 field 3 of the first normal point of lageos1_202601.np2 (a published observation)
+    return {"np_first_tof_s": float(tof), "np_first_observed_range_m": float(Decimal(299792458) * tof / 2)}
+
+
+def d_vec_dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def d_vec_sub(a, b):
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def d_vec_add_scaled(a, b, k):
+    return (a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k)
+
+
+# the two geometries of the light-time tests, exactly representable inputs (doubles written as short decimals): station position and
+# velocity, target position and velocity, all at the tag epoch, metres and metres per second, GCRS-like axes
+LT_CASES = {
+    "lageos": {"s0": (4.0e6, 3.1e6, 3.9e6), "vs": (-250.0, 380.0, 0.0), "r0": (9.0e6, 5.0e6, 6.0e6), "vr": (-3000.0, 4500.0, 2800.0)},
+    "leo":    {"s0": (6.0e6, -1.5e6, 1.9e6), "vs": (180.0, 440.0, 0.0), "r0": (7.0e6, -0.7e6, 2.4e6), "vr": (2000.0, 6500.0, 3000.0)},
+}
+
+
+def lt_closed_form(event, s0, vs, r0, vr):
+    """Time of flight of the two legs in 60 digits by the closed forms. Event 2: the tag is the transmit time (the up leg's target moves,
+    the station is fixed at the transmit point; the down leg's station moves). Event 1: the tag is the bounce time (the up leg is solved
+    backwards for a moving station)."""
+    c = Decimal(299792458)
+    s0, vs, r0, vr = ([Decimal(x) for x in v] for v in (s0, vs, r0, vr))
+    if event == 2:
+        D = d_vec_sub(r0, s0)
+        vr2 = d_vec_dot(vr, vr)
+        k = c * c - vr2
+        dv = d_vec_dot(D, vr)
+        tau_u = (dv + (dv * dv + k * d_vec_dot(D, D)).sqrt()) / k
+        rb = d_vec_add_scaled(r0, vr, tau_u)
+        sb = d_vec_add_scaled(s0, vs, tau_u)
+        E = d_vec_sub(rb, sb)
+    else:
+        E = d_vec_sub(r0, s0)
+        vs2 = d_vec_dot(vs, vs)
+        k = c * c - vs2
+        ev = d_vec_dot(E, vs)
+        tau_u = (ev + (ev * ev + k * d_vec_dot(E, E)).sqrt()) / k
+    vs2 = d_vec_dot(vs, vs)
+    k = c * c - vs2
+    ev = d_vec_dot(E, vs)
+    tau_d = (-ev + (ev * ev + k * d_vec_dot(E, E)).sqrt()) / k
+    return tau_u, tau_d
+
+
+def lighttime_section() -> dict[str, float]:
+    c = Decimal(299792458)
+    out: dict[str, float] = {}
+    h = Decimal("1e-20")
+    for name, g in LT_CASES.items():
+        for k, v in g.items():
+            for axis, x in zip("xyz", v):
+                out[f"lt_{name}_{k}_{axis}"] = float(x)
+        for event in (2, 1):
+            tau_u, tau_d = lt_closed_form(event, g["s0"], g["vs"], g["r0"], g["vr"])
+            tof = tau_u + tau_d
+            out[f"lt_{name}_e{event}_tau_u_s"] = float(tau_u)
+            out[f"lt_{name}_e{event}_tau_d_s"] = float(tau_d)
+            out[f"lt_{name}_e{event}_tof_s"] = float(tof)
+            out[f"lt_{name}_e{event}_range_m"] = float(c * tof / 2)
+            # the derivative of the range with respect to the target's position (a constant offset of the whole trajectory), by a 60-digit
+            # central difference of the closed form
+            for axis in range(3):
+                def shifted(sign):
+                    r0 = [Decimal(x) for x in g["r0"]]
+                    r0[axis] += sign * h
+                    return lt_closed_form(event, g["s0"], g["vs"], tuple(r0), g["vr"])
+                up_, dn_ = shifted(+1), shifted(-1)
+                d_range = c * ((up_[0] + up_[1]) - (dn_[0] + dn_[1])) / (2 * h) / 2
+                out[f"lt_{name}_e{event}_d_range_d{'xyz'[axis]}"] = float(d_range)
+    return out
+
+
+
 def render(sections: dict[str, dict[str, float]]) -> str:
     out = ["// GENERATED by tools/measmod_reference.py — do not edit; `python3 tools/measmod_reference.py --check` verifies it.",
            "// Reference values computed independently of the code under test (see the generator's header).",
@@ -212,7 +299,7 @@ def main() -> int:
     ap.add_argument("--header", type=Path, default=HEADER)
     a = ap.parse_args()
     try:
-        text = render({"registry": registry_section(), "shapiro": shapiro_section(), "vapour": vapour_section(), "zenith": zenith_section()})
+        text = render({"registry": registry_section(), "shapiro": shapiro_section(), "vapour": vapour_section(), "zenith": zenith_section(), "np": np_section(), "lighttime": lighttime_section()})
     except OSError as exc:
         print(f"measmod_reference.py: {exc} (run `python3 tools/fetch.py fetch`)", file=sys.stderr)
         return 2

@@ -55,6 +55,7 @@ SUMMARY
   itrf2020-psd-slr   ITRF2020-psd-slr.dat as served by itrf.ign.fr 2026-10-05 (ITRF2020 solutions page); 2 001 bytes; eight SLR sites (7110, 7237, 7308, 7328, 7358, 7403, 7405, 7838) IERS-public      data
   tn36-chapter9      2010, updated text of 10 June 2013 IERS-public      data
   tn36-chapter11     2010         IERS-public      data
+  ilrs-lageos1-np-202601 lageos1_202601.np2, EDC npt_crd_v2/lageos1/2026/, 1 474 762 bytes (the January file, complete since 2026-02) ILRS-PUBLIC      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -670,6 +671,34 @@ DATA INPUTS
     note      As the tree's other TN36 chapters. NOTE THE FILENAME: like
               chapter 10, chapter 11 is tn36_c11.pdf where chapters 1 to 9 are
               iccN.pdf.
+
+  ilrs-lageos1-np-202601  lageos1_202601.np2, EDC npt_crd_v2/lageos1/2026/, 1 474 762 bytes (the January file, complete since 2026-02)
+    role      The real monthly LAGEOS-1 normal-point file (CRD v2) of January 2026, from the EUROLAS Data Center: 807 passes, 4 628 normal points and 4 317 meteorology records (counted by case-insensitive record tag; the first pass is Yarragadee, 2026-01-01 02:07:49). L6 step 4: IOFM-A-034 (the CRD pass view on a real file), the range builder's real-data tests (SPEC-measmod MEAS-A-014, -035, -036, -039) and, with the ILRS weekly orbit product, G5's data. The model's residuals are NOT computed in any test before the envelope of MEAS-A-101 is committed.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/data/npt_crd_v2/lageos1/2026/lageos1_202601.np2
+    sha256    c08df9c3dcb2156db34b0d9c24127398ac8edf7ab80263cb574ef79f913eaedb
+    retrieved 2026-10-05
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the data are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
 
 ------------------------------------------------------------------------------
 BUILD-TIME TOOLS

@@ -118,6 +118,118 @@ odl::Result<void, CrdError> need(const std::vector<std::string>& toks, std::size
     return {};
 }
 
+// The field-by-field parsers, shared by the flat `read_crd` and by `read_crd_passes` (SPEC-io-formats.md §3.3 and §3.3.1).
+odl::Result<CrdStationHeader, CrdError> parse_station(const std::vector<std::string>& toks, int ln) {
+    auto ok = need(toks, 7, ln, "H2"); if (!ok.has_value()) return odl::err(ok.error());
+    CrdStationHeader h;
+    h.name = toks[1];
+    auto si = to_int(toks[2], ln, "system id"); if (!si.has_value()) return odl::err(si.error());
+    h.system_id = *si;
+    auto sn = to_int(toks[3], ln, "system number"); if (!sn.has_value()) return odl::err(sn.error());
+    h.system_number = *sn;
+    auto oc = to_int(toks[4], ln, "occupancy"); if (!oc.has_value()) return odl::err(oc.error());
+    h.occupancy = *oc;
+    auto ts = to_int(toks[5], ln, "epoch time scale"); if (!ts.has_value()) return odl::err(ts.error());
+    h.epoch_time_scale = *ts;
+    h.network = toks[6];
+    return h;
+}
+
+odl::Result<CrdTargetHeader, CrdError> parse_target(const std::vector<std::string>& toks, int ln) {
+    auto ok = need(toks, 8, ln, "H3"); if (!ok.has_value()) return odl::err(ok.error());
+    CrdTargetHeader h;
+    h.name = toks[1];
+    auto id = to_int(toks[2], ln, "ilrs id"); if (!id.has_value()) return odl::err(id.error());
+    h.ilrs_id = *id;
+    h.sic = toks[3];
+    h.norad_id = toks[4];
+    auto sts = to_int(toks[5], ln, "spacecraft time scale"); if (!sts.has_value()) return odl::err(sts.error());
+    h.spacecraft_time_scale = *sts;
+    auto tc = to_int(toks[6], ln, "target class"); if (!tc.has_value()) return odl::err(tc.error());
+    h.target_class = *tc;
+    h.target_location = toks[7];
+    return h;
+}
+
+odl::Result<CrdSessionHeader, CrdError> parse_session(const std::vector<std::string>& toks, int ln) {
+    auto ok = need(toks, 15, ln, "H4"); if (!ok.has_value()) return odl::err(ok.error());
+    CrdSessionHeader h;
+    auto dt = to_int(toks[1], ln, "data type"); if (!dt.has_value()) return odl::err(dt.error());
+    h.data_type = *dt;
+    auto sy = to_int(toks[2], ln, "start year"); if (!sy.has_value()) return odl::err(sy.error());
+    h.start_year = *sy;
+    auto smo = to_int(toks[3], ln, "start month"); if (!smo.has_value()) return odl::err(smo.error());
+    h.start_month = *smo;
+    auto sd = to_int(toks[4], ln, "start day"); if (!sd.has_value()) return odl::err(sd.error());
+    h.start_day = *sd;
+    auto sh = to_int(toks[5], ln, "start hour"); if (!sh.has_value()) return odl::err(sh.error());
+    h.start_hour = *sh;
+    auto smi = to_int(toks[6], ln, "start minute"); if (!smi.has_value()) return odl::err(smi.error());
+    h.start_minute = *smi;
+    auto sse = to_int(toks[7], ln, "start second"); if (!sse.has_value()) return odl::err(sse.error());
+    h.start_second = *sse;
+    auto ey = to_int_or_na(toks[8], ln, "end year"); if (!ey.has_value()) return odl::err(ey.error());
+    h.end_year = *ey;
+    auto emo = to_int_or_na(toks[9], ln, "end month"); if (!emo.has_value()) return odl::err(emo.error());
+    h.end_month = *emo;
+    auto edd = to_int_or_na(toks[10], ln, "end day"); if (!edd.has_value()) return odl::err(edd.error());
+    h.end_day = *edd;
+    auto eh = to_int_or_na(toks[11], ln, "end hour"); if (!eh.has_value()) return odl::err(eh.error());
+    h.end_hour = *eh;
+    auto emi = to_int_or_na(toks[12], ln, "end minute"); if (!emi.has_value()) return odl::err(emi.error());
+    h.end_minute = *emi;
+    auto ese = to_int_or_na(toks[13], ln, "end second"); if (!ese.has_value()) return odl::err(ese.error());
+    h.end_second = *ese;
+    auto rf = to_int(toks[14], ln, "release flag"); if (!rf.has_value()) return odl::err(rf.error());
+    h.release_flag = *rf;
+    if (toks.size() > 15) h.tropo_applied = (toks[15] == "1");
+    if (toks.size() > 16) h.com_applied = (toks[16] == "1");
+    if (toks.size() > 17) h.receive_amp_applied = (toks[17] == "1");
+    for (std::size_t k = 18; k < toks.size(); ++k) h.remaining_fields.push_back(toks[k]);
+    return h;
+}
+
+odl::Result<CrdRangeRecord, CrdError> parse_range(CrdRecordKind kind, const std::vector<std::string>& toks, int ln) {
+    auto ok = need(toks, 5, ln, "range record"); if (!ok.has_value()) return odl::err(ok.error());
+    CrdRangeRecord r;
+    r.kind = kind;
+    auto sod = to_double(toks[1], ln, "seconds of day"); if (!sod.has_value()) return odl::err(sod.error());
+    r.seconds_of_day = *sod;
+    auto tof = to_double(toks[2], ln, "time of flight"); if (!tof.has_value()) return odl::err(tof.error());
+    r.time_of_flight_s = *tof;
+    r.config_id = toks[3];
+    auto ee = to_int(toks[4], ln, "epoch event"); if (!ee.has_value()) return odl::err(ee.error());
+    r.epoch_event = *ee;
+    for (std::size_t k = 5; k < toks.size(); ++k) r.remaining_fields.push_back(toks[k]);
+    return r;
+}
+
+odl::Result<CrdMeteorology, CrdError> parse_meteorology(const std::vector<std::string>& toks, int ln) {
+    auto ok = need(toks, 6, ln, "record 20"); if (!ok.has_value()) return odl::err(ok.error());
+    CrdMeteorology m;
+    auto a = to_double(toks[1], ln, "seconds of day"); if (!a.has_value()) return odl::err(a.error());
+    m.seconds_of_day = *a;
+    auto p = to_double(toks[2], ln, "pressure (millibar)"); if (!p.has_value()) return odl::err(p.error());
+    m.pressure_mbar = *p;
+    auto t = to_double(toks[3], ln, "temperature (kelvin)"); if (!t.has_value()) return odl::err(t.error());
+    m.temperature_k = *t;
+    auto h = to_double(toks[4], ln, "relative humidity (per cent)"); if (!h.has_value()) return odl::err(h.error());
+    m.relative_humidity_percent = *h;
+    auto o = to_int(toks[5], ln, "origin of values"); if (!o.has_value()) return odl::err(o.error());
+    m.origin = *o;
+    return m;
+}
+
+odl::Result<CrdConfig0, CrdError> parse_config0(const std::vector<std::string>& toks, int ln) {
+    auto ok = need(toks, 4, ln, "C0"); if (!ok.has_value()) return odl::err(ok.error());
+    CrdConfig0 c;
+    auto w = to_double(toks[2], ln, "transmit wavelength (nanometres)"); if (!w.has_value()) return odl::err(w.error());
+    c.wavelength_nm = *w;
+    c.config_id = toks[3];
+    for (std::size_t k = 4; k < toks.size(); ++k) c.remaining_fields.push_back(toks[k]);
+    return c;
+}
+
 }  // namespace
 
 odl::Result<CrdFile, CrdError> read_crd(std::string_view text) {
@@ -151,89 +263,24 @@ odl::Result<CrdFile, CrdError> read_crd(std::string_view text) {
                 break;
             }
             case CrdRecordKind::Station: {
-                auto ok = need(toks, 7, ln, "H2"); if (!ok.has_value()) return odl::err(ok.error());
-                CrdStationHeader h;
-                h.name = toks[1];
-                auto si = to_int(toks[2], ln, "system id"); if (!si.has_value()) return odl::err(si.error());
-                h.system_id = *si;
-                auto sn = to_int(toks[3], ln, "system number"); if (!sn.has_value()) return odl::err(sn.error());
-                h.system_number = *sn;
-                auto oc = to_int(toks[4], ln, "occupancy"); if (!oc.has_value()) return odl::err(oc.error());
-                h.occupancy = *oc;
-                auto ts = to_int(toks[5], ln, "epoch time scale"); if (!ts.has_value()) return odl::err(ts.error());
-                h.epoch_time_scale = *ts;
-                h.network = toks[6];
-                file.stations.push_back(h);
+                auto h = parse_station(toks, ln); if (!h.has_value()) return odl::err(h.error());
+                file.stations.push_back(*h);
                 break;
             }
             case CrdRecordKind::Target: {
-                auto ok = need(toks, 8, ln, "H3"); if (!ok.has_value()) return odl::err(ok.error());
-                CrdTargetHeader h;
-                h.name = toks[1];
-                auto id = to_int(toks[2], ln, "ilrs id"); if (!id.has_value()) return odl::err(id.error());
-                h.ilrs_id = *id;
-                h.sic = toks[3];
-                h.norad_id = toks[4];
-                auto sts = to_int(toks[5], ln, "spacecraft time scale"); if (!sts.has_value()) return odl::err(sts.error());
-                h.spacecraft_time_scale = *sts;
-                auto tc = to_int(toks[6], ln, "target class"); if (!tc.has_value()) return odl::err(tc.error());
-                h.target_class = *tc;
-                h.target_location = toks[7];
-                file.targets.push_back(h);
+                auto h = parse_target(toks, ln); if (!h.has_value()) return odl::err(h.error());
+                file.targets.push_back(*h);
                 break;
             }
             case CrdRecordKind::Session: {
-                auto ok = need(toks, 15, ln, "H4"); if (!ok.has_value()) return odl::err(ok.error());
-                CrdSessionHeader h;
-                auto dt = to_int(toks[1], ln, "data type"); if (!dt.has_value()) return odl::err(dt.error());
-                h.data_type = *dt;
-                auto sy = to_int(toks[2], ln, "start year"); if (!sy.has_value()) return odl::err(sy.error());
-                h.start_year = *sy;
-                auto smo = to_int(toks[3], ln, "start month"); if (!smo.has_value()) return odl::err(smo.error());
-                h.start_month = *smo;
-                auto sd = to_int(toks[4], ln, "start day"); if (!sd.has_value()) return odl::err(sd.error());
-                h.start_day = *sd;
-                auto sh = to_int(toks[5], ln, "start hour"); if (!sh.has_value()) return odl::err(sh.error());
-                h.start_hour = *sh;
-                auto smi = to_int(toks[6], ln, "start minute"); if (!smi.has_value()) return odl::err(smi.error());
-                h.start_minute = *smi;
-                auto sse = to_int(toks[7], ln, "start second"); if (!sse.has_value()) return odl::err(sse.error());
-                h.start_second = *sse;
-                auto ey = to_int_or_na(toks[8], ln, "end year"); if (!ey.has_value()) return odl::err(ey.error());
-                h.end_year = *ey;
-                auto emo = to_int_or_na(toks[9], ln, "end month"); if (!emo.has_value()) return odl::err(emo.error());
-                h.end_month = *emo;
-                auto edd = to_int_or_na(toks[10], ln, "end day"); if (!edd.has_value()) return odl::err(edd.error());
-                h.end_day = *edd;
-                auto eh = to_int_or_na(toks[11], ln, "end hour"); if (!eh.has_value()) return odl::err(eh.error());
-                h.end_hour = *eh;
-                auto emi = to_int_or_na(toks[12], ln, "end minute"); if (!emi.has_value()) return odl::err(emi.error());
-                h.end_minute = *emi;
-                auto ese = to_int_or_na(toks[13], ln, "end second"); if (!ese.has_value()) return odl::err(ese.error());
-                h.end_second = *ese;
-                auto rf = to_int(toks[14], ln, "release flag"); if (!rf.has_value()) return odl::err(rf.error());
-                h.release_flag = *rf;
-                if (toks.size() > 15) h.tropo_applied = (toks[15] == "1");
-                if (toks.size() > 16) h.com_applied = (toks[16] == "1");
-                if (toks.size() > 17) h.receive_amp_applied = (toks[17] == "1");
-                for (std::size_t k = 18; k < toks.size(); ++k) h.remaining_fields.push_back(toks[k]);
-                file.sessions.push_back(h);
+                auto h = parse_session(toks, ln); if (!h.has_value()) return odl::err(h.error());
+                file.sessions.push_back(*h);
                 break;
             }
             case CrdRecordKind::FullRateRange:
             case CrdRecordKind::NormalPointRange: {
-                auto ok = need(toks, 5, ln, "range record"); if (!ok.has_value()) return odl::err(ok.error());
-                CrdRangeRecord r;
-                r.kind = kind;
-                auto sod = to_double(toks[1], ln, "seconds of day"); if (!sod.has_value()) return odl::err(sod.error());
-                r.seconds_of_day = *sod;
-                auto tof = to_double(toks[2], ln, "time of flight"); if (!tof.has_value()) return odl::err(tof.error());
-                r.time_of_flight_s = *tof;
-                r.config_id = toks[3];
-                auto ee = to_int(toks[4], ln, "epoch event"); if (!ee.has_value()) return odl::err(ee.error());
-                r.epoch_event = *ee;
-                for (std::size_t k = 5; k < toks.size(); ++k) r.remaining_fields.push_back(toks[k]);
-                file.ranges.push_back(r);
+                auto r = parse_range(kind, toks, ln); if (!r.has_value()) return odl::err(r.error());
+                file.ranges.push_back(*r);
                 break;
             }
             default: {
@@ -249,6 +296,124 @@ odl::Result<CrdFile, CrdError> read_crd(std::string_view text) {
         return odl::err(CrdError{"IOFM-F-001", "CRD file has no H1 format header record"});
     }
     return file;
+}
+
+odl::Result<double, CrdError> CrdPass::wavelength_nm(std::string_view config_id) const {
+    for (const auto& c : configs)
+        if (c.config_id == config_id) return c.wavelength_nm;
+    std::string held;
+    for (const auto& c : configs) held += (held.empty() ? "'" : ", '") + c.config_id + "'";
+    return odl::err(CrdError{"IOFM-F-014", "CRD pass has no C0 record for system configuration id '" + std::string(config_id) +
+                                               "' (the ids in force: " + (held.empty() ? "none" : held) + ")"});
+}
+
+odl::Result<std::vector<CrdPass>, CrdError> read_crd_passes(std::string_view text) {
+    std::vector<CrdPass> passes;
+    std::optional<CrdStationHeader> station;
+    std::optional<CrdTargetHeader> target;
+    std::vector<CrdConfig0> inherited;          // header-level C0 records, before the first H4 under the current H2
+    std::optional<CrdPass> current;             // the open block, if any
+    int open_line = 0;                          // the line of its H4
+    auto structure = [](int ln, const std::string& tag, const std::string& why) {
+        return odl::err(CrdError{"IOFM-F-013", "CRD line " + std::to_string(ln) + ", record " + tag + ": " + why});
+    };
+    auto lines = split_lines(text);
+    for (int i = 0; i < static_cast<int>(lines.size()); ++i) {
+        auto toks = tokenize(lines[static_cast<std::size_t>(i)]);
+        if (toks.empty()) continue;
+        const int ln = i + 1;
+        auto kindr = tag_to_kind(toks[0], ln);
+        if (!kindr.has_value()) return odl::err(kindr.error());
+        const std::string tag = upper(toks[0]);
+        switch (*kindr) {
+            case CrdRecordKind::Format:
+                if (current) return structure(ln, tag, "an H1 while the H4 block opened above is not closed by an H8");
+                station.reset();
+                target.reset();
+                inherited.clear();
+                break;
+            case CrdRecordKind::Station: {
+                if (current) return structure(ln, tag, "an H2 while the H4 block opened above is not closed by an H8");
+                auto h = parse_station(toks, ln); if (!h.has_value()) return odl::err(h.error());
+                station = *h;
+                target.reset();
+                inherited.clear();
+                break;
+            }
+            case CrdRecordKind::Target: {
+                if (current) return structure(ln, tag, "an H3 while the H4 block opened above is not closed by an H8");
+                auto h = parse_target(toks, ln); if (!h.has_value()) return odl::err(h.error());
+                target = *h;
+                break;
+            }
+            case CrdRecordKind::Session: {
+                if (current) return structure(ln, tag, "an H4 before the previous block's H8");
+                if (!station || !target) return structure(ln, tag, std::string("an H4 with no ") + (!station ? "H2" : "H3") + " in force");
+                auto h = parse_session(toks, ln); if (!h.has_value()) return odl::err(h.error());
+                const int code = station->epoch_time_scale;
+                if (code != 3 && code != 4 && code != 7)
+                    return odl::err(CrdError{"IOFM-F-015", "CRD line " + std::to_string(ln) + ": the H2 station epoch time scale is " + std::to_string(code) +
+                                                               "; only 3 (UTC(USNO)), 4 (UTC(GPS)) and 7 (UTC(BIPM)) are accepted"});
+                CrdPass p;
+                p.station = *station;
+                p.target = *target;
+                p.session = *h;
+                p.time_scale = odl::time::TimeScale::UTC;
+                p.configs = inherited;
+                current = std::move(p);
+                open_line = ln;
+                break;
+            }
+            case CrdRecordKind::EndOfSession:
+                if (!current) return structure(ln, tag, "an H8 with no H4 block open");
+                passes.push_back(std::move(*current));
+                current.reset();
+                break;
+            case CrdRecordKind::EndOfFile:
+                if (current) return structure(ln, tag, "an H9 while the H4 block opened above is not closed by an H8");
+                break;
+            case CrdRecordKind::Config0: {
+                auto c = parse_config0(toks, ln); if (!c.has_value()) return odl::err(c.error());
+                std::vector<CrdConfig0>& dst = current ? current->configs : inherited;
+                for (const auto& e : dst)
+                    if (e.config_id == c->config_id) return structure(ln, tag, "a second C0 with system configuration id '" + c->config_id + "' in one pass");
+                dst.push_back(*c);
+                break;
+            }
+            case CrdRecordKind::FullRateRange:
+            case CrdRecordKind::NormalPointRange: {
+                if (!current) return structure(ln, tag, "a range record outside an H4…H8 block");
+                auto r = parse_range(*kindr, toks, ln); if (!r.has_value()) return odl::err(r.error());
+                current->ranges.push_back(*r);
+                break;
+            }
+            case CrdRecordKind::Meteorological: {
+                if (!current) return structure(ln, tag, "a meteorological record outside an H4…H8 block");
+                auto m = parse_meteorology(toks, ln); if (!m.has_value()) return odl::err(m.error());
+                current->meteorology.push_back(*m);
+                break;
+            }
+            case CrdRecordKind::RangeSupplement:
+            case CrdRecordKind::SkyQuality:
+            case CrdRecordKind::Angles:
+            case CrdRecordKind::SessionStatistics:
+                if (!current) return structure(ln, tag, "a data record outside an H4…H8 block");
+                [[fallthrough]];
+            default:
+                // everything else of the block is kept opaque, in file order; header-level records of the other kinds
+                // (C1…C7, 40…42 before the first H4, comments) belong to no block and are not kept
+                if (current) {
+                    CrdOpaqueRecord o;
+                    o.kind = *kindr;
+                    o.fields.assign(toks.begin() + 1, toks.end());
+                    current->other.push_back(std::move(o));
+                }
+                break;
+        }
+    }
+    if (current)
+        return odl::err(CrdError{"IOFM-F-013", "CRD line " + std::to_string(open_line) + ", record H4: the block opened here is not closed by an H8 before the end of the text"});
+    return passes;
 }
 
 namespace {
