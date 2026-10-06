@@ -29,7 +29,8 @@
 //                       that one run of CI names every entry a clean clone cannot fetch).  Without it the run stops at the first, as the Python tool did.
 //   list [--json]       the entries, for humans.
 //   path <id>           the cache path of one entry.
-//   check-licences      plan §5 constraint 3: only licences on the permissive allowlist.
+//   check-licences      plan §5 constraint 3: only licences on the permissive allowlist -- bar its ONE stage exception (a release blocker, listed on
+//                       every run) -- and every upstream_mutable entry either vendored or backed by an immutable snapshot (`archived_url`).
 //   verify-populated    is a populated FetchContent tree the archive we pinned?
 //
 // Exit codes are distinct because CI reads them:
@@ -998,6 +999,25 @@ bool permitted(const std::string& licence) {
 // label on it.
 constexpr const char* kSearchRecordedField = "search_recorded";
 
+// THE ONE EXCEPTION to the allowlist (plan §5 constraint 3's exception, by the user's decision of 2026-10-06: "find a replacement first; if no hit,
+// accept non-commercial for this stage"): DRAO's 10.7 cm solar flux table is vendored under terms that permit non-commercial reproduction only.  It
+// is the fixture of one cross-check and the live file changes daily, so CI needs the pinned bytes; it is a BLOCKER on any commercial release.
+// The id is NOT on kPermissive, on purpose: nothing reaches it by being added to a list.  The gate accepts it on exactly ONE entry, and only while
+// that entry carries `"release_blocker": true`; the id without the flag, the flag without the id, either of them on any other entry, and a flag that
+// is not a boolean are all refused, so that the exception cannot spread by being copied.  Every run of the gate lists it.
+constexpr const char* kStageExceptionId = "NONCOMMERCIAL-STAGE-EXCEPTION";
+constexpr const char* kStageExceptionEntry = "drao-fluxtable";
+constexpr const char* kReleaseBlockerField = "release_blocker";
+
+// An `upstream_mutable` entry is one whose publisher rewrites the file in place, so the bytes pinned here are not served again.  manifest/MANIFEST.md
+// has said since 2026-09-25 that such an entry MUST be vendored unless it carries `archived_url`, a snapshot the publisher maintains and does not
+// change; four entries were not, nobody applied the rule to them, and GitHub's workflow was red for eighteen days (PROVENANCE.md section 41.3).  The
+// rule now enforces itself.  Literature entries are exempt: they are provenance records, never build inputs, and may not be redistributed at all.
+bool has_immutable_snapshot(const Json& e) {
+    const Json* url = member_of(e, "archived_url");
+    return url != nullptr && url->is_string() && !url->as_string().empty();
+}
+
 // Plan §5 constraint 3: only known-permissive licences, by allowlist.
 //
 // THE GATE'S SCOPE IS WHAT THIS TREE REDISTRIBUTES, which is code and data, not what it READS.  A `literature` entry is a provenance record
@@ -1011,6 +1031,9 @@ constexpr const char* kSearchRecordedField = "search_recorded";
 int cmd_check_licences(Io& io, const Manifest& m) {
     std::vector<const Json*> bad;
     std::vector<const Json*> lit;
+    std::vector<const Json*> blockers;    // the stage exception, accepted: listed on every run
+    std::vector<const Json*> misplaced;   // the exception's id or flag where it is not allowed
+    std::vector<const Json*> unbacked;    // upstream_mutable, neither vendored nor backed by an immutable snapshot
     for (const Json& e : m.entries()) {
         if (is_literature(e)) {
             lit.push_back(&e);
@@ -1023,12 +1046,21 @@ int cmd_check_licences(Io& io, const Manifest& m) {
             }
             continue;
         }
+        if (truthy(e, "upstream_mutable") && !is_vendored(e) && !has_immutable_snapshot(e)) unbacked.push_back(&e);
         const std::string licence = text_of(e, "licence");
-        if (!permitted(licence)) {
+        const Json* flag = member_of(e, kReleaseBlockerField);
+        const bool excepted = upper_stripped(licence) == kStageExceptionId;
+        const bool flagged = flag != nullptr && flag->is_bool() && flag->as_bool();
+        if (flag != nullptr && !flag->is_bool()) {
+            misplaced.push_back(&e);
+        } else if (excepted || flagged) {
+            if (excepted && flagged && str_field(e, "id") == kStageExceptionEntry) blockers.push_back(&e);
+            else misplaced.push_back(&e);
+        } else if (!permitted(licence)) {
             bad.push_back(&e);
-            continue;
+        } else if (upper_stripped(licence) == "FACTUAL-DATA-CITED" && !truthy(e, kSearchRecordedField)) {
+            bad.push_back(&e);
         }
-        if (upper_stripped(licence) == "FACTUAL-DATA-CITED" && !truthy(e, kSearchRecordedField)) bad.push_back(&e);
     }
     std::vector<std::string> ids;
     for (const Permitted& p : kPermissive) ids.emplace_back(p.id);
@@ -1054,8 +1086,36 @@ int cmd_check_licences(Io& io, const Manifest& m) {
                << "  one-line reason. That is meant to be a deliberate act.\n"
                << "  Permitted today: " << all << "\n";
     }
-    if (!bad.empty()) return kMalformed;
-    io.out << "ok       " << (m.entries().size() - lit.size()) << " entries, every licence on the permissive allowlist\n";
+    for (const Json* e : misplaced) {
+        const Json* flag = member_of(*e, kReleaseBlockerField);
+        io.err << "THE STAGE EXCEPTION IS NOT AVAILABLE HERE  " << str_field(*e, "id") << ": licence " << text_of(*e, "licence") << ", "
+               << kReleaseBlockerField << " " << (flag == nullptr ? std::string("absent") : flag->dumps(2)) << "\n"
+               << "  Plan §5 constraint 3 has ONE exception, by the user's decision of 2026-10-06: the licence " << kStageExceptionId << ",\n"
+               << "  accepted on the entry " << kStageExceptionEntry << " alone and only while that entry carries \"" << kReleaseBlockerField << "\": true.\n"
+               << "  It is a blocker on any commercial release.  The id without the flag, the flag without the\n"
+               << "  id, either of them on another entry, and a flag that is not true or false are all refused:\n"
+               << "  the exception must not spread by being copied.\n";
+    }
+    for (const Json* e : unbacked) {
+        io.err << "UPSTREAM-MUTABLE ENTRY THAT IS NEITHER VENDORED NOR BACKED BY AN IMMUTABLE SNAPSHOT  " << str_field(*e, "id") << "\n"
+               << "  The publisher rewrites this file in place, so the bytes pinned here will not be served\n"
+               << "  again and a clean clone cannot fetch them: GitHub's workflow was red for eighteen days\n"
+               << "  on exactly this (PROVENANCE.md section 41.3).  manifest/MANIFEST.md: such an entry MUST\n"
+               << "  be `vendored` (its bytes tracked at data/vendored/<id>/, once the origin's terms permit\n"
+               << "  redistributing them) unless it carries `archived_url`, a snapshot the publisher\n"
+               << "  maintains and does not change.\n";
+    }
+    if (!bad.empty() || !misplaced.empty() || !unbacked.empty()) return kMalformed;
+    const std::size_t entries = m.entries().size() - lit.size();
+    if (blockers.empty()) {
+        io.out << "ok       " << entries << " entries, every licence on the permissive allowlist\n";
+    } else {
+        io.out << "ok       " << entries << " entries: " << (entries - blockers.size()) << " on the permissive allowlist, " << blockers.size()
+               << " under the stage exception (a release blocker, below)\n"
+               << "         RELEASE BLOCKER" << (blockers.size() == 1 ? "" : "S") << ": plan §5 constraint 3's one exception, by the user's decision of 2026-10-06;\n"
+               << "         non-commercial terms only; no commercial release may include " << (blockers.size() == 1 ? "it" : "them") << ":\n";
+        for (const Json* e : blockers) io.out << "           " << dk::pad_right(str_field(*e, "id"), 24) << " " << kStageExceptionId << '\n';
+    }
     if (!lit.empty()) {
         io.out << "         " << lit.size() << " literature entr" << (lit.size() == 1 ? "y" : "ies")
                << ", exempt by plan §5 constraint 3 and each carrying a terms record:\n";

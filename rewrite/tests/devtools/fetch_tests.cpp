@@ -808,3 +808,94 @@ TEST_CASE("fetch stops at the first entry that fails; --keep-going tries them al
     CHECK(run(root, ok, {"fetch", "--keep-going"}).code == kOk);
     CHECK(run(root, ok, {"verify", "--keep-going"}).code == kArgument);
 }
+
+TEST_CASE("the stage exception (plan §5 constraint 3's one): accepted on drao-fluxtable with its flag, refused in every other form, and listed", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string digest = std::string(64, 'd');
+    const char* const id = "NONCOMMERCIAL-STAGE-EXCEPTION";
+    const Json plain = data_entry("thing", "thing.bin", digest);
+    const Json drao = with(with(data_entry("drao-fluxtable", "fluxtable.txt", digest, id), "release_blocker", Json(true)), "vendored", Json(true));
+    const auto check = [&](const std::vector<Json>& entries) { return run(root, write_manifest(root, entries), {"check-licences"}); };
+    const auto refused = [&](const Result& r) {
+        CHECK(r.code == kMalformed);
+        CHECK(contains(r.err, "THE STAGE EXCEPTION IS NOT AVAILABLE HERE"));
+    };
+
+    // accepted: on that entry, with that flag; and listed as a release blocker, with the count of the others
+    Result r = check({plain, drao});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "ok       2 entries: 1 on the permissive allowlist, 1 under the stage exception (a release blocker, below)"));
+    CHECK(contains(r.out, "RELEASE BLOCKER: plan §5 constraint 3's one exception"));
+    CHECK(contains(r.out, "no commercial release may include it:"));
+    CHECK(contains(r.out, pad_right("drao-fluxtable", 24) + " " + id + "\n"));
+    CHECK(check({with(drao, "licence", Json("noncommercial-stage-exception"))}).code == kOk);   // the id is compared as every licence is: upper() and strip()
+    r = check({plain});
+    CHECK(contains(r.out, "ok       1 entries, every licence on the permissive allowlist"));        // and nothing is said of blockers when there are none
+    CHECK_FALSE(contains(r.out, "RELEASE BLOCKER"));
+
+    // RULE 5: every way of getting it wrong is refused, by name
+    refused(check({without(drao, "release_blocker")}));                                              // the id without the flag
+    refused(check({with(drao, "release_blocker", Json(false))}));                                    // the flag false
+    refused(check({with(drao, "release_blocker", Json("true"))}));                                   // the flag a string
+    refused(check({with(drao, "release_blocker", Json(std::int64_t{1}))}));                          // the flag a number
+    refused(check({with(drao, "licence", Json("MIT"))}));                                            // the flag without the id, on the entry
+    refused(check({with(plain, "release_blocker", Json(true))}));                                    // the flag on another entry
+    refused(check({with(plain, "licence", Json(id))}));                                              // the id on another entry, without the flag
+    refused(check({with(with(plain, "licence", Json(id)), "release_blocker", Json(true))}));         // the id AND the flag on another entry: it must not spread
+    refused(check({drao, with(with(plain, "licence", Json(id)), "release_blocker", Json(true))}));   // a second one beside the first
+    refused(check({with(plain, "release_blocker", Json("yes"))}));                                   // a flag that is not a boolean, on an ordinary entry
+    refused(check({with(plain, "release_blocker", Json(std::int64_t{1}))}));
+    r = check({with(plain, "release_blocker", Json(false))});                                        // a flag that is false is nothing, anywhere
+    CHECK(r.code == kOk);
+    CHECK(contains(check({without(drao, "release_blocker")}).err, "release_blocker absent"));
+    CHECK(contains(check({with(drao, "release_blocker", Json("true"))}).err, "release_blocker \"true\""));
+    // the id is NOT on the allowlist proper: nothing else reaches it, and the ordinary refusal does not mention it as permitted
+    const Result unlisted = check({with(plain, "licence", Json("CC-BY-NC-4.0"))});
+    CHECK(unlisted.code == kMalformed);
+    CHECK(contains(unlisted.err, "LICENCE NOT ON THE PERMISSIVE LIST"));
+    CHECK_FALSE(contains(unlisted.err, "NONCOMMERCIAL-STAGE-EXCEPTION,"));
+}
+
+TEST_CASE("an upstream_mutable entry must be vendored or name an immutable snapshot, or check-licences refuses it", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const Json plain = data_entry("thing", "thing.bin", std::string(64, 'e'));
+    const Json mutable_entry = with(plain, "upstream_mutable", Json(true));
+    const auto check = [&](const std::vector<Json>& entries) { return run(root, write_manifest(root, entries), {"check-licences"}); };
+
+    // the defect this exists for: pinned, rewritten upstream in place, neither vendored nor backed by a snapshot -- what GitHub's workflow ran into
+    Result r = check({mutable_entry});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "UPSTREAM-MUTABLE ENTRY THAT IS NEITHER VENDORED NOR BACKED BY AN IMMUTABLE SNAPSHOT  thing"));
+    CHECK(contains(r.err, "MUST"));
+    CHECK(contains(r.err, "PROVENANCE.md section 41.3"));
+    r = check({data_entry("plain", "plain.bin", std::string(64, 'a')), mutable_entry,
+               with(data_entry("other", "other.bin", std::string(64, 'f')), "upstream_mutable", Json(true))});
+    CHECK(r.code == kMalformed);                                                  // every offender is named, not the first only
+    CHECK(contains(r.err, "SNAPSHOT  thing"));
+    CHECK(contains(r.err, "SNAPSHOT  other"));
+    CHECK(r.err.find("SNAPSHOT  plain") == std::string::npos);
+
+    // the two ways out
+    CHECK(check({with(mutable_entry, "vendored", Json(true))}).code == kOk);
+    CHECK(check({with(mutable_entry, "archived_url", Json("https://example.invalid/archive/thing.bin"))}).code == kOk);
+    // ... which are not satisfied by the label alone
+    CHECK(check({with(mutable_entry, "vendored", Json(false))}).code == kMalformed);
+    CHECK(check({with(mutable_entry, "archived_url", Json(""))}).code == kMalformed);
+    CHECK(check({with(mutable_entry, "archived_url", Json(std::int64_t{7}))}).code == kMalformed);
+    CHECK(check({with(mutable_entry, "archived_url", Json::parse("null"))}).code == kMalformed);
+
+    // an entry that is not upstream_mutable is not asked, and neither is a literature entry (a provenance record, never a build input)
+    CHECK(check({with(plain, "upstream_mutable", Json(false))}).code == kOk);
+    const Json paper = object({{"id", Json("a-paper")}, {"kind", Json("literature")}, {"terms", Json("NOT ESTABLISHED: searched, found nothing")},
+                               {"url", Json("https://example.invalid/p.pdf")}, {"filename", Json("p.pdf")}, {"sha256", Json(std::string(64, 'a'))},
+                               {"upstream_mutable", Json(true)}});
+    CHECK(check({plain, paper}).code == kOk);
+
+    // it joins the other refusals: a manifest with a licence problem AND an unbacked entry reports both
+    r = check({with(plain, "licence", Json("Proprietary")), with(data_entry("other", "other.bin", std::string(64, 'f')), "upstream_mutable", Json(true))});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "LICENCE NOT ON THE PERMISSIVE LIST"));
+    CHECK(contains(r.err, "SNAPSHOT  other"));
+}
