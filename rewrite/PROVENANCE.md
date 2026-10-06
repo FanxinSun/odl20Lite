@@ -8424,12 +8424,43 @@ Step 1's rule-4 report is in `~/.claude/handover/2026-10-06-odl-rewrite-L7.REPOR
 
 **A correction to the executor's own report.** Its section E (G3, and R8's proposal) listed Demmel's printed “κ(A) ≈ 2.0” as a property of his worked example to be reproduced. It cannot be: the exact 2-norm condition number of the printed `A` is **12.8476** (λ_max 1.7671, λ_min 0.1375); the page's figure is not a 2-norm condition number of that matrix (κ₂(H) = 3.11 × 10⁵⁰ does match the page's ≈ 10⁵⁰). The report's two places are annotated where they stand, first text kept; `EST-A-208` prints both figures and no gate uses the page's.
 
+## 41. L0 step 8 — the tree's development code in C++ (opened 2026-10-06, on the user's directive)
+
+**The directive** (the user, 2026-10-06, recorded verbatim in plan §5 constraint 11): *"please abandon any python usage and keep C++ between you and odl Executor, and further development"*; *"rewrite in C++"*; *"replace anything in Python by C++ in odl project"*; and the scope, *"1. leave them, no need to rewrite 2. for newly developped/added modules, which has been done by Claude based on original odl20Lite, if the module is C/C++ based, rewrite all developping codes to C++, all from the beginning, not from L7 3. for python based modules or plotting, ok2python 4. ask odl Executor to do the rewrite"*. The same day, a further rule: no module, tool or script in a language other than C or C++ without the user deciding first. The step's gate is `plan/subplan_L0/L0-8.md`; its inventory and rule-4 report were ruled on 2026-10-06 (D1 – D12, `af9d777`).
+
+### 41.1 The rename map
+
+Every Python file of this tree, its C++ successor, and the group (`plan/subplan_L0/L0-8.md`, twelve groups, each green and verified before the next) that replaces it. The Python files stay named in the history above and in the specifications' rationale text as they were written; this map is how a reader finds what became of each. A row is changed when its group lands.
+
+| Python file (removed in the group's commit) | C++ successor | group | state |
+|---|---|---|---|
+| `tools/fetch.py` | `tools/fetch.cpp` (on `tools/devkit`) | C1 | **replaced** |
+| `tests/test_fetch.py` | `tests/devtools/fetch_tests.cpp` | C1 | **replaced** |
+| `tools/notice.py` | `tools/notice.cpp` | C2 | pending |
+| `tools/speccheck.py` | `tools/speccheck.cpp` | C3 | pending |
+| `tests/test_speccheck_duplicate.py`, `tests/test_speccheck_cross_file_duplicate.py`, `tests/test_speccheck_lettered_acceptance.py` | `tests/devtools/speccheck_tests.cpp` | C3 | pending |
+| `tools/budgetcheck.py`, `tests/test_budgetcheck.py` | `tools/budgetcheck.cpp`, `tests/devtools/budgetcheck_tests.cpp` | C4 | pending |
+| `tools/constraint8.py`, `tools/literaturecheck.py`, `tools/unitcheck.py` | `tools/<stem>.cpp` | C5 | pending |
+| `tests/test_one_secular_pole.py`, `tests/test_configure_is_current.py` | `tests/devtools/` | C5 | pending |
+| `tools/rk_coefficients.py` | `tools/rk_coefficients.cpp` | C6 | pending |
+| `tools/gradient_reference.py`, `tools/forcemodel_fd_sizing.py`, `tools/forcemodel_comparator_header.py`, `tools/legendre_reference.py` | `tools/<stem>.cpp` | C7 | pending |
+| `tools/measmod_reference.py`, `tools/measmod_fd_sizing.py`, `tools/measmod_registry_facts.py`, `tools/measmod_g5_select.py`, `tools/measmod_height_sensitivity.py` | `tools/<stem>.cpp` | C8 | pending |
+| `tools/estimation_sizing.py` | `tools/estimation_sizing.cpp` | C9 | pending |
+| `tools/msis_coefficients.py`, `tools/tides_from_conventions.py`, `tools/penumbral_cancellation.py` | `tools/<stem>.cpp` | C10 | pending |
+| `tools/msis_reference.py` | — | C10, **held for the user** (it compiles and runs a Fortran reference with `gfortran`) | held |
+| `tools/reprocheck.py` | `tools/reprocheck.cpp` | C11 | pending |
+
+### 41.2 Group C1 — the manifest fetcher, and the devkit it stands on
+
+`tools/fetch.cpp` replaces `tools/fetch.py` on `tools/devkit` (SHA-256, JSON, inflate/gzip/CRC-32, tar and zip, process spawning, UTF-8 and Python's repr and float formats), which links nothing of the tree's modules. **What proves it:** on the real manifest and cache the C++ `verify` and `check-licences` print exactly what the Python tool printed (the baseline log of `ci.sh` on `acac318`: 197 and 24 lines, the path prefix aside); `verify-populated` agrees on the four dependency trees and refuses a tampered one; every one of the manifest's 116 entries is reproduced byte for byte by the JSON writer in one of its two modes, and every member the manifest pins reads out of its real cached archive and hashes as declared; one real download through `curl` fetched, hashed and cached a pinned NIST file, and `--refresh` found no drift. **What the port changed, on purpose:** `list` and `path --member` work (the Python crashed on a literature entry and on an undefined name); a download refused by the sniff leaves no `.part` behind; only https URLs are fetched; downloads spawn the system `curl`, declared in the manifest (`curl`, kind `tool`, licence `curl` — the text quoted from the installed package's own copyright file and checked word for word; the allowlist gains `CURL`). **Rule 5:** thirteen defects injected into the fetcher and ten into the devkit, each caught (the report's `C1_rule5_injected_defects.txt`); two of them — `fetch` not comparing a cached or a tracked file's hash — were *not* caught by the first port of the Python tests (which never ran `fetch` on a corrupted cache), and two checks were added.
+
 ---
 
 ## Changelog
 
 | date | change |
 |---|---|
+| 2026-10-06 | **L0 step 8, group C1: the manifest fetcher in C++** (`tools/fetch.cpp`, `tools/devkit`, `cmake/OdlBuildHostTool.cmake`): `fetch.py` and `test_fetch.py` removed; configure compiles the tool first; `curl` declared in the manifest; the rename map and the group's record are §41. |
 | 2026-10-06 | **L7 step 2: the estimator specified, registered, built and its gate run** (`SPEC-estimation.md` v0.3; c0d518d the registration, 261edd2 the module, fcdfb86 one test fixed): the normal equations scaled by default by exact powers of two, no unscaled path, every refusal carrying its numbers, one hatch (elimination, logged), system mode; fifteen acceptance tests in six groups run once each, alone, with their logs kept — **every criterion held**; one assertion failed in run 1 of `[hatch]` from an out-of-range index in the test and was re-run alone after the fix; four *predictions* missed (listed). Filip refused at `B9`; Pontius's twelve certified digits reached where the unscaled rule calls it rank-deficient. The first composed `ci.sh` run exited 8 — the generator's two ctests needed NumPy, which CMake's Python lacks — and the generator was ported to the standard library with its extended-precision arithmetic emulated exactly (8dc8205). §40.8. |
 | 2026-10-06 | **L7 steps 2 – 5: the rule-4 report ruled on, and the pins** (the manager's rulings R6 – R15 in `plan/subplan_L7/L7-2.md` … `-5.md`; `EST-Q-003` – `-005`): scaling by exact powers of two as the only path — it fixes every decision read from the matrix and not Cholesky's accuracy (Demmel, measured bit-identical on NIST's eleven linear datasets); elimination as the one hatch; DTU's Algorithm 3.16 in the scaled variables with a status; information-form priors; the region by closed forms against a grid profile. Van der Sluis's scan recorded as read and not a source. **Pinned, URL and hash only:** the IGS final SP3 files for GPS week 2246 (the exit gate's observations), NIST StRD's eleven linear datasets, nine documents as `literature`; `IGS-PUBLIC` and `NIST-PUBLIC` added to the licence allowlist; `NOTICE` regenerated; the handbook tables not pinned (not byte-stable). §40.7. Nothing of the step is built. |
 | 2026-10-06 | **L7 step 1: `forcemodel` specified and every check and the finite-difference sizing registered before any code exists** (`SPEC-forcemodel.md` v0.1; R1, R4, R5, F4, F5): the plugins, the Earth-orientation helper, the provenance format, the registry gate's 48 contributions and their tolerances, the truncation function and table with the predictions for two registered sets, and the gate's frozen sizing — `F` a rigorous bound **measured 4.5 – 5.3× the true supremum**, the best defect visible 1.7 – 1.9 × 10⁻⁹ of the tensor, the wrong rows' power 2 × 10⁸ – 1 × 10⁹. §40.6. Nothing of the module is built. |

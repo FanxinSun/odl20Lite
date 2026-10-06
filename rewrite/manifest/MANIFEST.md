@@ -41,9 +41,9 @@ does not.
 |---|---|---|
 | `id` | always | unique; names the cache subdirectory and the CMake dependency |
 | `kind` | always | `code` (linked or compiled in), `data` (an input to a computation), `tool` (used at build time, ships in nothing) |
-| `licence` | always | An SPDX identifier, or one of `fetch.py`'s own tree-invented ones for a public body with no SPDX-style licence of its own (`IERS-PUBLIC`, `NASA-PUBLIC`, `SPACETRACK-PUBLIC`, `FACTUAL-DATA-CITED`, `VALLADO-UNRESTRICTED`, `ILRS-PUBLIC`, `IGS-PUBLIC`, `NIST-PUBLIC`, …) — checked against plan §5 constraint 3 by `fetch.py check-licences`, `PERMISSIVE_LICENCES` there names what each one is and why. Not required on a `literature` entry (below), which is exempt by construction rather than by an allowlisted identifier. |
+| `licence` | always | An SPDX identifier, or one of `tools/fetch.cpp`'s own tree-invented ones for a public body with no SPDX-style licence of its own (`IERS-PUBLIC`, `NASA-PUBLIC`, `SPACETRACK-PUBLIC`, `FACTUAL-DATA-CITED`, `VALLADO-UNRESTRICTED`, `ILRS-PUBLIC`, `IGS-PUBLIC`, `NIST-PUBLIC`, …) — checked against plan §5 constraint 3 by `fetch check-licences`, the allowlist there (`kPermissive`) names what each one is and why. Not required on a `literature` entry (below), which is exempt by construction rather than by an allowlisted identifier. |
 | `licence_note` | expected | why this licence is acceptable, and the multi-licence option chosen where there is one (plan §3.11 point 4) |
-| `search_recorded` | for `FACTUAL-DATA-CITED` | **required**, not merely expected, whenever `licence` is `FACTUAL-DATA-CITED` — names exactly where the search for this entry's own terms is written up (a `PROVENANCE.md` section, typically). L6 step 2's own ruling (`plan/subplan_L6/L6-2.md`, 2026-09-25): the basis is earned by a recorded search, not by the label, the same shape a `literature` entry's own `terms` field already enforces for a different exemption — `fetch.py check-licences` refuses an entry claiming this basis without one, proved by injection in `tests/test_fetch.py`. |
+| `search_recorded` | for `FACTUAL-DATA-CITED` | **required**, not merely expected, whenever `licence` is `FACTUAL-DATA-CITED` — names exactly where the search for this entry's own terms is written up (a `PROVENANCE.md` section, typically). L6 step 2's own ruling (`plan/subplan_L6/L6-2.md`, 2026-09-25): the basis is earned by a recorded search, not by the label, the same shape a `literature` entry's own `terms` field already enforces for a different exemption — `fetch check-licences` refuses an entry claiming this basis without one, proved by injection in `tests/devtools/fetch_tests.cpp`. |
 | `role` | expected | what it is for, in a few words |
 | `url`, `filename`, `sha256` | unless `provided_by_host` | the pin. `sha256` is 64 lowercase hex characters. |
 | `version` | expected | for humans and for NOTICE; **never** used to select anything |
@@ -104,17 +104,23 @@ twice:
 
 ## The tool
 
-`tools/fetch.py`, stdlib-only Python. A fetcher needing a package installed before it can fetch
-anything is a bootstrapping regress.
+`tools/fetch.cpp`, C++ on the tree's own devkit (`tools/devkit`: SHA-256, JSON, inflate, tar and zip, process
+spawning), and compiled FIRST, by the configured compiler, before the build verifies its inputs with it
+(`cmake/OdlBuildHostTool.cmake`). A fetcher needing a package installed before it can fetch anything is a
+bootstrapping regress. The one program it spawns is `curl`, for `fetch` only (the manifest's `curl` tool
+entry); `verify`, `check-licences` and `verify-populated`, the build and the tests never need it. To get the
+tool without a configure: `cmake -DODL_HOST_OUT=<dir> -P cmake/OdlBuildHostTool.cmake` writes `<dir>/fetch`
+(`tools/bootstrap.sh` does that, fetches, then runs every gate).
 
 | command | does |
 |---|---|
 | `verify` | **offline.** Is every entry cached and hash-correct? Never touches the network. |
-| `fetch` | download what is missing, verify, stop |
+| `fetch` | download what is missing (with `curl`, https only), verify, stop |
 | `fetch --refresh` | re-download everything and report upstream drift **without overwriting the cache** |
-| `list [--json]` | the entries — the NOTICE generator's input |
-| `path <id>` | the cache path of one entry — CMake's input |
-| `check-licences` | plan §5 constraint 3: refuse GPL/LGPL/AGPL |
+| `list [--json]` | the entries, for humans |
+| `path <id> [--member NAME]` | the cache path of one entry, or of one extracted archive member |
+| `check-licences` | plan §5 constraint 3: only licences on the permissive allowlist |
+| `verify-populated <id> <dir>` | is the tree FetchContent populated the archive we pinned? (CMake calls it after each `FetchContent_MakeAvailable`) |
 
 Exit codes are distinct because CI reads them: `0` ok, `1` missing from cache, `2` **hash
 mismatch**, `3` manifest malformed, `4` network failure, `5` usage.

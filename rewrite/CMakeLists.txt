@@ -9,8 +9,10 @@
 #   test framework          Catch2 v3 (BSL-1.0)
 #
 # The one thing to understand before changing anything here: THE BUILD DOES NOT
-# FETCH.  A clean clone configures only after `python3 tools/fetch.py fetch` has
-# run, and the failure message says so.  A build that reaches for the network is
+# FETCH.  A clean clone configures only after the manifest's inputs have been
+# fetched (`tools/bootstrap.sh` does it, then runs every gate; the tool it uses
+# is tools/fetch.cpp, which configure compiles first, cmake/OdlBuildHostTool.cmake),
+# and the failure message says so.  A build that reaches for the network is
 # a build whose result depends on when it ran, which is the property this tree
 # spends a whole step preventing.
 
@@ -44,7 +46,7 @@ find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
 # whose cache has drifted since it was populated should not build at all.
 
 execute_process(
-  COMMAND "${Python3_EXECUTABLE}" "${ODL_FETCH_TOOL}" verify
+  COMMAND "${ODL_FETCH_TOOL}" verify
   RESULT_VARIABLE _odl_verify_rc
   OUTPUT_VARIABLE _odl_verify_out
   ERROR_VARIABLE  _odl_verify_err)
@@ -54,7 +56,7 @@ if(NOT _odl_verify_rc EQUAL 0)
 endif()
 
 execute_process(
-  COMMAND "${Python3_EXECUTABLE}" "${ODL_FETCH_TOOL}" check-licences
+  COMMAND "${ODL_FETCH_TOOL}" check-licences
   RESULT_VARIABLE _odl_lic_rc
   OUTPUT_VARIABLE _odl_lic_out
   ERROR_VARIABLE  _odl_lic_err)

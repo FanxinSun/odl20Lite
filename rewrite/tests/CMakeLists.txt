@@ -5,17 +5,18 @@ add_executable(odl_toolchain_tests toolchain_smoke.cpp)
 target_link_libraries(odl_toolchain_tests PRIVATE Catch2::Catch2WithMain odl_warnings)
 catch_discover_tests(odl_toolchain_tests EXTRA_ARGS --warn NoAssertions)
 
-# The fetcher's own behaviour, including every refusal path.
+# The fetcher's own behaviour, including every refusal path (L0 step 8: tests/devtools/fetch_tests.cpp, the port of test_fetch.py; the cases are
+# tagged [fetcher] and run in-process on synthetic manifests).
 add_test(NAME fetcher.behaviour
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_fetch.py")
+  COMMAND odl_devtools_tests "[fetcher]")
 
 # The manifest verifies offline.  This is the property CI depends on (step 4):
 # green means the pinned bytes are the bytes, not that the network was up.
 add_test(NAME manifest.verify_offline
-  COMMAND "${Python3_EXECUTABLE}" "${ODL_FETCH_TOOL}" verify)
+  COMMAND "${ODL_FETCH_TOOL}" verify)
 
 add_test(NAME manifest.licences_permissive
-  COMMAND "${Python3_EXECUTABLE}" "${ODL_FETCH_TOOL}" check-licences)
+  COMMAND "${ODL_FETCH_TOOL}" check-licences)
 
 # Plan §5 constraint 8.  D7's one-line migration holds only while the tree stays
 # inside the interchangeable part of the expected API; this is what keeps it so.

@@ -2,7 +2,7 @@
 #
 # Plan L0 step 3: dependency acquisition must honour URL-plus-hash pinning, not
 # version-range resolution.  This is how: there is one manifest, it names a URL
-# and a SHA-256, tools/fetch.py puts the bytes in the cache, and CMake consumes
+# and a SHA-256, tools/fetch.cpp puts the bytes in the cache, and CMake consumes
 # the cache and re-checks the hash independently.  No resolver sits between the
 # declaration and the artefact, and no part of the build can silently acquire a
 # different version.
@@ -17,8 +17,10 @@ include(FetchContent)
 
 set(ODL_MANIFEST_FILE "${CMAKE_CURRENT_LIST_DIR}/../manifest/manifest.json"
     CACHE FILEPATH "The manifest of every external input")
-set(ODL_FETCH_TOOL "${CMAKE_CURRENT_LIST_DIR}/../tools/fetch.py"
-    CACHE FILEPATH "The manifest fetcher")
+# The fetcher is C++ (tools/fetch.cpp) and the build cannot build C++ before it has verified its inputs, so it is compiled HERE, first, by the
+# configured compiler: odl_build_host_tool() sets ODL_FETCH_TOOL to <build>/host/fetch (cmake/OdlBuildHostTool.cmake).
+include(OdlBuildHostTool)
+odl_build_host_tool()
 
 file(READ "${ODL_MANIFEST_FILE}" _odl_manifest_json)
 
@@ -29,7 +31,7 @@ endif()
 string(JSON ODL_CACHE_REL GET "${_odl_manifest_json}" "cache")
 set(ODL_CACHE_DIR "${CMAKE_CURRENT_LIST_DIR}/../${ODL_CACHE_REL}")
 # Where a `vendored: true` entry's own bytes live -- TRACKED in the repository,
-# not the (gitignored) cache. tools/fetch.py's own vendored_dir() docstring
+# not the (gitignored) cache. tools/fetch.cpp's own account of vendored_dir()
 # has the full reasoning; the default matches its own "data/vendored".
 string(JSON ODL_VENDORED_REL ERROR_VARIABLE _odl_no_vendored_key GET "${_odl_manifest_json}" "vendored")
 if(_odl_no_vendored_key)
@@ -88,7 +90,7 @@ function(odl_require_cached id)
       "  declared as  ${_m_URL}\n"
       "\n"
       "  The build does not fetch.  Fetching is a separate, auditable act:\n"
-      "      python3 ${ODL_FETCH_TOOL} fetch\n"
+      "      ${ODL_FETCH_TOOL} fetch        (or tools/bootstrap.sh, which then runs every gate)\n"
       "  This is deliberate — a build that downloads is a build whose inputs\n"
       "  depend on when it ran.")
   endif()
@@ -96,7 +98,7 @@ endfunction()
 
 # odl_declare_dependency(<id>)
 #   FetchContent from the LOCAL CACHE, with URL_HASH so that CMake verifies the
-#   bytes a second time and independently of tools/fetch.py.  Two checks of the
+#   bytes a second time and independently of tools/fetch.cpp.  Two checks of the
 #   same hash by two tools is cheap; one check is a single point of failure in
 #   the one property the manifest exists to guarantee.
 #
@@ -145,7 +147,7 @@ endfunction()
 
 # odl_verify_populated(<id>)
 #   After FetchContent_MakeAvailable, check that what landed is what was pinned.
-#   The check is delegated to tools/fetch.py, which compares a file inside the
+#   The check is delegated to tools/fetch.cpp, which compares a file inside the
 #   populated tree against the same file inside the hash-verified archive.
 #   Nothing is inferred from a version string; the comparison is against bytes.
 #
@@ -163,7 +165,7 @@ function(odl_verify_populated id)
       "Call this only after FetchContent_MakeAvailable(${id}).")
   endif()
   execute_process(
-    COMMAND "${Python3_EXECUTABLE}" "${ODL_FETCH_TOOL}" verify-populated ${id} "${${_lc}_SOURCE_DIR}"
+    COMMAND "${ODL_FETCH_TOOL}" verify-populated ${id} "${${_lc}_SOURCE_DIR}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
   if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "${_out}${_err}")

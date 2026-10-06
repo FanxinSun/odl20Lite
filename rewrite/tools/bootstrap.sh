@@ -15,10 +15,14 @@
 
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-PY=${PYTHON:-python3}
+HOST="$ROOT/build-ci/host"
 
+echo "== building the manifest tool, tools/fetch.cpp (the build cannot build C++ before it has verified what it builds from) =="
+cmake -DODL_HOST_OUT="$HOST" -DODL_CXX="${CXX:-c++}" -P "$ROOT/cmake/OdlBuildHostTool.cmake"
+
+echo
 echo "== populating the manifest cache from origin (the only online step) =="
-"$PY" "$ROOT/tools/fetch.py" fetch
+"$HOST/fetch" fetch
 
 echo
 echo "== every gate, offline =="

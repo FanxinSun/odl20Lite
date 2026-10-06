@@ -11,7 +11,7 @@
 // attitude data from an external server for a question this tree has
 // already settled.
 //
-// WHY REPRODUCIBLE RATHER THAN GATED (manifest.json + tools/fetch.py, the
+// WHY REPRODUCIBLE RATHER THAN GATED (manifest.json + tools/fetch.cpp, the
 // pattern every other external input in this tree follows, PROVENANCE.md
 // §30.11): two independent reasons, not one. (1) SCOPE -- these files are
 // specific to one historical validation exercise (one satellite, one day),

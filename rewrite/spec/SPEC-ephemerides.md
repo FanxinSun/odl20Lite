@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `EPH` |
 | **Status** | **adopted** 2026-09-18, conditional on three corrections, which v1.1 applies |
-| **Version** | 1.4 |
+| **Version** | 1.5 |
 | **Date** | 2026-09-18 |
 | **Layer** | L2 `environment`, step 1 (`../plan/PLAN.md` §3.3) |
 | **Depends on** | `SPEC-time.md` (the TDB argument), `core` |
@@ -355,7 +355,7 @@ its place rather than being cargo.
 | id | why no test |
 |---|---|
 | `EPH-R-003` | Structural: the interface takes an `Epoch`, and `SPEC-time.md` makes UTC a rendering rather than a storable scale, so a UTC value cannot reach here. Discharged by `TIME-A-021`/`-A-022`. |
-| `EPH-R-030`, `EPH-R-031`, `EPH-R-032` | Licence obligations. Discharged by the manifest entry, the generated `NOTICE`, `PROVENANCE.md` §3, and `tools/fetch.py check-licences`, whose allowlist admits `CECILL-B` and refuses `CeCILL-C` and `CeCILL v2.1` — by absence, which is why it is an allowlist. `EPH-R-031`'s content is prose in the ledger and cannot be asserted by a program. |
+| `EPH-R-030`, `EPH-R-031`, `EPH-R-032` | Licence obligations. Discharged by the manifest entry, the generated `NOTICE`, `PROVENANCE.md` §3, and `fetch check-licences` (`tools/fetch.cpp`; v1.5: it was `tools/fetch.py`), whose allowlist admits `CECILL-B` and refuses `CeCILL-C` and `CeCILL v2.1` — by absence, which is why it is an allowlist. `EPH-R-031`'s content is prose in the ledger and cannot be asserted by a program. |
 | `EPH-S-045` | A recommendation; tested when L2 step 3 consumes it. |
 | `EPH-F-007` | Delegated to the manifest fetcher and tested there (`fetcher.behaviour`). |
 
@@ -392,6 +392,7 @@ its place rather than being cargo.
 
 | version | date | change |
 |---|---|---|
+| 1.5 | 2026-10-06 | **L0 step 8 (the tree's development code is C++, plan §5 constraint 11):** the licence gate that discharges `EPH-R-030` – `-032` is `fetch check-licences` of `tools/fetch.cpp`, which replaced `tools/fetch.py`; the row of §8 Coverage names it. No requirement, refusal or acceptance row changes. |
 | 1.4 | 2026-09-18 | **`EPH-P-5`'s reference point was the wrong one.** It compared the unapplied *L*_B scaling against the ocean-tide truncation floor while calling that "the smallest term L2 step 3 keeps"; the smallest term the layer actually computes is the de Sitter correction, 3.478 × 10⁻¹¹ m s⁻² at 7331 km, and the ratio is 0.146 % rather than 5.9 × 10⁻⁴. The conclusion is unchanged and now rests on a number that means what it says. `tests/l2_floors.cpp` measures the floor, the smallest term kept and the *L*_B effect **at one radius, from the modules**. |
 | 1.3 | 2026-09-18 | **`state()` split by centre**, on `PERT-Q-010`'s ruling: it returned `State<Frame::BCRS>` whatever centre was asked for, so a geocentric vector came back typed as barycentric — the frame in the type, the **origin** in a runtime argument the type did not carry. Now `barycentric_state` returns `State<Frame::BCRS>`, `geocentric_state` returns `State<Frame::GCRS>` and **is** `FRAME-R-028`'s translation for an ephemeris body, and `relative_state` returns an **untagged** `RelativeState` for any other centre. Plan §5 constraint 10: *what a value means belongs in its type, never in the argument that produced it.* `EPH-P-5` added, stating what the geocentric call does not include, with its arithmetic. |
 | 1.2 | 2026-09-18 | **Amended by implementation.** `EPH-R-012` corrected: an SPK kernel carries **no constants**, so "read the AU from the kernel" was unsatisfiable on the mandated route. Replaced by the IAU 2012 defining value, with a kernel-supplied AU *checked against* it where one exists, and `from_kernel` recorded either way. `EPH-A-003` now asserts the absence as well as the value. |

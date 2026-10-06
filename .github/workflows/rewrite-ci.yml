@@ -43,10 +43,15 @@ jobs:
           path: rewrite/data/cache
           key: manifest-${{ hashFiles('rewrite/manifest/manifest.json') }}
 
-      # The ONLY step permitted to touch the network, and only on a cache miss.
+      # The ONLY step permitted to touch the network, and only on a cache miss.  The tool is C++ (tools/fetch.cpp): compiled first, by the helper
+      # ci.sh uses, with the compiler the gates will use, into the directory ci.sh will find it built in.
       - name: Populate the cache from origin
         if: steps.cache.outputs.cache-hit != 'true'
-        run: python3 tools/fetch.py fetch
+        env:
+          CXX: g++-13
+        run: |
+          cmake -DODL_HOST_OUT=build-ci/host -DODL_CXX="$CXX" -P cmake/OdlBuildHostTool.cmake
+          build-ci/host/fetch fetch
 
       # Everything below is offline by construction; ci.sh poisons the proxies
       # so that anything reaching for the network fails instead of succeeding.

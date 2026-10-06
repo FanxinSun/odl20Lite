@@ -21,6 +21,7 @@ SUMMARY
   calceph            4.0.5        CeCILL-B         code
   python3            >=3.9        PSF-2.0          tool
   cmake              >=3.21       BSD-3-Clause     tool
+  curl               8.18.0 (developed against; the floor is untested) curl             tool
   iers-leap-seconds  through IERS Bulletin C 72, July 2026; expires 2027-06-28 IERS-public      data
   eop-c04-20         20 C04 v3 (ITRF2020-u2023), archived 2026-02-05 IERS-public      data
   eop-finals2000a    as published 2026-09-18 IERS-public      data
@@ -2844,6 +2845,40 @@ BUILD-TIME TOOLS
               floor because the tree relies on string(JSON ...) (3.19) and on
               FetchContent's SOURCE_DIR/FIND_PACKAGE_ARGS behaviour settling
               by 3.21.
+
+  curl  8.18.0 (developed against; the floor is untested)
+    role      downloads the manifest's pinned inputs: tools/fetch.cpp's `fetch` command spawns it and nothing else does (verify, check-licences, verify-populated, the build and the tests never need it)
+    licence   curl
+    source    provided by the build host; not fetched
+    note      The curl licence (SPDX: curl), an MIT/X derivative: permissive.
+              Present on the build host; NOT fetched, NOT vendored, NOT linked
+              into any artefact; spawned as a program by `fetch fetch` only,
+              because a TLS client written for this tree would be the wrong
+              place to economise. Declared because plan L0 step 3 says nothing
+              enters the tree undeclared, and a tool the fetcher runs is an
+              external input even though it ships in nothing. The licence
+              text, quoted from the installed package's own copyright file
+              (/usr/share/doc/curl/copyright of curl 8.18.0-1ubuntu2.7, sha256
+              b36986270d288caa9f7c44876802de7a491139f3903dcb6356707ece08e1df4a
+              , the 'Files: *' stanza and the 'License: curl' stanza, read
+              2026-10-06; upstream's COPYING states the same licence at
+              https://curl.se/docs/copyright.html, which was not re-read
+              here): "Copyright: 1996-2025, Daniel Stenberg, <daniel@haxx.se>,
+              et al. ... Permission to use, copy, modify, and distribute this
+              software for any purpose with or without fee is hereby granted,
+              provided that the above copyright notice and this permission
+              notice appear in all copies. THE SOFTWARE IS PROVIDED "AS IS",
+              WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+              NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+              PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN
+              NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
+              ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+              CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+              CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+              SOFTWARE. Except as contained in this notice, the name of a
+              copyright holder shall not be used in advertising or otherwise
+              to promote the sale, use or other dealings in this Software
+              without prior written authorization of the copyright holder."
 
 ------------------------------------------------------------------------------
 LICENCE TEXTS, QUOTED VERBATIM FROM THE PINNED ARCHIVES

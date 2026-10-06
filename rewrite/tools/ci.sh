@@ -8,7 +8,7 @@
 # Fetching is therefore NOT part of this script.  Populating the cache is a
 # separate, explicit, auditable act:
 #
-#     python3 tools/fetch.py fetch        # once, online
+#     tools/bootstrap.sh                  # once, online: builds tools/fetch.cpp, fetches, then runs this script
 #     tools/ci.sh                         # thereafter, offline, as often as you like
 #
 # Anything that needs the network belongs in the first line, never the second.
@@ -56,11 +56,16 @@ gate() { step=$((step + 1)); printf '\n== gate %d: %s ==\n' "$step" "$1"; }
 
 cd "$ROOT"
 
+# The manifest tool is C++ (tools/fetch.cpp) and runs before any configure, so it is compiled here with the compiler the configure will use: the
+# same helper, the same flags and the same output directory as the configure's own call (cmake/OdlBuildHostTool.cmake), which then finds it built.
+HOST="$BUILD/host"
+cmake -DODL_HOST_OUT="$HOST" -DODL_CXX="${CXX:-c++}" -P "$ROOT/cmake/OdlBuildHostTool.cmake"
+
 gate "manifest verifies offline"
-"$PY" tools/fetch.py verify
+"$HOST/fetch" verify
 
 gate "every dependency licence is permissive (plan §5 constraint 3)"
-"$PY" tools/fetch.py check-licences
+"$HOST/fetch" check-licences
 
 gate "configure"
 cmake -S . -B "$BUILD" -G Ninja -DODL_WERROR=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo

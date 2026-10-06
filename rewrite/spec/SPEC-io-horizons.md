@@ -4,8 +4,8 @@
 |---|---|
 | **Spec ID** | `IOHZ` |
 | **Status** | **draft** 2026-09-25, for review |
-| **Version** | 1.1 |
-| **Date** | 2026-09-25 (v1.1: 2026-10-06) |
+| **Version** | 1.2 |
+| **Date** | 2026-09-25 (v1.1: 2026-10-06; v1.2: 2026-10-06, L0 step 8: the fetcher is C++, `tools/fetch.cpp`, and its proof by injection moved to `tests/devtools/fetch_tests.cpp`) |
 | **Layer** | L6 `io-measurements` (`../plan/PLAN.md` §3.7), step 2 (Horizons client) |
 | **Depends on** | `core` (`odl::Result`), `time` (`Calendar`, `TimeScale`) |
 | **Depended on by** | L6 step 3 (`sgp4`) — oracle case `T-01`'s own required-disagreement gate compares this reader's own output against the TLE reader's (`SPEC-io-formats.md`) own SGP4-propagated, TEME-to-J2000-converted state |
@@ -240,7 +240,7 @@ states this rather than overclaiming.
   `IOHZ-A-008` would fail for anyone, always, not merely until a deliberate re-pin.
   `manager's own second ruling` (`plan/subplan_L6/L6-2.md`): the bytes are committed as a TRACKED
   file, `data/vendored/horizons-acs3-vectors/`, never `data/cache/`; `fetch`/`fetch --refresh` never
-  attempt to re-acquire a vendored entry (proved refusing to, by injection, `tests/test_fetch.py`),
+  attempt to re-acquire a vendored entry (proved refusing to, by injection, `tests/devtools/fetch_tests.cpp`; v1.2: it was `tests/test_fetch.py`),
   and `verify` (and `odl_manifest_get` in CMake) check the tracked copy directly — proved where it
   has to work (rule 5): `data/cache/horizons-acs3-vectors/` was deleted entirely and `ci.sh` re-run,
   passing on the tracked copy alone. `upstream_mutable: true` is KEPT alongside `vendored: true` as
