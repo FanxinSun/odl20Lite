@@ -460,6 +460,18 @@ pre-registered expectation missed by more than 10× stays as written. Carried: t
 Galileo, GLONASS and BeiDou attitude; II/IIA's post-shadow recovery as an integrator event; and
 L2's models as plugins, now L7 step 1.
 
+> **Correction found at L7 step 1, 2026-10-06: every de Sitter row of the ranking table is 1000×
+> too large.** `tests/l4_ranking.cpp` builds the Earth-about-the-Sun state by converting values
+> already in kilometres from metres to kilometres a second time, so de Sitter, which goes as Ṙ/R²,
+> comes out a thousand times too large: 3.98 × 10⁻⁸ m s⁻² at the 300 km point, where
+> `tests/l2_floors.cpp` and TN36 §10.3 put it near 4 × 10⁻¹¹. One band shared by all three
+> relativity terms, six decades wide, let it pass. The Schwarzschild and Lense–Thirring rows are
+> unaffected, but the ordering is not: at the low-orbit points the smallest force kept is de
+> Sitter, not Lense–Thirring, and that moves L7's gravity truncation by tens of degrees. The rows
+> are corrected with one band per term, registered before the re-run, the first text kept. What
+> was wrong was a unit crossing on bare doubles, in a test whose band was wide enough to hide any
+> one term's error, at a layer whose exit gate the manager verified.
+
 ---
 
 ### 3.6 L5 `spacecraft` — **4 of 4 done; exit gate passed 2026-09-25**
