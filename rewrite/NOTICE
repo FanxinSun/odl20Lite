@@ -57,6 +57,17 @@ SUMMARY
   tn36-chapter11     2010         IERS-public      data
   ilrs-lageos1-np-202601 lageos1_202601.np2, EDC npt_crd_v2/lageos1/2026/, 1 474 762 bytes (the January file, complete since 2026-02) ILRS-PUBLIC      data
   ilrs-lageos1-sp3-260103 ilrsa.orb.lageos1.260103.v80.sp3.gz, EDC products/orbits/lageos1/260103/, 244 115 bytes gzipped, 777 478 decompressed (inputs ASI, BKG, CNES, DGFI, ESA, GFZ, JCET, NSGF, v80) ILRS-PUBLIC      data
+  ilrs-dhf-20260527  ILRS_Data_Handling_File_20260527.snx (its header: VERSION 260527, RELEASE DATE 2026/05/27, 'range bias data through the end of 2025'), EDC media/docs/, 186 597 bytes ILRS-PUBLIC      data
+  ilrs-com6-260112   com6.260112.tar.gz (readme.txt dated 2023-11-28 in its text; tables generated 2026-01-12), EDC media/docs/, 23 428 bytes ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-ilrsb ilrsb.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  237 419 bytes gzipped  631 347 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-asi asi.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 169 bytes gzipped  777 660 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-bkg bkg.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  243 930 bytes gzipped  777 506 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-cnes cnes.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 036 bytes gzipped  777 631 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-dgfi dgfi.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 080 bytes gzipped  777 660 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-esa esa.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  255 065 bytes gzipped  1 226 826 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-gfz gfz.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  237 355 bytes gzipped  636 433 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-jcet jcet.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  249 073 bytes gzipped  923 723 decompressed ILRS-PUBLIC      data
+  ilrs-lageos1-sp3-260103-nsgf nsgf.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  219 290 bytes gzipped  636 764 decompressed ILRS-PUBLIC      data
 
   Every licence above is permissive.  Plan §5 constraint 3 forbids GPL,
   LGPL and AGPL anywhere in what could ship; tools/fetch.py check-licences
@@ -706,6 +717,319 @@ DATA INPUTS
     licence   ILRS-PUBLIC
     url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/ilrsa.orb.lageos1.260103.v80.sp3.gz
     sha256    9326cd4becc844992b8f8b1dde723bcc380dd659bbddc289bfee3ad56b830463
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-dhf-20260527  ILRS_Data_Handling_File_20260527.snx (its header: VERSION 260527, RELEASE DATE 2026/05/27, 'range bias data through the end of 2025'), EDC media/docs/, 186 597 bytes
+    role      The ILRS Data Handling File, release 2026.05.27 (SINEX: MODEL/RANGE_BIAS, SOLUTION/DATA_HANDLING, MODEL/TIME_BIAS), from the EUROLAS Data Center's mirror of the ILRS documents: the long-term mean range biases of the SSEM project (through the end of 2025), the station-and-period data-handling records (exclusions, estimated biases, quarantine) and the T2L2 time biases (2008-2018), per station, per satellite point code (51 = LAGEOS-1) and period. L6 step 4: G5 (SPEC-measmod MEAS-A-100): READ, BEFORE ANY RESIDUAL IS FORMED, to choose the station and pass (a pass for which the file holds no entry), by the rule written in SPEC-measmod 8.9 before it was applied; the file's own statement that it is compatible with the TARGET_SIGNATURE_GEOMETRY (centre-of-mass) model of 2026-01-12 is the reason the CoM tables below are pinned with it.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/media/docs/ILRS_Data_Handling_File_20260527.snx
+    sha256    732295639a8059368ffab73f39b8267c819da8c8106c3de237c8653543224fe1
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-com6-260112  com6.260112.tar.gz (readme.txt dated 2023-11-28 in its text; tables generated 2026-01-12), EDC media/docs/, 23 428 bytes
+    role      The ILRS centre-of-mass correction tables 'com6', generation date 2026-01-12 (José Rodríguez; the TARGET_SIGNATURE_GEOMETRY model the DHF of 2026.05.27 declares itself compatible with and calls 'mandatory for all ILRS/ASC product versions'): for LAGEOS-1/2, Etalon, Ajisai, Starlette/Stella, LARES and LARES-2, per station, epoch span and laser wavelength. L6 step 4: G5 (SPEC-measmod MEAS-A-100, -101): the CoM value of the chosen station's system at the pass epoch, with its citation, as the model's cited input (MEAS-R-032), and the table's station dependence (the spread the envelope's CoM term is sized from; the older ILRS standard for LAGEOS was a single 251 mm). The Fortran routines in the archive are not pinned as members: no routine text enters the tree.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/media/docs/com6.260112.tar.gz
+    sha256    5cff31e1e6d4953973e64d8c49cd435193e1fda69017fa0c92513c4bd29b7e8e
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1. THE TABLES' OWN CITATION REQUEST
+              (readme.txt): Rodriguez J., Otsubo T., Appleby G., Upgraded
+              Modelling for the Determination of Centre of Mass Corrections of
+              Geodetic SLR Satellites: Impact on Key Parameters of the
+              Terrestrial Reference Frame, Journal of Geodesy, 2019,
+              doi:10.1007/s00190-019-01315-0.
+
+  ilrs-lageos1-sp3-260103-ilrsb  ilrsb.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  237 419 bytes gzipped  631 347 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the ILRS BACKUP combination centre (GEST/UMBC): the second, independent combination of the same week's analysis-centre orbits, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/ilrsb.orb.lageos1.260103.v80.sp3.gz
+    sha256    5fd9077074fbedcea1eebe59f8968f27c975a315fef2e47365c5551aae045523
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-asi  asi.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 169 bytes gzipped  777 660 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the Agenzia Spaziale Italiana analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/asi.orb.lageos1.260103.v80.sp3.gz
+    sha256    917c0acd2a24eeba19d66ba7dceb6aa63328a505b025255b9ac66f3ccd33a8ac
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-bkg  bkg.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  243 930 bytes gzipped  777 506 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the Bundesamt fuer Kartographie und Geodaesie analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/bkg.orb.lageos1.260103.v80.sp3.gz
+    sha256    aa78642bb7226135a6b01795ec119f7f0ef769386e2ea46eef08e50ad775c9f3
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-cnes  cnes.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 036 bytes gzipped  777 631 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the CNES analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/cnes.orb.lageos1.260103.v80.sp3.gz
+    sha256    7861fa8afb42f604e7ce7fb190b7f040e7b81b433414ea1bd5139647cb282133
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-dgfi  dgfi.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 080 bytes gzipped  777 660 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the DGFI-TUM analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/dgfi.orb.lageos1.260103.v80.sp3.gz
+    sha256    5c58b892efac38975ab11a6bd4f71f00d90652b1a39743dcbd3aa25c68724fc7
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-esa  esa.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  255 065 bytes gzipped  1 226 826 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the ESA/ESOC analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/esa.orb.lageos1.260103.v80.sp3.gz
+    sha256    cbd54624f7dcda99e403edab8bcca87a8f906f126064e6d47713934eac5299ab
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-gfz  gfz.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  237 355 bytes gzipped  636 433 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the GFZ analysis centre (version v80, the one the combination lists as its input; a v70 also exists in the directory), from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/gfz.orb.lageos1.260103.v80.sp3.gz
+    sha256    56b589c850c096179960baf3c898ce6f70d80261fe361d9ca539f76a2252eca3
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-jcet  jcet.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  249 073 bytes gzipped  923 723 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the JCET/NASA analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/jcet.orb.lageos1.260103.v80.sp3.gz
+    sha256    9ca0a0624248b8fb52ab0323d8c5064e05b095421180a2937aae8654717ed9cb
+    retrieved 2026-10-06
+    note      "If you are using ILRS data or products for a research
+              publication, we ask that you properly acknowledge and or cite
+              the ILRS. The ILRS components are funded by their respective
+              institutions. The data and products are not copyrighted;
+              however, in the event that you publish data or results using
+              these data, we request that you include the following citation:
+              Pearlman, M.R., Noll, C.E., Pavlis, E.C. et al. The ILRS:
+              approaching 20 years and planning for the future. J Geod 93,
+              2161–2180 (2019). DOI:
+              https://doi.org/10.1007/s00190-019-01241-1 Furthermore, please
+              include SLR as a keyword in your papers."
+              (ilrs.gsfc.nasa.gov/about/cite.html, last modified Sep 19, 2022,
+              read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
+              71acc735b3379deaa9c9ac8d). A statement that the products are not
+              copyrighted, with a citation requested: neither a licence grant
+              nor a restriction. This tree does not redistribute the file; the
+              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
+              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
+              et al. (2019), The ILRS: approaching 20 years and planning for
+              the future, J. Geod. 93, 2161-2180,
+              doi:10.1007/s00190-019-01241-1.
+
+  ilrs-lageos1-sp3-260103-nsgf  nsgf.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  219 290 bytes gzipped  636 764 decompressed
+    role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the NERC Space Geodesy Facility (British) analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
+    licence   ILRS-PUBLIC
+    url       https://edc.dgfi.tum.de/pub/slr/products/orbits/lageos1/260103/nsgf.orb.lageos1.260103.v80.sp3.gz
+    sha256    0e23ea508e944f4c16cd8a6345e017026fa7922b9116c2d2af82ed3bcb6e304c
     retrieved 2026-10-06
     note      "If you are using ILRS data or products for a research
               publication, we ask that you properly acknowledge and or cite
