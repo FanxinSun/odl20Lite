@@ -420,3 +420,156 @@ TEST_CASE("BigInt pow", "[devkit][bigint]") {
     CHECK(BigInt::pow(7, 100) == repeated);
     CHECK(BigInt::pow(7, 100).to_decimal() == repeated.to_decimal());
 }
+
+// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// group C7: division by Knuth's algorithm D, and the integer square root
+// ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+namespace {
+
+// the number whose 32-bit limbs are these, most significant first
+BigInt from_limbs(const std::vector<std::uint32_t>& limbs_msb_first) {
+    BigInt out;
+    for (const std::uint32_t limb : limbs_msb_first) out = out.shifted_left(32) + BigInt(static_cast<std::int64_t>(limb));
+    return out;
+}
+
+// restoring long division, one bit of the dividend at a time, on the public operations of BigInt alone (a shift, a comparison, a subtraction): the oracle of the divisions below, and what the devkit
+// itself did for a divisor of more than one limb before group C7
+BigInt::DivMod division_bit_by_bit(const BigInt& a, const BigInt& b) {
+    BigInt quotient;
+    BigInt remainder;
+    for (std::size_t i = a.bit_length(); i-- > 0;) {
+        remainder = remainder.shifted_left(1) + (a.shifted_right(i).is_odd() ? BigInt(1) : BigInt(0));
+        quotient = quotient.shifted_left(1);
+        if (remainder >= b) {
+            remainder = remainder - b;
+            quotient = quotient + BigInt(1);
+        }
+    }
+    return {quotient, remainder};
+}
+
+}  // namespace
+
+TEST_CASE("BigInt division by a number of several limbs is Knuth's algorithm D: the quotient and remainder of operands built from limbs at the edges", "[devkit][bigint]") {
+    // a == q*b + r with 0 <= r < b has exactly one solution, so these checks alone say the division is right; the oracle below is a second opinion on the same operands
+    const std::uint32_t edge[] = {0U, 1U, 2U, 0x7ffffffeU, 0x7fffffffU, 0x80000000U, 0x80000001U, 0xfffffffeU, 0xffffffffU};
+    std::mt19937_64 rng(0xC7D1B0DULL);
+    const auto limb = [&]() -> std::uint32_t { return rng() % 3 == 0 ? static_cast<std::uint32_t>(rng()) : edge[rng() % 9]; };
+    for (int round = 0; round < 30000; ++round) {
+        const std::size_t nb = 2 + rng() % 4;           // 2 .. 5 limbs
+        const std::size_t na = nb + rng() % 5;          // as many, up to four more
+        std::vector<std::uint32_t> la(na);
+        std::vector<std::uint32_t> lb(nb);
+        for (auto& x : la) x = limb();
+        for (auto& x : lb) x = limb();
+        if (lb.front() == 0) lb.front() = 1U;   // the divisor has the limbs it was given: a zero top limb would make it shorter
+        const BigInt a = from_limbs(la);
+        const BigInt b = from_limbs(lb);
+        const BigInt::DivMod qr = BigInt::divmod(a, b);
+        INFO(a.to_decimal() << " divmod " << b.to_decimal());
+        REQUIRE(qr.quotient * b + qr.remainder == a);
+        REQUIRE(qr.remainder.sign() >= 0);
+        REQUIRE(qr.remainder < b);
+        if (round % 10 == 0) {
+            const BigInt::DivMod slow = division_bit_by_bit(a, b);
+            REQUIRE(qr.quotient == slow.quotient);
+            REQUIRE(qr.remainder == slow.remainder);
+        }
+    }
+}
+
+TEST_CASE("BigInt division where Knuth's estimate of a quotient limb is one too large and the divisor is added back (step D6)", "[devkit][bigint]") {
+    // Found by a search over operands made of limbs at the edges (0, 1, 2^31 - 2 .. 2^31 + 1, 2^32 - 2, 2^32 - 1) with a copy of the algorithm that counted its steps: in each of these the
+    // multiply-and-subtract of step D4 goes negative once and D6 runs once.  About one such division in three thousand, among operands like these, takes the step; among random ones, two in 2^32.
+    struct Row {
+        std::vector<std::uint32_t> a, b;
+    };
+    const std::vector<Row> rows = {
+        {{0x7fffffffU, 0x7ffffffeU, 0xfffffffeU, 0x80000000U}, {0x80000001U, 0x00000002U, 0xfffffffeU}},
+        {{0x80000001U, 0x00000002U, 0x00000002U, 0x80000000U}, {0x80000001U, 0x00000002U, 0x7fffffffU}},
+        {{0xffffffffU, 0x80000001U, 0x7ffffffeU, 0x80000000U}, {0x7fffffffU, 0x80000000U, 0xffffffffU}},
+        {{0x7ffffffeU, 0x7ffffffeU, 0xfffffffeU, 0x80000001U}, {0x80000000U, 0x80000001U, 0x80000001U}},
+        {{0xfffffffeU, 0xffffffffU, 0x00000002U, 0x7fffffffU}, {0xffffffffU, 0xffffffffU, 0x8d9b071aU}},
+        {{0xfffffffeU, 0x7fffffffU, 0x00000000U, 0x7ffffffeU}, {0xffffffffU, 0x7ffffffeU, 0x80000001U}},
+    };
+    for (const Row& row : rows) {
+        const BigInt a = from_limbs(row.a);
+        const BigInt b = from_limbs(row.b);
+        INFO(a.to_decimal() << " divmod " << b.to_decimal());
+        const BigInt::DivMod qr = BigInt::divmod(a, b);
+        CHECK(qr.quotient * b + qr.remainder == a);
+        CHECK(qr.remainder.sign() >= 0);
+        CHECK(qr.remainder < b);
+        const BigInt::DivMod slow = division_bit_by_bit(a, b);
+        CHECK(qr.quotient == slow.quotient);
+        CHECK(qr.remainder == slow.remainder);
+    }
+}
+
+TEST_CASE("BigInt division of numbers of thousands of digits, as the decimal arithmetic of group C7 needs", "[devkit][bigint]") {
+    std::mt19937_64 rng(0x9460D161757ULL);
+    const auto digits = [&](std::size_t n) {
+        std::string s(1, static_cast<char>('1' + rng() % 9));
+        for (std::size_t i = 1; i < n; ++i) s.push_back(static_cast<char>('0' + rng() % 10));
+        return BigInt::from_decimal(s);
+    };
+    for (const auto& [na, nb] : std::vector<std::pair<std::size_t, std::size_t>>{{9460, 4730}, {9460, 9460}, {19000, 9460}, {13000, 4400}, {9500, 2}, {600, 590}, {4000, 3999}}) {
+        const BigInt a = digits(na);
+        const BigInt b = digits(nb);
+        INFO(na << " digits by " << nb << " digits");
+        const BigInt::DivMod qr = BigInt::divmod(a, b);
+        CHECK(qr.quotient * b + qr.remainder == a);
+        CHECK(qr.remainder < b);
+        CHECK(qr.remainder.sign() >= 0);
+        // and the quotient of an exact multiple is exact
+        const BigInt::DivMod exact = BigInt::divmod(a * b, b);
+        CHECK(exact.quotient == a);
+        CHECK(exact.remainder.is_zero());
+    }
+    // a power of ten divides the number written with that many zeros more: the shape of every rounding of a decimal
+    const BigInt p = BigInt::pow(10, 4000);
+    const BigInt a = digits(4000) * p + BigInt::from_decimal(std::string(3999, '7'));
+    const BigInt::DivMod qr = BigInt::divmod(a, p);
+    CHECK(qr.quotient.to_decimal().size() == 4000);
+    CHECK(qr.remainder.to_decimal() == std::string(3999, '7'));
+}
+
+TEST_CASE("BigInt isqrt is the floor of the square root: exhaustively for small numbers, at the squares and their neighbours for large ones", "[devkit][bigint]") {
+    for (std::int64_t n = 0; n <= 70000; ++n) {
+        const BigInt root = BigInt::isqrt(BigInt(n));
+        REQUIRE(root * root <= BigInt(n));
+        REQUIRE(BigInt(n) < (root + BigInt(1)) * (root + BigInt(1)));
+    }
+    CHECK(BigInt::isqrt(BigInt(0)).is_zero());
+    CHECK(BigInt::isqrt(BigInt(1)) == BigInt(1));
+    CHECK(BigInt::isqrt(BigInt(2)) == BigInt(1));
+    CHECK(BigInt::isqrt(BigInt(3)) == BigInt(1));
+    CHECK(BigInt::isqrt(BigInt(4)) == BigInt(2));
+    CHECK(BigInt::isqrt(BigInt(15)) == BigInt(3));
+    CHECK(BigInt::isqrt(BigInt(16)) == BigInt(4));
+    CHECK(BigInt::isqrt(BigInt(std::numeric_limits<std::int64_t>::max())) == BigInt(3037000499LL));   // 3037000499**2 = 9223372030926249001 < 2**63 - 1 < 3037000500**2
+    for (const unsigned k : {1U, 2U, 5U, 9U, 10U, 31U, 32U, 33U, 100U, 1000U}) {
+        const BigInt ten = BigInt::pow(10, k);
+        CHECK(BigInt::isqrt(ten * ten) == ten);
+        CHECK(BigInt::isqrt(ten * ten - BigInt(1)) == ten - BigInt(1));
+        CHECK(BigInt::isqrt(ten * ten + BigInt(2) * ten) == ten);               // just below (ten + 1)**2
+        CHECK(BigInt::isqrt(ten * ten + BigInt(2) * ten + BigInt(1)) == ten + BigInt(1));
+    }
+    std::mt19937_64 rng(0x1F0B15ULL);
+    for (int round = 0; round < 300; ++round) {
+        std::vector<std::uint32_t> limbs(1 + rng() % 40);
+        for (auto& x : limbs) x = rng() % 4 == 0 ? 0xffffffffU : static_cast<std::uint32_t>(rng());
+        const BigInt x = from_limbs(limbs);
+        const BigInt square = x * x;
+        INFO(x.to_decimal());
+        CHECK(BigInt::isqrt(square) == x);
+        if (!x.is_zero()) CHECK(BigInt::isqrt(square - BigInt(1)) == x - BigInt(1));
+        CHECK(BigInt::isqrt(square + x + x) == x);   // (x + 1)**2 - 1
+        const BigInt r = BigInt::isqrt(BigInt::from_decimal(std::string(1, static_cast<char>('1' + rng() % 9)) + std::string(1 + rng() % 600, static_cast<char>('0' + rng() % 10))));
+        CHECK(r * r > BigInt(0));
+    }
+    CHECK_THROWS_AS(BigInt::isqrt(BigInt(-1)), std::domain_error);
+    CHECK_THROWS_AS(BigInt::isqrt(BigInt(-4)), std::domain_error);
+}

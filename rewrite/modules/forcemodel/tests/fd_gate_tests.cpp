@@ -1,5 +1,5 @@
 // fd_gate_tests.cpp — SPEC-forcemodel.md §6.2 and FMOD-A-010 … -014: the finite-difference gate of the force plugins' Jacobians, in L6's form
-// (SPEC-measmod §6.2), its sizing FROZEN BEFORE ANY RUN by tools/forcemodel_fd_sizing.py (commit 4f6f5b6).
+// (SPEC-measmod §6.2), its sizing FROZEN BEFORE ANY RUN by tools/forcemodel_fd_sizing.cpp (it was tools/forcemodel_fd_sizing.py when it froze it, commit 4f6f5b6).
 //
 // For each plugin, at each of L4's four points, for each component pair: the central difference of the plugin's OWN acceleration over five sizes
 // against the analytic row, within  eps(h) = h^2 F / 6 + nu / h  with F a RIGOROUS bound (three lemmas, the tool's docstring) and nu a registered

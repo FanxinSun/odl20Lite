@@ -282,13 +282,26 @@ catch_discover_tests(odl_l6_exit_gate_tests EXTRA_ARGS --warn NoAssertions)
 
 # L7 step 1 (SPEC-gravity.md v1.4, SPEC-forcemodel.md): the numbers the specifications freeze and the tests compare against come from
 # tools that do NOT use the code under test, and each is reproduced here so that a number cannot drift away from its generator — the
-# gravity gradient's 145 reference tensors from the definition, and the force plugins' finite-difference sizing frozen before any run (§6.2).
+# gravity gradient's 145 reference tensors from the definition, the force plugins' finite-difference sizing frozen before any run (§6.2),
+# the comparator's polynomials, and (since L0 step 8, group C7) the associated Legendre values of GRAV-A-003.  The four generators are C++
+# since group C7 (tools/gradient_reference.cpp, forcemodel_fd_sizing.cpp, forcemodel_comparator_header.cpp and legendre_reference.cpp, on the
+# devkit's BigInt, Rational and Decimal): the three old names are kept, the Legendre header has a ctest of its own for the first time, and the
+# tools' own tests (tests/devtools/<tool>_tests.cpp: the algebra, the closed forms, every refusal, and the real tree against what the Python
+# tools recorded) are ctests <tool>.behaviour and <tool>.real_tree.
 add_test(NAME gravity.gradient_reference_header_matches_its_generator
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/gradient_reference.py" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/gravity/tests/gradient_reference.hpp")
+  COMMAND gradient_reference --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/gravity/tests/gradient_reference.hpp")
 add_test(NAME forcemodel.fd_sizing_reproduces
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/forcemodel_fd_sizing.py" --check)
+  COMMAND forcemodel_fd_sizing --check)
 add_test(NAME forcemodel.comparator_header_matches_its_generator
-  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/forcemodel_comparator_header.py" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/forcemodel/tests/comparator_polynomials.hpp")
+  COMMAND forcemodel_comparator_header --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/forcemodel/tests/comparator_polynomials.hpp")
+add_test(NAME gravity.legendre_reference_header_matches_its_generator
+  COMMAND legendre_reference --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/gravity/tests/legendre_reference.hpp")
+foreach(generator gradient_reference forcemodel_fd_sizing forcemodel_comparator_header legendre_reference)
+  add_test(NAME ${generator}.behaviour
+    COMMAND odl_devtools_tests "[${generator}][behaviour]")
+  add_test(NAME ${generator}.real_tree
+    COMMAND odl_devtools_tests "[${generator}][real_tree]")
+endforeach()
 
 # L7 step 2 (SPEC-estimation.md v0.3): the estimator's frozen figures come from a tool that does NOT use the code under test (exact rational arithmetic on the
 # PINNED NIST files, 90-digit eigenvalues), and each is reproduced here so that a number in the specification or in the tests cannot drift from its generator.

@@ -10,7 +10,7 @@
 
 add_library(odl_devkit STATIC
   devkit/src/tool.cpp devkit/src/text.cpp devkit/src/pyfmt.cpp devkit/src/sha256.cpp devkit/src/json.cpp
-  devkit/src/inflate.cpp devkit/src/archive.cpp devkit/src/fs.cpp devkit/src/process.cpp devkit/src/pytext.cpp devkit/src/bigint.cpp devkit/src/rational.cpp)
+  devkit/src/inflate.cpp devkit/src/archive.cpp devkit/src/fs.cpp devkit/src/process.cpp devkit/src/pytext.cpp devkit/src/bigint.cpp devkit/src/rational.cpp devkit/src/decimal.cpp)
 target_include_directories(odl_devkit PUBLIC devkit/include)
 target_compile_features(odl_devkit PUBLIC cxx_std_20)
 target_link_libraries(odl_devkit PRIVATE odl_warnings)
@@ -88,6 +88,32 @@ foreach(checker constraint8 literaturecheck unitcheck rk_coefficients)
   target_compile_definitions(${checker} PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
   target_link_libraries(${checker} PRIVATE odl_devkit odl_warnings)
 endforeach()
+# The generators of group C7 (plan L0 step 8; tools/gradient_reference.cpp, forcemodel_fd_sizing.cpp, forcemodel_comparator_header.cpp, legendre_reference.cpp): the numbers the specifications freeze and
+# the tests compare against, computed from the definitions by tools that do not use the code under test.  Each is an executable (the ctests gravity.gradient_reference_header_matches_its_generator,
+# forcemodel.fd_sizing_reproduces, forcemodel.comparator_header_matches_its_generator and gravity.legendre_reference_header_matches_its_generator run it) and an object library with its main left out,
+# which the tests call in-process.  The comparator's header and the sizing use the gradient tool's exact polynomials, and the comparator the sizing's Phi, as the Python tools imported them: those executables
+# take the objects of the tools they use.  No multiplication is contracted into a fused one: the sizing's floating point is the Python's, operation for operation.
+foreach(gen gradient_reference forcemodel_fd_sizing forcemodel_comparator_header legendre_reference)
+  add_library(odl_tool_${gen} OBJECT ${gen}.cpp)
+  target_compile_definitions(odl_tool_${gen} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_include_directories(odl_tool_${gen} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(odl_tool_${gen} PUBLIC odl_devkit PRIVATE odl_warnings)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(odl_tool_${gen} PRIVATE -ffp-contract=off)
+  endif()
+endforeach()
+add_executable(gradient_reference gradient_reference.cpp)
+add_executable(forcemodel_fd_sizing forcemodel_fd_sizing.cpp $<TARGET_OBJECTS:odl_tool_gradient_reference>)
+add_executable(forcemodel_comparator_header forcemodel_comparator_header.cpp $<TARGET_OBJECTS:odl_tool_gradient_reference> $<TARGET_OBJECTS:odl_tool_forcemodel_fd_sizing>)
+add_executable(legendre_reference legendre_reference.cpp)
+foreach(gen gradient_reference forcemodel_fd_sizing forcemodel_comparator_header legendre_reference)
+  target_compile_definitions(${gen} PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_link_libraries(${gen} PRIVATE odl_devkit odl_warnings)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${gen} PRIVATE -ffp-contract=off)
+  endif()
+endforeach()
+
 foreach(check one_secular_pole configure_is_current)
   add_library(odl_tool_${check} OBJECT ${CMAKE_SOURCE_DIR}/tests/devtools/${check}.cpp)
   target_compile_definitions(odl_tool_${check} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
@@ -105,17 +131,20 @@ if(BUILD_TESTING)
   # test it replaces (tests/CMakeLists.txt), and every devkit case is its own ctest.
   add_executable(odl_devtools_tests
     devkit/tests/sha256_tests.cpp devkit/tests/json_tests.cpp devkit/tests/inflate_tests.cpp devkit/tests/archive_tests.cpp
-    devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp devkit/tests/pytext_tests.cpp devkit/tests/fs_tests.cpp devkit/tests/bigint_tests.cpp devkit/tests/rational_tests.cpp
+    devkit/tests/text_tests.cpp devkit/tests/process_tests.cpp devkit/tests/pytext_tests.cpp devkit/tests/fs_tests.cpp devkit/tests/bigint_tests.cpp devkit/tests/rational_tests.cpp devkit/tests/decimal_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/fetch_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/gfz_derive_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/notice_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/speccheck_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/budgetcheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/constraint8_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/literaturecheck_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/unitcheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/one_secular_pole_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/configure_is_current_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/unicode_tables_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/rk_coefficients_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/unicode_tables_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/rk_coefficients_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/gradient_reference_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/forcemodel_fd_sizing_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/forcemodel_comparator_header_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/legendre_reference_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   target_compile_definitions(odl_devtools_tests PRIVATE
     ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}" ODL_MANIFEST_VENDORED_ROOT="${ODL_VENDORED_DIR}"
     ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
   target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck odl_tool_rk_coefficients
+    odl_tool_gradient_reference odl_tool_forcemodel_fd_sizing odl_tool_forcemodel_comparator_header odl_tool_legendre_reference
     odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the

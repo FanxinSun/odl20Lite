@@ -138,6 +138,74 @@ Mag shift_magnitude_right(const Mag& a, std::size_t n) {
     return out;
 }
 
+// Knuth's algorithm D (TAOCP vol. 2, 4.3.1), for a divisor of two limbs or more and a dividend that is not smaller than it.  Steps D1 to D8 are marked.
+void divide_knuth(const Mag& a, const Mag& b, Mag& quotient, Mag& remainder) {
+    const std::size_t n = b.size();
+    const std::size_t m = a.size() - n;
+    const auto shift = static_cast<unsigned>(std::countl_zero(b.back()));
+    // D1: normalise, so that the top limb of the divisor has its high bit set (the quotient does not change); the dividend gains a limb
+    Mag v(n);
+    Mag u(a.size() + 1);
+    if (shift == 0) {
+        std::copy(b.begin(), b.end(), v.begin());
+        std::copy(a.begin(), a.end(), u.begin());
+    } else {
+        for (std::size_t i = n; i-- > 1;) v[i] = (b[i] << shift) | (b[i - 1] >> (kLimbBits - shift));
+        v[0] = b[0] << shift;
+        u[a.size()] = a.back() >> (kLimbBits - shift);
+        for (std::size_t i = a.size(); i-- > 1;) u[i] = (a[i] << shift) | (a[i - 1] >> (kLimbBits - shift));
+        u[0] = a[0] << shift;
+    }
+    quotient.assign(m + 1, 0);
+    const std::uint64_t base = std::uint64_t{1} << kLimbBits;
+    const std::uint64_t v1 = v[n - 1];
+    const std::uint64_t v2 = v[n - 2];
+    for (std::size_t j = m + 1; j-- > 0;) {   // D2, D7: one quotient limb at a time, from the top
+        // D3: the estimate from the top two limbs of the running remainder, corrected with the third; it is never too small, and never more than one too large afterwards
+        const std::uint64_t top = (std::uint64_t{u[j + n]} << kLimbBits) | u[j + n - 1];
+        std::uint64_t qhat = top / v1;
+        std::uint64_t rhat = top % v1;
+        while (qhat >= base || qhat * v2 > ((rhat << kLimbBits) | u[j + n - 2])) {
+            --qhat;
+            rhat += v1;
+            if (rhat >= base) break;
+        }
+        // D4: multiply the divisor by the estimate and subtract it from the n + 1 limbs under it
+        std::int64_t borrow = 0;
+        std::uint64_t carry = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            const std::uint64_t product = qhat * v[i] + carry;   // at most (2**32 - 1)**2 + 2**32 - 1
+            carry = product >> kLimbBits;
+            const std::int64_t t = std::int64_t{u[i + j]} - borrow - static_cast<std::int64_t>(product & (base - 1));
+            u[i + j] = static_cast<Limb>(t);
+            borrow = t < 0 ? 1 : 0;
+        }
+        const std::int64_t top_difference = std::int64_t{u[j + n]} - borrow - static_cast<std::int64_t>(carry);
+        u[j + n] = static_cast<Limb>(top_difference);
+        // D5, D6: a negative difference means the estimate was one too large (it happens about twice in 2**32 divisions): add the divisor back
+        if (top_difference < 0) {
+            --qhat;
+            std::uint64_t add_carry = 0;
+            for (std::size_t i = 0; i < n; ++i) {
+                const std::uint64_t sum = std::uint64_t{u[i + j]} + v[i] + add_carry;
+                u[i + j] = static_cast<Limb>(sum);
+                add_carry = sum >> kLimbBits;
+            }
+            u[j + n] += static_cast<Limb>(add_carry);   // 2**32 - 1 plus the carry: back to zero, as it must
+        }
+        quotient[j] = static_cast<Limb>(qhat);
+    }
+    // D8: the remainder is what is left of the low n limbs, shifted back
+    remainder.assign(n, 0);
+    if (shift == 0) {
+        std::copy(u.begin(), u.begin() + static_cast<std::ptrdiff_t>(n), remainder.begin());
+    } else {
+        for (std::size_t i = 0; i < n; ++i) remainder[i] = (u[i] >> shift) | (u[i + 1] << (kLimbBits - shift));
+    }
+    trim(quotient);
+    trim(remainder);
+}
+
 // quotient and remainder of magnitudes; b != 0
 void divide_magnitudes(const Mag& a, const Mag& b, Mag& quotient, Mag& remainder) {
     if (compare_magnitudes(a, b) < 0) {
@@ -152,23 +220,7 @@ void divide_magnitudes(const Mag& a, const Mag& b, Mag& quotient, Mag& remainder
         if (r != 0) remainder.push_back(r);
         return;
     }
-    // bit by bit, from the top: remainder = 2 * remainder + (the next bit of a); subtract b whenever it fits and set that bit of the quotient
-    quotient.assign(a.size(), 0);
-    remainder.clear();
-    for (std::size_t i = a.size() * kLimbBits; i-- > 0;) {
-        Limb carry = (a[i / kLimbBits] >> (i % kLimbBits)) & 1U;
-        for (Limb& limb : remainder) {
-            const Limb next = limb >> (kLimbBits - 1);
-            limb = (limb << 1) | carry;
-            carry = next;
-        }
-        if (carry != 0) remainder.push_back(carry);
-        if (compare_magnitudes(remainder, b) >= 0) {
-            remainder = subtract_magnitudes(remainder, b);
-            quotient[i / kLimbBits] |= Limb{1} << (i % kLimbBits);
-        }
-    }
-    trim(quotient);
+    divide_knuth(a, b, quotient, remainder);
 }
 
 }  // namespace
@@ -314,6 +366,18 @@ BigInt BigInt::pow(const BigInt& base, unsigned exponent) {
         if (exponent != 0) square = square * square;
     }
     return result;
+}
+
+BigInt BigInt::isqrt(const BigInt& n) {
+    if (n.negative_) throw std::domain_error("BigInt::isqrt: the number is negative");
+    if (n.is_zero()) return BigInt();
+    // Newton's iteration x <- floor((x + floor(n / x)) / 2), started above the root (2**ceil(bits / 2) is at least sqrt(n)), decreases until it reaches floor(sqrt(n)) and then stops decreasing
+    BigInt x = BigInt(1).shifted_left((n.bit_length() + 1) / 2);
+    while (true) {
+        const BigInt next = (x + n / x).shifted_right(1);
+        if (next >= x) return x;
+        x = next;
+    }
 }
 
 std::strong_ordering operator<=>(const BigInt& a, const BigInt& b) noexcept {

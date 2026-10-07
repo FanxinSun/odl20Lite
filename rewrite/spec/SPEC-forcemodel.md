@@ -4,7 +4,7 @@
 |---|---|
 | **Spec ID** | `FMOD` |
 | **Status** | **draft v0.1a** 2026-10-06 — written, with **every check's tolerance, case list and frozen sizing, before any line of the module exists** (the manager's ruling R1 – R5 on step 1, `plan/subplan_L7/L7-1.md`; plan §4 rules 3 and 7) |
-| **Version** | 0.1a |
+| **Version** | 0.1b |
 | **Date** | 2026-10-06 |
 | **Layer** | L7 `estimation`, step 1 (`../plan/PLAN.md` §3.8); the module is `forcemodel`, **apart from the estimator** (ruling R1) |
 | **Depends on** | `SPEC-dynamics` (the `Force` surface), `SPEC-gravity` (v1.4's gradient and views), `SPEC-perturbations` (tides, third bodies, relativity), `SPEC-ephemerides`, `SPEC-eop`, `SPEC-frames`, `SPEC-time`, `SPEC-measmod` §6.2 (the finite-difference form) |
@@ -114,13 +114,13 @@ smallest_nonzero_contribution(contributions: [Contribution], excluded: [string])
 | `FMOD-P-4` | the registered bound of `Tides` against the same, relative to the tide's acceleration | **1 × 10⁻⁸** | the same argument with `‖G‖ r ≤ (n+2) ‖a‖` for a series to degree *n* ≤ 100 |
 | `FMOD-P-5` | the relativity plugin against (10.12) evaluated by hand in metres, per term, relative | 64 × 2.22 × 10⁻¹⁶ = **1.42 × 10⁻¹⁴** | 64 ε: each term is a few dozen rounded operations on well-conditioned operands |
 | `FMOD-P-6` | the third-body plugin against `pair_direct` in metres, absolute | 16 ε μ (1/\|s\|² + 1/\|d\|²) | the difference of two terms of order μ/\|s\|² each good to four ε |
-| `FMOD-P-7` | the **predicted looseness** of the finite-difference gate's `F` against the true supremum, point mass and degrees 2 – 4, measured by `tools/forcemodel_fd_sizing.py --scan` on the coarse grid before any run | **4.5 – 5.3** | `F` is rigorous (§6.2); it is 5× the supremum |
+| `FMOD-P-7` | the **predicted looseness** of the finite-difference gate's `F` against the true supremum, point mass and degrees 2 – 4, measured by `tools/forcemodel_fd_sizing.cpp --scan` (v0.1b: it was `tools/forcemodel_fd_sizing.py`) on the coarse grid before any run | **4.5 – 5.3** | `F` is rigorous (§6.2); it is 5× the supremum |
 | `FMOD-P-8` | **the smallest relative defect the gate can see** in `Gravity`'s Jacobian, at the best step, per geometry (GPS, LEO 300, LEO 952.86, sail) | **1.7 – 1.9 × 10⁻⁹** of `‖G‖` | `min ε(h) / (2 μ/r³)`, the tool |
 | `FMOD-P-9` | the predicted power of `Gravity`'s three wrong rows (§6.2 (iv)) at the four geometries, `max \|wrong − right\| / ε` at the best step | **2.0 × 10⁸ to 1.1 × 10⁹** | the tool; the requirement is 10³ |
 
 ### 6.2 The finite-difference gate, **frozen before any run** (rule 7; `STM-R-004`, `STM-R-005`, `STM-P-1`, `MEAS62`)
 
-Reproduced by `tools/forcemodel_fd_sizing.py --check`, which runs as the ctest `forcemodel.fd_sizing_reproduces` (`PROVENANCE.md` §40.6). **Nothing below is changed after a run**; a run that misses it is reported with the criterion as written (rule 7), and a correction is a dated amendment that keeps the first text visible.
+Reproduced by `tools/forcemodel_fd_sizing.cpp --check`, which runs as the ctest `forcemodel.fd_sizing_reproduces` (`PROVENANCE.md` §40.6). **Nothing below is changed after a run**; a run that misses it is reported with the criterion as written (rule 7), and a correction is a dated amendment that keeps the first text visible.
 
 **What is compared.** For each plugin, at each of L4's four reference points (§8 `FMOD-A-001`), for each component pair *(i, j)*: the central difference `f̂ᵢⱼ(h) = [ aᵢ(r + h eⱼ) − aᵢ(r − h eⱼ) ] / (rⱼ⁺ − rⱼ⁻)` of the plugin's **own `accel`** at the fixed epoch and velocity, over **the sizes `h ∈ {10, 30, 100, 300, 1000} m`** for the position columns (the spacing in the denominator is the *actual* difference of the two operands, exactly representable, so the operands' own rounding does not enter) and **`h_v ∈ {0.01, 0.1, 1, 10} m s⁻¹`** for the velocity columns.
 
@@ -130,7 +130,7 @@ Reproduced by `tools/forcemodel_fd_sizing.py --check`, which runs as the ctest `
 - **(d) the gate can fail** (rule 5): the controls of (iv) each fail (b) **by at least 10³ `ε`** at the best step, at every geometry, the test computing the ratio from the rows themselves.
 - **(e) the noise bound is asserted point by point** (the lesson of L6, where the Earth-rotation angle's last bit exceeded a frozen `ν` thirty-fold): at **every** stencil point of every size, `|a_double − a_extended| ≤ ν`, the extended evaluation being the plugin's own function evaluated in x87 `long double` (64 mantissa bits, unit roundoff 5.4 × 10⁻²⁰) from independent formulas (below) on the **same double inputs**; an evaluation outside `ν` **fails loudly at that point** and the gate does not proceed on it. The comparator's own error, stated: at most (operation count ≈ 2 × 10³ for the degree-4 field) × 5.4 × 10⁻²⁰ ≈ 10⁻¹⁶ relative, **10⁻³ of the registered `ν`**.
 
-**(i) `F` is a bound, with three lemmas** (`tools/forcemodel_fd_sizing.py`, docstring): Leibniz's rule with `|∂ₑᵏ r^(−q)| ≤ (q)ₖ r^(−q−k)` (Gegenbauer) and `|∂ₑᵏ P| ≤ ‖P‖ d^(falling k) r^(d−k)` for a homogeneous polynomial `P`; the potential of one normalised coefficient as a harmonic polynomial over a power of `r`; and the monotonicity in `r`, so the bound is taken at `r_min = r − h_max`.
+**(i) `F` is a bound, with three lemmas** (`tools/forcemodel_fd_sizing.cpp`, the comment that opens it): Leibniz's rule with `|∂ₑᵏ r^(−q)| ≤ (q)ₖ r^(−q−k)` (Gegenbauer) and `|∂ₑᵏ P| ≤ ‖P‖ d^(falling k) r^(d−k)` for a homogeneous polynomial `P`; the potential of one normalised coefficient as a harmonic polynomial over a power of `r`; and the monotonicity in `r`, so the bound is taken at `r_min = r − h_max`.
 - **Gravity** (point mass and degrees 2 – *N*): `F = 1.01 · [ 96 GM / r_min⁵ + Σₙₘ GM aₑⁿ ( |C̄ₙₘ| Φᶜₙₘ + |S̄ₙₘ| Φˢₙₘ ) / r_min^(n+5) ]`, `Φₙₘ = Nₙₘ maxᵢ[ ‖∂ᵢq‖ S3(n−1, 2n+1) + (2n+1) ‖q‖ S3(n+1, 2n+3) ]` (exact; `Φ₂₀ = 26 832.8`), `S3(d, q) = Σⱼ C(3,j) d^(falling 3−j) (q)ⱼ` (`S3(1,3) = 96`, `S3(1,4) = 180`, `S3(2,5) = 420`, `S3(0,3) = 60`, `S3(3,7) = 1140`); the factor 1.01 allows for the conventional substitutions' difference from the file's coefficients.
 - **Third body**: `F = 96 μ / d_min⁵`, `d_min = |s| − |r| − h_max`.
 - **Relativity**: Schwarzschild `F = (GM/c²)[ 4 GM · 180 / r_min⁶ + (v² + 4√3 v²) · 96 / r_min⁵ ]`; Lense–Thirring `F = (1+γ)(GM/c²)[ 3 |J| √3 v · 420 + |J| v · 60 ] / r_min⁶`; de Sitter `F = 0` (its acceleration does not depend on `r`); the velocity columns `F = 0` for all three (quadratic or linear).
@@ -138,7 +138,7 @@ Reproduced by `tools/forcemodel_fd_sizing.py --check`, which runs as the ctest `
 
 **(ii) `ν` is a registered bound of ONE evaluation** (§6.2(e) asserts it): `Gravity` `ν = 64 ε ‖a‖`; `ThirdBody` `ν = 16 ε μ (1/|d|² + 1/|s|²)`; `Relativity` `ν = 32 ε ‖a_term‖`; `Tides` `ν = 128 ε ‖a_tide‖`; ε = 2⁻⁵², the norms those of the plugin's own acceleration at the stencil's centre.
 
-**(iii) The frozen figures** (`tools/forcemodel_fd_sizing.py`; `Gravity`, degrees 2 – 4 of EGM2008): the table below; `ε(h)` in m s⁻² per m. The test holds the formulas, recomputes the figures from the coefficients and asserts agreement to 1 % — the figures are not tuned.
+**(iii) The frozen figures** (`tools/forcemodel_fd_sizing.cpp`; `Gravity`, degrees 2 – 4 of EGM2008): the table below; `ε(h)` in m s⁻² per m. The test holds the formulas, recomputes the figures from the coefficients and asserts agreement to 1 % — the figures are not tuned.
 
 | point (`r`) | `F` (m⁻² s⁻²) | `ν` (m s⁻²) | `ε(10 m)` | `ε(100 m)` | `ε(1000 m)` | best `ε / ‖G‖` |
 |---|---|---|---|---|---|---|
@@ -202,3 +202,4 @@ At the step's close `PROVENANCE.md` §40.6 records: the sizing frozen before any
 |---|---|---|
 | 0.1 | 2026-10-06 | first draft, written ahead of the module with every check registered (ruling R1 – R5 of the manager, L7 step 1) |
 | 0.1a | 2026-10-06 | **amended while the module was written, before any registered check ran, the first texts kept in brackets:** `FMOD-R-004` (`pair_stable` for `by_body`, which refuses a one-body list), the `Tides` constructor's shape, two of `FMOD-A-008`'s cases (an epoch that can be constructed; a refusal that can be reached), the `source_sha256` separator |
+| 0.1b | 2026-10-07 | **L0 step 8, group C7 (the tree's development code is C++, plan §5 constraint 11):** `tools/forcemodel_fd_sizing.py` is `tools/forcemodel_fd_sizing.cpp`, named where this text cites it (`FMOD-P-7`; the paragraph that says what reproduces the figures; lemma (i), whose three lemmas now stand in the comment that opens the C++ file as they stood in the Python's docstring; and the frozen figures of (iii)). The tool prints, byte for byte, the output of `--check` and of `--scan` that the Python recorded, so every frozen figure is the same one. No requirement, number, refusal or acceptance row changes. |

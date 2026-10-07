@@ -3,9 +3,9 @@
 // whose order conditions are identities over the rationals and whose intermediate numerators outgrow every machine integer).
 //
 // Written here because every piece of the devkit is: a generator does not link a library it did not write, and the number types the tools need are few.  Sign and magnitude, 32-bit limbs, the
-// schoolbook algorithms; division by a number of more than one limb is a bit-by-bit long division, which is slower than Knuth's algorithm D and has none of its rarely-taken branches, so that every
-// line of it is exercised by every division.  The sizes the tools work with (a few hundred bits) make that no cost; a consumer that divides numbers of thousands of bits many times over is the day to
-// replace it.
+// schoolbook algorithms; division by a number of more than one limb is Knuth's algorithm D (group C7: the decimal arithmetic of decimal.hpp divides numbers of thousands of digits, and the long
+// division bit by bit that group C6 used was slower by the number of bits; tests/ keeps that division as its independent oracle).  Multiplication is still the schoolbook method: the sizes in use
+// (a few thousand limbs at the most) make Karatsuba a thing to add the day a tool is seen waiting for it.
 //
 // The semantics are Python's where Python has a word for them: `//` and `%` are FLOOR division and the remainder takes the divisor's sign, `>>` floors, `gcd` is never negative.
 
@@ -61,6 +61,8 @@ public:
     [[nodiscard]] static BigInt gcd(const BigInt& a, const BigInt& b);
     /// base ** exponent.
     [[nodiscard]] static BigInt pow(const BigInt& base, unsigned exponent);
+    /// math.isqrt: the floor of the square root of a non-negative number (Newton's iteration from above).  Throws std::domain_error for a negative one.
+    [[nodiscard]] static BigInt isqrt(const BigInt& n);
 
     friend bool operator==(const BigInt& a, const BigInt& b) noexcept { return a.negative_ == b.negative_ && a.limbs_ == b.limbs_; }
     friend std::strong_ordering operator<=>(const BigInt& a, const BigInt& b) noexcept;
