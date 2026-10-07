@@ -1044,6 +1044,14 @@ governs. Three rules apply to all of them:
     - **This covers existing pieces too.** Any non-C/C++ code a step touches is brought to the
       user the same way, not carried forward silently.
 
+    **Enforced, by the user's decision of 2026-10-07**, after an agent ran an interpreter's version
+    banner six times despite the rule. A Claude Code hook on this machine refuses, before it runs,
+    any shell command whose program is Python, Perl, Ruby, Node or a similar interpreter. It is
+    `.claude/hooks/block-interpreters.sh`, wired in `.claude/settings.local.json`, both local and
+    never committed. The word itself stays usable as data. During L0 step 8, `ci.sh` still runs the
+    Python tools not yet replaced, as the safety net the user accepted; the hook checks the agents'
+    own commands, not that.
+
 ## 6. What carries over, what is dropped
 
 Carried over as-is (already owned; never linked against predecessor code): the revival-era
