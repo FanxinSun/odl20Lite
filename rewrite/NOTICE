@@ -912,11 +912,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103/ilrsa.orb.lageos1.260103.v80.sp3.gz, raw and
+              byte for byte as pinned (L0 step 8 group C7b, 2026-10-07; why,
+              in upstream_mutable_note). The statement above -- the products
+              are not copyrighted, a citation is requested -- is neither a
+              licence grant nor a restriction on copying them, and it is the
+              basis on which they are redistributed; the citation requested is
+              carried in this entry and in NOTICE. CITATIONS THIS NOTICE
+              CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E.,
+              Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years and
+              planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-dhf-20260527  ILRS_Data_Handling_File_20260527.snx (its header: VERSION 260527, RELEASE DATE 2026/05/27, 'range bias data through the end of 2025'), EDC media/docs/, 186 597 bytes
@@ -1001,12 +1008,19 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
-              doi:10.1007/s00190-019-01241-1.
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-ilrsb/ilrsb.orb.lageos1.260103.v80.sp3.gz,
+              raw and byte for byte as pinned (L0 step 8 group C7b,
+              2026-10-07; why, in upstream_mutable_note). The statement above
+              -- the products are not copyrighted, a citation is requested --
+              is neither a licence grant nor a restriction on copying them,
+              and it is the basis on which they are redistributed; the
+              citation requested is carried in this entry and in NOTICE.
+              CITATIONS THIS NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman,
+              M.R., Noll, C.E., Pavlis, E.C. et al. (2019), The ILRS:
+              approaching 20 years and planning for the future, J. Geod. 93,
+              2161-2180, doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-asi  asi.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 169 bytes gzipped  777 660 decompressed
     role      The weekly LAGEOS-1 orbit of the week ending 2026-01-03 (SP3-c, ECEF) as computed by the Agenzia Spaziale Italiana analysis centre, from the EUROLAS Data Center's mirror of the ILRS products. L6 step 4: G5's envelope (SPEC-measmod MEAS-A-101): the ILRS combined orbit's own README states no accuracy (searched, SPEC-measmod 8.9), so the orbit term of the envelope is sized from the SPREAD of the combination's eight inputs and of the backup combination about the primary combination, projected on the line of sight at the chosen pass's epochs: an orbit-against-orbit comparison in which no observed range enters. THE MODEL'S RESIDUALS ARE NOT COMPUTED BEFORE THE ENVELOPE IS COMMITTED.
@@ -1029,11 +1043,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-asi/asi.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-bkg  bkg.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  243 930 bytes gzipped  777 506 decompressed
@@ -1057,11 +1078,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-bkg/bkg.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-cnes  cnes.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 036 bytes gzipped  777 631 decompressed
@@ -1085,11 +1113,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-cnes/cnes.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-dgfi  dgfi.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  244 080 bytes gzipped  777 660 decompressed
@@ -1113,11 +1148,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-dgfi/dgfi.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-esa  esa.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  255 065 bytes gzipped  1 226 826 decompressed
@@ -1141,11 +1183,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-esa/esa.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-gfz  gfz.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  237 355 bytes gzipped  636 433 decompressed
@@ -1169,11 +1218,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-gfz/gfz.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-jcet  jcet.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  249 073 bytes gzipped  923 723 decompressed
@@ -1197,11 +1253,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-jcet/jcet.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   ilrs-lageos1-sp3-260103-nsgf  nsgf.orb.lageos1.260103.v80.sp3.gz  EDC products/orbits/lageos1/260103/  219 290 bytes gzipped  636 764 decompressed
@@ -1225,11 +1288,18 @@ DATA INPUTS
               read 2026-10-06, sha256 511652b55ecbdc6affd70ed55cee0654b1ba2fe0
               71acc735b3379deaa9c9ac8d). A statement that the products are not
               copyrighted, with a citation requested: neither a licence grant
-              nor a restriction. This tree does not redistribute the file; the
-              pin is the EDC's URL and the hash. CITATIONS THIS NOTICE CARRIES
-              FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll, C.E., Pavlis, E.C.
-              et al. (2019), The ILRS: approaching 20 years and planning for
-              the future, J. Geod. 93, 2161-2180,
+              nor a restriction. This tree VENDORS the file: the tracked copy
+              at data/vendored/ilrs-
+              lageos1-sp3-260103-nsgf/nsgf.orb.lageos1.260103.v80.sp3.gz, raw
+              and byte for byte as pinned (L0 step 8 group C7b, 2026-10-07;
+              why, in upstream_mutable_note). The statement above -- the
+              products are not copyrighted, a citation is requested -- is
+              neither a licence grant nor a restriction on copying them, and
+              it is the basis on which they are redistributed; the citation
+              requested is carried in this entry and in NOTICE. CITATIONS THIS
+              NOTICE CARRIES FOR THE ILRS PRODUCTS: Pearlman, M.R., Noll,
+              C.E., Pavlis, E.C. et al. (2019), The ILRS: approaching 20 years
+              and planning for the future, J. Geod. 93, 2161-2180,
               doi:10.1007/s00190-019-01241-1.
 
   itrf2020-transfo-trfs  Transfo-ITRF2020_TRFs.txt as served by itrf.ign.fr 2026-10-06 (the ITRF 'Transformation parameters' page links it); 4 125 bytes; its own title: 'Transformation parameters from ITRF2020 to past ITRFs'

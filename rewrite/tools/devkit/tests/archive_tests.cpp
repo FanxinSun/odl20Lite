@@ -135,7 +135,10 @@ TEST_CASE("every member the manifest pins reads out of its real cached archive a
             }
             continue;
         }
-        const std::filesystem::path file = std::filesystem::path(ODL_MANIFEST_CACHE_ROOT) / id / e.find("filename")->as_string();
+        // A VENDORED archive (group C7b: the ten ILRS orbit files, gzip) is the tracked file, and it is not in the cache: GitHub's runner is served an HTML page for it, so
+        // the cache a clean clone holds has no copy.  (Found by a rehearsal of the runner, as the case above was: a cache without those ten entries.)
+        const bool vendored = e.find("vendored") != nullptr && e.find("vendored")->truthy();
+        const std::filesystem::path file = std::filesystem::path(vendored ? ODL_MANIFEST_VENDORED_ROOT : ODL_MANIFEST_CACHE_ROOT) / id / e.find("filename")->as_string();
         REQUIRE(std::filesystem::exists(file));
         const Bytes raw = read_bytes(file);
         ++archives;

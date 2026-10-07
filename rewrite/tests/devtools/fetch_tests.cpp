@@ -463,6 +463,104 @@ TEST_CASE("fetch from a populated cache: extracts the declared members, once, an
     CHECK_FALSE(fs::exists(root / "cache" / "arch" / "extracted" / "hello.txt.part"));
 }
 
+TEST_CASE("a vendored archive: its declared members are extracted into the cache from the TRACKED copy, and nothing is downloaded (group C7b)", "[fetcher]") {
+    // GitHub's runner is served an HTML page for the ILRS orbit files, so they are vendored; the tests read the EXTRACTED member in the cache, which only `fetch` makes.
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string plain = "hello hello hello hello hello\n";
+    const Bytes gz = hello_gz();
+    const fs::path tracked = root / "vendored" / "arch" / "hello.gz";
+    fs::create_directories(tracked.parent_path());
+    write_bytes(tracked, view(gz));
+    const fs::path extracted = root / "cache" / "arch" / "extracted" / "hello.txt";
+    const std::string plain_hash = sha256_hex(as_bytes(plain));
+    const auto make = [&](const std::string& declared, bool extract) {
+        const Json member = object({{"member", Json("hello.txt")}, {"sha256", Json(declared)}, {"extract", Json(extract)}});
+        return with(with(with(with(data_entry("arch", "hello.gz", sha256_hex(view(gz))), "unpack", Json("gzip")), "consumes", Json("declared-members")),
+                         "members", Json(Json::Array{member})), "vendored", Json(true));
+    };
+    const fs::path m = write_manifest(root, {make(plain_hash, true)});
+
+    // before any fetch the tracked file is there and its member is not extracted: verify says so, and says what helps -- not "restore from git"
+    Result r = run(root, m, {"verify"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "declared member not extracted"));
+    CHECK(contains(r.err, "MISSING  arch             vendored, its tracked file is there: `fetch fetch` extracts the declared member from it (nothing is downloaded)\n"));
+    CHECK_FALSE(contains(r.err, "restore from git"));
+    CHECK(contains(r.err, "\n1 entry is not in the cache. Run: tools/bootstrap.sh\n"));
+
+    // fetch: vendored and never fetched (the URL cannot resolve), and the member is extracted, against its own hash
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "vendored arch"));
+    CHECK(contains(r.out, "(tracked in the repository, never fetched)\n  member " + pad_right("hello.txt", 30) + " " + plain_hash.substr(0, 16) + "…\n"));   // the member, with the start of its hash (it landed now)
+    CHECK(read_text(extracted) == plain);
+    CHECK_FALSE(fs::exists(extracted.string() + ".part"));
+    r = run(root, m, {"verify"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "verified in the cache"));
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "  member " + pad_right("hello.txt", 30) + " cached\n"));   // the second time it is already there
+    r = run(root, m, {"path", "arch", "--member", "hello.txt"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "cache/arch/extracted/hello.txt\n"));
+
+    // --refresh never downloads a vendored entry, and puts the member back where it was lost
+    fs::remove_all(root / "cache" / "arch" / "extracted");
+    r = run(root, m, {"fetch", "--refresh"});
+    CHECK(r.code == kOk);
+    CHECK(read_text(extracted) == plain);
+
+    // a member hash that is wrong is refused when it lands, and nothing is left behind
+    fs::remove_all(root / "cache" / "arch" / "extracted");
+    r = run(root, write_manifest(root, {make(std::string(64, 'c'), true)}), {"fetch"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "EXTRACTED MEMBER HASH MISMATCH"));
+    CHECK_FALSE(fs::exists(extracted));
+    CHECK_FALSE(fs::exists(extracted.string() + ".part"));
+
+    // a member that is not marked `extract` is verified in place, and nothing lands in the cache
+    r = run(root, write_manifest(root, {make(plain_hash, false)}), {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK_FALSE(fs::exists(extracted));
+    r = run(root, write_manifest(root, {make(plain_hash, false)}), {"verify"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "verified in place"));
+
+    // the tracked file missing is another thing, and only git helps: told apart from the member merely not extracted, alone and with one that is
+    const std::string two = "hello hello hello hello hello\n";
+    const Json other = with(with(data_entry("other", "other.bin", sha256_hex(as_bytes(two))), "vendored", Json(true)), "url", Json("https://example.invalid/never-reached.bin"));
+    make_blob(root, "other", "other.bin", two, "vendored");
+    fs::remove(tracked);
+    r = run(root, write_manifest(root, {make(plain_hash, true)}), {"verify"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "MISSING  arch             vendored -- restore from git, do not fetch: vendored/arch/hello.gz\n"));
+    CHECK_FALSE(contains(r.err, "extracts the declared member"));
+    CHECK(contains(r.err, "\n1 vendored entry is missing their own tracked file(s). `fetch fetch` will not help -- restore from git.\n"));
+    r = run(root, write_manifest(root, {make(plain_hash, true)}), {"fetch"});
+    CHECK(r.code == kMissing);
+    CHECK_FALSE(fs::exists(extracted));
+    // ... and one entry of each kind: both are named, each with its own help, and the verdict is the general one (fetch helps one of them)
+    write_bytes(tracked, view(gz));
+    fs::remove_all(root / "cache" / "arch" / "extracted");
+    fs::remove(root / "vendored" / "other" / "other.bin");
+    r = run(root, write_manifest(root, {make(plain_hash, true), other}), {"verify"});
+    CHECK(r.code == kMissing);
+    CHECK(contains(r.err, "vendored, its tracked file is there: `fetch fetch` extracts the declared member from it (nothing is downloaded)\n"));
+    CHECK(contains(r.err, "MISSING  other            vendored -- restore from git, do not fetch: vendored/other/other.bin\n"));
+    CHECK(contains(r.err, "\n2 entries are not in the cache. Run: tools/bootstrap.sh\n"));
+    CHECK_FALSE(contains(r.err, "will not help"));
+
+    // the tracked file changed: refused by fetch BEFORE anything is extracted
+    make_blob(root, "other", "other.bin", two, "vendored");
+    write_text(tracked, "tampered");
+    r = run(root, write_manifest(root, {make(plain_hash, true)}), {"fetch"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "the tracked copy itself has changed"));
+    CHECK_FALSE(fs::exists(extracted));
+}
+
 TEST_CASE("the columns rule: a file whose licence differs by column must say which columns are consumed", "[fetcher]") {
     TempDir td;
     const fs::path root = td.path();

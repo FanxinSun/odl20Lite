@@ -293,6 +293,8 @@ fs::path literature_dir(const Manifest& m) { return m.root / m.setting("literatu
 // hash-match — cannot be re-fetched into the (gitignored) cache on a fresh clone at all; the pinned bytes exist nowhere unless the repository
 // itself holds them.  Vendoring is the general answer: the manifest still names the URL the bytes originally came from and the licence basis
 // that permits redistributing them, but `fetch`/`fetch --refresh` never try to re-acquire them, and `verify` checks the TRACKED copy directly.
+// A vendored ARCHIVE whose declared members are marked `extract` has them extracted into the cache by `fetch`, from the tracked copy and with nothing downloaded,
+// exactly as from a cached archive: the tests read the extracted copy (group C7b, PROVENANCE.md section 41.16: the ten ILRS orbit files, gzip, each one member).
 fs::path vendored_dir(const Manifest& m) { return m.root / m.setting("vendored", "data/vendored"); }
 
 bool is_literature(const Json& e) { return text_of(e, "kind") == "literature"; }
@@ -758,6 +760,7 @@ void refuse_tracked_members(Io& io, const Manifest& m, const Json& e, const Trac
 int cmd_verify(Io& io, const Manifest& m, const Args& args) {
     std::vector<const Json*> missing;
     std::map<const Json*, std::vector<std::string>> missing_members;   // a members-vendored entry's declared members that have no tracked file
+    std::vector<const Json*> not_extracted;   // entries whose archive is there (tracked, if vendored) and whose declared member is not extracted into the cache yet
     std::vector<std::tuple<const Json*, std::string, fs::path>> bad;
     std::vector<const Json*> ok;
     std::vector<const Json*> fetch_list = fetchable(m);
@@ -875,6 +878,7 @@ int cmd_verify(Io& io, const Manifest& m, const Args& args) {
             names = verify_members(io, m, *e, cache);
         } catch (const std::runtime_error& exc) {
             missing.push_back(e);
+            not_extracted.push_back(e);
             io.err << "MISSING  " << dk::pad_right(str_field(*e, "id"), 16) << " declared member not extracted: " << exc.what() << '\n';
             continue;
         }
@@ -892,9 +896,12 @@ int cmd_verify(Io& io, const Manifest& m, const Args& args) {
         }
     }
     const auto in_missing = [&](const Json* e) { return std::find(missing.begin(), missing.end(), e) != missing.end(); };
+    const auto in_not_extracted = [&](const Json* e) { return std::find(not_extracted.begin(), not_extracted.end(), e) != not_extracted.end(); };
+    // a vendored entry is missing its own TRACKED file, which only git can give back, or it has the file and its declared member is not extracted into the cache yet, which `fetch` does
+    // (from the tracked file, with nothing downloaded): the two are told apart, because "restore from git" is the wrong answer to the second
     std::size_t vendored_missing = 0;
     for (const Json* e : missing) {
-        if (is_vendored(*e)) ++vendored_missing;
+        if (is_vendored(*e) && !in_not_extracted(e)) ++vendored_missing;
     }
     for (const Json* e : fetch_list) {
         if (!in_missing(e)) continue;
@@ -903,6 +910,8 @@ int cmd_verify(Io& io, const Manifest& m, const Args& args) {
                 io.err << "MISSING  " << dk::pad_right(str_field(*e, "id"), 16) << " vendored member " << name << " -- restore from git, do not fetch: "
                        << fs::relative(vendored_members_dir(m, *e) / fs::path(name).filename(), m.root).string() << '\n';
             }
+        } else if (is_vendored(*e) && in_not_extracted(e)) {
+            io.err << "MISSING  " << dk::pad_right(str_field(*e, "id"), 16) << " vendored, its tracked file is there: `fetch fetch` extracts the declared member from it (nothing is downloaded)\n";
         } else if (is_vendored(*e)) {
             io.err << "MISSING  " << dk::pad_right(str_field(*e, "id"), 16) << " vendored -- restore from git, do not fetch: "
                    << fs::relative(entry_path(m, *e), m.root).string() << '\n';
@@ -965,6 +974,12 @@ int fetch_entry(Io& io, const Manifest& m, const Args& args, const Json* e, std:
         const std::string got = sha256_file(io, p);
         if (got != want) mismatch(io, *e, got, p.string() + " (vendored -- not re-fetched, the tracked copy itself has changed)");
         io.out << "vendored " << dk::pad_right(id, 16) << " " << first16(got) << "…  (tracked in the repository, never fetched)\n";
+        // What the tests read of an ARCHIVE is its extracted member, in the cache, and nothing but this extracts it: so the declared members that are to be extracted are
+        // taken out of the TRACKED archive, as out of a cached one (each against its own hash), and nothing is downloaded (group C7b: ten gzip orbit files of the ILRS,
+        // which GitHub's runner is served an HTML page for, are vendored and still read as data/cache/<id>/extracted/<member>).
+        for (const auto& [member, how] : extract_members(io, m, *e)) {
+            io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
+        }
         results.push_back({id, truthy(*e, "url") ? text_of(*e, "url") : std::string("(vendored)"), got});
         return kOk;
     }
