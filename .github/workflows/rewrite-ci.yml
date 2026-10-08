@@ -50,12 +50,23 @@ jobs:
       # six the fetch could not get -- so literature leaves this workflow (`--skip-literature` below), and
       # the cache step is again unconditional: nothing it holds is anything a fork could not fetch itself,
       # and `verify` checks every byte it restores against the manifest (PROVENANCE.md section 41.7).
+      #
+      # `restore-keys: manifest-` here and `--replace-stale` in the populate step below are ONE change in two places, and neither is any use without the other (PROVENANCE.md section 41.18).
+      # A change of the manifest used to be a COLD cache, and a cold cache meant downloading every pinned entry from its origin -- some twenty hosts, ninety-odd entries, all of which had to
+      # answer in the same twenty minutes (run 37730732165, 2026-10-08, died on the two files of igs.bkg.bund.de that the same host had served to the runner in run 37571132052).  With the
+      # prefix a change restores the NEWEST earlier cache, so `fetch` downloads only what that cache does not hold.  But a pin that has moved leaves its OLD bytes in that cache, and `fetch`
+      # REFUSES a cached file that is not its pin (HASH MISMATCH, exit 2, which the retry loop below treats as final): the prefix alone would turn every legitimate change of a pin into a red
+      # run.  So the populate step passes `--replace-stale`, which names such a file, removes it and downloads it again.  Nothing restored is trusted for that: the download is verified against
+      # the pin like any other (upstream drift is still refused, with the same HASH MISMATCH), `verify` checks every byte the gates read, and a file the manifest no longer names is not read.
+      # An exact hit still wins, and the populate step still runs on anything but an exact hit (`cache-hit` is false for a restored prefix), as before.
       - name: Restore the manifest cache
         id: cache
         uses: actions/cache@v4
         with:
           path: rewrite/data/cache
           key: manifest-${{ hashFiles('rewrite/manifest/manifest.json') }}
+          restore-keys: |
+            manifest-
 
       # The ONLY step permitted to touch the network, and only on a cache miss.  The tool is C++ (tools/fetch.cpp): compiled first, by the helper
       # ci.sh uses, with the compiler the gates will use, into the directory ci.sh will find it built in.
@@ -66,6 +77,9 @@ jobs:
       # HASH MISMATCH (exit 2) above all, is final.  The exit code is the FIRST failure's, in manifest order.
       #
       # `--skip-literature`: the literature entries are not fetched (see the cache step above; the tool says how many it left).
+      #
+      # `--replace-stale`: the cache above may be the NEWEST EARLIER one (`restore-keys`), so a cached file or extracted member that is not the manifest's pin is not a fault here but a pin that
+      # moved: it is named (a line that begins `stale`), removed and fetched again.  Used by this step alone; every other `fetch` of the tree, local or in tools/ci.sh, refuses such a file.
       #
       # `timeout-minutes` is the backstop under the 30-second connect timeout of tools/fetch.cpp.  A host that refuses the runner now costs one entry 170 s a
       # pass where it cost 620, but a host with many entries would still cost hours.  Its number is a MEASUREMENT (read from the log of run 37465937705, 2026-10-06):
@@ -82,7 +96,7 @@ jobs:
           cmake -DODL_HOST_OUT=build-ci/host -DODL_CXX="$CXX" -P cmake/OdlBuildHostTool.cmake
           for attempt in 1 2 3; do
             status=0
-            build-ci/host/fetch fetch --keep-going --skip-literature || status=$?
+            build-ci/host/fetch fetch --keep-going --skip-literature --replace-stale || status=$?
             [ "$status" -eq 4 ] || exit "$status"
             [ "$attempt" -lt 3 ] && sleep 60
           done

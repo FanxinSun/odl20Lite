@@ -1349,14 +1349,27 @@ DATA INPUTS
               0e2c6bbf388e72f8226; pinned as the literature entry
               igs-2020-data-product-terms-of-use). A grant of unrestricted use
               with an attribution term and a disclaimer: a real, stated
-              position. This tree does not redistribute the file; the pin is
-              BKG's URL and the hash. The document names no citation to give;
-              the attribution this tree carries is: IGS final combined orbit
-              IGS0OPSFIN (a weighted average of the analysis centres cod, esa,
-              gfz, grg, jpl, mit, ngs, sio, as the file's own comment lines
-              state), distributed by the International GNSS Service through
-              the Bundesamt fuer Kartographie und Geodaesie (BKG) IGS data
-              centre.
+              position. This tree VENDORS the file: the tracked copy at
+              data/vendored/igs-final-
+              sp3-2023-022/IGS0OPSFIN_20230220000_01D_15M_ORB.SP3.gz, raw and
+              byte for byte as pinned (L0 step 8 group C7c, 2026-10-08; why,
+              in upstream_mutable_note). The statement above -- the IGS data
+              and products 'have been made openly available for use without
+              restriction' and 'continue to be offered free of cost or
+              obligation', with an attribution term and a disclaimer -- is an
+              unrestricted grant of USE that does not name redistribution, and
+              the reading is made here in plain words: redistribution implied,
+              not stated -- copying the file is a use, and no term of the
+              document restricts it, which is also what the BKG and IGS data
+              centres that mirror these files do; the attribution the document
+              asks for is carried in this entry and in NOTICE, and the
+              disclaimer is quoted above. The document names no citation to
+              give; the attribution this tree carries is: IGS final combined
+              orbit IGS0OPSFIN (a weighted average of the analysis centres
+              cod, esa, gfz, grg, jpl, mit, ngs, sio, as the file's own
+              comment lines state), distributed by the International GNSS
+              Service through the Bundesamt fuer Kartographie und Geodaesie
+              (BKG) IGS data centre.
 
   igs-final-sp3-2023-023  IGS0OPSFIN_20230230000_01D_15M_ORB.SP3.gz, BKG root_ftp/IGS/products/2246/, 97 823 bytes gzipped, 245 474 decompressed; the file's own header: #cP, PCV:IGS20_2233, OL/AL:FES2014b, ORB:CMB CLK:CMB, combination of cod esa gfz grg jpl mit ngs sio
     role      The IGS final combined GNSS orbit for 2023-01-23 (day of year 023, GPS week 2246 day 1): SP3-c, ECEF, reference frame IGS20, GPS time, 96 epochs at 900 s from 2023-01-23 00:00:00 to 23:45:00, 31 GPS satellites (G28 absent), orbit type HLM, agency IGS, from BKG's IGS data centre. L7's exit gate (SPEC-estimation 8.1, EST-A-900): the OBSERVATIONS of the cannonball fit(s) G-02 (`validate_sp3.sh 2246 20230230000 G01`) of oracle/cases.tsv -- the file's own epochs are the statistic's epochs (N = 96). Bad or absent values: two clock values of G27 (the 999999.999999 marker; G27's positions are present), none for G01 or G05. NO FIT AGAINST IT RUNS BEFORE ITS FORCE SET AND DEGREE ARE WRITTEN INTO THE FIT'S TEST (the manager's ruling of 2026-10-06 on L7 step 1, A.5).
@@ -1383,14 +1396,27 @@ DATA INPUTS
               0e2c6bbf388e72f8226; pinned as the literature entry
               igs-2020-data-product-terms-of-use). A grant of unrestricted use
               with an attribution term and a disclaimer: a real, stated
-              position. This tree does not redistribute the file; the pin is
-              BKG's URL and the hash. The document names no citation to give;
-              the attribution this tree carries is: IGS final combined orbit
-              IGS0OPSFIN (a weighted average of the analysis centres cod, esa,
-              gfz, grg, jpl, mit, ngs, sio, as the file's own comment lines
-              state), distributed by the International GNSS Service through
-              the Bundesamt fuer Kartographie und Geodaesie (BKG) IGS data
-              centre.
+              position. This tree VENDORS the file: the tracked copy at
+              data/vendored/igs-final-
+              sp3-2023-023/IGS0OPSFIN_20230230000_01D_15M_ORB.SP3.gz, raw and
+              byte for byte as pinned (L0 step 8 group C7c, 2026-10-08; why,
+              in upstream_mutable_note). The statement above -- the IGS data
+              and products 'have been made openly available for use without
+              restriction' and 'continue to be offered free of cost or
+              obligation', with an attribution term and a disclaimer -- is an
+              unrestricted grant of USE that does not name redistribution, and
+              the reading is made here in plain words: redistribution implied,
+              not stated -- copying the file is a use, and no term of the
+              document restricts it, which is also what the BKG and IGS data
+              centres that mirror these files do; the attribution the document
+              asks for is carried in this entry and in NOTICE, and the
+              disclaimer is quoted above. The document names no citation to
+              give; the attribution this tree carries is: IGS final combined
+              orbit IGS0OPSFIN (a weighted average of the analysis centres
+              cod, esa, gfz, grg, jpl, mit, ngs, sio, as the file's own
+              comment lines state), distributed by the International GNSS
+              Service through the Bundesamt fuer Kartographie und Geodaesie
+              (BKG) IGS data centre.
 
   nist-strd-lls-norris  Norris.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 688 bytes
     role      NIST StRD linear least squares regression dataset Norris (linear, 2 parameters, 36 observations, level of difficulty lower, observed data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.

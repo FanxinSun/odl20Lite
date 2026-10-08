@@ -927,6 +927,270 @@ TEST_CASE("fetch stops at the first entry that fails; --keep-going tries them al
     CHECK(run(root, ok, {"verify", "--keep-going"}).code == kArgument);
 }
 
+// ---- group C7c: `fetch --replace-stale`.  The workflow's cache step restores the newest cache of an EARLIER manifest (restore-keys), so a pin that moved since meets its old bytes in the cache.
+// `fetch` refuses such a file, as it always did (a changed pin is a fault to investigate on a machine, and is not mended without being asked); asked, it names the file, removes it and
+// downloads it again, and the download is verified against the pin like any other.
+
+TEST_CASE("fetch --replace-stale: a cached file that is not the pin is named, removed and downloaded again; without the flag it is still a refusal", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "the bytes the manifest pins now\n";
+    const std::string before = "the bytes the manifest pinned before\n";
+    const std::string kept = "an entry whose pin did not move\n";
+    const std::string digest = sha256_hex(as_bytes(pinned));
+    const std::string before_digest = make_blob(root, "moved", "moved.bin", before);
+    const std::string kept_digest = make_blob(root, "kept", "kept.bin", kept);
+    write_text(root / "body.bin", pinned);
+    const fs::path m = write_manifest(root, {data_entry("moved", "moved.bin", digest), data_entry("kept", "kept.bin", kept_digest)});
+    const fs::path moved = root / "cache" / "moved" / "moved.bin";
+    FakeCurl curl(root);
+    curl.deliver(root / "body.bin");
+
+    // without the flag nothing changes: the refusal, the stale file where it was, no download, nothing named
+    Result r = run(root, m, {"fetch"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "HASH MISMATCH — refusing."));
+    CHECK(contains(r.err, "  obtained  " + before_digest + "\n"));
+    CHECK_FALSE(contains(r.out, "stale"));
+    CHECK(read_text(moved) == before);
+    CHECK(curl.calls().empty());
+
+    // with it: the file that is not the pin is named (it, and only it), removed, and downloaded from the entry's URL; the one that is the pin is left alone
+    r = run(root, m, {"fetch", "--replace-stale"});
+    CHECK(r.code == kOk);
+    const std::string named = "stale    " + pad_right("moved", 16) + " " + before_digest.substr(0, 16) + "…  is not the pin " + digest.substr(0, 16) +
+                              "…  -- removed, fetched again (--replace-stale)\n";
+    const std::string fetching = "fetching " + pad_right("moved", 16) + " https://example.invalid/moved.bin\n";
+    const std::string done = "ok       " + pad_right("moved", 16) + " " + digest.substr(0, 16) + "…\n";
+    CHECK(contains(r.out, named));
+    CHECK(contains(r.out, fetching));
+    CHECK(contains(r.out, done));
+    CHECK(r.out.find(named) < r.out.find(fetching));   // named first, then fetched, then ok
+    CHECK(r.out.find(fetching) < r.out.find(done));
+    CHECK(contains(r.out, "cached   " + pad_right("kept", 16) + " " + kept_digest.substr(0, 16) + "…\n"));
+    CHECK_FALSE(contains(r.out, "stale    " + pad_right("kept", 16)));
+    CHECK(read_text(moved) == pinned);
+    CHECK(read_text(root / "cache" / "kept" / "kept.bin") == kept);
+    CHECK_FALSE(fs::exists(moved.string() + ".part"));
+    REQUIRE(curl.calls().size() == 1);
+    CHECK(curl.calls()[0].back() == "https://example.invalid/moved.bin");
+    const Json receipt_file = Json::parse(read_text(root / "cache" / "receipts.json"));   // the receipts are the pins, the replaced entry's included
+    const auto& receipts = receipt_file.find("receipts")->as_array();
+    REQUIRE(receipts.size() == 2);
+    CHECK(receipts[0].find("id")->as_string() == "kept");
+    CHECK(receipts[0].find("sha256")->as_string() == kept_digest);
+    CHECK(receipts[1].find("id")->as_string() == "moved");
+    CHECK(receipts[1].find("sha256")->as_string() == digest);
+
+    // a cache with nothing stale: the flag changes nothing -- nothing named, nothing downloaded -- in the workflow's own form of the command, literature left alone
+    const std::string lit_digest(64, 'e');
+    const fs::path with_literature = write_manifest(root, {data_entry("moved", "moved.bin", digest), data_entry("kept", "kept.bin", kept_digest),
+                                                           literature_entry("paper", "paper.pdf", lit_digest)});
+    r = run(root, with_literature, {"fetch", "--keep-going", "--skip-literature", "--replace-stale"});
+    CHECK(r.code == kOk);
+    CHECK_FALSE(contains(r.out, "stale"));
+    CHECK(contains(r.out, "cached   " + pad_right("moved", 16)));
+    CHECK(contains(r.out, "skipped  1 literature entry"));
+    CHECK(curl.calls().size() == 1);
+
+    // ... and the same form of the command mends what is stale, beside an entry that cannot be had: that one is the run's failure, the stale one is mended all the same
+    const std::string other = "another entry whose pin moved\n";
+    make_blob(root, "other", "other.bin", before);
+    write_text(root / "other-body.bin", other);
+    const fs::path two = write_manifest(root, {data_entry("other", "other.bin", sha256_hex(as_bytes(other))), data_entry("gone", "gone.bin", digest)});
+    curl.fail_only("gone.bin", 35, "curl: (35) TLS connect error");
+    curl.deliver(root / "other-body.bin");
+    r = run(root, two, {"fetch", "--keep-going", "--replace-stale"});
+    CHECK(r.code == kNetwork);
+    CHECK(contains(r.out, "stale    " + pad_right("other", 16)));
+    CHECK(read_text(root / "cache" / "other" / "other.bin") == other);
+    CHECK(contains(r.err, "fetch: 1 of 2 entries did not make it"));
+}
+
+TEST_CASE("fetch --replace-stale: upstream drift is still refused with the plain download's own text, and what a failed download leaves is nothing", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "the bytes the manifest pins now\n";
+    const std::string before = "the bytes the manifest pinned before\n";
+    const std::string served = "what upstream serves today\n";
+    write_text(root / "served.bin", served);
+    write_text(root / "pinned.bin", pinned);
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", sha256_hex(as_bytes(pinned)))});
+    const fs::path cached = root / "cache" / "thing" / "thing.bin";
+    FakeCurl curl(root);
+
+    // the file is stale AND upstream does not serve the pin either: refused as a download that does not match is refused, the stale file removed, the download discarded
+    curl.deliver(root / "served.bin");
+    make_blob(root, "thing", "thing.bin", before);
+    const Result drifted = run(root, m, {"fetch", "--replace-stale"});
+    CHECK(drifted.code == kMismatch);
+    CHECK(contains(drifted.out, "stale    " + pad_right("thing", 16)));
+    CHECK(contains(drifted.err, "HASH MISMATCH — refusing."));
+    CHECK(contains(drifted.err, "(download discarded)"));
+    CHECK(contains(drifted.err, "  obtained  " + sha256_hex(as_bytes(served)) + "\n"));
+    CHECK_FALSE(fs::exists(cached));
+    CHECK_FALSE(fs::exists(cached.string() + ".part"));
+    const Result plain = run(root, m, {"fetch"});   // the cache is empty now: the same download, no flag
+    CHECK(plain.code == kMismatch);
+    CHECK(drifted.err == plain.err);                  // the same words, to the character
+    CHECK(curl.calls().size() == 2);
+
+    // the connection drops after the stale file was removed: a network failure, nothing left; the retry (the workflow's loop runs `fetch` again) finds no file and has nothing stale to say
+    make_blob(root, "thing", "thing.bin", before);
+    {
+        FakeCurl down(root);
+        down.fail(35, "curl: (35) TLS connect error");
+        const Result r = run(root, m, {"fetch", "--replace-stale"});
+        CHECK(r.code == kNetwork);
+        CHECK(contains(r.out, "stale    " + pad_right("thing", 16)));
+        CHECK_FALSE(fs::exists(cached));
+        CHECK_FALSE(fs::exists(cached.string() + ".part"));
+    }
+    {
+        FakeCurl up(root);
+        up.deliver(root / "pinned.bin");
+        const Result r = run(root, m, {"fetch", "--replace-stale"});
+        CHECK(r.code == kOk);
+        CHECK_FALSE(contains(r.out, "stale"));
+        CHECK(contains(r.out, "ok       " + pad_right("thing", 16)));
+        CHECK(read_text(cached) == pinned);
+    }
+}
+
+TEST_CASE("fetch --replace-stale: an extracted member that is not its declared hash is named and removed, and extracted again -- from the archive just replaced, the one cached, and the vendored one", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string plain = "hello hello hello hello hello\n";
+    const Bytes gz = hello_gz();
+    const std::string plain_hash = sha256_hex(as_bytes(plain));
+    const std::string gz_hash = sha256_hex(view(gz));
+    const std::string member_before = "a member of the archive the manifest pinned before\n";
+    const std::string member_before_hash = sha256_hex(as_bytes(member_before));
+    const fs::path archive = root / "cache" / "arch" / "hello.gz";
+    const fs::path extracted = root / "cache" / "arch" / "extracted" / "hello.txt";
+    const auto entry = [&](const std::string& declared, bool vendored) {
+        const Json member = object({{"member", Json("hello.txt")}, {"sha256", Json(declared)}, {"extract", Json(true)}});
+        Json e = with(with(with(data_entry("arch", "hello.gz", gz_hash), "unpack", Json("gzip")), "consumes", Json("declared-members")), "members", Json(Json::Array{member}));
+        return vendored ? with(e, "vendored", Json(true)) : e;
+    };
+    const auto member_named = [&](const std::string& declared) {
+        return "  stale  " + pad_right("hello.txt", 30) + " " + member_before_hash.substr(0, 16) + "…  is not the pin " + declared.substr(0, 16) +
+               "…  -- removed, extracted again (--replace-stale)\n";
+    };
+    write_bytes(root / "body.gz", view(gz));
+    FakeCurl curl(root);
+    curl.deliver(root / "body.gz");
+    const fs::path m = write_manifest(root, {entry(plain_hash, false)});
+
+    // 1. the archive's pin moved as well: the archive is named, removed and downloaded; then the member is named, removed and taken out of the NEW archive
+    make_blob(root, "arch", "hello.gz", "an archive the manifest pinned before\n");
+    make_blob(root, "arch", "extracted/hello.txt", member_before);
+    Result r = run(root, m, {"fetch", "--replace-stale"});
+    CHECK(r.code == kOk);
+    const std::string archive_named = "stale    " + pad_right("arch", 16);
+    CHECK(contains(r.out, archive_named));
+    CHECK(contains(r.out, "ok       " + pad_right("arch", 16) + " " + gz_hash.substr(0, 16) + "…\n"));
+    CHECK(contains(r.out, member_named(plain_hash)));
+    CHECK(contains(r.out, "  member " + pad_right("hello.txt", 30) + " " + plain_hash.substr(0, 16) + "…\n"));   // it landed now: the start of its hash, not `cached`
+    CHECK(r.out.find(archive_named) < r.out.find("  stale  "));
+    CHECK(r.out.find("  stale  ") < r.out.find("  member "));
+    CHECK(read_text(extracted) == plain);
+    CHECK(sha256_file_hex(archive) == gz_hash);
+    CHECK_FALSE(fs::exists(extracted.string() + ".part"));
+    CHECK(curl.calls().size() == 1);
+
+    // 2. the archive is the pin and only the member is stale: the member is named and taken out again, nothing is downloaded
+    make_blob(root, "arch", "extracted/hello.txt", member_before);
+    r = run(root, m, {"fetch", "--replace-stale"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "cached   " + pad_right("arch", 16)));
+    CHECK_FALSE(contains(r.out, archive_named));
+    CHECK(contains(r.out, member_named(plain_hash)));
+    CHECK(read_text(extracted) == plain);
+    CHECK(curl.calls().size() == 1);
+
+    // 3. a member that is the pin is not touched, and not named
+    r = run(root, m, {"fetch", "--replace-stale"});
+    CHECK(r.code == kOk);
+    CHECK_FALSE(contains(r.out, "stale"));
+    CHECK(contains(r.out, "  member " + pad_right("hello.txt", 30) + " cached\n"));
+
+    // 4. without the flag nothing changes: the member is taken out again as ever -- quietly, with nothing named
+    make_blob(root, "arch", "extracted/hello.txt", member_before);
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK_FALSE(contains(r.out, "stale"));
+    CHECK(read_text(extracted) == plain);
+
+    // 5. a VENDORED archive: the tracked copy is never fetched, and a stale member in the cache is named and taken out of it
+    const fs::path vm = write_manifest(root, {entry(plain_hash, true)});
+    fs::create_directories(root / "vendored" / "arch");
+    write_bytes(root / "vendored" / "arch" / "hello.gz", view(gz));
+    make_blob(root, "arch", "extracted/hello.txt", member_before);
+    r = run(root, vm, {"fetch", "--replace-stale"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "vendored arch"));
+    CHECK(contains(r.out, member_named(plain_hash)));
+    CHECK(read_text(extracted) == plain);
+    CHECK(curl.calls().size() == 1);
+
+    // 5b. ... and without the flag, on that road too, the member is taken out again quietly
+    make_blob(root, "arch", "extracted/hello.txt", member_before);
+    r = run(root, vm, {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "vendored arch"));
+    CHECK_FALSE(contains(r.out, "stale"));
+    CHECK(read_text(extracted) == plain);
+
+    // 5c. ... and on the third road, the archive downloaded just now (it is not in the cache, the member is stale)
+    fs::remove(archive);
+    make_blob(root, "arch", "extracted/hello.txt", member_before);
+    r = run(root, m, {"fetch"});
+    CHECK(r.code == kOk);
+    CHECK(contains(r.out, "ok       " + pad_right("arch", 16)));
+    CHECK_FALSE(contains(r.out, "stale"));
+    CHECK(read_text(extracted) == plain);
+    CHECK(curl.calls().size() == 2);
+
+    // 6. a member that cannot be had at its declared hash: named and removed all the same, then refused as ever, and nothing is left in its place
+    const std::string wrong(64, 'c');
+    make_blob(root, "arch", "extracted/hello.txt", member_before);
+    r = run(root, write_manifest(root, {entry(wrong, false)}), {"fetch", "--replace-stale"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.out, member_named(wrong)));
+    CHECK(contains(r.err, "EXTRACTED MEMBER HASH MISMATCH"));
+    CHECK_FALSE(fs::exists(extracted));
+    CHECK_FALSE(fs::exists(extracted.string() + ".part"));
+}
+
+TEST_CASE("--replace-stale belongs to fetch alone, takes no value, and is refused together with --refresh", "[fetcher]") {
+    // Every call but the help goes to a scratch tree with a stand-in curl, never to the tool's own tree: a test of a REFUSAL must not depend on the refusal to keep its hands off the real cache
+    // (a `fetch --refresh` that was not refused would re-download this tree's whole cache).
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string content = "x\n";
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", sha256_hex(as_bytes(content)))});
+    FakeCurl curl(root);
+    for (const char* other : {"verify", "list", "check-licences", "path", "verify-populated"}) {
+        INFO("command " << other);
+        CHECK(run(root, m, {other, "--replace-stale"}).code == kArgument);
+    }
+    CHECK(run(root, m, {"fetch", "--replace-stale=yes"}).code == kArgument);
+    for (const auto& both : {std::vector<std::string>{"fetch", "--replace-stale", "--refresh"}, std::vector<std::string>{"fetch", "--refresh", "--replace-stale"}}) {
+        const Result r = run(root, m, both);
+        CHECK(r.code == kArgument);
+        CHECK(contains(r.err, "fetch: error: argument --replace-stale: not allowed with argument --refresh\n"));
+    }
+    CHECK(curl.calls().empty());   // refused before anything ran
+    const Result help = run_plain({"-h"});
+    CHECK(help.code == kOk);
+    CHECK(contains(help.out,   // the four lines that describe `fetch`, to the character
+                   "  fetch [--refresh] [--keep-going] [--skip-literature] [--replace-stale]   download what is missing (--refresh: re-download everything and report upstream drift;\n"
+                   "                      --keep-going: do not stop at the first entry that fails, report them all and exit with the first one's code;\n"
+                   "                      --replace-stale: a cached file or extracted member that is not the manifest's pin is named, removed and fetched again instead of refused, the\n"
+                   "                      download verified against the pin as ever -- for CI's cache restored from an earlier manifest; not together with --refresh)\n"));
+}
+
 TEST_CASE("the stage exception (plan §5 constraint 3's one): accepted on drao-fluxtable with its flag, refused in every other form, and listed", "[fetcher]") {
     TempDir td;
     const fs::path root = td.path();

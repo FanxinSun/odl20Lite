@@ -27,6 +27,12 @@
 //   fetch --refresh     re-download everything and report upstream drift.
 //   fetch --keep-going  do not stop at the first entry that fails: try them all, list the failures at the end, exit with the FIRST one's code (so
 //                       that one run of CI names every entry a clean clone cannot fetch).  Without it the run stops at the first, as the Python tool did.
+//   fetch --replace-stale
+//                       a cached file, or extracted archive member, whose hash is not the manifest's pin is NAMED (a line that begins `stale`), removed and
+//                       fetched again, where without the flag it is a refusal (a file) or is quietly extracted again (a member).  The new download is verified
+//                       against the pin as ever, so upstream drift is refused with the same HASH MISMATCH.  For the workflow's cache step alone, which restores
+//                       the cache of an EARLIER manifest (`restore-keys`) and so meets the old bytes of every pin that has moved since (PROVENANCE.md section
+//                       41.18).  Not with --refresh, which asks another question (does upstream still serve the pin?) and leaves the cache alone.
 //   verify|fetch --skip-literature
 //                       leave every `literature` entry alone -- neither required, nor fetched, nor verified -- and SAY how many were left.  For GitHub's
 //                       workflow alone (tools/ci.sh --skip-literature): literature is a provenance record that no build input and no test reads
@@ -415,6 +421,16 @@ std::string sha256_file(Io& io, const fs::path& p) {
         "  logged act — see plan §3.11 point 3.");
 }
 
+// `fetch --replace-stale`: a cached file whose hash is not the pin is NAMED on a line that begins `stale` (`label` is what the line starts with: the kind of file and its name) and
+// removed, so that the caller meets it as it would a file that was never there -- downloaded, or extracted, and checked against the pin as ever.  A file that is the pin is not touched.
+void remove_if_stale(Io& io, const std::string& label, const fs::path& p, const std::string& want, const char* afterwards) {
+    if (!fs::exists(p)) return;
+    const std::string had = sha256_file(io, p);
+    if (had == want) return;
+    io.out << label << " " << first16(had) << "…  is not the pin " << first16(want) << "…  -- removed, " << afterwards << " (--replace-stale)\n";
+    fs::remove(p);
+}
+
 // Verifies every declared member against its own hash.  Returns their names.
 std::vector<std::string> verify_members(Io& io, const Manifest& m, const Json& e, ArchiveCache& cache) {
     std::vector<std::string> seen;
@@ -455,7 +471,10 @@ std::vector<std::string> verify_members(Io& io, const Manifest& m, const Json& e
 // Each member is checked against its own declared SHA-256 as it lands, so a change in upstream's zip tooling cannot quietly change what this
 // tree reads while the archive hash still matches — the archive hash would change too, but the member hash is what the module actually consumes
 // and it is the one worth stating.
-std::vector<std::pair<std::string, std::string>> extract_members(Io& io, const Manifest& m, const Json& e) {
+//
+// Under `--replace-stale` (`replace_stale`) an extracted member that is not its declared hash is named and removed first (remove_if_stale); without it the member is taken out again
+// all the same, but quietly.
+std::vector<std::pair<std::string, std::string>> extract_members(Io& io, const Manifest& m, const Json& e, bool replace_stale) {
     std::vector<std::pair<std::string, std::string>> out;
     std::vector<const Json*> wanted;
     for (const Json* member : entry_members(e)) {
@@ -468,6 +487,7 @@ std::vector<std::pair<std::string, std::string>> extract_members(Io& io, const M
         const fs::path dest = extract_path(m, e, *member);
         const std::string name = text_of(*member, "member");
         const std::string want = lower(text_of(*member, "sha256"));
+        if (replace_stale) remove_if_stale(io, "  stale  " + dk::pad_right(name, 30), dest, want, "extracted again");
         if (fs::exists(dest) && sha256_file(io, dest) == want) {
             out.emplace_back(name, "cached");
             continue;
@@ -664,6 +684,7 @@ struct Args {
     bool refresh = false;
     bool keep_going = false;
     bool skip_literature = false;
+    bool replace_stale = false;
     bool json = false;
     std::string id;
     std::string member;
@@ -977,17 +998,21 @@ int fetch_entry(Io& io, const Manifest& m, const Args& args, const Json* e, std:
         // What the tests read of an ARCHIVE is its extracted member, in the cache, and nothing but this extracts it: so the declared members that are to be extracted are
         // taken out of the TRACKED archive, as out of a cached one (each against its own hash), and nothing is downloaded (group C7b: ten gzip orbit files of the ILRS,
         // which GitHub's runner is served an HTML page for, are vendored and still read as data/cache/<id>/extracted/<member>).
-        for (const auto& [member, how] : extract_members(io, m, *e)) {
+        for (const auto& [member, how] : extract_members(io, m, *e, args.replace_stale)) {
             io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
         }
         results.push_back({id, truthy(*e, "url") ? text_of(*e, "url") : std::string("(vendored)"), got});
         return kOk;
     }
+    // --replace-stale: the workflow's cache step restores the cache of an EARLIER manifest, so a pin that has moved since meets its old bytes here.  The old file is named and removed, and
+    // falls through to the download below like a file that was never cached; the download is verified against the pin as ever, so upstream drift is still refused, with the same text.
+    // (--refresh is refused together with this flag at the command line: it would not look at the cached file at all.)
+    if (args.replace_stale) remove_if_stale(io, "stale    " + dk::pad_right(id, 16), p, want, "fetched again");
     if (fs::exists(p) && !args.refresh) {
         const std::string got = sha256_file(io, p);
         if (got != want) mismatch(io, *e, got, p.string());
         io.out << "cached   " << dk::pad_right(id, 16) << " " << first16(str_field(*e, "sha256")) << "…\n";
-        for (const auto& [member, how] : extract_members(io, m, *e)) {
+        for (const auto& [member, how] : extract_members(io, m, *e, args.replace_stale)) {
             io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
         }
         results.push_back({id, text_of(*e, "url"), got});
@@ -1010,7 +1035,7 @@ int fetch_entry(Io& io, const Manifest& m, const Args& args, const Json* e, std:
     }
     fs::rename(part, p);
     io.out << "ok       " << dk::pad_right(id, 16) << " " << first16(got) << "…\n";
-    for (const auto& [member, how] : extract_members(io, m, *e)) {
+    for (const auto& [member, how] : extract_members(io, m, *e, args.replace_stale)) {
         io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
     }
     results.push_back({id, text_of(*e, "url"), got});
@@ -1388,8 +1413,10 @@ const char kHelpText[] =
     "\n"
     "commands:\n"
     "  verify [--skip-literature]   offline: is every entry cached and hash-correct?\n"
-    "  fetch [--refresh] [--keep-going] [--skip-literature]   download what is missing (--refresh: re-download everything and report upstream drift;\n"
-    "                      --keep-going: do not stop at the first entry that fails, report them all and exit with the first one's code)\n"
+    "  fetch [--refresh] [--keep-going] [--skip-literature] [--replace-stale]   download what is missing (--refresh: re-download everything and report upstream drift;\n"
+    "                      --keep-going: do not stop at the first entry that fails, report them all and exit with the first one's code;\n"
+    "                      --replace-stale: a cached file or extracted member that is not the manifest's pin is named, removed and fetched again instead of refused, the\n"
+    "                      download verified against the pin as ever -- for CI's cache restored from an earlier manifest; not together with --refresh)\n"
     "  --skip-literature   (verify, fetch) leave every literature entry alone, and say how many: for GitHub's workflow, which cannot reach their hosts\n"
     "  list [--json]       show the entries\n"
     "  path <id> [--member NAME]   print the cache path of one entry (or of an extracted archive member)\n"
@@ -1460,6 +1487,8 @@ int run(const std::vector<std::string>& argv, Io io) {
                 args.keep_going = true;
             } else if (a == "--skip-literature" && (cmd == "verify" || cmd == "fetch")) {
                 args.skip_literature = true;
+            } else if (a == "--replace-stale" && cmd == "fetch") {
+                args.replace_stale = true;
             } else if (a == "--json" && cmd == "list") {
                 args.json = true;
             } else if (a == "--member" && cmd == "path") {
@@ -1487,6 +1516,8 @@ int run(const std::vector<std::string>& argv, Io io) {
         }
         const std::size_t wanted = cmd == "verify-populated" ? 2 : takes_id ? 1 : 0;
         if (positional.size() > wanted) return usage_error("unrecognized arguments: " + positional[wanted]);
+        // two questions that must not be mixed: --refresh asks whether upstream still serves the pin and leaves the cache alone; --replace-stale mends the cache to the pin
+        if (args.replace_stale && args.refresh) return usage_error("argument --replace-stale: not allowed with argument --refresh");
 
         std::error_code ec;
         root = fs::weakly_canonical(root, ec);
