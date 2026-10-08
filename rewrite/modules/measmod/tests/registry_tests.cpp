@@ -3,8 +3,8 @@
 // The registry is tested on three kinds of input: hand-built SINEX fixtures whose rows are QUOTED AS FACTS from the pinned
 // files (SPEC-measmod.md ruling R3: a few rows, no file vendored), synthetic rows built to the same column layout where a
 // closed form is wanted (the marker at a position the test chooses), and the real pinned files themselves, read through
-// the manifest's own cache path. Expected numbers for the real station come from tools/measmod_reference.py (an
-// iterative geodetic solution, not ERFA's), and the counts of the pinned release from tools/measmod_registry_facts.py.
+// the manifest's own cache path. Expected numbers for the real station come from tools/measmod_reference.cpp (an
+// iterative geodetic solution, not ERFA's), and the counts of the pinned release from tools/measmod_registry_facts.cpp.
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

@@ -66,6 +66,6 @@ TEST_CASE("MEAS-A-096g  the angle gate's geometry rule selects the line of sight
     CHECK_THAT(atm.wavelength_um, WithinAbs(0.532, 1e-12));
     auto c = refraction_constants(atm);
     REQUIRE(c.has_value());
-    CHECK_THAT(c->a, WithinRel(2.484383e-4, 1e-6));                 // the 60-digit evaluation of tools/measmod_fd_sizing.py
+    CHECK_THAT(c->a, WithinRel(2.484383e-4, 1e-6));                 // the 60-digit evaluation of tools/measmod_fd_sizing.cpp
     CHECK_THAT(c->b, WithinRel(-3.123796e-7, 1e-6));
 }

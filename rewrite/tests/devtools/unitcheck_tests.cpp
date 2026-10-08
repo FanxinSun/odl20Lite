@@ -197,7 +197,7 @@ TEST_CASE("number_tokens: the numbers of a line of code, as NUMBER's lookbehind,
     CHECK(tokens("_1000") == "");
     CHECK(tokens("1000_") == "1000_");                   // CHANGED in group C7: an underscore begins a user-defined suffix (here the suffix `_`): a literal of the user's own, which the register lists
     CHECK(tokens("1_000") == "1_000");                   // CHANGED in group C7: the number 1 with the user-defined suffix `_000` (Python's separator is not C++'s): a token, whose value is 1
-    CHECK(tokens("a.1000") == "");
+    CHECK(tokens("a.1000") == ".1000");                  // CHANGED in group C8: the point after an identifier begins a literal (a point cannot extend one); the literal .1000 is 0.1, and no thousand
     CHECK(tokens("1000.f") == "1000.f");                 // CHANGED in group C6, like 1000.0f
     CHECK(tokens("1000..") == "");
     CHECK(tokens("1000.0.0") == "");
@@ -207,7 +207,7 @@ TEST_CASE("number_tokens: the numbers of a line of code, as NUMBER's lookbehind,
     CHECK(tokens("1e+") == "");
     CHECK(tokens("1e3e") == "");
     CHECK(tokens("0x3e8") == "0x3e8");                  // CHANGED in group C7: hexadecimal is read (the Python's NUMBER found the 3 glued to the x and refused it)
-    CHECK(tokens(".5") == "");
+    CHECK(tokens(".5") == ".5");                         // CHANGED in group C8: a literal may begin with a point
     CHECK(tokens("1000.5") == "1000.5");
     // the exponent is taken when it can be, and given back when what follows it makes the token invalid
     CHECK(tokens("5e3") == "5e3");
@@ -267,7 +267,7 @@ TEST_CASE("number_tokens: digit separators are part of the number when they stan
     CHECK(tokens("1'x") == "1");
     CHECK(tokens("1000'") == "1000");
     CHECK(tokens("'1000") == "1000");
-    CHECK(tokens("1'.5") == "1");                      // the 5 follows a point: no token begins there
+    CHECK(tokens("1'.5") == "1|.5");                  // CHANGED in group C8: the point after the apostrophe begins the literal .5 (before it, a number after a point was no token and nothing began there)
     CHECK(tokens("1.'5") == "1.|5");                   // a point then an apostrophe: `1.` is a literal, and the 5 after the apostrophe (which is not between digits) is a number of its own
     CHECK(tokens("1e'3") == "3");                      // an exponent needs a digit, so the e stays glued to the 1 (no token there); the 3 after the apostrophe is a number of its own
     // character literals of digits are their own numbers, as they always were
@@ -337,7 +337,7 @@ TEST_CASE("number_tokens: a user-defined or library suffix is part of the litera
     CHECK(tokens("1000_km.count()") == "");
     CHECK(tokens("1000ms.") == "");
     CHECK(tokens("x1000_km") == "");
-    CHECK(tokens("a.1000ms") == "");
+    CHECK(tokens("a.1000ms") == ".1000ms");              // CHANGED in group C8: a literal that begins with a point, after an identifier, with a library suffix
     // in a line of code, beside other literals
     CHECK(tokens("auto d = 1000_km + 2.5_m * 3u;") == "1000_km|2.5_m|3u");
     CHECK(tokens("auto t = 1000ms + 2s;") == "1000ms|2s");
@@ -386,6 +386,62 @@ TEST_CASE("number_tokens: a separator belongs to a literal of any radix only bet
     }
 }
 
+TEST_CASE("number_tokens: a literal that begins with a point is a number, with the exponent, the separators and the suffixes of any decimal floating literal (group C8)", "[unitcheck][behaviour][scan]") {
+    // a point, digits, an optional exponent, an optional suffix: the forms of any decimal floating literal that has no digit before its point
+    for (const char* literal : {".001", ".0010", ".5", ".25e3", ".1e-2", ".1E-02", ".1e+4", ".001f", ".001F", ".001l", ".001L", ".5e3f", ".00'1", ".0'0'1", ".1e1'0", ".1e-0'2", ".001_km", ".001ms", ".5_x", ".1e-2_m"}) {
+        INFO(literal);
+        CHECK(tokens(literal) == literal);
+    }
+    CHECK(tokens(".\xD9\xA1") == ".\xD9\xA1");                      // a point and an ARABIC-INDIC ONE: \d reads it
+    // no digit after the point, a word character or a point glued after the digits (the exponent that is not one, a suffix of the other kind, letters that are no suffix): no literal, and none is carved out of it
+    for (const char* text : {".", "..", "...", ".e5", ".f", ".001abc", ".001.5", ".001e", ".001e+", ".1e5x", ".5u", ".5ul", ".001ff", ".5ma", ".5sec", ".5_km.", ".5.5"}) {
+        INFO(text);
+        CHECK(tokens(text) == "");
+    }
+    CHECK(tokens(".'1") == "1");        // the apostrophe is no digit: no literal at the point; the 1 after an apostrophe is a number of its own, as it always was
+    CHECK(tokens(".1'") == ".1");       // an apostrophe that is not between two digits ends the literal
+    CHECK(tokens(".1''2") == ".1|2");
+    // the point begins a token after anything that does not continue one: an operator, a bracket, a comma, a space, the start of the text, a string's quote, an identifier
+    CHECK(tokens("x=.001") == ".001");
+    CHECK(tokens("x * .001 + .5") == ".001|.5");
+    CHECK(tokens("f(1000,.001)") == "1000|.001");
+    CHECK(tokens("{.001, .5}") == ".001|.5");
+    CHECK(tokens("v[0].5") == "0|.5");
+    CHECK(tokens("(.001)") == ".001");
+    CHECK(tokens("x1000.001") == ".001");       // x1000 is an identifier, and a point cannot extend one: the literal is .001
+    CHECK(tokens("return.001;") == ".001");
+    CHECK(tokens("a.1000ms") == ".1000ms");     // CHANGED from the Python's (and C7's) none: a library suffix after a leading point is read like any other
+    CHECK(tokens("_x.001") == ".001");
+    CHECK(tokens("\xC3\xA9.001") == ".001");     // e acute is a letter: an identifier in C++ and a word character to \w
+    CHECK(tokens("x_1.001") == ".001");          // the word begins with a letter: an identifier, whatever it ends in
+    // after a word that begins with a digit the point is part of a number: that number is one literal, or none, and no literal begins at the point
+    CHECK(tokens("1000.001") == "1000.001");
+    CHECK(tokens("1'000.001") == "1'000.001");
+    CHECK(tokens("1.5") == "1.5");
+    CHECK(tokens("1e5.5") == "");
+    CHECK(tokens("0x1p3.5") == "");
+    CHECK(tokens("1000_km.5") == "");
+    CHECK(tokens("5s.5") == "");
+    CHECK(tokens("1000.001.5") == "");
+    CHECK(tokens("\xD9\xA1.5") == "\xD9\xA1.5");   // an ARABIC-INDIC ONE then .5: the number 1.5 as \d sees it
+    // after another point
+    CHECK(tokens("1..5") == "");
+    CHECK(tokens("...5") == "");     // (the lookbehind of a number that follows a point is the Python's, as it was)
+    CHECK(tokens("a..5") == "");
+    // the lookahead holds as it does for every literal
+    CHECK(tokens(".001_km.count()") == "");
+    CHECK(tokens(".001ms.") == "");
+    // beside other literals, in a line of code
+    CHECK(tokens("double a = 1000.0 * .001 + 0.5 / .25e3 - 1e-3f;") == "1000.0|.001|0.5|.25e3|1e-3f");
+    // user_suffix_of: a suffix after a leading point
+    CHECK(uc::scan::user_suffix_of(".001_km") == "_km");
+    CHECK(uc::scan::user_suffix_of(".001ms") == "ms");
+    CHECK(uc::scan::user_suffix_of(".001").empty());
+    CHECK(uc::scan::user_suffix_of(".001f").empty());
+    CHECK(uc::scan::user_suffix_of(".001_km ").empty());
+    CHECK(uc::scan::user_suffix_of("x.001_km").empty());
+}
+
 TEST_CASE("is_thousand: float(token) is exactly 1000.0 or exactly 0.001, however it is spelt", "[unitcheck][behaviour][scan]") {
     for (const char* spelling : {"1000", "1000.0", "1000.", "1e3", "1E3", "1.0e3", "1.0E+3", "1e+3", "10e2", "100e1", "1000e0", "0.1e4", "01000.0", "0001000.000", "1.0e+03", "0.001", "1e-3", "1E-3", "1.0e-03",
                                  "0.0010", "000.001", "10e-4", "100e-5", "0.00100000000000000000000001", "1000.0000000000000000000000000001"}) {
@@ -412,6 +468,19 @@ TEST_CASE("is_thousand: the separators and the standard suffix of a literal are 
     }
     for (const char* spelling : {"1'001", "1'000'0", "0'001", "999u", "1001UL", "1000.5f", "0.0011f", "1e0'4", "1'0e3", "1000f", "1000.0u", "1000lL", "1000ee3", "1'000x", "1'", "'1000", "1''000",
                                  "1000 ", "1000u ", "1'000'", "1.'5", "1000.0.0"}) {
+        INFO(spelling);
+        CHECK_FALSE(uc::scan::is_thousand(spelling));
+    }
+}
+
+TEST_CASE("is_thousand: a literal that begins with a point has the value C++ gives it (group C8)", "[unitcheck][behaviour][scan]") {
+    // 0.001 and 1000 written with a leading point: the mantissa is a fraction, so 1000 needs an exponent
+    for (const char* spelling : {".001", ".0010", ".1e-2", ".1E-02", ".01e-1", ".0001e1", ".001f", ".001L", ".00'1", ".0'01", ".1e4", ".01e5", ".1000e4", ".1e4f", ".1e+4L", ".10e4", ".001_km", ".001ms", ".1e4_m", ".1e-2s",
+                                 ".001000000", ".000100e1"}) {
+        INFO(spelling);
+        CHECK(uc::scan::is_thousand(spelling));
+    }
+    for (const char* spelling : {".5", ".01", ".0011", ".1e3", ".001001", ".1e-3", ".25e3", ".0010000001", ".1e5", ".1e1", ".1e4x", ".001abc", ".", ".e3", ".001 ", " .001", ".001.", "x.001", ".5.001", "..001", ".001e", ".1e-2e", ".001_km "}) {
         INFO(spelling);
         CHECK_FALSE(uc::scan::is_thousand(spelling));
     }
@@ -789,7 +858,7 @@ TEST_CASE("literals are matched by VALUE: every spelling of 1000 and 1/1000 is o
     Tree t;
     t.write("modules/a/spelt.cpp", annotated);
     // none of these is a factor of a thousand (and the last ones are not tokens at all: a suffix of the wrong kind, a user-defined or library suffix, a letter or a point is glued to them; the standard
-    // suffixes and digit separators are read since group C6, and have their own cases below)
+    // suffixes and digit separators are read since group C6, and have their own cases below; `a.1000` is the identifier a and, since group C8, the literal .1000, which is 0.1)
     t.write("modules/a/other.cpp",
             "double v[] = {1000.5, 999.99, 1e4, 1e-4, 100, 0.01, 1001, 0.0010000001, 1e2, 1000.000000001, 1e999};\n"
             "float f = 1000f; double u = 1000.0u; double x1000 = 0; double y = a.1000; double z = 1_000; int o = 01000; int h[] = {0x3E7, 0x3E9, 0b1111101001, 01751, 0x1000};\n"
@@ -955,6 +1024,36 @@ TEST_CASE("a number with a user-defined or library suffix is LISTED as a categor
     CHECK(radix.code == kOk);
     CHECK(radix.err.empty());
     CHECK(radix.out == denominator(Counts{1, 0, 0, 0, 0, 0, 5}) + kVerdict);
+}
+
+TEST_CASE("a factor of a thousand that begins with a point is read like any other: a row, accounted for by its marker or not (group C8; the Python's NUMBER began with a digit)", "[unitcheck][behaviour]") {
+    Tree t;
+    t.write(kHome, "constexpr double kMetresPerKm = 1000.0;\n");
+    t.write("modules/a/point.cpp",
+            "double a = x * .001;\n"                                          // 1  unaccounted
+            "double b = x * .001; // NOT-A-UNIT-CROSSING: a ratio\n"          // 2  declared
+            "double c = y / .1e-2;   // UNIT-CROSSING: ms -> s\n"              // 3  a crossing
+            "double d = .1e4f;\n"                                              // 4  unaccounted: 1000 spelt .1e4f
+            "double e = 5.001 + 1000.001 + .5 + .0011 + 1e5.5 + .25e3;\n"      // 5  none: the points of 5.001 and 1000.001 are inside numbers, the rest are other values
+            "auto f = .001_km;\n"                                              // 6  listed: a user-defined suffix
+            "// double g = .001;\n"                                            // 7  comment
+            "int h() { return.001; }\n"                                        // 8  unaccounted: the point after an identifier
+            "double i = .001 + .1e4; // NOT-A-UNIT-CROSSING: two on a line\n"); // 9  two declared
+    const Result loud = t.run();
+    CHECK(loud.code == kFailed);
+    CHECK(loud.out == std::string(kHeading) + "  the crossing itself, in " + kHome + ":\n" + home_row(1, "1000.0", "constexpr double kMetresPerKm = 1000.0;") + "\n  unit conversions, 1, each naming what it converts:\n" +
+                          annotated_row("modules/a/point.cpp", 3, ".1e-2", "ms -> s") + "\n  not conversions at all, 3:\n" + annotated_row("modules/a/point.cpp", 2, ".001", "a ratio") +
+                          annotated_row("modules/a/point.cpp", 9, ".001", "two on a line") + annotated_row("modules/a/point.cpp", 9, ".1e4", "two on a line") +
+                          "\n  user-defined or library suffixes, 1, listed and never judged:\n" + annotated_row("modules/a/point.cpp", 6, ".001_km", "auto f = .001_km;") + denominator(Counts{2, 1, 1, 3, 3, 0, 1}));
+    CHECK(loud.err == "\nUNACCOUNTED FACTOR OF A THOUSAND:\n" + unaccounted_row("modules/a/point.cpp", 1, ".001", "double a = x * .001;") + unaccounted_row("modules/a/point.cpp", 4, ".1e4f", "double d = .1e4f;") +
+                       unaccounted_row("modules/a/point.cpp", 8, ".001", "int h() { return.001; }") + kUnaccountedTrailer);
+    // a point-led literal accounted for by neither is the only thing wrong: exit 1 and nothing else; with markers on all of them the run passes
+    Tree u;
+    u.write("modules/a/ok.cpp", "double a = x * .001; // NOT-A-UNIT-CROSSING: a ratio\ndouble b = .1e4f; // NOT-A-UNIT-CROSSING: a count\n");
+    const Result ok = u.run({"--quiet"});
+    CHECK(ok.code == kOk);
+    CHECK(ok.err.empty());
+    CHECK(ok.out == denominator(Counts{1, 0, 0, 2, 0, 0}) + kVerdict);
 }
 
 TEST_CASE("a string literal carried over several lines by backslashes counts its numbers on every one of its lines, the middle ones too (group C7, found by rule 5)", "[unitcheck][behaviour]") {

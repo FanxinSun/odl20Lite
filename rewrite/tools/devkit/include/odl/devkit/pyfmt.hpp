@@ -20,4 +20,9 @@ namespace odl::devkit {
 /// correctly, drop trailing zeros and write at least two exponent digits), and Python's own words for the rest: "inf", "-inf" and "nan" (printf's `-nan` is not Python's).
 [[nodiscard]] std::string py_format_g(double v, int precision = 6);
 
+/// format(v, ".{precision}e") and format(v, ".{precision}f"): the printf `%.*e` and `%.*f`, which Python's 'e' and 'f' are for every finite value (the exactly rounded decimal expansion, at least two exponent digits), and
+/// Python's own words for the rest ("inf", "-inf", "nan").  Group C8: the sizing tools print their numbers in these two forms.
+[[nodiscard]] std::string py_format_e(double v, int precision);
+[[nodiscard]] std::string py_format_f(double v, int precision);
+
 }  // namespace odl::devkit

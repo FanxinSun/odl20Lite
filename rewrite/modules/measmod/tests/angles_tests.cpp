@@ -2,7 +2,7 @@
 //
 // The closed-form tests put a station and a target where an answer can be written down (the identity orientation, a station at rest at the equator or in uniform motion, a target
 // at a stated azimuth and elevation or in uniform motion); the aberration test (A-090) puts the real ephemeris behind the Earth's motion and builds the same direction a second
-// way. The reference values of A-080/-081/-088 come from tools/measmod_reference.py, in 60 digits.
+// way. The reference values of A-080/-081/-088 come from tools/measmod_reference.cpp, in 60 digits.
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>

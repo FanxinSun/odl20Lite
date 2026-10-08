@@ -37,7 +37,9 @@ struct Marker {
 /// (ll|LL|l|L)[uU]? after an integer literal, [fFlL] after a floating one).  Group C7: hexadecimal (`0x3E8`), hexadecimal floating (`0x1.F4p9`, `0x1p-1000`: one number, its exponent is not a number), binary
 /// (`0b1111101000`) and octal (`01750`) literals are numbers, with the same separators and suffixes, and so is a number with a USER-DEFINED suffix (an underscore and an identifier: `1000_km`) or a LIBRARY one
 /// (exactly h, min, s, ms, us, ns, d, y, i, il or if: `1000ms`).  The token is the literal as written, suffix and separators included.  A suffix of the other kind (`1000f`, `1000.0u`) or any other letters
-/// after a number are not C++: the number stays glued to them and is no token.  A leading point (`.001`) is not read.
+/// after a number are not C++: the number stays glued to them and is no token.  Group C8: a literal that begins with a point is a number (`.001`, `.1e-2`, `.5e3`, `.001f`, `.00'1`: a point, digits, the exponent
+/// and the suffixes of any decimal floating literal); the point begins it unless it continues a token -- never after another point, and after a word only when that word is an identifier (`x1000.001`,
+/// `return.001`: the literal is `.001`), not when it begins with a digit (`1000.001` is the one literal 1000.001).
 [[nodiscard]] std::vector<std::string> number_tokens(std::string_view code);
 
 /// is_thousand(tok): float(tok) is exactly 1000.0 or exactly 0.001, however the token is spelt -- a token that is one literal wholly (see number_tokens), its separators and suffix taken off, and its value that of

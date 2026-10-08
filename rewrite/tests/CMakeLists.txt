@@ -110,14 +110,31 @@ add_test(NAME speccheck.behaviour
 add_test(NAME speccheck.real_tree
   COMMAND odl_devtools_tests "[speccheck][real_tree]")
 
-# L6 step 4 (SPEC-measmod.md): the numbers the specification freezes and the tests compare against come from tools that do NOT use the code under test, and each was reproduced
-# here by a ctest that ran its generator, so that the number could not drift away from it.  THESE FIVE CTESTS ARE OFF (the user's decision of 2026-10-08, "Stop CI's Python now";
-# PROVENANCE.md section 41.17): each ran a Python tool, and nothing in this build runs Python.  Each comes back in C++ with group C8, under the same name:
-#   measmod.registry_facts_reproduce                  (tools/measmod_registry_facts.py --check)
-#   measmod.fd_sizing_reproduces                      (tools/measmod_fd_sizing.py --scan --check)
-#   measmod.reference_header_matches_its_generator    (tools/measmod_reference.py --check)
-#   measmod.height_sensitivity_prediction_reproduces  (tools/measmod_height_sensitivity.py --check)
-#   measmod.g5_selection_reproduces                   (tools/measmod_g5_select.py --check)
+# L6 step 4 (SPEC-measmod.md): the numbers the specification freezes and the tests compare against come from tools that do
+# NOT use the code under test, and each is reproduced here so that the number cannot drift away from its generator:
+# the registry's counts of the pinned station files (MEAS-A-004), the finite-difference sizing frozen before any run (§6.2) and its
+# Amendment A1 of 2026-10-06 (the stencil bounds of the whole modelled range, by scans of about a second), the header of
+# independent reference values the C++ tests include, the height sensitivity of the troposphere's mapping (§5.2) and the G5 selection of
+# normal points.  The five tools are C++ since L0 step 8, group C8 (tools/measmod_reference.cpp, measmod_fd_sizing.cpp,
+# measmod_registry_facts.cpp, measmod_height_sensitivity.cpp and measmod_g5_select.cpp, on the devkit's Decimal and pymath): the five old
+# names are kept, and the tools' own tests (tests/devtools/<tool>_tests.cpp: every function against values computed apart, the Python's
+# recorded outputs, every refusal, every frozen comparison shown firing, and the real tree) are ctests <tool>.behaviour and <tool>.real_tree.
+add_test(NAME measmod.registry_facts_reproduce
+  COMMAND measmod_registry_facts --check)
+add_test(NAME measmod.fd_sizing_reproduces
+  COMMAND measmod_fd_sizing --scan --check)
+add_test(NAME measmod.reference_header_matches_its_generator
+  COMMAND measmod_reference --check)
+add_test(NAME measmod.height_sensitivity_prediction_reproduces
+  COMMAND measmod_height_sensitivity --check)
+add_test(NAME measmod.g5_selection_reproduces
+  COMMAND measmod_g5_select --check)
+foreach(generator measmod_reference measmod_fd_sizing measmod_registry_facts measmod_height_sensitivity measmod_g5_select)
+  add_test(NAME ${generator}.behaviour
+    COMMAND odl_devtools_tests "[${generator}][behaviour]")
+  add_test(NAME ${generator}.real_tree
+    COMMAND odl_devtools_tests "[${generator}][real_tree]")
+endforeach()
 
 # --------------------------------------------------------------------------- #
 # The module boundary is a link boundary — proved both ways.

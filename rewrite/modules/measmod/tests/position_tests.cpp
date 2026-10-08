@@ -290,7 +290,7 @@ TEST_CASE("MEAS-A-061  the SP3 frame-code table: IGS05 IGS08 IGb08 IGS14 IGb14 I
 TEST_CASE("MEAS-A-063  the builders: a Horizons record is a GCRS observation at its TDB epoch with the position in metres; an SP3 record is an ITRS observation at its header-system "
           "epoch — the real ILRS file's first record (2025-12-28 00:00:00 UTC, PL51 -11319.687869 -4845.099064 -497.695158) is 12 323.069 km from the centre",
           "[measmod][position]") {
-    // the vendored table's first record, against the independent decimal conversion of its printed text (tools/measmod_reference.py)
+    // the vendored table's first record, against the independent decimal conversion of its printed text (tools/measmod_reference.cpp)
     const auto& hz = acs3_table().states.front();
     auto h = position_observation(hz, ReferencePoint::CentreOfMass, leaps());
     REQUIRE(h.has_value());

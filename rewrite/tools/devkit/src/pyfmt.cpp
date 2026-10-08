@@ -19,6 +19,28 @@ std::string py_format_g(double v, int precision) {
     return std::string(buf.data(), n > 0 ? static_cast<std::size_t>(std::min<int>(n, static_cast<int>(buf.size()) - 1)) : 0);
 }
 
+std::string py_format_e(double v, int precision) {
+    if (std::isnan(v)) return "nan";
+    if (std::isinf(v)) return v < 0 ? "-inf" : "inf";
+    const int needed = std::snprintf(nullptr, 0, "%.*e", precision, v);
+    if (needed < 0) return std::string();
+    std::string out(static_cast<std::size_t>(needed) + 1, '\0');
+    const int written = std::snprintf(out.data(), out.size(), "%.*e", precision, v);   // (the second call of the same number: it writes what the first counted; its value is used, which g++ 13 asks of a bounded call)
+    out.resize(static_cast<std::size_t>(written));
+    return out;
+}
+
+std::string py_format_f(double v, int precision) {
+    if (std::isnan(v)) return "nan";
+    if (std::isinf(v)) return v < 0 ? "-inf" : "inf";
+    const int needed = std::snprintf(nullptr, 0, "%.*f", precision, v);
+    if (needed < 0) return std::string();
+    std::string out(static_cast<std::size_t>(needed) + 1, '\0');
+    const int written = std::snprintf(out.data(), out.size(), "%.*f", precision, v);
+    out.resize(static_cast<std::size_t>(written));
+    return out;
+}
+
 std::string py_float_repr(double v) {
     if (std::isnan(v)) return "nan";
     if (std::isinf(v)) return v < 0 ? "-inf" : "inf";

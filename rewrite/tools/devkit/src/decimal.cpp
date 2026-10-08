@@ -2,12 +2,16 @@
 
 #include <odl/devkit/decimal.hpp>
 
+#include <odl/devkit/pytext.hpp>
+
 #include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 
 namespace odl::devkit {
@@ -258,6 +262,27 @@ Decimal Decimal::from_string(std::string_view text) {
     return from_parts(negative, BigInt::from_decimal(digits), exponent - fraction_digits);
 }
 
+Decimal Decimal::from_python(std::string_view text) { return from_string(strip_py(text)); }
+
+Decimal Decimal::from_double(double value) {
+    if (!std::isfinite(value)) throw DecimalError("Decimal: NaN and the infinities are not implemented");
+    const bool negative = std::signbit(value);
+    const double magnitude = std::fabs(value);
+    if (magnitude == 0.0) return from_parts(negative, BigInt(), 0);
+    int binary_exponent = 0;
+    const double fraction = std::frexp(magnitude, &binary_exponent);   // magnitude = fraction * 2**binary_exponent, 0.5 <= fraction < 1: exact
+    auto mantissa = static_cast<std::uint64_t>(std::ldexp(fraction, 53));   // an integer below 2**53: exact
+    std::int64_t exponent = static_cast<std::int64_t>(binary_exponent) - 53;
+    while ((mantissa & 1U) == 0) {   // lowest terms, as float.as_integer_ratio() gives them: n / d, d a power of two (the mantissa is not zero)
+        mantissa >>= 1U;
+        ++exponent;
+    }
+    const BigInt n(static_cast<std::int64_t>(mantissa));
+    if (exponent >= 0) return from_parts(negative, n.shifted_left(static_cast<std::size_t>(exponent)), 0);   // a whole number: its integer, exponent 0
+    const auto k = static_cast<unsigned>(-exponent);
+    return from_parts(negative, n * BigInt::pow(BigInt(5), k), -static_cast<std::int64_t>(k));   // n / 2**k = n * 5**k / 10**k
+}
+
 std::int64_t Decimal::digits() const { return digit_count(coefficient_); }
 
 std::int64_t Decimal::adjusted() const { return exponent_ + digit_count(coefficient_) - 1; }
@@ -296,7 +321,23 @@ Decimal Decimal::copy_negate() const { return from_parts(!negative_, coefficient
 
 Decimal Decimal::pow(const Decimal& exponent) const {
     const DecimalContext& ctx = getcontext();
-    if (!exponent.is_integer()) throw DecimalError("Decimal::pow: only integer exponents are implemented");
+    if (!exponent.is_integer()) {
+        // a power with a fraction in the exponent (libmpdec's _mpd_qpow_real as the author remembers it): the base must be positive; exp(y ln x) in max(digits of x, prec) + 4 + 19 digits, rounded to the context
+        if (is_zero()) {
+            if (exponent.negative_) throw DecimalDivisionByZero("Decimal: 0 ** a negative number");
+            return from_parts(false, BigInt(), 0);
+        }
+        if (negative_) throw DecimalInvalidOperation("Decimal: a negative number to a power that is not an integer");
+        if (exponent_ <= 0 && coefficient_ == pow10(-exponent_)) {   // exactly one (1, 1.0, 1.00): one with prec - 1 zeros after it, as any power of one has
+            return from_parts(false, pow10(ctx.prec - 1), -(ctx.prec - 1));
+        }
+        Decimal powered;
+        {
+            LocalContext working(std::max<std::int64_t>(digits(), ctx.prec) + 4 + 19);
+            powered = (ln() * exponent).exp();
+        }
+        return DecimalOps::finish(false, powered.coefficient_, powered.exponent_, ctx);
+    }
     const bool exponent_negative = exponent.negative_ && !exponent.is_zero();
     // the exponent as an integer
     BigInt n = exponent.coefficient_;
@@ -465,6 +506,110 @@ Decimal Decimal::log10() const {
         if (low.first.first == high.first.first && low.first.second == high.first.second && low.second == high.second && !low.first.second.is_zero()) {
             return DecimalOps::finish(low.first.first, low.first.second, low.second, ctx);
         }
+    }
+}
+
+namespace {
+
+// ln 2 and ln 10 times 10**scale, from ln 2 = 2 atanh(1/3) and ln 10 = 3 ln 2 + 2 atanh(1/9) (10 = 2**3 * 5/4); `terms` counts the series' terms, as it does for atanh_fixed
+struct Logs {
+    BigInt ln2;
+    BigInt ln10;
+};
+
+Logs logs_fixed(std::int64_t scale, std::int64_t& terms) {
+    Logs out;
+    out.ln2 = BigInt(2) * atanh_fixed(BigInt(1), BigInt(3), scale, terms);
+    out.ln10 = BigInt(3) * out.ln2 + BigInt(2) * atanh_fixed(BigInt(1), BigInt(9), scale, terms);
+    return out;
+}
+
+// the k in 0 .. 3 for which m / 2**k lies in [0.7071, 1.4142], m = coefficient / 10**(digits-1) in [1, 10): the series of atanh((y - 1)/(y + 1)) then converges at better than one digit in six terms
+int halvings_of(const BigInt& coefficient) {
+    const std::string head = coefficient.to_decimal().substr(0, 15);
+    const double approx = std::strtod(head.c_str(), nullptr) / std::pow(10.0, static_cast<double>(head.size() - 1));   // m to about 15 digits
+    return approx < 1.4142 ? 0 : approx < 2.8284 ? 1 : approx < 5.6568 ? 2 : 3;
+}
+
+// The number `value * 10**unit_exponent` rounded to the context's precision, when the two ends of its error bound (`error` units of the last place) round to the same number, which is then returned finished;
+// nothing when they do not, and the caller works with more digits.  A result that is zero is never decided (a bound that reaches across zero has no sign).
+std::optional<Decimal> decided(const BigInt& value, std::int64_t unit_exponent, const BigInt& error, const DecimalContext& ctx) {
+    const auto rounded = [&](const BigInt& v) {
+        BigInt magnitude = v.abs();
+        std::int64_t exp = unit_exponent;
+        round_half_even(magnitude, exp, ctx.prec);
+        return std::tuple<bool, BigInt, std::int64_t>{v.sign() < 0, std::move(magnitude), exp};
+    };
+    const auto low = rounded(value - error);
+    const auto high = rounded(value + error);
+    if (std::get<0>(low) == std::get<0>(high) && std::get<1>(low) == std::get<1>(high) && std::get<2>(low) == std::get<2>(high) && !std::get<1>(low).is_zero()) {
+        return DecimalOps::finish(std::get<0>(low), std::get<1>(low), std::get<2>(low), ctx);
+    }
+    return std::nullopt;
+}
+
+}  // namespace
+
+Decimal Decimal::ln() const {
+    const DecimalContext& ctx = getcontext();
+    if (is_zero()) throw DecimalDivisionByZero("Decimal: the logarithm of zero");
+    if (negative_) throw DecimalInvalidOperation("Decimal: the logarithm of a negative number");
+    // x = c * 10**e = m * 10**E with m = c / 10**(d-1) in [1, 10) and E = e + d - 1:  ln x = E ln 10 + k ln 2 + 2 atanh((y - 1) / (y + 1)), y = m / 2**k near one
+    const std::int64_t d = digit_count(coefficient_);
+    const std::int64_t big_e = exponent_ + d - 1;
+    const BigInt& lead = pow10(d - 1);
+    if (big_e == 0 && coefficient_ == lead) return from_parts(false, BigInt(), 0);   // exactly one, however it is spelt: ln(1) = 0, exact, exponent 0
+    const int k = halvings_of(coefficient_);
+    for (std::int64_t guard = 10;; guard *= 2) {
+        if (guard > 100000) throw DecimalError("Decimal::ln: no rounding could be decided");
+        const std::int64_t scale = ctx.prec + guard + digit_count(BigInt(big_e).abs());
+        std::int64_t terms = 0;
+        const Logs logs = logs_fixed(scale, terms);
+        const BigInt denominator = lead * BigInt::pow(BigInt(2), static_cast<unsigned>(k));
+        const BigInt ln_y = BigInt(2) * atanh_fixed(coefficient_ - denominator, coefficient_ + denominator, scale, terms);
+        const BigInt value = BigInt(big_e) * logs.ln10 + BigInt(k) * logs.ln2 + ln_y;
+        const BigInt error = BigInt(16 * (terms + 16)) * (BigInt(big_e).abs() + BigInt(2));   // each series is off by less than twice its terms; E ln 10 repeats the error of ln 10 E times
+        if (const std::optional<Decimal> result = decided(value, -scale, error, ctx)) return *result;
+    }
+}
+
+Decimal Decimal::exp() const {
+    const DecimalContext& ctx = getcontext();
+    if (is_zero()) return from_parts(false, BigInt(1), 0);   // exp(0) = 1, exact, exponent 0, whatever the zero
+    if (adjusted() > 6) {   // |x| of 10**7 or more is far beyond the exponent range of any context
+        if (!negative_) throw DecimalOverflow("Decimal: exp of a number beyond the exponent range");
+        throw DecimalError("Decimal: exp of a number beyond the exponent range underflows (underflow is not implemented)");
+    }
+    // x = q ln 10 + r with q the integer nearest x / ln 10 (found from a 40-digit ln 10: any integer within one of it would serve), |r| <= 1.16 or so: exp(x) = 10**q * exp(r), exp(r) by its series
+    std::int64_t unused_terms = 0;
+    const BigInt ln10_coarse = logs_fixed(40, unused_terms).ln10;
+    const BigInt x_coarse = exponent_ + 40 >= 0 ? coefficient_ * pow10(exponent_ + 40) : coefficient_ / pow10(-(exponent_ + 40));
+    const BigInt x_signed = negative_ ? -x_coarse : x_coarse;
+    const BigInt q = (x_signed * BigInt(2) + ln10_coarse) / (ln10_coarse * BigInt(2));   // floor(x / ln 10 + 1/2)
+    const BigInt q_magnitude = q.abs();
+    const std::int64_t q_int = q.to_int64();
+    for (std::int64_t guard = 10;; guard *= 2) {
+        if (guard > 100000) throw DecimalError("Decimal::exp: no rounding could be decided");
+        const std::int64_t scale = ctx.prec + guard + digit_count(q_magnitude) + 2;
+        const BigInt& unit = pow10(scale);
+        std::int64_t ln_terms = 0;
+        const BigInt ln10 = logs_fixed(scale, ln_terms).ln10;
+        const BigInt x_fixed = exponent_ + scale >= 0 ? coefficient_ * pow10(exponent_ + scale) : coefficient_ / pow10(-(exponent_ + scale));
+        const BigInt r = (negative_ ? -x_fixed : x_fixed) - q * ln10;
+        const BigInt r_magnitude = r.abs();
+        // exp(r) = 1 + r + r**2/2! + ...: the terms are made for |r| (they are then never negative, and each floor reaches zero) and added with the sign r**n has
+        BigInt term = unit;
+        BigInt sum = unit;
+        std::int64_t exp_terms = 0;
+        for (std::int64_t n = 1;; ++n) {
+            term = (term * r_magnitude) / (unit * BigInt(n));
+            if (term.is_zero()) break;
+            sum = (r.sign() < 0 && n % 2 == 1) ? sum - term : sum + term;
+            ++exp_terms;
+        }
+        // the error of r is |q| times that of ln 10 (and a unit for x itself); exp(r) <= 3.2 times it; the series adds at most two units a term
+        const BigInt error = BigInt(4) * (q_magnitude + BigInt(2)) * BigInt(16 * (ln_terms + 16)) + BigInt(8 * (exp_terms + 16));
+        if (const std::optional<Decimal> result = decided(sum, q_int - scale, error, ctx)) return *result;
     }
 }
 

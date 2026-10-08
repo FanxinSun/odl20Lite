@@ -75,9 +75,13 @@
 //     fails nothing.  The names of units are what a register of unit crossings is for, and a reviewer should see them.  None occurs in the production sources today.  Any other letters after a number (`1000f`,
 //     `1000.0u`, `1000sec`) are not C++ and stay invisible, as ratified in group C6.
 //
+// GROUP C8 (the maintainer's ruling of 2026-10-07, "the same class as the hexadecimal ruling"): A LITERAL THAT BEGINS WITH A POINT -- `.001`, `.1e-2`, `.5e3`, `.001f`, `.00'1` -- is read as C++ reads it, with the
+// same separators, exponent and suffixes as any decimal floating literal.  The Python's NUMBER began with a digit, so `x * .001` was invisible to the register.  The point begins a token unless it CONTINUES one:
+// never after another point, and after a word only when that word is an identifier (`x1000.001` and `return.001` hold the literal `.001`); after a word that begins with a digit the point is part of a number (`1000.001`
+// is the one literal 1000.001).  On today's tree the register does not change: no production literal begins with a point (a read-only scan before the change found none; the four hits were inside format strings).
+//
 // KNOWN LIMITS, KEPT AND DOCUMENTED (not changed without a ruling):
 //   * Numbers INSIDE string literals still count (the register holds two: normal_equations.cpp's message for 2^-1000 .. 2^1000), and so do the digits of a character literal.
-//   * A leading-point literal (`.001`, `.5e3`) is invisible: the point refuses the lookbehind.  (Not in the ruling; none in the production sources.)
 //   * A `//` comment that ends in a backslash carries onto the next line in C++; here it does not (the tree's -Wall -Werror refuses such a comment: -Wcomment).  Trigraphs are not read.  A number that C++
 //     would lex into a longer pp-number (`0xE+1000`, which is one invalid token) is read as the literals it looks like.
 
@@ -142,6 +146,25 @@ bool lookbehind_ok(std::string_view s, std::size_t i) {
     Cp cp = 0;
     if (!dk::code_point_before(s, i, start, cp)) return true;   // not well-formed: no word, no point
     return !(is_word(cp) || cp == U'.');
+}
+
+// Does a point at i begin a token (group C8)?  Not after another point (`..`, `1..5`).  After a word it does when the word is an identifier -- a point cannot extend one: `x1000.001`, `return.001` -- and
+// does not when the word begins with a digit, a number, which the point continues (`1000.001`, `1e5.5`, and `1'000.001`, whose last run of digits is the word).
+bool point_lookbehind_ok(std::string_view s, std::size_t i) {
+    std::size_t start = 0;
+    Cp cp = 0;
+    if (!dk::code_point_before(s, i, start, cp)) return true;   // nothing before the point (it begins the text), or not well-formed: no word, no point
+    if (cp == U'.') return false;
+    if (!is_word(cp)) return true;
+    std::size_t word_start = start;
+    while (word_start > 0) {   // back to the first character of the run of word characters that ends at i
+        std::size_t previous = 0;
+        Cp before = 0;
+        if (!dk::code_point_before(s, word_start, previous, before) || !is_word(before)) break;
+        word_start = previous;
+    }
+    std::size_t after = 0;
+    return !dk::is_py_decimal(dk::code_point_at(s, word_start, after));
 }
 
 // (?![\w.]) at e: the character at e is neither a word character nor a point (the end of the text is neither)
@@ -318,8 +341,24 @@ std::optional<Literal> decimal_literal_at(std::string_view s, std::size_t i) {
     return Literal{base, point, mantissa_end, suffix.end, suffix.user};
 }
 
-// the literal that begins at i, if one does: the lookbehind (?<![\w.]) first
+// A decimal floating literal that begins with a point (group C8): `.` digits [exponent] [suffix], the exponent and the suffixes as any decimal floating literal has them and the same lookahead; the digits are
+// required (`.`, `..`, `.e5`, `.f` are no literal).
+std::optional<Literal> point_literal_at(std::string_view s, std::size_t i) {
+    const std::size_t fraction_end = digit_seq_end(s, i + 1);
+    if (fraction_end == i + 1) return std::nullopt;
+    const std::size_t with_exponent = exponent_end(s, fraction_end);
+    if (with_exponent != kNpos) {
+        const Suffix suffix = with_suffix(s, with_exponent, true);
+        if (suffix.end != kNpos) return Literal{Base::Decimal, true, with_exponent, suffix.end, suffix.user};
+    }
+    const Suffix suffix = with_suffix(s, fraction_end, true);
+    if (suffix.end == kNpos) return std::nullopt;
+    return Literal{Base::Decimal, true, fraction_end, suffix.end, suffix.user};
+}
+
+// the literal that begins at i, if one does: the lookbehind (?<![\w.]) first, except for a point, whose lookbehind is C++'s (point_lookbehind_ok)
 std::optional<Literal> literal_at(std::string_view s, std::size_t i) {
+    if (i < s.size() && s[i] == '.') return point_lookbehind_ok(s, i) ? point_literal_at(s, i) : std::nullopt;
     if (!lookbehind_ok(s, i)) return std::nullopt;
     if (i + 1 < s.size() && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X')) return hex_literal_at(s, i);
     if (i + 1 < s.size() && s[i] == '0' && (s[i + 1] == 'b' || s[i + 1] == 'B')) return binary_literal_at(s, i);

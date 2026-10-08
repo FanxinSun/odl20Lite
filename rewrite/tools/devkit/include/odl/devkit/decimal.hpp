@@ -5,11 +5,15 @@
 // A Decimal is a sign, an integer coefficient and an exponent (value = (-1)**sign * coefficient * 10**exponent) and keeps all three, because Python's does and what a tool prints depends on them: the exponent of a
 // quotient (the IDEAL exponent: an exact result has its trailing zeros removed down to it, an inexact one fills the precision), the exponent of a sum (the smaller of the two), the sign of a zero (a product, a quotient
 // and a square root of a negative zero are negative zeros; x + (-x) is +0).  Every operation is evaluated in the CURRENT CONTEXT (getcontext(): the precision in digits, ROUND_HALF_EVEN, Emax/Emin; localcontext() is
-// LocalContext) and is CORRECTLY ROUNDED — the exact result rounded once to the precision — except the integer power, which is libmpdec's: square-and-multiply in a working precision a few digits larger than the
-// context's, rounded to the context at the end, which is what Python computes and what a result that is the noise of the last digits (the worst disagreement of two routes at 90 digits) is made of.
+// LocalContext) and is CORRECTLY ROUNDED — the exact result rounded once to the precision — except the powers, which are libmpdec's.  The INTEGER power is square-and-multiply in a working precision a few digits
+// larger than the context's, rounded to the context at the end, which is what Python computes and what a result that is the noise of the last digits (the worst disagreement of two routes at 90 digits) is made
+// of: the General Decimal Arithmetic Specification (https://speleotrove.com/decimal/daops.html#refpower) asks of an inexact power only that it "should be correctly rounded, but may be up to 1 ulp (unit in last place)
+// in error", and states no working precision, so the LAST DIGIT of such a result is pinned here against what Python recorded and nothing else (the author remembers libmpdec's rule; its source has not been read).
+// The power with a NON-integer exponent is exp(y ln x) in a working precision of max(digits of x, precision) + 4 + 19 digits, rounded at the end -- the same remembered rule -- and ln and exp are correctly rounded
+// (the Python documentation says so of both).
 //
-// NOT here, because no tool of this group uses it: NaN and the infinities, subnormals and the traps of Underflow, rounding modes other than ROUND_HALF_EVEN, a power with a non-integer exponent, ln and exp, the
-// comparison of a Decimal with a float.  The first use adds the case, with its proof.  Anything outside what is here throws (DecimalError and its subclasses), as Python raises.
+// NOT here, because no tool uses it: NaN and the infinities, subnormals and the traps of Underflow, rounding modes other than ROUND_HALF_EVEN, the comparison of a Decimal with a float, the logarithm of a zero
+// (it throws, as log10 does).  The first use adds the case, with its proof.  Anything outside what is here throws (DecimalError and its subclasses), as Python raises.
 
 #include <odl/devkit/bigint.hpp>
 
@@ -75,6 +79,11 @@ public:
     /// decimal.Decimal("-12.5e3"): an optional sign, digits with an optional point (at least one digit), an optional exponent (e or E, an optional sign, digits).  Exact (the coefficient keeps its digits, the exponent
     /// counts the digits after the point); a zero keeps its exponent (Decimal("0.00") has exponent -2).  Throws DecimalInvalidOperation on anything else (Python also takes NaN, Infinity and underscores).
     [[nodiscard]] static Decimal from_string(std::string_view text);
+    /// Decimal(str) as the tools meet it: from_string's grammar with the white space Python strips from both ends (`Decimal(" 12345.678901")`, an SP3 field's slice).  Underscores, NaN and Infinity stay refused.
+    [[nodiscard]] static Decimal from_python(std::string_view text);
+    /// Decimal(float): the double EXACTLY, by Python's own route -- the integer ratio n/2**k in lowest terms, the coefficient n * 5**k and the exponent -k; a whole number is its integer with exponent 0, and a
+    /// zero keeps its sign (-0.0 gives -0).  Throws DecimalError for NaN and the infinities (not implemented).
+    [[nodiscard]] static Decimal from_double(double value);
     /// The number with this sign, coefficient (non-negative) and exponent, as it is, rounded to nothing.
     [[nodiscard]] static Decimal from_parts(bool negative, BigInt coefficient, std::int64_t exponent);
 
@@ -96,11 +105,18 @@ public:
     [[nodiscard]] Decimal operator+() const;   ///< Decimal.__pos__: the number rounded to the context's precision (`+x`); -0 becomes +0
     [[nodiscard]] Decimal abs() const;         ///< abs(x): the operation, which rounds to the context (copy_abs() does not)
     [[nodiscard]] Decimal sqrt() const;        ///< correctly rounded; the ideal exponent of an exact root is floor(exponent / 2).  Throws DecimalInvalidOperation for a negative number (not for -0, whose root is -0).
-    /// self ** exponent for an exponent that is an integer (Decimal("-4") and Decimal("4.0") are; Decimal("0.5") throws DecimalError, which this does not implement).  libmpdec's algorithm: in a working
-    /// precision of prec + digits(exponent) + exp(exponent) + 2 (+1 for a negative exponent), the reciprocal for a negative exponent and then the left-to-right square-and-multiply, rounded to the context at the end.
+    /// self ** exponent.  For an exponent that is an integer (Decimal("-4") and Decimal("4.0") are): libmpdec's algorithm as its author remembers it (see the top of this file for what the specification does and does not
+    /// settle): in a working precision of prec + digits(exponent) + exp(exponent) + 2 (+1 for a negative exponent), the reciprocal for a negative exponent and then the left-to-right square-and-multiply, rounded to
+    /// the context at the end.  For any other exponent the base must be positive (a negative one is InvalidOperation; zero gives zero for a positive exponent, DivisionByZero for a negative one; a base of exactly 1
+    /// gives 1 followed by prec - 1 zeros): exp(exponent * ln(base)) at max(digits(base), prec) + 23 digits, rounded to the context.
     [[nodiscard]] Decimal pow(const Decimal& exponent) const;
     /// The base-10 logarithm, correctly rounded; exact (an integer) when the number is a power of ten.  Throws DecimalInvalidOperation unless the number is positive.
     [[nodiscard]] Decimal log10() const;
+    /// The natural logarithm, correctly rounded: a number of exactly the context's precision in digits, except that ln(1) is exactly 0 (exponent 0, whatever the spelling of the one).  Throws DecimalInvalidOperation for a
+    /// negative number and DecimalDivisionByZero for a zero (Python gives -Infinity, which this does not implement).
+    [[nodiscard]] Decimal ln() const;
+    /// e ** self, correctly rounded; exp(0) is exactly 1 (exponent 0, whatever the zero).  A result beyond the exponent range throws DecimalOverflow (below it: DecimalError, underflow is not implemented).
+    [[nodiscard]] Decimal exp() const;
 
     [[nodiscard]] Decimal copy_abs() const;      ///< the same number without its sign, in no context
     [[nodiscard]] Decimal copy_negate() const;   ///< the same number with the sign turned, in no context (-0 and +0 swap)

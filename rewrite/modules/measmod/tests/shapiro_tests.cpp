@@ -1,7 +1,7 @@
 // shapiro_tests.cpp — SPEC-measmod.md §8.3, MEAS-A-025 and MEAS-A-026 (G4).
 //
 // G4: the Shapiro term against an independent evaluation, LABELLED NOT PUBLISHED: TN36 §11.2 prints the formula (11.17) and no number.
-// The expected values are tools/measmod_reference.py's: 60-digit arithmetic at the very doubles this test passes, and the partials
+// The expected values are tools/measmod_reference.cpp's: 60-digit arithmetic at the very doubles this test passes, and the partials
 // by the closed form AND by a 60-digit central difference that had to agree before either was emitted.
 
 #include <catch2/catch_test_macros.hpp>

@@ -3,7 +3,7 @@
 //
 // TEST-SIDE ONLY: nothing in include/ or src/ reads this file. Every reader asserts the facts the specification REGISTERED before applying them (the DHF record, the centre-of-mass
 // row, the eccentricity determinations, the products' headers), so a file that changed is a failure and not a different envelope. The pass is chosen by the rule of §8.9 from
-// the sessions' metadata alone, and the choice is asserted equal to the one `tools/measmod_g5_select.py` made (output kept as round-9 evidence).
+// the sessions' metadata alone, and the choice is asserted equal to the one `tools/measmod_g5_select.py` made (output kept as round-9 evidence; since L0 step 8, group C8, `tools/measmod_g5_select.cpp` prints it).
 //
 // No residual is formed anywhere in this file or in g5_envelope.hpp: the model's answer is read for its GEOMETRY (the Applied record) and its modelled range only;
 // `residual_m()` and `observed_range_m()` are never called before the comparison (MEAS-A-100) exists.

@@ -1,7 +1,7 @@
 // lighttime_tests.cpp — SPEC-measmod.md §8.4, MEAS-A-030 … MEAS-A-033 (G3 and the light-time iteration).
 //
 // G3: a closed-form two-way light time, target AND station in uniform motion, for both epoch events, to 1e-8 m. The expected values are
-// tools/measmod_reference.py's: the two quadratics (c^2 - v^2) tau^2 -/+ 2 (D.v) tau - D^2 = 0 solved in 60 digits, derived independently of the
+// tools/measmod_reference.cpp's: the two quadratics (c^2 - v^2) tau^2 -/+ 2 (D.v) tau - D^2 = 0 solved in 60 digits, derived independently of the
 // fixed-point iteration they test.
 
 #include <catch2/catch_test_macros.hpp>

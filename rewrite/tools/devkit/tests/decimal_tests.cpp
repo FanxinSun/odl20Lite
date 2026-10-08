@@ -587,9 +587,9 @@ TEST_CASE("Decimal power with an integer exponent: the cases written by hand, th
     CHECK(S(D("-0").pow(D("2"))) == "0");
     CHECK_THROWS_AS(D("0").pow(D("-1")), DecimalDivisionByZero);
     CHECK_THROWS_AS(D("0").pow(D("0")), DecimalInvalidOperation);
-    // refused: a fraction is not an integer
-    CHECK_THROWS_AS(D("4").pow(D("0.5")), DecimalError);
-    CHECK_THROWS_AS(D("4").pow(D("-1.5")), DecimalError);
+    // CHANGED in group C8: a fraction in the exponent was refused (not implemented); it is the real power now, whose own case is below.  Here: 4 ** 0.5 and 4 ** -1.5, which are 2 and 1/8, at 28 digits
+    CHECK(S(D("4").pow(D("0.5"))) == "2.000000000000000000000000000");
+    CHECK(S(D("4").pow(D("-1.5"))) == "0.1250000000000000000000000000");
     // the precision: a result of more digits is rounded to it
     {
         LocalContext lc(2);
@@ -623,12 +623,37 @@ TEST_CASE("Decimal power with an integer exponent: the cases written by hand, th
     }
 }
 
+TEST_CASE("Decimal power: the General Decimal Arithmetic Specification's own examples of an integer power, at the precision it uses", "[devkit][decimal]") {
+    ContextReset reset;
+    // SOURCE (rule 4; read 2026-10-07, no account): the General Decimal Arithmetic Specification, https://speleotrove.com/decimal/daops.html#refpower.  For a second operand that is an integer and a result that can
+    // be expressed exactly within the precision, "its exponent will be that which would result if the operation were calculated by repeated multiplication (if the second operand is negative then the reciprocal of
+    // the first operand is used, with the absolute value of the second operand determining the multiplications)"; and for the rest: "Inexact finite results should be correctly rounded, but may be up to 1 ulp
+    // (unit in last place) in error."  The section states NO working precision and no algorithm.  Its examples (precision 9 in the specification's own examples) are these, and the port gives each of them.
+    LocalContext lc(9);
+    CHECK(S(D("2").pow(D("3"))) == "8");
+    CHECK(S(D("-2").pow(D("3"))) == "-8");
+    CHECK(S(D("2").pow(D("-3"))) == "0.125");
+    CHECK(S(D("1.7").pow(D("8"))) == "69.7575744");   // 1.7 ** 8 = 69.75757441 exactly: inexact at nine digits, and here the correct rounding and "up to 1 ulp" coincide
+    // the exponent rule, in the specification's words: an exact result has the exponent of repeated multiplication, which is the sum of the exponents of the factors (the reciprocal's, for a negative power)
+    CHECK(S(D("1.50").pow(D("2"))) == "2.2500");        // 1.50 * 1.50: two digits after the point, twice
+    CHECK(S(D("1.5").pow(D("3"))) == "3.375");
+    CHECK(S(D("0.50").pow(D("-2"))) == "4");           // 1 / 0.50 = 2, then 2 * 2 (the reciprocal's own exponent is the ideal one of a quotient: 0)
+    CHECK(S(D("10").pow(D("-2"))) == "0.01");
+    CHECK(S(D("100").pow(D("2"))) == "10000");
+    CHECK(S(D("1E+2").pow(D("2"))) == "1E+4");
+    // WHAT THESE DO AND DO NOT PIN.  Where the result is exact, the exponent and the digits are the specification's.  Where it is inexact, the specification allows 1 ulp and so does NOT settle the last digit: the
+    // port's working precision is libmpdec's as its author remembers it (below), and that digit is pinned ONLY against what Python recorded -- the worst relative disagreement SPEC-gravity 4.7 records, which the
+    // port reproduces, and the committed artefacts of group C7, which it wrote byte for byte -- and against the case that follows, never against a specification that is silent on it.
+}
+
 TEST_CASE("Decimal power: the working precision of libmpdec's integer power, pinned where one digit more or less changes the last digit of the result", "[devkit][decimal]") {
     ContextReset reset;
     // The port's rule is libmpdec's _mpd_qpow_int as the port's author remembers it (this tree has not read libmpdec's source): the products of the square-and-multiply are made at prec + digits(exponent) +
     // the exponent's own exponent + 2 digits, one more when the exponent is negative (the reciprocal of the base is taken first, at that precision), and the result is rounded to prec digits at the end.  The
+    // specification (the case above) states no working precision and allows an inexact result to be 1 ulp in error, so it does not decide the cases below.  The
     // cases are those found by running the rule with the working precision changed by one (by two where the exponent is written with an exponent of its own, 1E+1 or 10.0): the values are the port's own, and
-    // in five of them they are NOT the correctly rounded ones (a rule with a few extra digits gives such a value in about four cases of a thousand: 235 of 60,000 random bases and exponents).  They pin the rule against a change of it; they do not prove it.
+    // in five of them they are NOT the correctly rounded ones (a rule with a few extra digits gives such a value in about four cases of a thousand: 235 of 60,000 random bases and exponents).  They pin the rule against a change of it; they do not prove it, and the LAST DIGIT of such a result is
+    // pinned only against Python's recorded outputs (the reproduction of SPEC-gravity 4.7's 5.9e-84 and the committed headers), because the specification leaves it open.
     const auto power = [](const char* base, const char* exponent, int prec) {
         LocalContext lc(prec);
         return S(D(base).pow(D(exponent)));
@@ -846,7 +871,7 @@ TEST_CASE("Decimal's exceptions say what went wrong, in words that name the oper
     CHECK(message([] { (void)D("-1").sqrt(); }) == "Decimal: the square root of a negative number");
     CHECK(message([] { (void)Decimal::from_parts(false, BigInt(-1), 0); }) == "Decimal::from_parts: the coefficient is negative");
     CHECK(message([] { (void)D("abc"); }) == "Decimal: 'abc' is not a number");
-    CHECK(message([] { (void)D("2").pow(D("0.5")); }) == "Decimal::pow: only integer exponents are implemented");
+    CHECK(message([] { (void)D("-2").pow(D("0.5")); }) == "Decimal: a negative number to a power that is not an integer");   // CHANGED in group C8 (it was: only integer exponents are implemented)
     CHECK(message([] { (void)D("0").pow(D("0")); }) == "Decimal: 0 ** 0 is undefined");
     CHECK(message([] { (void)D("0").pow(D("-1")); }) == "Decimal: 0 ** a negative number");
     CHECK(message([] { (void)D("2").pow(D("1099511627776")); }) == "Decimal::pow: the exponent is too large");
@@ -858,6 +883,16 @@ TEST_CASE("Decimal's exceptions say what went wrong, in words that name the oper
     CHECK(message([] { (void)D("1.5").format(".1000001f"); }) == "Decimal::format: the precision is too large");
     CHECK(message([] { (void)(D("1E+999999") * D("10")); }) == "Decimal: the result is beyond Emax");
     CHECK(message([] { (void)(D("1E-999999") / D("10")); }) == "Decimal: the result is below Emin (underflow is not implemented)");
+    // the words of the group C8 additions (from_double, the natural logarithm, the exponential, the real power's zero base)
+    CHECK(message([] { (void)Decimal::from_double(std::numeric_limits<double>::infinity()); }) == "Decimal: NaN and the infinities are not implemented");
+    CHECK(message([] { (void)Decimal::from_double(std::numeric_limits<double>::quiet_NaN()); }) == "Decimal: NaN and the infinities are not implemented");
+    CHECK(message([] { (void)D("0").pow(D("-0.5")); }) == "Decimal: 0 ** a negative number");
+    CHECK(message([] { (void)D("0").ln(); }) == "Decimal: the logarithm of zero");
+    CHECK(message([] { (void)D("-1").ln(); }) == "Decimal: the logarithm of a negative number");
+    CHECK(message([] { (void)D("1E+7").exp(); }) == "Decimal: exp of a number beyond the exponent range");
+    CHECK(message([] { (void)D("-1E+7").exp(); }) == "Decimal: exp of a number beyond the exponent range underflows (underflow is not implemented)");
+    CHECK_THROWS_AS(D("1E+7").exp(), DecimalOverflow);
+    CHECK_THROWS_AS(D("-1E+7").exp(), DecimalError);
 }
 
 TEST_CASE("Decimal addition and subtraction of operands built around the rounding boundaries: a tie, a unit either side of it, a power of ten, and a sticky amount at every depth below", "[devkit][decimal]") {
@@ -901,5 +936,293 @@ TEST_CASE("Decimal addition and subtraction of operands built around the roundin
         CHECK(value_of(b + a) == rounded(qa + qb, prec));
         CHECK(value_of(a - b) == rounded(qa - qb, prec));
         CHECK(value_of(b - a) == rounded(qb - qa, prec));
+    }
+}
+
+TEST_CASE("Decimal::from_double is Decimal(float): the double exactly, by Python's route (group C8)", "[devkit][decimal]") {
+    ContextReset reset;
+    // the value the Python documentation gives for Decimal(0.1) (the decimal module's FAQ: the exact value of the double nearest 0.1)
+    CHECK(S(Decimal::from_double(0.1)) == "0.1000000000000000055511151231257827021181583404541015625");
+    CHECK(S(Decimal::from_double(0.5)) == "0.5");
+    CHECK(S(Decimal::from_double(-2.5)) == "-2.5");
+    CHECK(S(Decimal::from_double(0.75)) == "0.75");
+    CHECK(S(Decimal::from_double(1.0)) == "1");                   // a whole number is its integer, exponent 0
+    CHECK(S(Decimal::from_double(4.0e6)) == "4000000");
+    CHECK(S(Decimal::from_double(-6378137.0)) == "-6378137");
+    CHECK(S(Decimal::from_double(1e22)) == "10000000000000000000000");   // 10**22 is the largest power of ten a double holds exactly
+    CHECK(S(Decimal::from_double(1e23)) == "99999999999999991611392");   // 10**23 is not one: the double nearest it is 9.999999999999999161e22
+    CHECK(Decimal::from_double(4.0e6).exponent() == 0);
+    CHECK(Decimal::from_double(1e23).exponent() == 0);
+    CHECK(Decimal::from_double(0.5).exponent() == -1);
+    CHECK(Decimal::from_double(0.1).exponent() == -55);             // 2**-55 times an odd number: 55 digits after the point
+    // zero keeps its sign, and has exponent 0
+    CHECK(S(Decimal::from_double(0.0)) == "0");
+    CHECK(S(Decimal::from_double(-0.0)) == "-0");
+    CHECK(Decimal::from_double(0.0).exponent() == 0);
+    CHECK(Decimal::from_double(-0.0).is_negative());
+    // the context does not round a constructor's argument: a 60-digit-prec context leaves the 55 digits of 0.1 whole, and a 5-digit one does too
+    {
+        LocalContext lc(5);
+        CHECK(Decimal::from_double(0.1).digits() == 55);
+    }
+    // NaN and the infinities are not implemented
+    CHECK_THROWS_AS(Decimal::from_double(std::numeric_limits<double>::infinity()), DecimalError);
+    CHECK_THROWS_AS(Decimal::from_double(-std::numeric_limits<double>::infinity()), DecimalError);
+    CHECK_THROWS_AS(Decimal::from_double(std::numeric_limits<double>::quiet_NaN()), DecimalError);
+    // the smallest subnormal is 2**-1074: n = 1, k = 1074, the coefficient 5**1074 (751 digits) and the exponent -1074
+    {
+        const Decimal tiny = Decimal::from_double(std::numeric_limits<double>::denorm_min());
+        CHECK(tiny.exponent() == -1074);
+        CHECK(tiny.coefficient() == BigInt::pow(BigInt(5), 1074));
+        CHECK(tiny.digits() == 751);
+    }
+    // random doubles of every magnitude: the exact rational of the bits is the value, and float() brings the double back
+    std::mt19937_64 rng(0xD0B1ECULL);
+    for (int round = 0; round < 3000; ++round) {
+        double x = 0.0;
+        switch (rng() % 4) {
+            case 0: x = std::ldexp(static_cast<double>(rng() >> 11), static_cast<int>(rng() % 200) - 150); break;   // 53 random bits, scaled
+            case 1: x = std::ldexp(static_cast<double>(rng() >> 11), -1074 + static_cast<int>(rng() % 60)); break;   // subnormal and the first normals
+            case 2: x = static_cast<double>(static_cast<std::int64_t>(rng() >> 12)); break;                         // a whole number
+            default: x = std::ldexp(static_cast<double>(rng() >> 44), static_cast<int>(rng() % 2000) - 1000); break;   // few bits, far from one
+        }
+        if ((rng() & 1U) != 0) x = -x;
+        if (x == 0.0 || !std::isfinite(x)) continue;
+        int e2 = 0;
+        const double f = std::frexp(std::fabs(x), &e2);
+        const BigInt m(static_cast<std::int64_t>(std::ldexp(f, 53)));
+        Rational exact(m);   // m * 2**(e2 - 53)
+        const int shift = e2 - 53;
+        if (shift >= 0) exact = exact * Rational(BigInt::pow(BigInt(2), static_cast<unsigned>(shift)));
+        else exact = exact / Rational(BigInt::pow(BigInt(2), static_cast<unsigned>(-shift)));
+        if (x < 0) exact = -exact;
+        const Decimal d = Decimal::from_double(x);
+        INFO("x = " << x);
+        CHECK(value_of(d) == exact);
+        CHECK(d.to_double() == x);
+        CHECK(d.is_negative() == (x < 0));
+    }
+}
+
+TEST_CASE("Decimal::from_python is Decimal(str): from_string with the white space Python strips from both ends (group C8)", "[devkit][decimal]") {
+    ContextReset reset;
+    CHECK(S(Decimal::from_python("3.14")) == "3.14");
+    CHECK(S(Decimal::from_python("  3.14 ")) == "3.14");
+    CHECK(S(Decimal::from_python("   7456.731201")) == "7456.731201");   // an SP3 field's slice: F14.6 with its leading blanks
+    CHECK(S(Decimal::from_python("\t-12.50E+3\n")) == "-1.250E+4");
+    CHECK(S(Decimal::from_python("\xE3\x80\x80" "1" "\xE2\x80\x83")) == "1");   // IDEOGRAPHIC SPACE and EM SPACE are white space to str.strip()
+    CHECK(S(Decimal::from_python("0.00")) == "0.00");                            // a zero keeps its exponent
+    // what the grammar refuses stays refused: nothing, blanks, a blank inside, an underscore, a letter, NaN and Infinity (not implemented)
+    for (const char* text : {"", " ", "\n\t", "1 2", "1_0", "x", "1x", "NaN", "Infinity", "--1", "1e", ".", "+"}) {
+        INFO("\"" << text << "\"");
+        CHECK_THROWS_AS(Decimal::from_python(text), DecimalInvalidOperation);
+    }
+}
+
+TEST_CASE("Decimal natural logarithm: exactly zero for one, otherwise the correctly rounded value, against digits computed by bc (group C8)", "[devkit][decimal]") {
+    ContextReset reset;
+    CHECK(S(D("1").ln()) == "0");
+    CHECK(S(D("1.000").ln()) == "0");
+    CHECK(S(D("1E+0").ln()) == "0");
+    CHECK(S(D("10E-1").ln()) == "0");   // the coefficient 10 with the exponent -1: the number one
+    CHECK_FALSE(D("1").ln().is_negative());
+    CHECK(D("1.000").ln().exponent() == 0);
+    CHECK_THROWS_AS(D("0").ln(), DecimalDivisionByZero);
+    CHECK_THROWS_AS(D("-0").ln(), DecimalDivisionByZero);
+    CHECK_THROWS_AS(D("-5").ln(), DecimalInvalidOperation);
+    // the digits, from bc 1.07.1: `scale=500; l(x)`, the first 170 significant digits (bc truncates; the digits used here are rounded from them)
+    struct Row {
+        const char* x;
+        const char* digits;
+    };
+    const std::vector<Row> rows = {
+        {"2", "0.69314718055994530941723212145817656807550013436025525412068000949339362196969471560586332699641868754200148102057068573368552023575813055703267075163507596193072757082837"},
+        {"3", "1.0986122886681096913952452369225257046474905578227494517346943336374942932186089668736157548137320887879700290659578657423680042259305198210528018707672774106031627691833"},
+        {"7", "1.9459101490553133051053527434431797296370847295818611884593901499375798627520692677876584985878715269930616942058511409117237522576777868431489580951639007759078244681042"},
+        {"0.5", "-0.69314718055994530941723212145817656807550013436025525412068000949339362196969471560586332699641868754200148102057068573368552023575813055703267075163507596193072757082837"},
+        {"10", "2.3025850929940456840179914546843642076011014886287729760333279009675726096773524802359972050895982983419677840422862486334095254650828067566662873690987816894829072083255"},
+        {"123456789", "18.631401766168018033193933347963204209713681841020401975185089945092217467256351777656116420190302695478476528765284320420283948035771542201960273496247272978207797688120"},
+        {"1.0000001", "0.000000099999995000000333333308333335333333166666680952379702381063492053492064401154317821075513374799089865756459506466344700995027853232181834349564631098785339622598535030716"},
+        {"9.999999", "2.3025849929940406840176581213260308722677679886287586903177921865707472028519547457481793840140849221143064897143856707384933957875152709848009133369944680419241188122781"},
+        {"0.00123", "-6.7007411095978109248279486634618877449816064159218137948126822609403901387624959283440531292622725918838784017500988855779289919352476079230246233822868719317271567741871"},
+        {"5", "1.6094379124341003746007593332261876395256013542685177219126478914741789877076577646301338780931796107999663030217155628997240052293246761996336166174637057275521796374971"},
+        {"11", "2.3978952727983705440619435779651292998217068539374171752185677091305736239132367130750547080026347914147157258881379985222555691585957873953553023908011080650516419066806"},
+        {"1E+100", "230.25850929940456840179914546843642076011014886287729760333279009675726096773524802359972050895982983419677840422862486334095254650828067566662873690987816894829072083255"},
+        {"1E-100", "-230.25850929940456840179914546843642076011014886287729760333279009675726096773524802359972050895982983419677840422862486334095254650828067566662873690987816894829072083255"},
+        {"1.5", "0.40546510810816438197801311546434913657199042346249419761401432414410067124891425126775242781731340124596854804538718000868248399017238926402013111913220144867243519835500"},
+        {"0.999999", "-0.0000010000005000003333335833335333335000001428572678572539683539683448774282107551338265623932290557290520525781963661220600849060011650779995779304625251973466498649764416787"},
+        {"1234567890123456789012345678901234567890", "90.011539649083434237756668443178827978681086321845699565551588375086968381539992946936315492364675340914874659473892515790216971941080731700795938404066037775310325528636"},
+        {"3E-30", "-67.978940501153260829144498403608400523385554101040439829265142695389683997101965440206300397874216861471063492202629593259917759726553682878935819202196173273884053480583"},
+        {"99999.99999", "11.512925464870228420084957273421487704672149109810529546833306004837863034101048114215700311051166094874442094813696755432476559504338520407817347046404042690948773325871"},
+        {"1.000000000000000000000000000000000000000000000000000000000001", "0.00000000000000000000000000000000000000000000000000000000000099999999999999999999999999999999999999999999999999999999999950000000000000000000000000000000000000000000000000000000000033333333333333333333333333333333333333333333333333"},
+    };
+    for (const Row& row : rows) {
+        for (const int prec : {1, 6, 17, 28, 60, 80, 110}) {
+            LocalContext lc(prec);
+            const Decimal logarithm = D(row.x).ln();
+            INFO("ln(" << row.x << ") at " << prec << " digits: " << S(logarithm));
+            CHECK(logarithm.digits() == prec);
+            CHECK(value_of(logarithm) == rounded(value_of(D(row.digits)), prec));
+        }
+    }
+    // ln 10 at 60 digits: the constant measmod_reference.py's LN10 and its port take (bc: l(10) = 2.30258509299404568401799145468436420760110148862877297603332790...)
+    {
+        LocalContext lc(60);
+        CHECK(S(D("10").ln()) == "2.30258509299404568401799145468436420760110148862877297603333");
+    }
+    // the same value from any spelling of the argument
+    {
+        LocalContext lc(40);
+        CHECK(D("2").ln() == D("2.000").ln());
+        CHECK(D("2").ln() == D("20E-1").ln());
+        CHECK(S(D("2").ln()) == S(D("0.2E+1").ln()));
+    }
+    // near one, where the value is small and the digits needed are many: ln(1 + 1e-50) = 1e-50 - 5e-101 + 3.3e-151 = 9.99999999999999999999999999999999999999999999999995e-51, which rounds up across a power of ten
+    {
+        LocalContext lc(20);
+        CHECK(S(D("1.00000000000000000000000000000000000000000000000001").ln()) == "1.0000000000000000000E-50");
+    }
+    // exp and ln undo each other: exp(ln(x)) at 40 digits is x for a number of up to 30, ln taken at 60
+    {
+        for (const char* text : {"2", "0.5", "1234.5678", "9.99999", "1E+30", "1E-30", "3.141592653589793238", "0.0000123", "77777777.7777777"}) {
+            Decimal l;
+            {
+                LocalContext lc(60);
+                l = D(text).ln();
+            }
+            LocalContext lc(40);
+            INFO(text);
+            CHECK(l.exp() == D(text));
+        }
+    }
+}
+
+TEST_CASE("Decimal exponential: exactly one for zero, otherwise the correctly rounded value, against digits computed by bc (group C8)", "[devkit][decimal]") {
+    ContextReset reset;
+    CHECK(S(D("0").exp()) == "1");
+    CHECK(S(D("-0").exp()) == "1");
+    CHECK(S(D("0.000").exp()) == "1");
+    CHECK(S(D("0E+5").exp()) == "1");
+    CHECK_FALSE(D("-0").exp().is_negative());
+    CHECK(D("0.000").exp().exponent() == 0);
+    // the digits, from bc 1.07.1: `scale=500; e(x)`, the first 170 significant digits
+    struct Row {
+        const char* x;
+        const char* digits;
+    };
+    const std::vector<Row> rows = {
+        {"1", "2.7182818284590452353602874713526624977572470936999595749669676277240766303535475945713821785251664274274663919320030599218174135966290435729003342952605956307381323286279"},
+        {"-1", "0.36787944117144232159552377016146086744581113103176783450783680169746149574489980335714727434591964374662732527684399520824697579279012900862665358949409878309219436737733"},
+        {"0.5", "1.6487212707001281468486507878141635716537761007101480115750793116406610211942156086327765200563666430028666377563077970046711669752196091598409714524900597969294226590984"},
+        {"10", "22026.465794806716516957900645284244366353512618556781074235426355225202818570792575199120968164525895451555501092457836652423291606522895166222480137728972873485577837847"},
+        {"-10", "0.000045399929762484851535591515560550610237918088866564969259071305650999421614302281652525004545947782321708055089686028492945199117244520388837183347709414567560990909217007"},
+        {"2.302585092994045684", "9.9999999999999999998200854531563579239906035759205678936114998052084928589447316266812804094452616602010020694289740536785003478752116847949083322949612823622644159444062"},
+        {"100", "26881171418161354484126255515800135873611118.773741922415191608615280287034909564914158871097219845710811670879190576068697597709761868233548459638929871966089629133626120"},
+        {"-100", "0.000000000000000000000000000000000000000000037200759760208359629596958038631183373588922923767819671206138766632904758958157181571187786422814966019356176423110698002479856420525356002661856882839075574388191160228"},
+        {"0.0000001", "1.0000001000000050000001666666708333334166666680555555753968256448412725970017912257498096039783583186521554578257207233108357494776559211143810433709657789468036004871776"},
+        {"700.5", "16721859620674985572410360793021203111449422613713041352496415947763492920228458780798191734909370650694357627813606284245351984509828816930484835636341464796075951298528000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
+        {"1E-10", "1.0000000001000000000050000000001666666666708333333334166666666680555555555753968253970734126984154541446208388447971783810325477013020415798354166409723112352080613696023"},
+        {"25.123456789", "81466423360.659567100614618629185046394906977937360268318976865317357297364102066199481175929289103539109785176313645028137550813755725253747516989586444318154537243673973"},
+        {"-37.5", "0.000000000000000051755550058018685348510907057388299460248104678145500561957503671442602597463484130220279253843521862233653392645260025972558035918301596523908742378930299995747005812592"},
+        {"0.001", "1.0010005001667083416680557539930583115630762005807014602285146744603597482514482984127182260041532609430682188720950993420636786961196238409723309055317683119235561984980"},
+        {"5E+2", "14035922178528374107397703328409120821806021155655454250255643688895552313943821922640079350083432091928424275200106921063850971260135477134602885117174978399377774315602000000000000000000000000000000000000000000000000"},
+        {"-5E+2", "0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000071245764067412855315491573771227552469277568761942948865653601614200717910222153210446982918595510098003514378639591600655964550091345194704347052793081514786824519849433"},
+        {"0.693147180559945309417232121458", "1.9999999999999999999999999999996468638489997312794894917586400121894980418817582821761091025115748056319987747314226051995624804710400289454188489318832609951030804657179"},
+        {"1E-50", "1.0000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000001666666666666666666"},
+        {"-1E-50", "0.99999999999999999999999999999999999999999999999999000000000000000000000000000000000000000000000000004999999999999999999999999999999999999999999999999983333333333333333333"},
+    };
+    for (const Row& row : rows) {
+        for (const int prec : {1, 6, 17, 28, 60, 80, 110}) {
+            LocalContext lc(prec);
+            const Decimal exponential = D(row.x).exp();
+            INFO("exp(" << row.x << ") at " << prec << " digits: " << S(exponential));
+            CHECK(exponential.digits() == prec);
+            CHECK(value_of(exponential) == rounded(value_of(D(row.digits)), prec));
+        }
+    }
+    // e at 60 digits, and the argument of the vapour-pressure formula's 10**x, x ln 10 (the shape measmod_reference.py's d_pow10 takes)
+    {
+        LocalContext lc(60);
+        CHECK(S(D("1").exp()) == "2.71828182845904523536028747135266249775724709369995957496697");   // bc: e(1) = 2.718281828459045235360287471352662497757247093699959574966967627...
+    }
+    // beyond the exponent range: a number of 10**7 or more, and an argument whose power of ten is beyond Emax (3e6 / ln 10 = 1.3e6 > 999999)
+    CHECK_THROWS_AS(D("1E+7").exp(), DecimalOverflow);
+    CHECK_THROWS_AS(D("3E+6").exp(), DecimalOverflow);
+    CHECK_THROWS_AS(D("-1E+7").exp(), DecimalError);
+    CHECK_THROWS_AS(D("-3E+6").exp(), DecimalError);
+    // but not one that is merely large: exp(2000) = 10**868.6 is a number with 869 digits before the point
+    {
+        LocalContext lc(20);
+        CHECK(D("2000").exp().adjusted() == 868);
+        CHECK(D("-2000").exp().adjusted() == -869);
+    }
+}
+
+TEST_CASE("Decimal power with a fraction in the exponent: exp(y ln x) in libmpdec's working precision, against bc, and the specification's own example (group C8)", "[devkit][decimal]") {
+    ContextReset reset;
+    // SOURCE: the General Decimal Arithmetic Specification's example of this section, https://speleotrove.com/decimal/daops.html#refpower (read 2026-10-07): power('10', '0.301029996') = '2.00000000' at precision 9
+    {
+        LocalContext lc(9);
+        CHECK(S(D("10").pow(D("0.301029996"))) == "2.00000000");
+    }
+    // the digits, from bc 1.07.1: `scale=500; e(y * l(x))`, the first 170 significant digits.  The rule is exp(y ln x) in max(digits(x), prec) + 23 digits: a result that is not the correctly rounded one needs 23 nines or
+    // zeros in a row after the last digit kept, and none of these has them.  The last digit is pinned against bc and NOT against Python's own, which the port's author has not seen (libmpdec's source is unread).
+    struct Row {
+        const char* x;
+        const char* y;
+        const char* digits;
+    };
+    const std::vector<Row> rows = {
+        {"10", "0.301029996", "2.0000000015474237823316723103696200865549458094424732636769052252025759502872720080748828132256939523756642929873306882891255180276948826877997597558634984103864522676039"},
+        {"2", "0.5", "1.4142135623730950488016887242096980785696718753769480731766797379907324784621070388503875343276415727350138462309122970249248360558507372126441214970999358314132226659275"},
+        {"7.5", "0.3333333333333333333333333333333333", "1.9574338205844317977124680302058355809978638536018058443894898339359265575280682562189125161764981812580827103603379507207165554887022138661191428655210013515968673218224"},
+        {"0.3", "-0.5", "1.8257418583505537115232326093360071131758156499932775140896481657749775904090757793361947872129020858824227531428379741469066929960882186297157084201399645016885622754676"},
+        {"1234.5678", "2.5", "53553438.871132430115602062509946722860562074757276906255866599477552050026155696408236123603294503905943593071279103252923256450967996617235751520936603497663220533134274"},
+        {"1.0000001", "-1.5", "0.99999985000001874999781250024609372292969043261687329104900970106590307997470802084372066813585732740839122920984019643692520371085224379743634660465425298893730822055592"},
+        {"99999", "0.1234567891234567", "4.1426992856807713501540375626739402145001624083409431384216832262242146980143862221136636268675633386146421310219296716207848802696792522290246949863979926738777264810436"},
+        {"3", "10.5", "102275.86813613463530550217901958025739560570743224916570606734632965719271544773338960460118182877114507004802443835040721669528791459314492134944633366066957193537725059"},
+        {"10", "7.5", "31622776.601683793319988935444327185337195551393252168268575048527925944386392382213442481083793002951873472841528400551485488560304538800146905195967001539033449216571792"},
+        {"10", "-0.123456789", "0.75256360427293398052865578043717651049382001217835761721659367173022129228196850780007364211901788572983715991415736381431577480960162412931086531722759486640807148810680"},
+        {"0.5", "0.75", "0.59460355750136053335874998528023795764648604623190870650950111235973333411345857993539067226906883685801869738738460659303186318089492387839268043126900888753507575570177"},
+        {"123456789", "0.9999999", "123456558.98291061510357466919388871286830554241608962694738179442289712382239379955184980477002771741060990263440278445791097187394678257074706574204434436013455469037262"},
+    };
+    for (const Row& row : rows) {
+        for (const int prec : {1, 6, 17, 28, 60}) {
+            LocalContext lc(prec);
+            const Decimal powered = D(row.x).pow(D(row.y));
+            INFO(row.x << " ** " << row.y << " at " << prec << " digits: " << S(powered));
+            CHECK(powered.digits() == prec);
+            CHECK(value_of(powered) == rounded(value_of(D(row.digits)), prec));
+        }
+    }
+    // the cases of the rule: a negative base, zero, one, an exponent so small that the result rounds to one
+    CHECK_THROWS_AS(D("-4").pow(D("0.5")), DecimalInvalidOperation);
+    CHECK_THROWS_AS(D("-4").pow(D("-1.5")), DecimalInvalidOperation);
+    CHECK(S(D("0").pow(D("0.5"))) == "0");
+    CHECK_FALSE(D("0").pow(D("0.5")).is_negative());
+    CHECK_THROWS_AS(D("0").pow(D("-0.5")), DecimalDivisionByZero);
+    {
+        LocalContext lc(5);
+        CHECK(S(D("1").pow(D("0.5"))) == "1.0000");
+        CHECK(S(D("1.00").pow(D("-2.5"))) == "1.0000");
+        CHECK(S(D("1E+0").pow(D("0.5"))) == "1.0000");
+    }
+    {
+        LocalContext lc(10);
+        CHECK(S(D("7").pow(D("1E-40"))) == "1.000000000");   // 7 ** 1e-40 = 1 + 1.9e-40, which a working precision of 33 digits cannot tell from one: one, with prec - 1 zeros
+        CHECK(D("7").pow(D("1E-40")).digits() == 10);
+    }
+    // an exponent that is an integer however written goes to the integer rule, and a fraction to this one: 4 ** 0.5 is not 2 (it is 2 with prec digits: the rule has no notion of an exact result)
+    {
+        LocalContext lc(6);
+        CHECK(S(D("4").pow(D("0.5"))) == "2.00000");
+        CHECK(S(D("4").pow(D("2.0"))) == "16");
+    }
+    // a base with a positive exponent (1E+1 is ten written with a coefficient of one): it is not "exactly one", and the rule gives its root (bc: sqrt(10) = 3.16227766016837933199889354443...); 1E+2 gives 10 with prec digits
+    {
+        LocalContext lc(6);
+        CHECK(S(D("1E+1").pow(D("0.5"))) == "3.16228");
+        CHECK(S(D("1E+2").pow(D("0.5"))) == "10.0000");
+        CHECK(S(D("1E+1").pow(D("-0.5"))) == "0.316228");
     }
 }

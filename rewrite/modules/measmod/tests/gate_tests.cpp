@@ -13,7 +13,7 @@
 //   ν_chain = 3 u R⊥ |ĝ·ê| w, u = 2⁻⁴⁵ rad, w = ½ in event 2 (only the down leg's station epoch moves) and 1 in event 1.
 // Both configurations are asserted: the REAL CHAIN (the model L7 will use) with the amended ν, and an EXACT RIGID ROTATION of that chain's own matrix (round-off only)
 // with the first ν. The target's velocity is run in two directions per geometry (across the line of sight, and along it).
-// The literals below are the specification's amended frozen numbers (tools/measmod_fd_sizing.py --scan --check reproduces them): they were written and committed
+// The literals below are the specification's amended frozen numbers (tools/measmod_fd_sizing.cpp --scan --check reproduces them): they were written and committed
 // BEFORE this file was built, and the test recomputes them from the formulas and asserts they agree.
 
 #include <catch2/catch_test_macros.hpp>
@@ -66,7 +66,7 @@ struct Frozen {
     std::array<double, 5> eps_first;         ///< the first sizing's eps(h) as printed
     double elevation_deg, azimuth_rule_deg, target_m, speed_m_s;
     // Amendment A1
-    std::array<double, 5> f_trop;            ///< F_trop(h): the troposphere's and Shapiro's third-derivative supremum over the stencil, m^-2 (tools/measmod_fd_sizing.py --scan)
+    std::array<double, 5> f_trop;            ///< F_trop(h): the troposphere's and Shapiro's third-derivative supremum over the stencil, m^-2 (tools/measmod_fd_sizing.cpp --scan)
     double nu_chain_lit[2];                  ///< [0] event 2, [1] event 1: the chain's bound of one evaluation, metres
     std::array<double, 5> eps_rigid, eps_real2, eps_real1;
     double b_pred_rigid, b_pred_real2, b_pred_real1;
@@ -81,7 +81,7 @@ const Frozen kLeo = {"LEO-like", 1.5e6, 6.92e6, 2.79e-9, 5.132e-13, {{2.88e-10, 
                      {{2.8796e-10, 1.7024e-10, 8.8481e-10, 7.7232e-09, 8.5794e-08}}, {{2.3269e-08, 7.8305e-09, 3.1829e-09, 8.4892e-09, 8.6024e-08}},
                      {{4.6249e-08, 1.5491e-08, 5.4809e-09, 9.2553e-09, 8.6253e-08}}, 8.5794e-08, 8.6024e-08, 8.6253e-08};
 
-constexpr double kStationAxisDistance = 5580552.4;               // m: Yarragadee's system reference point's distance from the Earth's axis (tools/measmod_reference.py's registry section)
+constexpr double kStationAxisDistance = 5580552.4;               // m: Yarragadee's system reference point's distance from the Earth's axis (tools/measmod_reference.cpp's registry section)
 constexpr double kPi = 3.14159265358979323846;
 
 double ulp_of(double x) { return std::nextafter(std::abs(x), std::numeric_limits<double>::infinity()) - std::abs(x); }

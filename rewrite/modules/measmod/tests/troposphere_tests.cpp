@@ -3,7 +3,7 @@
 // G2: the three term-level cases the IERS Conventions routines print in their comment prologs (FCUL_ZD_HPA, FCUL_A, FCUL_B),
 // used as published observations with the routine named and cited; no routine text is in the tree. The zenith delay's
 // printed value is asserted to the source's own stated accuracy (1 mm) and the 3.8 µm by which the PRINTED EQUATIONS miss it is
-// reported beside it, not pursued. The expected values of the equations come from tools/measmod_reference.py (60 digits).
+// reported beside it, not pursued. The expected values of the equations come from tools/measmod_reference.cpp (60 digits).
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -170,7 +170,7 @@ TEST_CASE("MEAS-A-024  the leg delay ZTD x m(sin e), the 3 degree limit (MEAS-F-
     }
 
     // THE HEIGHT SENSITIVITY IS MEASURED (TN36 §9.1.1 footnote 1 says the formula is "insensitive" to geodetic against orthometric height).
-    // H enters twice: the zenith delay's f_s and the mapping function's a_i3 H. Predicted before this ran, by tools/measmod_height_sensitivity.py
+    // H enters twice: the zenith delay's f_s and the mapping function's a_i3 H. Predicted before this ran, by tools/measmod_height_sensitivity.py (now tools/measmod_height_sensitivity.cpp)
     // (the IERS case's inputs, T = 15 C, 15 deg elevation): 0.1146 mm for 30 m and 0.3819 mm for 100 m.
     auto leg_at = [&](double height) {
         auto zz = zenith_delay(kLat, height, ref::zenith_p_hpa, ref::zenith_e_hpa, ref::zenith_lambda_um);

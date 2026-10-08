@@ -1,4 +1,4 @@
-// angle_gate_tests.cpp — SPEC-measmod.md §6.2 (v) (the angle gate, frozen 2026-10-06 BEFORE any of this code was written; tools/measmod_fd_sizing.py --scan --check reproduces its numbers)
+// angle_gate_tests.cpp — SPEC-measmod.md §6.2 (v) (the angle gate, frozen 2026-10-06 BEFORE any of this code was written; tools/measmod_fd_sizing.cpp --scan --check reproduces its numbers)
 // and §8.7: MEAS-A-096 … -099 (the gate for right ascension and declination Astrometric, Geometric, azimuth and elevation ApparentRefracted, and
 // Astrometric of date), run ONCE each, alone, with the log kept: the cases carry the tag [pregistered], which an unfiltered run of the binary would execute.
 //
