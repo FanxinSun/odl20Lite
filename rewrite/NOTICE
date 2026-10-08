@@ -19,7 +19,6 @@ SUMMARY
   tl-expected        1.3.1        CC0-1.0          code
   erfa               2.0.1        BSD-3-Clause     code
   calceph            4.0.5        CeCILL-B         code
-  python3            >=3.9        PSF-2.0          tool
   cmake              >=3.21       BSD-3-Clause     tool
   curl               8.18.0 (developed against); needs 7.71.0 or later (--retry-all-errors), and nothing older than 8.18.0 was run here curl             tool
   iers-leap-seconds  through IERS Bulletin C 72, July 2026; expires 2027-06-28 FACTUAL-DATA-CITED data
@@ -3171,16 +3170,6 @@ BUILD-TIME TOOLS
 
   Present on the build host.  Not vendored, not linked, shipped in nothing.
   Listed because an external input is an external input.
-
-  python3  >=3.9
-    role      runs tools/fetch.py, tools/notice.py and tools/speccheck.py at build time
-    licence   PSF-2.0
-    source    provided by the build host; not fetched
-    note      Python Software Foundation License 2.0, permissive and GPL-
-              compatible. Present on the build host; NOT fetched, NOT
-              vendored, NOT linked into any artefact. Declared because plan L0
-              step 3 says nothing enters the tree undeclared, and a build-time
-              tool is an external input even though it ships in nothing.
 
   cmake  >=3.21
     role      build system

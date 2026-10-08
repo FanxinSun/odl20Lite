@@ -1174,7 +1174,6 @@ const Permitted kPermissive[] = {
     {"MIT", "permissive"},
     {"MIT-0", "permissive, no attribution"},
     {"NCSA", "permissive"},
-    {"PSF-2.0", "Python Software Foundation; permissive"},
     {"UNICODE-3.0", "the Unicode License v3 (SPDX: Unicode-3.0), permissive and of the MIT kind: 'Permission is hereby granted, free of charge, to any person "
                     "obtaining a copy of data files ... to deal in the Data Files or Software without restriction, including without limitation the rights to "
                     "use, copy, modify, merge, publish, distribute, and/or sell copies', on ONE condition: that the copyright and permission notice appear with "

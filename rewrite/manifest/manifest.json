@@ -135,20 +135,6 @@
       ]
     },
     {
-      "id": "python3",
-      "kind": "tool",
-      "role": "runs tools/fetch.py, tools/notice.py and tools/speccheck.py at build time",
-      "version": ">=3.9",
-      "url": null,
-      "filename": null,
-      "sha256": null,
-      "licence": "PSF-2.0",
-      "licence_note": "Python Software Foundation License 2.0, permissive and GPL-compatible. Present on the build host; NOT fetched, NOT vendored, NOT linked into any artefact. Declared because plan L0 step 3 says nothing enters the tree undeclared, and a build-time tool is an external input even though it ships in nothing.",
-      "upstream_mutable": false,
-      "provided_by_host": true,
-      "retrieved": null
-    },
-    {
       "id": "cmake",
       "kind": "tool",
       "role": "build system",
