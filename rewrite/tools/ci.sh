@@ -23,8 +23,8 @@
 # record that no build input and no test reads (plan §5 constraint 3, a checked property), and several of
 # its hosts refuse GitHub's runners, so a runner cannot have the files and a red there says nothing about
 # the code (PROVENANCE.md section 41.7).  With the flag, gate 1 neither requires nor verifies them -- and
-# SAYS how many it left -- and so do the configure, the ctest manifest.verify_offline and the two configures
-# inside gate 13, which the one environment variable ODL_SKIP_LITERATURE=1 reaches (this script sets it
+# SAYS how many it left -- and so do the configure and the ctest manifest.verify_offline (and, when gate 13 is back, the two configures
+# inside it), which the one environment variable ODL_SKIP_LITERATURE=1 reaches (this script sets it
 # under the flag and unsets it otherwise, so a stray value in a shell cannot weaken a default run).  Without
 # the flag every entry is required and verified, literature included: that is the run to make on a machine
 # that has them, and the last line of a run with the flag says what that run did not cover.
@@ -71,7 +71,6 @@ else
   unset ODL_SKIP_LITERATURE
 fi
 
-PY=${PYTHON:-python3}
 step=0
 gate() { step=$((step + 1)); printf '\n== gate %d: %s ==\n' "$step" "$1"; }
 
@@ -122,10 +121,12 @@ gate "no build input can reach a literature entry (plan §5 constraint 3)"
 gate "every factor of a thousand is accounted for (SPEC-dynamics DYN-R-040)"
 "$BUILD/tools/unitcheck" --quiet
 
-gate "build is reproducible"
-"$PY" tools/reprocheck.py --build-dir "$BUILD"
+# Gate 13 (the build is reproducible: two builds into different directories give the same artefacts) was tools/reprocheck.py, a Python tool, and nothing in this build runs Python
+# (the user's decision of 2026-10-08, "Stop CI's Python now"; PROVENANCE.md section 41.17).  It does NOT run until its C++ replacement lands (group C11), and this script says so, and
+# says so again in its last line: a run of this script never reports all thirteen gates.
+printf '\n== gate 13 (reproducible build): OFF until its C++ replacement (C11), by the user'\''s decision of 2026-10-08 ==\n'
 
-printf '\n== all %d gates passed ==\n' "$step"
+printf '\n== %d of 13 gates passed; gate 13 (reproducible build) is OFF ==\n' "$step"
 if [ -n "$LIT_ARG" ]; then
   printf '== BUT with --skip-literature: the literature entries were NOT required or verified in this run (gate 1 says how many). Run tools/ci.sh without it, on a machine that has them. ==\n'
 fi

@@ -39,7 +39,20 @@ include(OdlWarnings)
 include(OdlReproducible)
 include(OdlModule)
 
-find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
+# NOTHING in this build runs Python or Perl (the user's decision of 2026-10-08, "Stop CI's Python now"; PROVENANCE.md section 41.17; plan section 5 constraint 11).  There is no
+# find_package(Python3): it ran the interpreter on every configure to read its version.  A find_package of any interpreter is refused here, and so is a READ of a variable that
+# would name one: a configure that asks for one fails loudly, naming the file that asked.  A check that only an interpreter can make is OFF until its C++ replacement lands.
+foreach(_odl_interpreter Python Python2 Python3 PythonInterp PythonLibs Perl)
+  set(CMAKE_DISABLE_FIND_PACKAGE_${_odl_interpreter} TRUE)
+endforeach()
+function(odl_interpreter_is_off variable access value current_list_file stack)
+  if(access MATCHES "READ_ACCESS")
+    message(FATAL_ERROR "${variable} is read in ${current_list_file}: this build runs no Python and no Perl (the user's decision of 2026-10-08).  Write the check in C++ (plan section 5 constraint 11).")
+  endif()
+endfunction()
+foreach(_odl_variable Python3_EXECUTABLE Python_EXECUTABLE Python2_EXECUTABLE PYTHON_EXECUTABLE PERL_EXECUTABLE)
+  variable_watch(${_odl_variable} odl_interpreter_is_off)
+endforeach()
 
 # --------------------------------------------------------------------------- #
 # The manifest is checked at configure time, not merely at fetch time.  A tree
