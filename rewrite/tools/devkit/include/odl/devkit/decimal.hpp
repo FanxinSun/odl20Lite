@@ -10,7 +10,13 @@
 // of: the General Decimal Arithmetic Specification (https://speleotrove.com/decimal/daops.html#refpower) asks of an inexact power only that it "should be correctly rounded, but may be up to 1 ulp (unit in last place)
 // in error", and states no working precision, so the LAST DIGIT of such a result is pinned here against what Python recorded and nothing else (the author remembers libmpdec's rule; its source has not been read).
 // The power with a NON-integer exponent is exp(y ln x) in a working precision of max(digits of x, precision) + 4 + 19 digits, rounded at the end -- the same remembered rule -- and ln and exp are correctly rounded
-// (the Python documentation says so of both).
+// (the Python documentation says so of both: "The result is correctly rounded using the ROUND_HALF_EVEN rounding mode", under Decimal.exp() and Decimal.ln()).  WHAT IS PUBLISHED of the power itself is this, from the
+// documentation of Context.power (https://docs.python.org/3/library/decimal.html, read 2026-10-08, no account): "Changed in version 3.3: The C module computes power() in terms of the correctly rounded exp() and ln()
+// functions. The result is well-defined but only “almost always correctly rounded”."  So exp(y ln x) is the published method and its working precision is not: it is an implementation detail that no source this tree has
+// read specifies (class EMU of the rule-5 record).  The digits of a power are pinned here ONLY by the committed artefacts and by bc, and the rule itself is NOT read from libmpdec: of the integer power, by SPEC-gravity's
+// 5.9e-84 and the committed headers of the gravity and force-model generators (group C7); of a power with a fraction in the exponent -- the one call that has one is the saturation pressure in `refco` of
+// tools/measmod_fd_sizing.cpp -- by the Python's recorded output of the sizing (the refraction's A and B of the first normal point's weather, to seven digits) and by ERFA's published eraRefco case (to 1e-15 and 1e-18
+// absolute), which is about twelve digits; the reference header of tools/measmod_reference.cpp uses integer powers, exp and ln only.
 //
 // NOT here, because no tool uses it: NaN and the infinities, subnormals and the traps of Underflow, rounding modes other than ROUND_HALF_EVEN, the comparison of a Decimal with a float, the logarithm of a zero
 // (it throws, as log10 does).  The first use adds the case, with its proof.  Anything outside what is here throws (DecimalError and its subclasses), as Python raises.

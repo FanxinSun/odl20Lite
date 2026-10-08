@@ -1160,6 +1160,12 @@ TEST_CASE("Decimal exponential: exactly one for zero, otherwise the correctly ro
 
 TEST_CASE("Decimal power with a fraction in the exponent: exp(y ln x) in libmpdec's working precision, against bc, and the specification's own example (group C8)", "[devkit][decimal]") {
     ContextReset reset;
+    // WHAT IS PUBLISHED, AND WHAT THIS PINS.  The Python documentation (Context.power, https://docs.python.org/3/library/decimal.html, read 2026-10-08, no account): "Changed in version 3.3: The C module computes power()
+    // in terms of the correctly rounded exp() and ln() functions. The result is well-defined but only “almost always correctly rounded”."  So exp(y ln x) is the published method; its working precision (here max(digits(x),
+    // prec) + 4 + 19) is NOT published: it is an implementation detail, the port's author remembers it and libmpdec's source has not been read (class EMU of the rule-5 record).  As for the integer power (above), the digits
+    // are therefore pinned ONLY by the committed artefacts and by bc, and not by the rule: the rows below (bc), the specification's own example, and -- the one caller of this branch is `refco` of tools/measmod_fd_sizing.cpp --
+    // the Python's recorded output of the sizing (the refraction's A and B of the first normal point's weather, to seven digits) and ERFA's published eraRefco case (to 1e-15 and 1e-18 absolute), both asserted in the
+    // tests of that tool.  A result that is not the correctly rounded one is possible by the documentation's own words ("almost always"); the rows below have none.
     // SOURCE: the General Decimal Arithmetic Specification's example of this section, https://speleotrove.com/decimal/daops.html#refpower (read 2026-10-07): power('10', '0.301029996') = '2.00000000' at precision 9
     {
         LocalContext lc(9);

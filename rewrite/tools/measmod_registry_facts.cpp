@@ -22,7 +22,11 @@
 //   * int() reads an integer of any size; this reads the integers of 64 bits and refuses a longer one ("is beyond the range this reads").  Only a solution number could matter (the sums of a date overflow a
 //     datetime long before): the Python would have sorted it.
 //   * str.isdigit() of a post-seismic site number is read as "every character is a decimal digit" (Unicode category Nd): the superscripts and the circled digits, which isdigit() also admits, are not read as
-//     digits.  The files have only ASCII.
+//     digits.  The files have only ASCII, and no SINEX field holds another kind of digit.
+//   * The Python sorted the solutions of one marker with list.sort() (timsort) over tuples (number, start, end) whose epochs are datetimes or None; here std::stable_sort orders them the same way (solution_less).  Both sorts
+//     are stable and a stable sort by a strict weak order has ONE result, so on every input the Python sorted the list comes out the same.  Where the Python compared None with a datetime it raised TypeError, and so this
+//     REFUSES ("two solutions of one marker have the same number and only one has an epoch"); which pairs are compared depends on the algorithm, so when three or more solutions of one number mix known and unknown
+//     epochs the two may differ in whether they trip on it.  The real file has no such solutions.
 //   * The Python's argparse took any unambiguous abbreviation of an option; here the names are exact (`--root=DIR` is taken).  `-h` prints this tool's own text.
 
 #include <odl/devkit/fs.hpp>

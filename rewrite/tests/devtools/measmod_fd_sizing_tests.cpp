@@ -218,12 +218,6 @@ const std::vector<std::string>& diurnal_check_lines() {
     return lines;
 }
 
-// The six lines after the table: for each sign of the observer's motion (toward the target, away), the two controls' largest row differences and the model's row.  Their digits are recorded nowhere; what stands for them:
-//   * the row differences are the Python's frozen literals 1.4928e-12 and 2.9857e-12 (rad/m), to the five digits printed, and in eps at the five sizes the frozen whole numbers 4533 4045 494 55 5 and 9065 8090 988 111 10, to 1;
-//   * the model's row is the Jacobian of (azimuth, elevation) with respect to the target's position along the GCRS axes x = up, y = east, z = north, at azimuth 90 deg, elevation 30 deg, rho = 1.2e6 m: by hand,
-//     d el / d up = cos(el) / (rho q), d el / d east = - sin(el) / (rho q), d az / d north = - 1 / (rho cos el), q = 1 + 4 A + 36 B (the refraction's dz_o/dz_v at z = 60 deg: 1 / (1 + A sec^2 z + 3 B tan^2 z sec^2 z)),
-//     A = 2.484383e-04 and B = -3.123796e-07 (bc: 7.20979468726860e-07, -4.16257690349646e-07, -9.62250448649376e-07), the three others zero (the pole of the azimuth, a displacement along the line of sight, a
-//     displacement normal to the plane): they print the round-off, 5e-39 and 6e-23 and 3e-23 on this machine, which no record fixes, so only |v| < 1e-20 is asked.
 // the {:.4e} numbers of a line, as the text the Python's f-string made of them (-?d.dddde+-dd)
 std::vector<std::string> e4_texts_in(const std::string& line) {
     std::vector<std::string> out;
@@ -232,6 +226,17 @@ std::vector<std::string> e4_texts_in(const std::string& line) {
     return out;
 }
 
+// LINES 118-132 OF THE FULL OUTPUT HAVE NO RECORD, AND ARE PINNED BY CONSTRUCTION.  The Python's output was kept for the lines 1-105 and the last (recorded() above) and the diurnal section's table was registered before the C++
+// existed (diurnal_registered()); the fifteen lines after the table -- the six lines of the two controls and the model's row (118-123, checked by check_diurnal_controls), the five check lines (124-128, diurnal_check_lines())
+// and the four lines of the scan (129-132, check_diurnal_scan) -- were never kept anywhere.  What pins them, instead of a record (the maintainer's ruling on group C8, 2026-10-08: "no record; pinned by construction"):
+// the Python's FROZEN LITERALS that its own checks compare with, CLOSED FORMS worked out by hand and by bc, the LAYOUT of the Python's f-strings (a regular expression for each line) and RANGES that the Python's comments and the
+// specification give.  A defect that changes nothing of what these print, or a digit below the ones they pin, is a survivor of a stated class (PRT, DATA), not a gap -- until a consumer needs more digits than this.
+// The six lines after the table: for each sign of the observer's motion (toward the target, away), the two controls' largest row differences and the model's row.  Their digits are recorded nowhere; what stands for them:
+//   * the row differences are the Python's frozen literals 1.4928e-12 and 2.9857e-12 (rad/m), to the five digits printed, and in eps at the five sizes the frozen whole numbers 4533 4045 494 55 5 and 9065 8090 988 111 10, to 1;
+//   * the model's row is the Jacobian of (azimuth, elevation) with respect to the target's position along the GCRS axes x = up, y = east, z = north, at azimuth 90 deg, elevation 30 deg, rho = 1.2e6 m: by hand,
+//     d el / d up = cos(el) / (rho q), d el / d east = - sin(el) / (rho q), d az / d north = - 1 / (rho cos el), q = 1 + 4 A + 36 B (the refraction's dz_o/dz_v at z = 60 deg: 1 / (1 + A sec^2 z + 3 B tan^2 z sec^2 z)),
+//     A = 2.484383e-04 and B = -3.123796e-07 (bc: 7.20979468726860e-07, -4.16257690349646e-07, -9.62250448649376e-07), the three others zero (the pole of the azimuth, a displacement along the line of sight, a
+//     displacement normal to the plane): they print the round-off, 5e-39 and 6e-23 and 3e-23 on this machine, which no record fixes, so only |v| < 1e-20 is asked.
 void check_diurnal_controls(const std::vector<std::string>& v) {
     REQUIRE(v.size() == 6);
     const std::array<double, 5> without = {4533.0, 4045.0, 494.0, 55.0, 5.0};
