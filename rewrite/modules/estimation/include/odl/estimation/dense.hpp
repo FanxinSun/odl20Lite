@@ -8,7 +8,7 @@
 //
 // THE ORDER OF OPERATIONS IS PART OF THE SPECIFICATION.  Each sum is accumulated by successive subtraction or addition in the order stated,
 // in plain double, and the module is built with fused multiply-add contraction OFF, so the roundings are the ones the registered bounds
-// (SPEC-estimation §3.4) and the registered predictions (tools/estimation_sizing.py replicates these loops in Python) refer to.
+// (SPEC-estimation §3.4) and the registered predictions (tools/estimation_sizing.cpp replicates these loops; it was Python until group C9) refer to.
 
 #include <cstddef>
 #include <span>

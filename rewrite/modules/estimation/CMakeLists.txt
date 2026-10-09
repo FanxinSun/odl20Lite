@@ -3,7 +3,7 @@
 # needs, not through this module.
 #
 # FUSED MULTIPLY-ADD CONTRACTION IS OFF for the module and its tests: the order of operations and their roundings are part of the specification
-# (EST-R-203, -204) and the registered figures replicate them (tools/estimation_sizing.py); the bounds hold with or without contraction, but the
+# (EST-R-203, -204) and the registered figures replicate them (tools/estimation_sizing.cpp); the bounds hold with or without contraction, but the
 # predictions and the bit-for-bit claims of EST-R-211 are registered for the plain operations.
 odl_add_module(estimation
   SOURCES      src/dense.cpp src/normal_equations.cpp

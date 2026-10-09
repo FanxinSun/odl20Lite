@@ -314,9 +314,18 @@ foreach(generator gradient_reference forcemodel_fd_sizing forcemodel_comparator_
 endforeach()
 
 # L7 step 2 (SPEC-estimation.md v0.3): the estimator's frozen figures come from a tool that does NOT use the code under test (exact rational arithmetic on the PINNED NIST files,
-# 90-digit eigenvalues), and each was reproduced here by a ctest that ran it, so that a number in the specification or in the tests could not drift from its generator.  THESE TWO
-# CTESTS ARE OFF (the user's decision of 2026-10-08, "Stop CI's Python now"; PROVENANCE.md section 41.17): each ran tools/estimation_sizing.py, and nothing in this build runs
-# Python.  Both come back in C++ with group C9, under the same names, with the acceptance condition of PROVENANCE.md section 41.8 (the committed registered_figures.hpp and the
-# specification's table byte for byte, independent of any interpreter):
-#   estimation.sizing_header_matches_generator   (tools/estimation_sizing.py --cache ... --verify modules/estimation/tests/registered_figures.hpp)
-#   estimation.spec_table_matches_generator      (tools/estimation_sizing.py --cache ... --verify-spec spec/SPEC-estimation.md)
+# 90-digit eigenvalues), and each is reproduced here by a ctest that runs it, so that a number in the specification or in the tests cannot drift from its generator.  The tool is C++ since
+# L0 step 8, group C9 (tools/estimation_sizing.cpp, on the devkit's BigInt, Rational and Decimal; the x87 long double of the design recipe is emulated exactly on rationals, and the Python's
+# CPython 3.12 compensated float sum is done on purpose by the devkit's py_sum): the two ctests were off from 2026-10-08 ("Stop CI's Python now", PROVENANCE.md section 41.17) until this group
+# and are back under the same names, with the acceptance condition of PROVENANCE.md section 41.8 -- the committed registered_figures.hpp and the specification's table byte for byte,
+# independent of any interpreter.  The tool's own tests (tests/devtools/estimation_sizing_tests.cpp: every function against values computed apart, the machine's own long double, the exact
+# elimination by its postconditions, every pattern the Python searched the NIST files with, every mode and refusal, and the real data against the committed record) are the ctests
+# estimation_sizing.behaviour and estimation_sizing.real_tree.
+add_test(NAME estimation.sizing_header_matches_generator
+  COMMAND estimation_sizing --cache "${ODL_CACHE_DIR}" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/estimation/tests/registered_figures.hpp")
+add_test(NAME estimation.spec_table_matches_generator
+  COMMAND estimation_sizing --cache "${ODL_CACHE_DIR}" --verify-spec "${CMAKE_CURRENT_SOURCE_DIR}/../spec/SPEC-estimation.md")
+add_test(NAME estimation_sizing.behaviour
+  COMMAND odl_devtools_tests "[estimation_sizing][behaviour]")
+add_test(NAME estimation_sizing.real_tree
+  COMMAND odl_devtools_tests "[estimation_sizing][real_tree]")

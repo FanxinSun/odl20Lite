@@ -1,6 +1,6 @@
 #pragma once
 // The fixture of SPEC-estimation.md §8.2: the NIST StRD linear-regression datasets as the doubles the estimator is fed, by the recipe the sizing tool
-// (tools/estimation_sizing.py) uses, so that every registered figure applies to the very rows of the test.  The files are read from the PINNED CACHE
+// (tools/estimation_sizing.cpp) uses, so that every registered figure applies to the very rows of the test.  The files are read from the PINNED CACHE
 // (the manifest's `nist-strd-lls-<name>` entries); nothing of NIST's is copied into the tree, and the certified numbers are read from the files at run
 // time and quoted in the specification as facts with NIST's citation.
 

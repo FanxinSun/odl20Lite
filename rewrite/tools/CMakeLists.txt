@@ -141,6 +141,22 @@ foreach(gen measmod_reference measmod_registry_facts measmod_g5_select measmod_h
   endif()
 endforeach()
 
+# The estimator's sizing generator of group C9 (plan L0 step 8; tools/estimation_sizing.cpp): the frozen figures of SPEC-estimation section 6 -- the committed modules/estimation/tests/registered_figures.hpp and the
+# specification's generated table -- from exact arithmetic on the pinned NIST files, by a tool that does not use the code under test.  An executable (the ctests estimation.sizing_header_matches_generator and
+# estimation.spec_table_matches_generator run it) and an object library with its main left out, which the tests call in-process.  No multiplication is contracted into a fused one: the double-precision recipe
+# of the estimator (EST-R-203, -204) is replicated operation for operation.
+add_library(odl_tool_estimation_sizing OBJECT estimation_sizing.cpp)
+target_compile_definitions(odl_tool_estimation_sizing PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_include_directories(odl_tool_estimation_sizing PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(odl_tool_estimation_sizing PUBLIC odl_devkit PRIVATE odl_warnings)
+add_executable(estimation_sizing estimation_sizing.cpp)
+target_compile_definitions(estimation_sizing PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_link_libraries(estimation_sizing PRIVATE odl_devkit odl_warnings)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(odl_tool_estimation_sizing PRIVATE -ffp-contract=off)
+  target_compile_options(estimation_sizing PRIVATE -ffp-contract=off)
+endif()
+
 foreach(check one_secular_pole configure_is_current)
   add_library(odl_tool_${check} OBJECT ${CMAKE_SOURCE_DIR}/tests/devtools/${check}.cpp)
   target_compile_definitions(odl_tool_${check} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
@@ -167,18 +183,21 @@ if(BUILD_TESTING)
     ${CMAKE_SOURCE_DIR}/tests/devtools/gradient_reference_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/forcemodel_fd_sizing_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/forcemodel_comparator_header_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/legendre_reference_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_height_sensitivity_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_g5_select_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_registry_facts_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_reference_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_fd_sizing_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_reference_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_fd_sizing_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   # measmod_fd_sizing_tests.cpp writes the Python's scans out again and requires the SAME DOUBLES as the tool (compiled without fused multiply-add above): no multiplication contracted there either
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/measmod_fd_sizing_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+    # estimation_sizing_tests.cpp writes the Python's double-precision recipe out again (the normal equations, the Cholesky, the bounds' chain) and requires the SAME DOUBLES as the tool: no multiplication contracted there either
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
   endif()
   target_compile_definitions(odl_devtools_tests PRIVATE
     ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}" ODL_MANIFEST_VENDORED_ROOT="${ODL_VENDORED_DIR}"
     ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
   target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck odl_tool_rk_coefficients
     odl_tool_gradient_reference odl_tool_forcemodel_fd_sizing odl_tool_forcemodel_comparator_header odl_tool_legendre_reference
-    odl_tool_measmod_reference odl_tool_measmod_fd_sizing odl_tool_measmod_registry_facts odl_tool_measmod_g5_select odl_tool_measmod_height_sensitivity
+    odl_tool_measmod_reference odl_tool_measmod_fd_sizing odl_tool_measmod_registry_facts odl_tool_measmod_g5_select odl_tool_measmod_height_sensitivity odl_tool_estimation_sizing
     odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
