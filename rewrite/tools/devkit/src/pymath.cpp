@@ -136,6 +136,11 @@ double py_asin(double x) {
     return checked(call(x), std::isfinite(x));
 }
 
+double py_acos(double x) {
+    static double (*volatile call)(double) = &::acos;
+    return checked(call(x), std::isfinite(x));
+}
+
 double py_atan(double x) {
     static double (*volatile call)(double) = &::atan;
     return call(x);
@@ -144,6 +149,11 @@ double py_atan(double x) {
 double py_atan2(double y, double x) {
     static double (*volatile call)(double, double) = &::atan2;
     return call(y, x);
+}
+
+double py_log(double x) {
+    static double (*volatile call)(double) = &::log;
+    return checked(call(x), std::isfinite(x));
 }
 
 double py_log1p(double x) {

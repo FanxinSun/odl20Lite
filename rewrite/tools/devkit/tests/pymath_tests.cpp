@@ -232,6 +232,10 @@ TEST_CASE("the C library's functions behind py_*: the values at the points every
     CHECK(py_tan(0.0) == 0.0);
     CHECK(py_asin(1.0) == 1.5707963267948966);
     CHECK(py_asin(0.0) == 0.0);
+    CHECK(py_acos(1.0) == 0.0);   // group C10: math.acos and math.log, which the penumbral study uses
+    CHECK(py_acos(-1.0) == std::numbers::pi);
+    CHECK(py_acos(0.0) == 1.5707963267948966);
+    CHECK(py_acos(0.5) == 1.0471975511965979);
     CHECK(py_atan(1.0) == 0.7853981633974483);
     CHECK(py_atan2(1.0, 1.0) == 0.7853981633974483);
     CHECK(py_atan2(0.0, -1.0) == std::numbers::pi);
@@ -239,6 +243,10 @@ TEST_CASE("the C library's functions behind py_*: the values at the points every
     CHECK(py_log10(1000.0) == 3.0);
     CHECK(py_log10(1.0) == 0.0);
     CHECK(py_log10(0.001) == -3.0);
+    CHECK(py_log(1.0) == 0.0);
+    CHECK(py_log(std::numbers::e) == 1.0);
+    CHECK(py_log(10.0) == 2.302585092994046);
+    CHECK(py_log(0.5) == -0.6931471805599453);
     CHECK(py_log1p(0.0) == 0.0);
     CHECK(py_sqrt(2.0) == 1.4142135623730951);
     CHECK(py_sqrt(0.0) == 0.0);
@@ -247,8 +255,12 @@ TEST_CASE("the C library's functions behind py_*: the values at the points every
     CHECK_THROWS_AS(py_sqrt(-1.0), std::domain_error);
     CHECK_THROWS_AS(py_asin(1.5), std::domain_error);
     CHECK_THROWS_AS(py_asin(-1.0000000000000002), std::domain_error);
+    CHECK_THROWS_AS(py_acos(1.0000000000000002), std::domain_error);
+    CHECK_THROWS_AS(py_acos(-1.5), std::domain_error);
     CHECK_THROWS_AS(py_log10(-1.0), std::domain_error);
     CHECK_THROWS_AS(py_log10(0.0), std::range_error);
+    CHECK_THROWS_AS(py_log(-1.0), std::domain_error);
+    CHECK_THROWS_AS(py_log(0.0), std::range_error);
     CHECK_THROWS_AS(py_log1p(-1.0), std::range_error);
     CHECK_THROWS_AS(py_log1p(-2.0), std::domain_error);
     CHECK_THROWS_AS(py_sin(kInf), std::domain_error);
@@ -258,6 +270,9 @@ TEST_CASE("the C library's functions behind py_*: the values at the points every
     CHECK(message_of([] { (void)py_asin(1.5); }) == "math domain error");
     CHECK(message_of([] { (void)py_log10(-1.0); }) == "math domain error");
     CHECK(message_of([] { (void)py_log10(0.0); }) == "math range error");
+    CHECK(message_of([] { (void)py_acos(2.0); }) == "math domain error");
+    CHECK(message_of([] { (void)py_log(-1.0); }) == "math domain error");
+    CHECK(message_of([] { (void)py_log(0.0); }) == "math range error");
     CHECK(message_of([] { (void)py_sqrt(-1.0); }) == "math domain error");
     CHECK(message_of([] { (void)py_sin(kInf); }) == "math domain error");
     CHECK(message_of([] { (void)py_cos(kInf); }) == "math domain error");

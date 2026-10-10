@@ -1,7 +1,7 @@
 #pragma once
 // solid_tide_tables.hpp — GENERATED.  Do not edit.
 //
-// Produced by tools/tides_from_conventions.py --ch6 from the hash-pinned IERS
+// Produced by tools/tides_from_conventions.cpp --ch6 from the hash-pinned IERS
 // Conventions (2010) chapter 6:  sha256 abb3c0b0b6d2079b19893d6872a9d8e7320516d9a4736acb5eecaa79c4543388
 //
 // SPEC-perturbations PERT-R-014: Step 2's frequency-dependent corrections are

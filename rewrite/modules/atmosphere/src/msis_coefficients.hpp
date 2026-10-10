@@ -1,7 +1,7 @@
 #pragma once
 // msis_coefficients.hpp — GENERATED.  Do not edit.
 //
-// Produced by tools/msis_coefficients.py from the hash-pinned NRL reference
+// Produced by tools/msis_coefficients.cpp from the hash-pinned NRL reference
 // implementation NRLMSISE-00.FOR, sha256 cce0420e90781c256bc6705c4cc8056b054812d6308adccb7081bf09af0d44cb
 //
 // NRLMSISE-00 has no published closed form: the model IS these coefficients

@@ -1,7 +1,7 @@
 #pragma once
 // msis_reference_values.hpp — GENERATED.  Do not edit.
 //
-// Produced by tools/msis_reference.py from the hash-pinned NRL reference
+// Produced by tools/msis_reference.cpp from the hash-pinned NRL reference
 // implementation NRLMSISE-00.FOR, sha256 cce0420e90781c256bc6705c4cc8056b054812d6308adccb7081bf09af0d44cb
 //
 // SPEC-atmosphere ATMO-R-028.  NRL PUBLISHES NO REFERENCE VALUE FOR THIS MODEL:

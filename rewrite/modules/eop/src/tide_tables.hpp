@@ -1,7 +1,7 @@
 #pragma once
 // tide_tables.hpp — GENERATED.  Do not edit.
 //
-// Produced by tools/tides_from_conventions.py from the hash-pinned IERS
+// Produced by tools/tides_from_conventions.cpp from the hash-pinned IERS
 // Conventions (2010) chapters in the manifest:
 //
 //   chapter 5  sha256 9ec6fac43f7037ff43896539d759333fc7e6007176cd72043b38d71cfd3e69c0

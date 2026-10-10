@@ -433,7 +433,7 @@ different frames wearing the same units (found and fixed in this module's own te
   (4) the promotion of the diagnosis into `modules/atmosphere`'s own gated suite (`ATMO-R-037`,
   `ATMO-A-028`) on `DYN-Q-001`'s terms, since the false claim it corrects lived in a layer already
   closed — and the second, unrelated stale-derived-text bug the sweep extension surfaced inside
-  `tools/msis_reference.py`'s own generator, found by the same check applied a second time in one
+  `tools/msis_reference.py`'s own generator (now `tools/msis_reference.cpp`), found by the same check applied a second time in one
   round.
 - The `ForceEvaluation` provenance-boundary gap (`DRAG-R-007`, `DYN-R-051`) as its own finding,
   distinct from the mechanism it fixes: v1.0 built the free function's `DragResult` carefully but

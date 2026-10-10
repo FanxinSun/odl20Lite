@@ -157,6 +157,25 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(estimation_sizing PRIVATE -ffp-contract=off)
 endif()
 
+# The generators of group C10 (plan L0 step 8; tools/msis_coefficients.cpp, tools/tides_from_conventions.cpp, tools/msis_reference.cpp, tools/penumbral_cancellation.cpp): the committed tables of the atmosphere
+# and tide modules, the Fortran reference's frozen output and the penumbral study SPEC-shadow quotes -- from tools that do not use the code under test.  Each is an executable and an object library with its main
+# left out, which the tests call in-process.  msis_coefficients is run by a ctest (`--check` on the real tree: the cache and the committed header); tides_from_conventions and msis_reference spawn HOST PROGRAMS
+# (pdftotext, gfortran) that exist only where the tables are regenerated: no ctest runs them and nothing in the build needs either (their own tests use stand-ins).  No multiplication is contracted into a fused
+# one: the penumbral study's floating point is NumPy's, operation for operation.
+foreach(gen msis_coefficients tides_from_conventions msis_reference penumbral_cancellation)
+  add_library(odl_tool_${gen} OBJECT ${gen}.cpp)
+  target_compile_definitions(odl_tool_${gen} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_include_directories(odl_tool_${gen} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(odl_tool_${gen} PUBLIC odl_devkit PRIVATE odl_warnings)
+  add_executable(${gen} ${gen}.cpp)
+  target_compile_definitions(${gen} PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+  target_link_libraries(${gen} PRIVATE odl_devkit odl_warnings)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(odl_tool_${gen} PRIVATE -ffp-contract=off)
+    target_compile_options(${gen} PRIVATE -ffp-contract=off)
+  endif()
+endforeach()
+
 foreach(check one_secular_pole configure_is_current)
   add_library(odl_tool_${check} OBJECT ${CMAKE_SOURCE_DIR}/tests/devtools/${check}.cpp)
   target_compile_definitions(odl_tool_${check} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
@@ -184,20 +203,24 @@ if(BUILD_TESTING)
     ${CMAKE_SOURCE_DIR}/tests/devtools/forcemodel_comparator_header_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/legendre_reference_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_height_sensitivity_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_g5_select_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_registry_facts_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_reference_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_fd_sizing_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/penumbral_cancellation_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_coefficients_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/tides_from_conventions_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_reference_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   # measmod_fd_sizing_tests.cpp writes the Python's scans out again and requires the SAME DOUBLES as the tool (compiled without fused multiply-add above): no multiplication contracted there either
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/measmod_fd_sizing_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
     # estimation_sizing_tests.cpp writes the Python's double-precision recipe out again (the normal equations, the Cholesky, the bounds' chain) and requires the SAME DOUBLES as the tool: no multiplication contracted there either
     set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
+    # penumbral_cancellation_tests.cpp compares doubles bit for bit with the tool's (the time symmetry of the propagator, the composition of study()) and writes its own second methods: no multiplication contracted there either
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/penumbral_cancellation_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
   endif()
   target_compile_definitions(odl_devtools_tests PRIVATE
     ODL_MANIFEST_PATH="${ODL_MANIFEST_FILE}" ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}" ODL_MANIFEST_VENDORED_ROOT="${ODL_VENDORED_DIR}"
     ODL_VENDORED_GFZ="${CMAKE_SOURCE_DIR}/data/vendored/gfz-kp-ap-f107/Kp_ap_Ap_SN_F107_since_1932.txt")
   target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck odl_tool_rk_coefficients
     odl_tool_gradient_reference odl_tool_forcemodel_fd_sizing odl_tool_forcemodel_comparator_header odl_tool_legendre_reference
-    odl_tool_measmod_reference odl_tool_measmod_fd_sizing odl_tool_measmod_registry_facts odl_tool_measmod_g5_select odl_tool_measmod_height_sensitivity odl_tool_estimation_sizing
+    odl_tool_measmod_reference odl_tool_measmod_fd_sizing odl_tool_measmod_registry_facts odl_tool_measmod_g5_select odl_tool_measmod_height_sensitivity odl_tool_estimation_sizing odl_tool_penumbral_cancellation odl_tool_msis_coefficients odl_tool_tides_from_conventions odl_tool_msis_reference
     odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
@@ -207,6 +230,24 @@ if(BUILD_TESTING)
   set_target_properties(odl_fake_curl PROPERTIES OUTPUT_NAME curl RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
   target_link_libraries(odl_fake_curl PRIVATE odl_warnings)
   add_dependencies(odl_devtools_tests odl_fake_curl)
+
+  # The tides generator runs `pdftotext`, a regeneration-only host program (poppler, GPL: not part of the build, the tests or CI; the maintainer's ruling D9).  Its tests point the tool at a stand-in built
+  # under that name into `fakebin/` beside the test executable (tests/devtools/fake_pdftotext.cpp), found at run time like the stand-in `curl`.
+  add_executable(odl_fake_pdftotext ${CMAKE_SOURCE_DIR}/tests/devtools/fake_pdftotext.cpp)
+  set_target_properties(odl_fake_pdftotext PROPERTIES OUTPUT_NAME pdftotext RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
+  target_link_libraries(odl_fake_pdftotext PRIVATE odl_warnings)
+  add_dependencies(odl_devtools_tests odl_fake_pdftotext)
+
+  # The reference freezer runs `gfortran`, a regeneration-only host program (ATMO-R-028: nothing in the build, the tests or CI may come to need it; the maintainer's ruling D9).  Its tests put a stand-in compiler
+  # (tests/devtools/fake_gfortran.cpp) on the tool's PATH, built under that name into `fakebin/` beside the test executable, and a stand-in for the executables it "produces" (fake_reference.cpp, built as
+  # `odl_fake_reference` into the same directory).
+  add_executable(odl_fake_gfortran ${CMAKE_SOURCE_DIR}/tests/devtools/fake_gfortran.cpp)
+  set_target_properties(odl_fake_gfortran PROPERTIES OUTPUT_NAME gfortran RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
+  target_link_libraries(odl_fake_gfortran PRIVATE odl_warnings)
+  add_executable(odl_fake_reference ${CMAKE_SOURCE_DIR}/tests/devtools/fake_reference.cpp)
+  set_target_properties(odl_fake_reference PROPERTIES OUTPUT_NAME odl_fake_reference RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
+  target_link_libraries(odl_fake_reference PRIVATE odl_warnings)
+  add_dependencies(odl_devtools_tests odl_fake_gfortran odl_fake_reference)
   catch_discover_tests(odl_devtools_tests TEST_SPEC "[devkit]" TEST_PREFIX "devkit: " EXTRA_ARGS --warn NoAssertions)
 endif()
 

@@ -329,3 +329,46 @@ add_test(NAME estimation_sizing.behaviour
   COMMAND odl_devtools_tests "[estimation_sizing][behaviour]")
 add_test(NAME estimation_sizing.real_tree
   COMMAND odl_devtools_tests "[estimation_sizing][real_tree]")
+
+# L0 step 8, group C10: the four generators of the atmosphere, the tide tables and the penumbral study (tools/msis_coefficients.cpp, tides_from_conventions.cpp, msis_reference.cpp, penumbral_cancellation.cpp), from tools that
+# do not use the code under test.  Each tool's own tests (tests/devtools/<tool>_tests.cpp) are the ctests <tool>.behaviour and <tool>.real_tree; the real-tree cases of penumbral_cancellation run the whole tool once (about 20 s
+# in RelWithDebInfo) and read its output against SPEC-shadow's quotes, against its first record (tests/devtools/penumbral_cancellation_recorded.hpp) and by a second method.  The built executable of penumbral_cancellation
+# is run for its help and for the refusal of an argument (its main(), in four ctests: the exit code and the text are checked apart, because a ctest that matches a regular expression ignores the exit code).
+add_test(NAME penumbral_cancellation.behaviour
+  COMMAND odl_devtools_tests "[penumbral_cancellation][behaviour]")
+add_test(NAME penumbral_cancellation.real_tree
+  COMMAND odl_devtools_tests "[penumbral_cancellation][real_tree]")
+add_test(NAME penumbral_cancellation.help_exits_zero
+  COMMAND penumbral_cancellation --help)
+add_test(NAME penumbral_cancellation.help_text
+  COMMAND penumbral_cancellation -h)
+set_tests_properties(penumbral_cancellation.help_text PROPERTIES PASS_REGULAR_EXPRESSION "usage: penumbral_cancellation \\[-h\\]")
+add_test(NAME penumbral_cancellation.refuses_an_argument
+  COMMAND penumbral_cancellation --bogus)
+set_tests_properties(penumbral_cancellation.refuses_an_argument PROPERTIES WILL_FAIL TRUE)
+add_test(NAME penumbral_cancellation.refusal_text
+  COMMAND penumbral_cancellation --bogus)
+set_tests_properties(penumbral_cancellation.refusal_text PROPERTIES PASS_REGULAR_EXPRESSION "penumbral_cancellation: error: unrecognized arguments: --bogus")
+
+# msis_coefficients (group C10): the generated header of NRLMSISE-00's 3,300 fitted coefficients, regenerated from the hash-pinned Fortran of the manifest's cache and compared with the committed one -- no host program, no network,
+# no interpreter (the ctest the Python era never had: the extraction was run by hand).  The tool's own tests are msis_coefficients.behaviour and msis_coefficients.real_tree.
+add_test(NAME atmosphere.msis_coefficients_match_generator
+  COMMAND msis_coefficients --check --root "${CMAKE_SOURCE_DIR}")
+add_test(NAME msis_coefficients.behaviour
+  COMMAND odl_devtools_tests "[msis_coefficients][behaviour]")
+add_test(NAME msis_coefficients.real_tree
+  COMMAND odl_devtools_tests "[msis_coefficients][real_tree]")
+
+# tides_from_conventions (group C10): the tidal EOP coefficients out of the IERS Conventions' chapters 5, 6 and 8.  The tool spawns the host program `pdftotext -layout` and so no ctest runs it on the real PDFs
+# (regeneration only; the hidden case [.regeneration] does so when asked for by tag); its tests use the in-process seam and a stand-in program, and read the committed headers of the real tree.
+add_test(NAME tides_from_conventions.behaviour
+  COMMAND odl_devtools_tests "[tides_from_conventions][behaviour]")
+add_test(NAME tides_from_conventions.real_tree
+  COMMAND odl_devtools_tests "[tides_from_conventions][real_tree]")
+
+# msis_reference (group C10): the frozen output of NRL's published Fortran.  The tool spawns the host program gfortran, so NO ctest runs it on the real tree (ATMO-R-028: the gate, the build and CI need no compiler; the
+# hidden case [.regeneration] does so when asked for by tag); its tests use a stand-in compiler and read the committed header and the pinned Fortran of the real tree.
+add_test(NAME msis_reference.behaviour
+  COMMAND odl_devtools_tests "[msis_reference][behaviour]")
+add_test(NAME msis_reference.real_tree
+  COMMAND odl_devtools_tests "[msis_reference][real_tree]")

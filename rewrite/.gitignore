@@ -10,7 +10,7 @@
 # tree. Re-fetchable data is not version-controlled; its hash is.
 /data/cache/
 
-# generator scratch (tools/msis_reference.py builds the Fortran oracle here)
+# generator scratch (tools/msis_reference.cpp builds the Fortran oracle here)
 tools/.msisref/
 
 # Literature pinned by hash for provenance (plan §5 constraint 3). The repository

@@ -49,7 +49,7 @@ std::vector<Case> published_cases() {
     return v;
 }
 
-/// The sweep, identical to tools/msis_reference.py's.  It crosses every branch
+/// The sweep, identical to tools/msis_reference.cpp's.  It crosses every branch
 /// boundary the model has; a sweep that never crosses one cannot fail on one.
 /// The last 14 points are close pairs straddling each of the seven species-
 /// correction cutoffs NRLMSISE-00.FOR's own DATA ALTL sets above 120 km (N2

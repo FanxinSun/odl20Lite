@@ -215,7 +215,7 @@ Doodson's six fundamental arguments, **F̄** the five Delaunay variables and θ_
 Sidereal Time in angle units.
 
 - **PERT-R-014.** Tables 6.5a, 6.5b and 6.5c MUST be **extracted from the hash-pinned PDF**, as
-  `tools/tides_from_conventions.py` already does for the chapter 5 and chapter 8 tables, and
+  `tools/tides_from_conventions.cpp` already does for the chapter 5 and chapter 8 tables, and
   committed as generated source. They MUST NOT be hand-transcribed: there are several hundred
   numbers and transcription would be its own defect source. The extraction is not part of the
   build, because `pdftotext` output varies with the poppler version and a build that re-ran it
@@ -698,7 +698,7 @@ this module than the Conventions actually constrain.
   ρ_w = 1025 kg m⁻³; `TN36-1`'s *G*, GM⊕, *a*_E, *g*_E, Ω — **each cited to `TN36-1` and
   explicitly distinguished from EGM2008's pair**, which is `PERT-R-009`'s whole point.
 - **Generated-source register:** Tables 6.5a, 6.5b, 6.5c and 6.7, extracted from the pinned
-  `TN36-6` PDF by `tools/tides_from_conventions.py`, with the extraction's own hash of the
+  `TN36-6` PDF by `tools/tides_from_conventions.cpp`, with the extraction's own hash of the
   source and the count of rows extracted from each table.
 - **Data manifest:** `FES2004-CS` and `DESAI-CO` with URL, SHA-256, size and retrieval date,
   and `TN36-1`, `TN36-10` added to the chapters already pinned.
@@ -708,7 +708,7 @@ this module than the Conventions actually constrain.
   of its kind and the pattern is worth naming.
 - **§3.11 point 4 check:** `FES2004-CS` and `DESAI-CO` are data files with no build system.
   The Conventions' Fortran for chapter 6 is **not** consumed, on the standing ground recorded in
-  `tools/tides_from_conventions.py`: it carries no licence at all, and the tables are the
+  `tools/tides_from_conventions.cpp`: it carries no licence at all, and the tables are the
   content of the standard, published so that they can be implemented.
 
 ---

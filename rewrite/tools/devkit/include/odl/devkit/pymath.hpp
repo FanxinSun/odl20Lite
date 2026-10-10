@@ -39,8 +39,10 @@ namespace odl::devkit {
 [[nodiscard]] double py_cos(double x);
 [[nodiscard]] double py_tan(double x);
 [[nodiscard]] double py_asin(double x);
+[[nodiscard]] double py_acos(double x);
 [[nodiscard]] double py_atan(double x);
 [[nodiscard]] double py_atan2(double y, double x);
+[[nodiscard]] double py_log(double x);
 [[nodiscard]] double py_log1p(double x);
 [[nodiscard]] double py_log10(double x);
 [[nodiscard]] double py_sqrt(double x);

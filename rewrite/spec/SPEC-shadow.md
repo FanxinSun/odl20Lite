@@ -200,7 +200,7 @@ effect on *F*ₛ:
   absolute integral of **1.142 × 10⁻¹ s, stable to four figures across a resolution sweep**,
   while the **running** integral swings to **≈ 5.72 × 10⁻² s** mid-passage, **≈ 376× the net**.
   `net` is *not* stable the way `abs` is: it is a residual of two much larger, near-cancelling
-  half-integrals, and a 5-point resolution sweep in `tools/penumbral_cancellation.py` (up to
+  half-integrals, and a 5-point resolution sweep in `tools/penumbral_cancellation.cpp` (up to
   3 200 samples × 1 600 azimuths) shows the swing ratio itself spans 368×–376× and is still
   moving by 0.03 % between the two finest resolutions tried — converging toward **≈ 376×**, not
   away from it. Quoted to the precision it supports rather than to three figures; `abs`, not
@@ -238,6 +238,15 @@ effect on *F*ₛ:
   about a degree of the eclipse cutoff — not four. The 74.7 % and 48.3 % figures were checked
   against a four-fold refinement in both sample count and azimuthal resolution and did not move
   past the fourth decimal place before being reported (§4 rule 5's diagnostic).
+
+  *Corrected 2026-10-10 (`PROVENANCE.md` §25.11 and §41.21; the sentence above is kept as it was
+  written, and no requirement of this specification changes).* Its last clause does not hold. Under
+  that refinement the 48.3 % row did move: its cancellation prints 48.37, 48.32, 48.30 and 48.29 from
+  401 × 200 to 3 201 × 1 600 samples × azimuths and settles at 48.29 (converged value 48.2927) only
+  from 1 800 azimuths on; the 74.7 % row moves by about 0.003. The three-figure quotes of this
+  requirement hold at every resolution measured but one — the 401 × 200 step of the 48.3 % row prints
+  48.37, which is 48.4 at three figures — and the tool at its defaults supports the last two rows of
+  the tilt table to about 0.05 percentage points.
 - **SHDW-R-032.** The Eddington law is a **model of the Sun and is stated as one**. Across
   *u* ∈ [0.3, 0.9] the peak runs 8.8 × 10⁻³ … 3.4 × 10⁻², so the ordering above is not sensitive
   to the coefficient: at every value in that range this axis still dominates the other two.
