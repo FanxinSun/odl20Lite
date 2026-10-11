@@ -188,6 +188,17 @@ add_executable(reprocheck reprocheck.cpp)
 target_compile_definitions(reprocheck PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
 target_link_libraries(reprocheck PRIVATE odl_devkit odl_warnings)
 
+# The script-interpreter check of group C12 (plan L0 step 8, decision D8 as ruled on 2026-10-11; tools/interpretercheck.cpp): ci.sh's gate 14 and the ctest interpreters.refused_in_build_tests_and_ci.  It refuses a
+# file named like a script, a file that begins with a #! naming anything but sh or bash, and a script interpreter named in a CMake file, a shell script of tools/ or a workflow.  An executable (ci.sh runs it) and an
+# object library with its main left out, which the tests call in-process on synthetic trees and on this one.
+add_library(odl_tool_interpretercheck OBJECT interpretercheck.cpp)
+target_compile_definitions(odl_tool_interpretercheck PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_include_directories(odl_tool_interpretercheck PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(odl_tool_interpretercheck PUBLIC odl_devkit PRIVATE odl_warnings)
+add_executable(interpretercheck interpretercheck.cpp)
+target_compile_definitions(interpretercheck PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_link_libraries(interpretercheck PRIVATE odl_devkit odl_warnings)
+
 foreach(check one_secular_pole configure_is_current)
   add_library(odl_tool_${check} OBJECT ${CMAKE_SOURCE_DIR}/tests/devtools/${check}.cpp)
   target_compile_definitions(odl_tool_${check} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
@@ -218,7 +229,7 @@ if(BUILD_TESTING)
     ${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/penumbral_cancellation_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_coefficients_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/tides_from_conventions_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_reference_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/reprocheck_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/reprocheck_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/interpretercheck_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   # measmod_fd_sizing_tests.cpp writes the replaced script's scans out again and requires the SAME DOUBLES as the tool (compiled without fused multiply-add above): no multiplication contracted there either
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -234,7 +245,7 @@ if(BUILD_TESTING)
   target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck odl_tool_rk_coefficients
     odl_tool_gradient_reference odl_tool_forcemodel_fd_sizing odl_tool_forcemodel_comparator_header odl_tool_legendre_reference
     odl_tool_measmod_reference odl_tool_measmod_fd_sizing odl_tool_measmod_registry_facts odl_tool_measmod_g5_select odl_tool_measmod_height_sensitivity odl_tool_estimation_sizing odl_tool_penumbral_cancellation odl_tool_msis_coefficients odl_tool_tides_from_conventions odl_tool_msis_reference
-    odl_tool_reprocheck odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
+    odl_tool_reprocheck odl_tool_interpretercheck odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
   # test executable, which the tests find at run time and put first on PATH: no test of this tree touches the network.  (Its place is NOT a compile

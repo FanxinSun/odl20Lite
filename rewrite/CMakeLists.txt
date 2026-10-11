@@ -41,7 +41,8 @@ include(OdlModule)
 
 # NOTHING in this build runs a script interpreter (the user's decision of 2026-10-08; PROVENANCE.md sections 41.17 and 41.24; plan section 5 constraint 11).  There is no find_package of one: it
 # ran the interpreter on every configure to read its version.  A find_package of an interpreter is refused here, and so is a READ of a variable that would name one: a configure that asks for
-# one -- a file of this tree or a dependency's own -- fails loudly, naming the file that asked.
+# one -- a file of this tree or a dependency's own -- fails loudly, naming the file that asked.  The other half is gate 14 of tools/ci.sh (tools/interpretercheck.cpp, group C12), which refuses a script
+# interpreter named in this tree's CMake files, in the shell scripts of tools/ and in the workflows, and a file named like a script or begun with a #! that names anything but sh or bash.
 foreach(_odl_interpreter Python Python2 Python3 PythonInterp PythonLibs Perl)
   set(CMAKE_DISABLE_FIND_PACKAGE_${_odl_interpreter} TRUE)
 endforeach()
