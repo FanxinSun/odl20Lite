@@ -1,6 +1,6 @@
 // tests/devtools/msis_reference_tests.cpp — freezing the NRLMSISE-00 reference implementation's output (plan L0 step 8, group C10): the sweep's tables and the input it feeds the Fortran, the first 2,437 lines of the
 // model, the reference's output as the tool reads it, the classification of 2,172 comparisons by hand, the generated header (line by line on a small case, and rebuilt from the committed header's own data
-// on the real one), `which`, the command line, and the whole tool through a stand-in compiler (tests/devtools/fake_gfortran.cpp and fake_reference.cpp) with every refusal.
+// on the real one), `which`, the command line, and the whole tool through a stand-in compiler (tests/devtools/fake_gfortran.cpp and fake_reference.cpp) with every refusal, and the stand-in reference's own reading of standard input (byte for byte, at the block and pipe sizes).
 // (ctests `msis_reference.behaviour` and `msis_reference.real_tree`; the hidden case [.regeneration] runs the real gfortran when asked for by tag.)
 //
 // gfortran is a regeneration-only host program (ATMO-R-028: not part of the build, the tests or CI; not declared in the manifest; not redistributed — the maintainer's ruling D9).  No case of [behaviour] or
@@ -14,6 +14,7 @@
 
 #include <odl/devkit/bytes.hpp>
 #include <odl/devkit/fs.hpp>
+#include <odl/devkit/process.hpp>
 #include <odl/devkit/pytext.hpp>
 #include <odl/devkit/sha256.hpp>
 #include <odl/devkit/tool.hpp>
@@ -1162,6 +1163,44 @@ std::size_t number_after(const std::string& text, const std::string& label) {
 }
 
 }  // namespace
+
+// The stand-in reference is a program of the tests, and its reading of standard input was rewritten (it is the one place in the tree that read a stream to its end through std::istreambuf_iterator, which GCC 13.3 --
+// GitHub's runner -- warns about under -Werror; PROVENANCE.md section 41.22): the bytes it saw must be the bytes it was fed, at the sizes where a block or a pipe ends.
+TEST_CASE("the stand-in reference reads all of its standard input -- every byte, at the sizes where a block or a pipe ends", "[msis_reference][behaviour]") {
+    const fs::path stand_in = fakebin() / "odl_fake_reference";
+    REQUIRE(fs::exists(stand_in));
+    TempDir td{"odl-mr-stdin"};
+    const fs::path program = td.path() / "ref_s";   // it behaves by its own name: REF_S
+    fs::copy_file(stand_in, program);
+    const fs::path seen = td.path() / "seen.bin";
+    EnvScope env;
+    for (const char* steering : {"ODL_FAKE_REF_OUT_REF_S", "ODL_FAKE_REF_EXIT_REF_S", "ODL_FAKE_REF_STDERR_REF_S"}) env.unset(steering);
+    env.set("ODL_FAKE_REF_STDIN_REF_S", seen.string());
+
+    // Bytes with no structure that a text reader would forgive: all 256 values (NUL, CR, LF, Ctrl-Z, the high half) in an order that shifts by one every 251 bytes, so that a block lost, repeated, moved or cut cannot read back as the input.
+    const auto pattern = [](std::size_t n) {
+        std::string s(n, '\0');
+        for (std::size_t i = 0; i < n; ++i) s.at(i) = static_cast<char>((i * 7 + i / 251) % 256);
+        return s;
+    };
+    // 8192 is the stand-in's block and 65536 a pipe's capacity on Linux: one byte either side of each, the empty input, one byte, two blocks exactly, and 200,003 bytes (three pipes' worth and more, a multiple of nothing)
+    for (const std::size_t n : std::vector<std::size_t>{0, 1, 2, 8191, 8192, 8193, 16384, 65535, 65536, 65537, 200003}) {
+        const std::string input = pattern(n);
+        INFO("standard input of " << n << " bytes");
+        fs::remove(seen);
+        ProcessOptions options;
+        options.input = input;
+        const ProcessResult r = run_process({program.string()}, options);
+        CHECK(r.exit_code == 0);
+        CHECK(r.out.empty());
+        CHECK(r.err.empty());
+        REQUIRE(fs::exists(seen));
+        const Bytes got = read_bytes(seen);
+        CHECK(got.size() == n);
+        const bool same = as_text(got) == input;
+        CHECK(same);
+    }
+}
 
 TEST_CASE("run_on: the whole tool through the stand-in compiler -- the build, the runs, the classification, the header", "[msis_reference][behaviour]") {
     const Tree t;

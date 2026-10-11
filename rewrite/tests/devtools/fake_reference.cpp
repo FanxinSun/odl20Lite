@@ -8,19 +8,37 @@
 //   ODL_FAKE_REF_STDERR_<NAME> what is written to standard error when the status is not 0
 // Standard input is always read to its end first, as the Fortran reads its sweep.
 
+#include <array>
 #include <cctype>
+#include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <string>
+
+namespace {
+
+// Standard input to its end, with stdio.  The first version built the string from std::istreambuf_iterator<char>(std::cin): GCC 13.3, the compiler of GitHub's runner (Ubuntu 24.04), inlines that iterator's
+// sbumpc() and -Wnull-dereference, an error under -Werror, takes std::cin's buffer for a null pointer it cannot rule out; GCC 13.4 does not warn (PROVENANCE.md section 41.22).  The bytes read are the same.
+std::string read_all_of_stdin() {
+    std::string all;
+    std::array<char, 8192> block{};
+    for (;;) {
+        const std::size_t got = std::fread(block.data(), 1, block.size(), stdin);
+        all.append(block.data(), got);
+        if (got < block.size()) return all;   // the end of the input; a read error ends it too, as it ended the iterator's loop
+    }
+}
+
+}  // namespace
 
 int main(int, char** argv) {
     std::string name = argv[0];
     name = name.substr(name.find_last_of('/') == std::string::npos ? 0 : name.find_last_of('/') + 1);
     for (char& c : name) c = static_cast<char>(std::isalnum(static_cast<unsigned char>(c)) != 0 ? std::toupper(static_cast<unsigned char>(c)) : '_');
     const auto env = [&](const char* prefix) { return std::getenv((std::string(prefix) + name).c_str()); };
-    const std::string input((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
+    const std::string input = read_all_of_stdin();
     if (const char* path = env("ODL_FAKE_REF_STDIN_")) {
         std::ofstream f(path, std::ios::binary | std::ios::trunc);
         f << input;
