@@ -39,15 +39,15 @@ include(OdlWarnings)
 include(OdlReproducible)
 include(OdlModule)
 
-# NOTHING in this build runs Python or Perl (the user's decision of 2026-10-08, "Stop CI's Python now"; PROVENANCE.md section 41.17; plan section 5 constraint 11).  There is no
-# find_package(Python3): it ran the interpreter on every configure to read its version.  A find_package of any interpreter is refused here, and so is a READ of a variable that
-# would name one: a configure that asks for one fails loudly, naming the file that asked.  A check that only an interpreter can make is OFF until its C++ replacement lands.
+# NOTHING in this build runs a script interpreter (the user's decision of 2026-10-08; PROVENANCE.md sections 41.17 and 41.24; plan section 5 constraint 11).  There is no find_package of one: it
+# ran the interpreter on every configure to read its version.  A find_package of an interpreter is refused here, and so is a READ of a variable that would name one: a configure that asks for
+# one -- a file of this tree or a dependency's own -- fails loudly, naming the file that asked.
 foreach(_odl_interpreter Python Python2 Python3 PythonInterp PythonLibs Perl)
   set(CMAKE_DISABLE_FIND_PACKAGE_${_odl_interpreter} TRUE)
 endforeach()
 function(odl_interpreter_is_off variable access value current_list_file stack)
   if(access MATCHES "READ_ACCESS")
-    message(FATAL_ERROR "${variable} is read in ${current_list_file}: this build runs no Python and no Perl (the user's decision of 2026-10-08).  Write the check in C++ (plan section 5 constraint 11).")
+    message(FATAL_ERROR "${variable} is read in ${current_list_file}: this build runs no script interpreter (the user's decision of 2026-10-08).  Write the check in C++ (plan section 5 constraint 11).")
   endif()
 endfunction()
 foreach(_odl_variable Python3_EXECUTABLE Python_EXECUTABLE Python2_EXECUTABLE PYTHON_EXECUTABLE PERL_EXECUTABLE)

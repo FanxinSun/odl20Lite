@@ -17,9 +17,9 @@
 #       first, DW_AT_comp_dir — which is the compiler's working directory, i.e.
 #       the build tree — comes out as './build-whatever' and the build directory's
 #       name leaks into every object file.  Measured, not assumed: the first
-#       draft had them the other way round and reprocheck.py caught it, with the
-#       artefact sizes differing by exactly the difference in directory-name
-#       length.
+#       draft had them the other way round and the reproducibility check (then
+#       a script, now tools/reprocheck.cpp) caught it, with the artefact sizes
+#       differing by exactly the difference in directory-name length.
 #
 #   __DATE__, __TIME__, __TIMESTAMP__
 #       -Werror=date-time turns any use into a compile error.  Nothing in this
@@ -38,10 +38,10 @@
 #   SOURCE_DATE_EPOCH
 #       honoured by GCC where a date is genuinely unavoidable.  ci.sh pins it.
 #
-# tools/reprocheck (C++ since group C11; it was tools/reprocheck.py) proves the
-# result by building twice into directories of DIFFERENT NAME LENGTHS and
-# comparing artefact hashes — different lengths because an equal-length path
-# can hide a leak that a differing one exposes.
+# tools/reprocheck.cpp (ci.sh's gate 13) proves the result by building twice
+# into directories of DIFFERENT NAME LENGTHS and comparing artefact hashes —
+# different lengths because an equal-length path can hide a leak that a
+# differing one exposes.
 
 include_guard(GLOBAL)
 

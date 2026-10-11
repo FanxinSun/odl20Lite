@@ -1,7 +1,7 @@
 # --------------------------------------------------------------------------- #
 # The development tools' support library, and the tools themselves (plan L0 step 8, §5 constraint 11: every tool of this tree is C++).
 #
-# odl_devkit is SHA-256, JSON, inflate/gzip/tar/zip, Python-compatible text helpers, big integers and exact rationals (group C6) and process spawning, written for this tree.  It links
+# odl_devkit is SHA-256, JSON, inflate/gzip/tar/zip, text helpers with the semantics of the scripts they replace, big integers and exact rationals (group C6) and process spawning, written for this tree.  It links
 # NOTHING of the modules (odl::...), so that a generator can never share code with the thing it checks; tools/devkit/include is its whole surface.
 #
 # A tool is tools/<stem>.cpp, one function `run(argv, streams)` and a main.  It is compiled twice where something needs it before the build can
@@ -50,7 +50,7 @@ add_custom_target(regenerate_notice
   VERBATIM)
 
 # The specification coverage checker (plan L0 step 8, group C3; tools/speccheck.cpp): `speccheck` is ci.sh's gate 7, and the object library is what the tests call in-process
-# (the three ctests that were Python, tests/CMakeLists.txt, and the real tree).
+# (the three ctests that were scripts, tests/CMakeLists.txt, and the real tree).
 add_library(odl_tool_speccheck OBJECT speccheck.cpp)
 target_compile_definitions(odl_tool_speccheck PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
 target_include_directories(odl_tool_speccheck PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -61,7 +61,7 @@ target_compile_definitions(speccheck PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}"
 target_link_libraries(speccheck PRIVATE odl_devkit odl_warnings)
 
 # The budget-row arithmetic checker (plan L0 step 8, group C4; tools/budgetcheck.cpp): `budgetcheck` is ci.sh's gate 8 and the ctest budget.arithmetic, and the object library is what the
-# tests call in-process.  Its arithmetic is the Python's operation for operation (the same libm, nothing fused), so no multiplication is contracted into a fused one.
+# tests call in-process.  Its arithmetic is the replaced script's, operation for operation (the same libm, nothing fused), so no multiplication is contracted into a fused one.
 add_library(odl_tool_budgetcheck OBJECT budgetcheck.cpp)
 target_compile_definitions(odl_tool_budgetcheck PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
 target_include_directories(odl_tool_budgetcheck PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -75,7 +75,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(budgetcheck PRIVATE -ffp-contract=off)
 endif()
 
-# The checkers of groups C5 and C6 (plan L0 step 8; tools/constraint8.cpp, literaturecheck.cpp, unitcheck.cpp, rk_coefficients.cpp) and the two small checks that were Python tests (tests/devtools/one_secular_pole.cpp,
+# The checkers of groups C5 and C6 (plan L0 step 8; tools/constraint8.cpp, literaturecheck.cpp, unitcheck.cpp, rk_coefficients.cpp) and the two small checks that were script tests (tests/devtools/one_secular_pole.cpp,
 # configure_is_current.cpp): each is an executable that ci.sh's gates 9, 10, 11 and 12 or a ctest runs (constraint8.result_only, rk_coefficients.check, tides.one_secular_pole, build.configure_is_current), and an object library with
 # its main left out, which the tests call in-process on synthetic trees.
 foreach(checker constraint8 literaturecheck unitcheck rk_coefficients)
@@ -91,8 +91,8 @@ endforeach()
 # The generators of group C7 (plan L0 step 8; tools/gradient_reference.cpp, forcemodel_fd_sizing.cpp, forcemodel_comparator_header.cpp, legendre_reference.cpp): the numbers the specifications freeze and
 # the tests compare against, computed from the definitions by tools that do not use the code under test.  Each is an executable (the ctests gravity.gradient_reference_header_matches_its_generator,
 # forcemodel.fd_sizing_reproduces, forcemodel.comparator_header_matches_its_generator and gravity.legendre_reference_header_matches_its_generator run it) and an object library with its main left out,
-# which the tests call in-process.  The comparator's header and the sizing use the gradient tool's exact polynomials, and the comparator the sizing's Phi, as the Python tools imported them: those executables
-# take the objects of the tools they use.  No multiplication is contracted into a fused one: the sizing's floating point is the Python's, operation for operation.
+# which the tests call in-process.  The comparator's header and the sizing use the gradient tool's exact polynomials, and the comparator the sizing's Phi, as the replaced scripts imported one another: those executables
+# take the objects of the tools they use.  No multiplication is contracted into a fused one: the sizing's floating point is the replaced script's, operation for operation.
 foreach(gen gradient_reference forcemodel_fd_sizing forcemodel_comparator_header legendre_reference)
   add_library(odl_tool_${gen} OBJECT ${gen}.cpp)
   target_compile_definitions(odl_tool_${gen} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
@@ -117,8 +117,8 @@ endforeach()
 # The generators and sizing tools of group C8 (plan L0 step 8; tools/measmod_reference.cpp, measmod_fd_sizing.cpp, measmod_registry_facts.cpp, measmod_g5_select.cpp, measmod_height_sensitivity.cpp): the numbers
 # SPEC-measmod.md freezes and the tests compare against, from tools that do not use the code under test.  Each is an executable (the ctests measmod.reference_header_matches_its_generator,
 # measmod.fd_sizing_reproduces, measmod.registry_facts_reproduce, measmod.g5_selection_reproduces and measmod.height_sensitivity_prediction_reproduces run it) and an object library with its main left out,
-# which the tests call in-process.  The sizing imports the reference generator's functions, as the Python did: its executable takes that tool's objects.  No multiplication is contracted into a fused one: the
-# sizing's floating point is the Python's, operation for operation.
+# which the tests call in-process.  The sizing imports the reference generator's functions, as the replaced script did: its executable takes that tool's objects.  No multiplication is contracted into a fused one: the
+# sizing's floating point is the replaced script's, operation for operation.
 foreach(gen measmod_reference measmod_registry_facts measmod_g5_select measmod_height_sensitivity measmod_fd_sizing)
   add_library(odl_tool_${gen} OBJECT ${gen}.cpp)
   target_compile_definitions(odl_tool_${gen} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
@@ -176,7 +176,7 @@ foreach(gen msis_coefficients tides_from_conventions msis_reference penumbral_ca
   endif()
 endforeach()
 
-# The reproducibility check of group C11 (plan L0 step 8; tools/reprocheck.cpp): ci.sh's gate 13, which was tools/reprocheck.py and has been OFF since 2026-10-08 (PROVENANCE.md section 41.17).  It builds this tree
+# The reproducibility check of group C11 (plan L0 step 8; tools/reprocheck.cpp): ci.sh's gate 13, which was a script, was OFF from 2026-10-08 until this tool (PROVENANCE.md sections 41.17 and 41.23).  It builds this tree
 # twice with cmake and Ninja, into directories of different name lengths, and compares the SHA-256 of every artefact.  An executable (ci.sh runs it) and an object library with its main left out, which the tests
 # call in-process against a stand-in `cmake` and, for two cases, the real one on a tiny project.  The executable is itself an artefact of the builds it compares: it holds the tree's path (ODL_TREE_ROOT, the
 # same for both) and nothing of a build directory.
@@ -201,7 +201,7 @@ foreach(check one_secular_pole configure_is_current)
 endforeach()
 
 if(BUILD_TESTING)
-  # One executable for the devkit's own tests and the tools' (the Python tests of tests/ ported): each ctest of the old names runs the tag of the
+  # One executable for the devkit's own tests and the tools' (the script tests of tests/ ported): each ctest of the old names runs the tag of the
   # test it replaces (tests/CMakeLists.txt), and every devkit case is its own ctest.
   add_executable(odl_devtools_tests
     devkit/tests/sha256_tests.cpp devkit/tests/json_tests.cpp devkit/tests/inflate_tests.cpp devkit/tests/archive_tests.cpp
@@ -220,10 +220,10 @@ if(BUILD_TESTING)
     ${CMAKE_SOURCE_DIR}/tests/devtools/tides_from_conventions_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_reference_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/reprocheck_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
-  # measmod_fd_sizing_tests.cpp writes the Python's scans out again and requires the SAME DOUBLES as the tool (compiled without fused multiply-add above): no multiplication contracted there either
+  # measmod_fd_sizing_tests.cpp writes the replaced script's scans out again and requires the SAME DOUBLES as the tool (compiled without fused multiply-add above): no multiplication contracted there either
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/measmod_fd_sizing_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
-    # estimation_sizing_tests.cpp writes the Python's double-precision recipe out again (the normal equations, the Cholesky, the bounds' chain) and requires the SAME DOUBLES as the tool: no multiplication contracted there either
+    # estimation_sizing_tests.cpp writes the replaced script's double-precision recipe out again (the normal equations, the Cholesky, the bounds' chain) and requires the SAME DOUBLES as the tool: no multiplication contracted there either
     set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)
     # penumbral_cancellation_tests.cpp compares doubles bit for bit with the tool's (the time symmetry of the propagator, the composition of study()) and writes its own second methods: no multiplication contracted there either
     set_source_files_properties(${CMAKE_SOURCE_DIR}/tests/devtools/penumbral_cancellation_tests.cpp PROPERTIES COMPILE_OPTIONS -ffp-contract=off)

@@ -183,7 +183,7 @@ COMPONENTS COMPILED INTO OR LINKED WITH THIS TREE
               chooses CeCILL-B, the BSD-like option. It is the ONLY one of the
               three compatible with plan §5 constraint 3: CeCILL-C is close to
               the GNU LGPL and CeCILL v2.1 is GPL-compatible, and
-              tools/fetch.py's allowlist refuses both by name. Note that
+              tools/fetch.cpp's allowlist refuses both by name. Note that
               neither contains the string 'GPL', so the denylist this project
               used until 2026-09-18 would have passed them. OBLIGATIONS,
               heavier than BSD's and binding a FUTURE distribution rather than
@@ -475,7 +475,7 @@ DATA INPUTS
               number column SN, which is CC BY-NC 4.0 (WDC-SILSO, Royal
               Observatory of Belgium) and is named in licence_excluded below.
               Declaring the compound licence instead would have put a non-
-              commercial term on tools/fetch.py's permissive allowlist, which
+              commercial term on tools/fetch.cpp's permissive allowlist, which
               is precisely what that allowlist exists to prevent. The columns
               mechanism makes the exclusion checkable rather than asserted:
               the verifier refuses if a declared column carries an excluded

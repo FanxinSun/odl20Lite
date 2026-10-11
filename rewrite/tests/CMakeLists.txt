@@ -5,7 +5,7 @@ add_executable(odl_toolchain_tests toolchain_smoke.cpp)
 target_link_libraries(odl_toolchain_tests PRIVATE Catch2::Catch2WithMain odl_warnings)
 catch_discover_tests(odl_toolchain_tests EXTRA_ARGS --warn NoAssertions)
 
-# The fetcher's own behaviour, including every refusal path (L0 step 8: tests/devtools/fetch_tests.cpp, the port of test_fetch.py; the cases are
+# The fetcher's own behaviour, including every refusal path (L0 step 8: tests/devtools/fetch_tests.cpp, the port of the fetcher's earlier script test; the cases are
 # tagged [fetcher] and run in-process on synthetic manifests).
 add_test(NAME fetcher.behaviour
   COMMAND odl_devtools_tests "[fetcher]")
@@ -38,7 +38,7 @@ add_test(NAME manifest.licences_permissive
 # The budget rows are the only class of number in this tree with no test behind
 # them, and four of twenty-three were wrong by 1000x or more on 2026-09-18.
 # The budget checker (ci.sh's gate 8) is C++ since L0 step 8, group C4: tools/budgetcheck.cpp.  budget.arithmetic runs the built tool on the real specifications, as it always did; the
-# test that was Python (the name is kept) is the Catch2 cases of tests/devtools/budgetcheck_tests.cpp tagged [historical] -- the same four wrong rows, the same corrected forms, the same
+# test that was a script (the name is kept) is the Catch2 cases of tests/devtools/budgetcheck_tests.cpp tagged [historical] -- the same four wrong rows, the same corrected forms, the same
 # refusals.  What came with the port: the printed text of a run, every kind of finding and the exit codes, each scanner against the pattern it replaces, the unit table, and the real tree
 # row by row (each real row alone, and each with its stated result made wrong).
 add_test(NAME budget.arithmetic
@@ -51,7 +51,7 @@ add_test(NAME budgetcheck.real_tree
   COMMAND odl_devtools_tests "[budgetcheck][real_tree]")
 
 # The constraint-8 checker (ci.sh's gate 9) is C++ since L0 step 8, group C5: tools/constraint8.cpp.  constraint8.result_only runs the built tool on the real tree, as it always did.  What came with
-# the port, in the Catch2 cases of tests/devtools/constraint8_tests.cpp (the Python tool had no test of its own): each of its two scanners against the pattern it replaces, what it prints and
+# the port, in the Catch2 cases of tests/devtools/constraint8_tests.cpp (the replaced tool had no test of its own): each of its two scanners against the pattern it replaces, what it prints and
 # refuses on synthetic trees, which files it reads, and the real tree recounted another way.
 add_test(NAME constraint8.result_only
   COMMAND constraint8)
@@ -61,7 +61,7 @@ add_test(NAME constraint8.real_tree
   COMMAND odl_devtools_tests "[constraint8][real_tree]")
 
 # The literature checker (ci.sh's gate 11, plan section 5 constraint 3) and the factor-of-a-thousand register (gate 12, SPEC-dynamics DYN-R-040) are C++ since the same group:
-# tools/literaturecheck.cpp and tools/unitcheck.cpp.  They have no ctest that runs the built tool (the gates do); what they have is the Catch2 cases of their own, which are new -- the Python
+# tools/literaturecheck.cpp and tools/unitcheck.cpp.  They have no ctest that runs the built tool (the gates do); what they have is the Catch2 cases of their own, which are new -- the replaced
 # tools had none: what each prints and refuses, which files each reads and what it looks for, the scanners of unitcheck against the patterns they replace, and the real tree (recounted another
 # way, and with defects injected into a copy of the real sources).
 add_test(NAME literaturecheck.behaviour
@@ -73,7 +73,7 @@ add_test(NAME unitcheck.behaviour
 add_test(NAME unitcheck.real_tree
   COMMAND odl_devtools_tests "[unitcheck][real_tree]")
 
-# The specification coverage checker (ci.sh's gate 7) is C++ since L0 step 8, group C3: tools/speccheck.cpp.  Its three tests, which were Python (the names are kept), are Catch2
+# The specification coverage checker (ci.sh's gate 7) is C++ since L0 step 8, group C3: tools/speccheck.cpp.  Its three tests, which were scripts (the names are kept), are Catch2
 # cases of tests/devtools/speccheck_tests.cpp in the one devtools executable, each ctest running the tag of the test it replaces, with the same synthetic inputs and the same
 # injected defects; the cases that came with the port (what a run prints, each kind of finding, the scanners against the patterns they replace, the tree walk's scope) and the
 # real tree run as `speccheck.behaviour` and `speccheck.real_tree`.
@@ -117,7 +117,7 @@ add_test(NAME speccheck.real_tree
 # independent reference values the C++ tests include, the height sensitivity of the troposphere's mapping (§5.2) and the G5 selection of
 # normal points.  The five tools are C++ since L0 step 8, group C8 (tools/measmod_reference.cpp, measmod_fd_sizing.cpp,
 # measmod_registry_facts.cpp, measmod_height_sensitivity.cpp and measmod_g5_select.cpp, on the devkit's Decimal and pymath): the five old
-# names are kept, and the tools' own tests (tests/devtools/<tool>_tests.cpp: every function against values computed apart, the Python's
+# names are kept, and the tools' own tests (tests/devtools/<tool>_tests.cpp: every function against values computed apart, the replaced script's
 # recorded outputs, every refusal, every frozen comparison shown firing, and the real tree) are ctests <tool>.behaviour and <tool>.real_tree.
 add_test(NAME measmod.registry_facts_reproduce
   COMMAND measmod_registry_facts --check)
@@ -162,7 +162,7 @@ set_tests_properties(boundary.undeclared_dependency_refused PROPERTIES WILL_FAIL
 # SPEC-perturbations PERT-A-009, the source half: the secular pole is DEFINED
 # once, in gravity, and consumed by the pole tide.  The runtime half is in the
 # tides tests.  The check is C++ since L0 step 8, group C5 (tests/devtools/one_secular_pole.cpp, the
-# port of test_one_secular_pole.py): tides.one_secular_pole runs the built program on the real tree, as it always did; secular_pole.behaviour and
+# port of the earlier script test): tides.one_secular_pole runs the built program on the real tree, as it always did; secular_pole.behaviour and
 # secular_pole.real_tree are the Catch2 cases of tests/devtools/one_secular_pole_tests.cpp, which came with the port -- the defect injected (a second copy within the window, a definition
 # that lost a constant or let them drift apart), what is printed, which sources are read, and the real tree recounted another way and with defects injected into a copy of it.
 add_test(NAME tides.one_secular_pole
@@ -173,7 +173,7 @@ add_test(NAME secular_pole.real_tree
   COMMAND odl_devtools_tests "[secular_pole][real_tree]")
 
 # A stale configure tests a subset and reports 100%. See the program's header
-# (tests/devtools/configure_is_current.cpp, the C++ port of test_configure_is_current.py, L0 step 8 group C5) for why this is a test rather than a line in tools/ci.sh.
+# (tests/devtools/configure_is_current.cpp, the C++ port of the earlier script test, L0 step 8 group C5) for why this is a test rather than a line in tools/ci.sh.
 # build.configure_is_current runs the built program on THIS build directory; configure_is_current.behaviour and .real_tree are the Catch2 cases of
 # tests/devtools/configure_is_current_tests.cpp (files of chosen ages, what is printed and refused, the real tree against a build system generated in the future and at the dawn of time).
 add_test(NAME build.configure_is_current
@@ -194,7 +194,7 @@ add_test(NAME unicode_tables.derivation
 
 # RKF7(8)'s tableau and the proof about it (ci.sh's gate 10, SPEC-integrators INTG-A-001) are C++ since L0 step 8, group C6: tools/rk_coefficients.cpp, on the devkit's BigInt and Rational
 # (tools/devkit/tests/bigint_tests.cpp and rational_tests.cpp, tagged [devkit], which are ctests of their own).  rk_coefficients.check runs the built tool on the tree, as gate 10 does; what came with the
-# port, in the Catch2 cases of tests/devtools/rk_coefficients_tests.cpp (the Python tool had no test of its own), is the rooted trees and their order conditions against what is known in closed
+# port, in the Catch2 cases of tests/devtools/rk_coefficients_tests.cpp (the replaced tool had no test of its own), is the rooted trees and their order conditions against what is known in closed
 # form, the proof and each of its failures on damaged copies of the table, the generated header, the command line and the file it writes, and the real tree.
 add_test(NAME rk_coefficients.check
   COMMAND rk_coefficients --check)
@@ -296,7 +296,7 @@ catch_discover_tests(odl_l6_exit_gate_tests EXTRA_ARGS --warn NoAssertions)
 # the comparator's polynomials, and (since L0 step 8, group C7) the associated Legendre values of GRAV-A-003.  The four generators are C++
 # since group C7 (tools/gradient_reference.cpp, forcemodel_fd_sizing.cpp, forcemodel_comparator_header.cpp and legendre_reference.cpp, on the
 # devkit's BigInt, Rational and Decimal): the three old names are kept, the Legendre header has a ctest of its own for the first time, and the
-# tools' own tests (tests/devtools/<tool>_tests.cpp: the algebra, the closed forms, every refusal, and the real tree against what the Python
+# tools' own tests (tests/devtools/<tool>_tests.cpp: the algebra, the closed forms, every refusal, and the real tree against what the replaced
 # tools recorded) are ctests <tool>.behaviour and <tool>.real_tree.
 add_test(NAME gravity.gradient_reference_header_matches_its_generator
   COMMAND gradient_reference --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/gravity/tests/gradient_reference.hpp")
@@ -315,11 +315,11 @@ endforeach()
 
 # L7 step 2 (SPEC-estimation.md v0.3): the estimator's frozen figures come from a tool that does NOT use the code under test (exact rational arithmetic on the PINNED NIST files,
 # 90-digit eigenvalues), and each is reproduced here by a ctest that runs it, so that a number in the specification or in the tests cannot drift from its generator.  The tool is C++ since
-# L0 step 8, group C9 (tools/estimation_sizing.cpp, on the devkit's BigInt, Rational and Decimal; the x87 long double of the design recipe is emulated exactly on rationals, and the Python's
-# CPython 3.12 compensated float sum is done on purpose by the devkit's py_sum): the two ctests were off from 2026-10-08 ("Stop CI's Python now", PROVENANCE.md section 41.17) until this group
+# L0 step 8, group C9 (tools/estimation_sizing.cpp, on the devkit's BigInt, Rational and Decimal; the x87 long double of the design recipe is emulated exactly on rationals, and the replaced script's
+# compensated float sum of CPython 3.12 is done on purpose by the devkit's py_sum): the two ctests were off from 2026-10-08 (the user's decision to stop CI's scripting, PROVENANCE.md section 41.17) until this group
 # and are back under the same names, with the acceptance condition of PROVENANCE.md section 41.8 -- the committed registered_figures.hpp and the specification's table byte for byte,
 # independent of any interpreter.  The tool's own tests (tests/devtools/estimation_sizing_tests.cpp: every function against values computed apart, the machine's own long double, the exact
-# elimination by its postconditions, every pattern the Python searched the NIST files with, every mode and refusal, and the real data against the committed record) are the ctests
+# elimination by its postconditions, every pattern the replaced script searched the NIST files with, every mode and refusal, and the real data against the committed record) are the ctests
 # estimation_sizing.behaviour and estimation_sizing.real_tree.
 add_test(NAME estimation.sizing_header_matches_generator
   COMMAND estimation_sizing --cache "${ODL_CACHE_DIR}" --verify "${CMAKE_CURRENT_SOURCE_DIR}/../modules/estimation/tests/registered_figures.hpp")
@@ -351,7 +351,7 @@ add_test(NAME penumbral_cancellation.refusal_text
 set_tests_properties(penumbral_cancellation.refusal_text PROPERTIES PASS_REGULAR_EXPRESSION "penumbral_cancellation: error: unrecognized arguments: --bogus")
 
 # msis_coefficients (group C10): the generated header of NRLMSISE-00's 3,300 fitted coefficients, regenerated from the hash-pinned Fortran of the manifest's cache and compared with the committed one -- no host program, no network,
-# no interpreter (the ctest the Python era never had: the extraction was run by hand).  The tool's own tests are msis_coefficients.behaviour and msis_coefficients.real_tree.
+# no interpreter (the ctest the earlier tool never had: the extraction was run by hand).  The tool's own tests are msis_coefficients.behaviour and msis_coefficients.real_tree.
 add_test(NAME atmosphere.msis_coefficients_match_generator
   COMMAND msis_coefficients --check --root "${CMAKE_SOURCE_DIR}")
 add_test(NAME msis_coefficients.behaviour
