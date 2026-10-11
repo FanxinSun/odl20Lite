@@ -15,13 +15,16 @@
 //   * What the Python ended with a traceback (cmake not installed, an artefact that cannot be read) is a refusal naming the fault, exit 2; an error the tool did not anticipate exits 70.  The Python's exit codes
 //     0 (reproducible), 1 (artefacts differ) and 3 (a build failed) are the same.
 //   * The options are taken by their exact names (argparse took any unambiguous abbreviation); `-h` prints this tool's own text; `--root DIR` is new (the Python's tree was the one the script stood in; the default
-//     here is the tree this tool was built from); `--build-dir DIR` is accepted and ignored, as in the Python ("present so ci.sh can pass one uniformly").
+//     here is the tree this tool was built from).  `--build-dir DIR`, which the Python accepted and ignored ("present so ci.sh can pass one uniformly"), is REFUSED by name since group C12 (the maintainer's ruling
+//     of 2026-10-11: an option accepted and silently ignored is a silent fallback, plan §5 constraint 4); ci.sh no longer passes it.
 //   * The build's own output, held for the failure message, is not decoded: it is passed through as bytes with its line ends made "\n" (the Python's text=True decoded it as UTF-8 and would have raised on a byte
 //     that is not).  The root is made absolute and symbolic links in it are resolved (the Python's Path.resolve()), and a trailing slash dropped.
 //   * std::filesystem::remove_all removes a symbolic link named like a build directory itself, where shutil.rmtree refused it (ignore_errors) and cmake then built into the link's target.
 //   * SOURCE_DATE_EPOCH is the Python's 1789603200, which is 2026-09-17T00:00:00Z: the Python's comment dated it 2026-09-18, a day late.
-//   * Kept as the Python had it: "NOT REPRODUCIBLE: n artefact(s) differ" counts only the DIFFERS entries (it says 0 when the only trouble is an artefact one build has and the other lacks), and a build that
-//     produced no artefact at all gives "0 artefacts compared / ok all 0 artefacts byte-identical" (the number is on the line).
+//   * Two behaviours of the Python were kept in group C11 and changed in group C12, by the maintainer's ruling of 2026-10-11, each with its test: (a1) a pair of builds with NO artefact in either said
+//     "0 artefacts compared / ok all 0 artefacts byte-identical" and exited 0; it is REFUSED now, exit 2 ("no artefacts found in either build: nothing compared") -- success over nothing read is the failure the check
+//     exists against; (a2) "NOT REPRODUCIBLE: n artefact(s) differ" counted the DIFFERS entries only and said 0 when the only trouble was an artefact one build has and the other lacks; it names both counts now,
+//     "n artefact(s) differ, m present in one build only", the exit status (1) unchanged.
 
 #include "reprocheck.hpp"
 
@@ -115,6 +118,16 @@ int reproduce(const fs::path& root, bool keep, Streams& io) {
 
     const std::map<std::string, fs::path> found_a = artefacts(a);
     const std::map<std::string, fs::path> found_b = artefacts(b);
+    if (found_a.empty() && found_b.empty()) {
+        // Nothing was read, so nothing is proved: the Python said "0 artefacts compared / ok" here, which is the failure a check like this exists against (the maintainer's ruling of 2026-10-11).  A pair where only
+        // one build has artefacts is not this: that is the ordinary failure below (the ONLY IN lines, exit 1).
+        if (!keep) {
+            remove_tree(a);
+            remove_tree(b);
+        }
+        io.err << kTool << ": no artefacts found in either build: nothing compared\n";
+        return kArgument;
+    }
     std::vector<std::string> only_a;
     std::vector<std::string> only_b;
     std::vector<std::string> common;
@@ -153,7 +166,7 @@ int reproduce(const fs::path& root, bool keep, Streams& io) {
     }
 
     if (!differing.empty() || !only_a.empty() || !only_b.empty()) {
-        io.err << "\nNOT REPRODUCIBLE: " << differing.size() << " artefact(s) differ between two builds of identical source.\n";
+        io.err << "\nNOT REPRODUCIBLE: " << differing.size() << " artefact(s) differ, " << only_a.size() + only_b.size() << " present in one build only, between two builds of identical source.\n";
         return kDiffers;
     }
     io.out << "ok       all " << common.size() << " artefacts byte-identical across two build paths\n";
@@ -169,7 +182,7 @@ fs::path tidy_root(const fs::path& given) {
     return root;
 }
 
-const char kUsageText[] = "usage: reprocheck [-h] [--root ROOT] [--build-dir BUILD_DIR] [--keep]\n";
+const char kUsageText[] = "usage: reprocheck [-h] [--root ROOT] [--keep]\n";
 
 const char kHelpText[] =
     "\n"
@@ -178,12 +191,12 @@ const char kHelpText[] =
     "with no suffix whose path has no component named CMakeFiles.  The lengths differ so that a leaked path changes an artefact's size as well as its bytes.\n"
     "\n"
     "options:\n"
-    "  -h, --help             show this help and exit\n"
-    "  --root ROOT            the tree to build twice (default: the tree this tool was built from)\n"
-    "  --build-dir BUILD_DIR  ignored; present so ci.sh can pass one uniformly\n"
-    "  --keep                 do not delete the two build trees\n"
+    "  -h, --help   show this help and exit\n"
+    "  --root ROOT  the tree to build twice (default: the tree this tool was built from)\n"
+    "  --keep       do not delete the two build trees\n"
     "\n"
-    "exit codes: 0 reproducible   1 artefacts differ   3 a build failed   2 an argument error, or cmake cannot be run, or an artefact cannot be read   70 an error the tool did not anticipate\n";
+    "exit codes: 0 reproducible   1 artefacts differ   3 a build failed   2 an argument error, or cmake cannot be run, or an artefact cannot be read, or no artefact was found in either build   70 an error the tool\n"
+    "            did not anticipate\n";
 
 }  // namespace
 
@@ -241,15 +254,17 @@ int run_on(const Settings& settings, const std::vector<std::string>& argv, Strea
                 io.out << kUsageText << kHelpText;
                 return kOk;
             }
-            if (opt == "--root" || opt == "--build-dir") {
+            if (opt == "--build-dir") {
+                // The Python accepted this and ignored it, "present so ci.sh can pass one uniformly".  An option that is accepted and does nothing is a silent fallback (plan §5 constraint 4): it is refused, in every form, by name.
+                return usage_error(std::string("argument --build-dir: this option is not used (the builds go to ") + kDirA + " and " + kDirB + " below the tree)");
+            }
+            if (opt == "--root") {
                 if (!has_value) {
                     if (i + 1 >= argv.size() || argv[i + 1].rfind("--", 0) == 0) return usage_error("argument " + opt + ": expected one argument");
                     value = argv[++i];
                 }
-                if (opt == "--root") {
-                    if (value.empty()) return usage_error("argument --root: the path is empty");   // it would be the current directory, built twice without anyone having said so
-                    root = value;
-                }   // --build-dir: accepted, ignored
+                if (value.empty()) return usage_error("argument --root: the path is empty");   // it would be the current directory, built twice without anyone having said so
+                root = value;
             } else if (opt == "--keep" && !has_value) {
                 keep = true;
             } else {

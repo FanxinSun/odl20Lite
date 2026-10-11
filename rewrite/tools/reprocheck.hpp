@@ -1,13 +1,13 @@
 #pragma once
 // tools/reprocheck.hpp — prove the build is reproducible, rather than assert it (plan L0 step 7; ci.sh's gate 13; plan L0 step 8, group C11).
 //
-// `run` is the whole tool: `reprocheck [--root DIR] [--build-dir DIR] [--keep]`.  The flags in cmake/OdlReproducible.cmake are a claim; this is the evidence.  It builds the tree twice, with cmake and Ninja,
+// `run` is the whole tool: `reprocheck [--root DIR] [--keep]` (`--build-dir`, which the Python accepted and ignored, is refused by name since group C12).  The flags in cmake/OdlReproducible.cmake are a claim; this is the evidence.  It builds the tree twice, with cmake and Ninja,
 // into two directories of the tree whose NAMES HAVE DIFFERENT LENGTHS (build-repro-a, build-repro-bbbbbbbb), and compares the SHA-256 of every artefact.  The lengths matter: the classic leak is an absolute
 // path landing in debug info or an assert string, and if the two directories had the same length a leaked path would change the bytes but not their count, which a padded or truncated field would hide;
 // with different lengths a leak changes the size as well as the content.
 //
 // An ARTEFACT is a regular file (a link to one counts) whose name ends in .a, .so or .o, or an executable file with no suffix whose path has no component named CMakeFiles.
-// Exit 0 reproducible; 1 artefacts differ (or one build has artefacts the other lacks); 3 a build failed; 2 an argument error, or cmake cannot be run, or an artefact cannot be read; 70 an error the tool
+// Exit 0 reproducible; 1 artefacts differ (or one build has artefacts the other lacks); 3 a build failed; 2 an argument error, or cmake cannot be run, or an artefact cannot be read, or no artefact was found in either build; 70 an error the tool
 // did not anticipate.
 
 #include <odl/devkit/tool.hpp>

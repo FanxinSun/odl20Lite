@@ -1,7 +1,11 @@
 // tests/devtools/reprocheck_tests.cpp — the reproducibility check (plan L0 step 8, group C11; ci.sh's gate 13): what an artefact is, every line the tool says and every exit it takes, through a stand-in `cmake`
 // (tests/devtools/fake_cmake.cpp) that "builds" whatever artefacts a recipe lists -- agreeing, differing in content, differing in size, missing from one side, failing -- and two real builds with cmake, Ninja and the
 // compiler of a tiny project, once clean and once with the build directory's path compiled into the program.
-// (ctests `reprocheck.behaviour` and `reprocheck.real_cmake`.)
+// (ctests `reprocheck.behaviour`, `reprocheck.real_cmake` and `reprocheck.real_tree`.)
+//
+// THE [real_cmake] CASES NEED cmake, Ninja AND A C++ COMPILER AT TEST TIME: they build the tiny project with the real tools, the compiler being the one cmake finds (the CXX of the environment, then `c++`).  This is no new
+// requirement -- this tree's own build needs the same three, and the workflow installs them -- but it is the one place where a ctest runs a build, so it is said here.  The [behaviour] cases need none of them: they run
+// the tool against a stand-in `cmake`.  The one [real_tree] case reads tools/ci.sh of the tree.
 //
 // Every expectation is DERIVED BY HAND from the statements of reprocheck.py (read from git, never run: `git show c03df37:rewrite/tools/reprocheck.py`), or comes from a SECOND METHOD written here apart from the
 // tool (SHA-256 values from coreutils' sha256sum, typed in; a POSIX readdir/lstat/stat walk of a real build tree; the calendar arithmetic of the clock's date; the sort order of the Python's strings written out
@@ -110,6 +114,15 @@ std::string header(const fs::path& root) {
 
 // the em dash of the note, in UTF-8
 const char kSizesNote[] = "    (sizes differ too \xE2\x80\x94 a path length is leaking into the artefact)\n";
+
+// the last line of a run that fails, with a blank line before it: how many artefacts differ and how many one build has and the other lacks -- both said, zero included
+std::string verdict(std::size_t differ, std::size_t one_build_only) {
+    return "\nNOT REPRODUCIBLE: " + std::to_string(differ) + " artefact(s) differ, " + std::to_string(one_build_only) + " present in one build only, between two builds of identical source.\n";
+}
+
+// the refusal of --build-dir, which the tool does not use
+const char kBuildDirNotUsed[] = "argument --build-dir: this option is not used (the builds go to build-repro-a and build-repro-bbbbbbbb below the tree)";
+const char kUsage[] = "usage: reprocheck [-h] [--root ROOT] [--keep]\n";
 
 // ---- the stand-in cmake, its recipe and its log ---------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -457,8 +470,7 @@ TEST_CASE("run_on: an artefact whose bytes hold the build directory's path -- th
     CHECK(r.code == 1);
     CHECK(r.out == f.head() + "\n2 artefacts compared\n");   // the verdict line "ok ..." is not said
     CHECK(r.err ==
-          "  DIFFERS  bin/app\n    A " + sha(content_a) + "  " + std::to_string(content_a.size()) + " bytes\n    B " + sha(content_b) + "  " + std::to_string(content_b.size()) + " bytes\n" + kSizesNote +
-              "\nNOT REPRODUCIBLE: 1 artefact(s) differ between two builds of identical source.\n");
+          "  DIFFERS  bin/app\n    A " + sha(content_a) + "  " + std::to_string(content_a.size()) + " bytes\n    B " + sha(content_b) + "  " + std::to_string(content_b.size()) + " bytes\n" + kSizesNote + verdict(1, 0));
     // the trees are removed whatever the verdict
     CHECK_FALSE(fs::exists(f.dir_a()));
     CHECK_FALSE(fs::exists(f.dir_b()));
@@ -470,18 +482,16 @@ TEST_CASE("run_on: artefacts of the same size with other bytes -- DIFFERS, the h
     CHECK(r.code == 1);
     CHECK(r.out == f.head() + "\n1 artefacts compared\n");
     CHECK(r.err ==
-          "  DIFFERS  lib.a\n    A 8f8b53291aad6cf9050edb0c0f45a19b2ab8a3174422b5f4e4df35ead1ba2dbb  6 bytes\n    B 7e0bd07ef8d43d2da3c7390a5843f507ccb310ce18a070dbc9f0b12fe1224494  6 bytes\n"
-          "\nNOT REPRODUCIBLE: 1 artefact(s) differ between two builds of identical source.\n");
+          "  DIFFERS  lib.a\n    A 8f8b53291aad6cf9050edb0c0f45a19b2ab8a3174422b5f4e4df35ead1ba2dbb  6 bytes\n    B 7e0bd07ef8d43d2da3c7390a5843f507ccb310ce18a070dbc9f0b12fe1224494  6 bytes\n" + verdict(1, 0));
     // and the hashes are of the whole contents: "abc" and "bbc" are the FIPS 180 vector and its neighbour
     const Fixture g("* file one.o 644 @SIDE@bc\n");
     const Result s = g.run();
     CHECK(s.code == 1);
     CHECK(s.err ==
-          "  DIFFERS  one.o\n    A ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  3 bytes\n    B 77e6f78af45f649c5f3b8ebe484a91a144eb203a34a89c8dc5b1c4ca87bc6f71  3 bytes\n"
-          "\nNOT REPRODUCIBLE: 1 artefact(s) differ between two builds of identical source.\n");
+          "  DIFFERS  one.o\n    A ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  3 bytes\n    B 77e6f78af45f649c5f3b8ebe484a91a144eb203a34a89c8dc5b1c4ca87bc6f71  3 bytes\n" + verdict(1, 0));
 }
 
-TEST_CASE("run_on: an artefact one build has and the other lacks -- ONLY IN A, ONLY IN B, and the count of the verdict that counts DIFFERS alone", "[reprocheck][behaviour]") {
+TEST_CASE("run_on: an artefact one build has and the other lacks -- ONLY IN A, ONLY IN B, and a verdict that counts them", "[reprocheck][behaviour]") {
     const Fixture f(
         "a file onlya.o 644 x\n"
         "b file onlyb.o 644 y\n"
@@ -489,7 +499,7 @@ TEST_CASE("run_on: an artefact one build has and the other lacks -- ONLY IN A, O
     const Result r = f.run();
     CHECK(r.code == 1);
     CHECK(r.out == f.head() + "\n1 artefacts compared\n");
-    CHECK(r.err == "  ONLY IN A  onlya.o\n  ONLY IN B  onlyb.o\n\nNOT REPRODUCIBLE: 0 artefact(s) differ between two builds of identical source.\n");
+    CHECK(r.err == "  ONLY IN A  onlya.o\n  ONLY IN B  onlyb.o\n" + verdict(0, 2));   // the verdict used to say 0, and no more: it names every reason it failed
 
     // only on one side
     const Fixture g(
@@ -497,13 +507,35 @@ TEST_CASE("run_on: an artefact one build has and the other lacks -- ONLY IN A, O
         "* file both.o 644 z\n");
     const Result s = g.run();
     CHECK(s.code == 1);
-    CHECK(s.err == "  ONLY IN B  onlyb.o\n\nNOT REPRODUCIBLE: 0 artefact(s) differ between two builds of identical source.\n");
+    CHECK(s.err == "  ONLY IN B  onlyb.o\n" + verdict(0, 1));
     const Fixture h(
         "a file onlya.o 644 y\n"
         "* file both.o 644 z\n");
     const Result t = h.run();
     CHECK(t.code == 1);
-    CHECK(t.err == "  ONLY IN A  onlya.o\n\nNOT REPRODUCIBLE: 0 artefact(s) differ between two builds of identical source.\n");
+    CHECK(t.err == "  ONLY IN A  onlya.o\n" + verdict(0, 1));
+    // differences and artefacts on one side only together: both counts, each as it is
+    const Fixture k(
+        "a file onlya.o 644 x\n"
+        "a file onlya2.o 644 x\n"
+        "b file onlyb.o 644 y\n"
+        "* file lib.a 644 side-@SIDE@\n"
+        "* file same.o 644 z\n");
+    const Result u = k.run();
+    CHECK(u.code == 1);
+    CHECK(u.err ==
+          "  DIFFERS  lib.a\n    A 8f8b53291aad6cf9050edb0c0f45a19b2ab8a3174422b5f4e4df35ead1ba2dbb  6 bytes\n    B 7e0bd07ef8d43d2da3c7390a5843f507ccb310ce18a070dbc9f0b12fe1224494  6 bytes\n"
+          "  ONLY IN A  onlya.o\n  ONLY IN A  onlya2.o\n  ONLY IN B  onlyb.o\n" + verdict(1, 3));
+}
+
+TEST_CASE("run_on: when only one build has artefacts it is the ordinary failure, not the refusal of a pair with none", "[reprocheck][behaviour]") {
+    const Fixture f(
+        "a file onlya.o 644 x\n"
+        "* file readme.txt 644 text\n");
+    const Result r = f.run();
+    CHECK(r.code == 1);
+    CHECK(r.out == f.head() + "\n0 artefacts compared\n");
+    CHECK(r.err == "  ONLY IN A  onlya.o\n" + verdict(0, 1));
 }
 
 TEST_CASE("run_on: differences, then ONLY IN A, then ONLY IN B, each in the order of the Python's sorted strings -- bytes, not path components", "[reprocheck][behaviour]") {
@@ -528,8 +560,7 @@ TEST_CASE("run_on: differences, then ONLY IN A, then ONLY IN B, each in the orde
     };
     CHECK(r.err ==
           same_size("B.o", "qa", "qb") + same_size("a-b/x.o", "a", "b") + same_size("a.o", "aa", "bb") + same_size("c.o", path_a, path_b) + kSizesNote +
-              "  ONLY IN A  Z0.o\n  ONLY IN A  z1.o\n  ONLY IN B  Y0.o\n  ONLY IN B  y1.o\n"
-              "\nNOT REPRODUCIBLE: 4 artefact(s) differ between two builds of identical source.\n");
+              "  ONLY IN A  Z0.o\n  ONLY IN A  z1.o\n  ONLY IN B  Y0.o\n  ONLY IN B  y1.o\n" + verdict(4, 4));
 }
 
 TEST_CASE("run_on: a difference in the last byte of a file of three megabytes is found -- the hash is of the whole file", "[reprocheck][behaviour]") {
@@ -540,8 +571,7 @@ TEST_CASE("run_on: a difference in the last byte of a file of three megabytes is
     CHECK(r.out == f.head() + "\n1 artefacts compared\n");
     const std::string size = std::to_string(body.size() + 1);
     CHECK(r.err ==
-          "  DIFFERS  big.o\n    A " + sha(body + "a") + "  " + size + " bytes\n    B " + sha(body + "b") + "  " + size + " bytes\n"
-          "\nNOT REPRODUCIBLE: 1 artefact(s) differ between two builds of identical source.\n");
+          "  DIFFERS  big.o\n    A " + sha(body + "a") + "  " + size + " bytes\n    B " + sha(body + "b") + "  " + size + " bytes\n" + verdict(1, 0));
 }
 
 TEST_CASE("run_on: a link is an artefact by its own name and is hashed by what it leads to", "[reprocheck][behaviour]") {
@@ -553,18 +583,31 @@ TEST_CASE("run_on: a link is an artefact by its own name and is hashed by what i
     CHECK(r.code == 1);
     CHECK(r.out == f.head() + "\n2 artefacts compared\n");
     CHECK(r.err ==
-          "  DIFFERS  alias.o\n    A " + sha("target-a") + "  8 bytes\n    B " + sha("target-b") + "  8 bytes\n"
-          "\nNOT REPRODUCIBLE: 1 artefact(s) differ between two builds of identical source.\n");
+          "  DIFFERS  alias.o\n    A " + sha("target-a") + "  8 bytes\n    B " + sha("target-b") + "  8 bytes\n" + verdict(1, 0));
 }
 
-TEST_CASE("run_on: no artefact at all is \"0 artefacts compared\" and ok, as the Python had it", "[reprocheck][behaviour]") {
+TEST_CASE("run_on: a pair of builds with no artefact in either is refused -- success over nothing read is the failure the check exists against", "[reprocheck][behaviour]") {
     const Fixture f(
         "* file readme.txt 644 text\n"
         "* file CMakeFiles/exe 755 hidden\n");
     const Result r = f.run();
-    CHECK(r.code == 0);
-    CHECK(r.out == f.head() + "\n0 artefacts compared\nok       all 0 artefacts byte-identical across two build paths\n");
-    CHECK(r.err.empty());
+    CHECK(r.code == 2);
+    CHECK(r.out == f.head());   // the three opening lines: no "compared" line, no "ok"
+    CHECK(r.err == "reprocheck: no artefacts found in either build: nothing compared\n");
+    // the trees are removed as they are after any run that reached the comparison
+    CHECK_FALSE(fs::exists(f.dir_a()));
+    CHECK_FALSE(fs::exists(f.dir_b()));
+    // and --keep keeps them
+    const Result kept = f.run({"--keep"});
+    CHECK(kept.code == 2);
+    CHECK(kept.err == "reprocheck: no artefacts found in either build: nothing compared\n");
+    CHECK(fs::exists(f.dir_a() / "readme.txt"));
+    CHECK(fs::exists(f.dir_b() / "readme.txt"));
+    // a recipe of nothing at all is the same
+    const Fixture g("");
+    const Result s = g.run();
+    CHECK(s.code == 2);
+    CHECK(s.err == "reprocheck: no artefacts found in either build: nothing compared\n");
 }
 
 TEST_CASE("run_on: a build that fails -- exit 3, the command, what cmake said; nothing is cleaned up and the second tree is not built after the first fails", "[reprocheck][behaviour]") {
@@ -629,7 +672,7 @@ TEST_CASE("run_on: a build directory that cannot be removed is no refusal -- the
     const Result r = f.run();
     CHECK(r.code == 1);
     CHECK(r.out == f.head() + "\n3 artefacts compared\n");
-    CHECK(r.err == "  ONLY IN A  ro/stale.o\n\nNOT REPRODUCIBLE: 0 artefact(s) differ between two builds of identical source.\n");
+    CHECK(r.err == "  ONLY IN A  ro/stale.o\n" + verdict(0, 1));
     const std::vector<Call> calls = f.calls();
     REQUIRE(calls.size() == 4);
     CHECK(calls.at(0).existed == "yes");   // the part that could not be removed is still there when cmake is called
@@ -644,15 +687,32 @@ TEST_CASE("run_on: an empty --root is refused -- it would be the current directo
         const Result r = f.run(args);
         CHECK(r.code == 2);
         CHECK(r.out.empty());
-        CHECK(r.err == "usage: reprocheck [-h] [--root ROOT] [--build-dir BUILD_DIR] [--keep]\nreprocheck: error: argument --root: the path is empty\n");
+        CHECK(r.err == std::string(kUsage) + "reprocheck: error: argument --root: the path is empty\n");
     }
     CHECK(f.calls().empty());
-    // an empty --build-dir, which is ignored, is not an error
-    CHECK(f.run({"--build-dir="}).code == 0);
 }
 
-TEST_CASE("run_on: the command line -- -h whole, the refusals, --root in both forms, --build-dir ignored, --keep", "[reprocheck][behaviour]") {
-    const char usage[] = "usage: reprocheck [-h] [--root ROOT] [--build-dir BUILD_DIR] [--keep]\n";
+TEST_CASE("run_on: --build-dir is refused by name, in every form, before anything is built -- an option accepted and silently ignored is a silent fallback", "[reprocheck][behaviour]") {
+    const Fixture f(kAgreeing);
+    for (const std::vector<std::string>& args : std::vector<std::vector<std::string>>{{"--build-dir"},
+                                                                                       {"--build-dir", "somewhere"},
+                                                                                       {"--build-dir=somewhere"},
+                                                                                       {"--build-dir="},
+                                                                                       {"--build-dir", ""},
+                                                                                       {"--keep", "--build-dir", "--keep"},
+                                                                                       {"--root", f.root.string(), "--build-dir", f.root.string()},
+                                                                                       {"--build-dir", "x", "--bogus"}}) {
+        INFO("arguments: " << args.front() << (args.size() > 1 ? " ..." : ""));
+        const Result r = f.run(args);
+        CHECK(r.code == 2);
+        CHECK(r.out.empty());
+        CHECK(r.err == std::string(kUsage) + "reprocheck: error: " + kBuildDirNotUsed + "\n");   // the first fault met is the one said
+    }
+    CHECK(f.calls().empty());   // not one of them built anything
+}
+
+TEST_CASE("run_on: the command line -- -h whole, the refusals, --root in both forms, --keep", "[reprocheck][behaviour]") {
+    const char* const usage = kUsage;
     // What `-h` prints after the usage line: the port's own text, RECORDED here whole so that every word of it is pinned.
     const char help[] =
         "\n"
@@ -661,12 +721,12 @@ TEST_CASE("run_on: the command line -- -h whole, the refusals, --root in both fo
         "with no suffix whose path has no component named CMakeFiles.  The lengths differ so that a leaked path changes an artefact's size as well as its bytes.\n"
         "\n"
         "options:\n"
-        "  -h, --help             show this help and exit\n"
-        "  --root ROOT            the tree to build twice (default: the tree this tool was built from)\n"
-        "  --build-dir BUILD_DIR  ignored; present so ci.sh can pass one uniformly\n"
-        "  --keep                 do not delete the two build trees\n"
+        "  -h, --help   show this help and exit\n"
+        "  --root ROOT  the tree to build twice (default: the tree this tool was built from)\n"
+        "  --keep       do not delete the two build trees\n"
         "\n"
-        "exit codes: 0 reproducible   1 artefacts differ   3 a build failed   2 an argument error, or cmake cannot be run, or an artefact cannot be read   70 an error the tool did not anticipate\n";
+        "exit codes: 0 reproducible   1 artefacts differ   3 a build failed   2 an argument error, or cmake cannot be run, or an artefact cannot be read, or no artefact was found in either build   70 an error the tool\n"
+        "            did not anticipate\n";
     const Fixture f(kAgreeing);
     for (const char* flag : {"-h", "--help"}) {
         const Result r = f.run({flag});
@@ -694,18 +754,15 @@ TEST_CASE("run_on: the command line -- -h whole, the refusals, --root in both fo
     refused({"--root"}, "argument --root: expected one argument");
     refused({"--root", "--keep"}, "argument --root: expected one argument");
     refused({"--root", "---x"}, "argument --root: expected one argument");   // anything that begins with two hyphens is taken for the next option, three included
-    refused({"--build-dir"}, "argument --build-dir: expected one argument");
-    refused({"--keep", "--build-dir", "--keep"}, "argument --build-dir: expected one argument");
+    refused({"--build-dir"}, kBuildDirNotUsed);   // (the whole of its cases is the one above)
     CHECK(f.calls().empty());   // not one of them built anything
 
-    // --root in both forms; --build-dir in both, ignored; --keep; in any order
+    // --root in both forms; --keep; in any order
     const Fixture g(kAgreeing);
     rc::Settings elsewhere;
     elsewhere.root = g.base / "nowhere";   // the settings' root is replaced by --root
     for (const std::vector<std::string>& args : std::vector<std::vector<std::string>>{{"--root", g.root.string()},
                                                                                        {"--root=" + g.root.string()},
-                                                                                       {"--build-dir", "ignored", "--root", g.root.string()},
-                                                                                       {"--build-dir=ignored", "--root=" + g.root.string()},
                                                                                        {"--keep", "--root", g.root.string(), "--keep"}}) {
         INFO("arguments: " << args.front());
         const Result r = run_with(elsewhere, args);
@@ -779,7 +836,7 @@ TEST_CASE("run: the default settings are the tree the tool was built from", "[re
     std::ostringstream err;
     CHECK(rc::run({"--bogus"}, Streams{out, err}) == 2);
     CHECK(out.str().empty());
-    CHECK(err.str() == "usage: reprocheck [-h] [--root ROOT] [--build-dir BUILD_DIR] [--keep]\nreprocheck: error: unrecognized arguments: --bogus\n");
+    CHECK(err.str() == std::string(kUsage) + "reprocheck: error: unrecognized arguments: --bogus\n");
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- the real thing
@@ -824,7 +881,7 @@ TEST_CASE("real cmake, Ninja and the compiler: the build directory's path compil
     CHECK(r.err.find("DIFFERS  libtinylib.a") == std::string::npos);
     CHECK(r.err.find("DIFFERS  CMakeFiles/tinylib.dir/lib.cpp.o") == std::string::npos);
     CHECK(r.err.find("ONLY IN") == std::string::npos);
-    CHECK(r.err.find("\nNOT REPRODUCIBLE: 2 artefact(s) differ between two builds of identical source.\n") != std::string::npos);
+    CHECK(r.err.find(verdict(2, 0)) != std::string::npos);
     CHECK(r.out.find("ok       all") == std::string::npos);
     // the note appears for exactly those blocks whose two sizes differ: cut the report into its DIFFERS blocks and read each block's sizes by hand
     const std::size_t verdict_at = r.err.find("\nNOT REPRODUCIBLE");
@@ -847,4 +904,27 @@ TEST_CASE("real cmake, Ninja and the compiler: the build directory's path compil
         const bool sizes_differ = bytes_on("\n    A ") != bytes_on("\n    B ");
         CHECK((block.find(kSizesNote) != std::string::npos) == sizes_differ);
     }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- the tree's own gate
+
+TEST_CASE("the real tree: ci.sh runs gate 13 as the tool with no option -- --build-dir is refused, so a call that still passed it would fail the gate", "[reprocheck][real_tree]") {
+    const std::string ci = read_text(fs::path(ODL_TREE_ROOT) / "tools" / "ci.sh");
+    const std::string gate = "gate \"build is reproducible\"\n";
+    const std::size_t at = ci.find(gate);
+    REQUIRE(at != std::string::npos);
+    CHECK(ci.find(gate, at + 1) == std::string::npos);   // one gate of that name
+    const std::size_t call_ends = ci.find('\n', at + gate.size());
+    REQUIRE(call_ends != std::string::npos);
+    CHECK(ci.substr(at + gate.size(), call_ends - (at + gate.size())) == "\"$BUILD/tools/reprocheck\"");   // the line after the gate's title is the call, and it names no option
+    // and it is the only line of ci.sh that is not a comment and names the tool
+    std::istringstream lines(ci);
+    std::string line;
+    std::size_t calls = 0;
+    while (std::getline(lines, line)) {
+        const std::size_t first = line.find_first_not_of(" \t");
+        if (first != std::string::npos && line.at(first) == '#') continue;
+        if (line.find("reprocheck") != std::string::npos) ++calls;
+    }
+    CHECK(calls == 1);
 }

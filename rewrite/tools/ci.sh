@@ -121,11 +121,10 @@ gate "no build input can reach a literature entry (plan §5 constraint 3)"
 gate "every factor of a thousand is accounted for (SPEC-dynamics DYN-R-040)"
 "$BUILD/tools/unitcheck" --quiet
 
-# Gate 13 (the build is reproducible: two builds into different directories give the same artefacts) was tools/reprocheck.py, a Python tool, and nothing in this build runs Python
-# (the user's decision of 2026-10-08, "Stop CI's Python now"; PROVENANCE.md section 41.17).  It was OFF from then until its C++ replacement, tools/reprocheck.cpp (group C11, PROVENANCE.md
-# section 41.23), which is the executable the build above has just made.  --build-dir is accepted and ignored, as the Python's was.
+# Gate 13: the build is reproducible -- two builds into different directories give the same artefacts.  tools/reprocheck.cpp (group C11, PROVENANCE.md section 41.23) is the executable the build above has just
+# made; it builds the tree it was built from, twice, into build-repro-a and build-repro-bbbbbbbb below it, and takes no option here (it REFUSES --build-dir, which an earlier version accepted and ignored).
 gate "build is reproducible"
-"$BUILD/tools/reprocheck" --build-dir "$BUILD"
+"$BUILD/tools/reprocheck"
 
 printf '\n== %d of 13 gates passed ==\n' "$step"
 if [ -n "$LIT_ARG" ]; then

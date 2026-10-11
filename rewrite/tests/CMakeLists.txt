@@ -379,6 +379,8 @@ add_test(NAME reprocheck.behaviour
   COMMAND odl_devtools_tests "[reprocheck][behaviour]")
 add_test(NAME reprocheck.real_cmake
   COMMAND odl_devtools_tests "[reprocheck][real_cmake]")
+add_test(NAME reprocheck.real_tree
+  COMMAND odl_devtools_tests "[reprocheck][real_tree]")
 add_test(NAME reprocheck.help_exits_zero
   COMMAND reprocheck --help)
 add_test(NAME reprocheck.help_text
