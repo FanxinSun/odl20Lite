@@ -372,3 +372,21 @@ add_test(NAME msis_reference.behaviour
   COMMAND odl_devtools_tests "[msis_reference][behaviour]")
 add_test(NAME msis_reference.real_tree
   COMMAND odl_devtools_tests "[msis_reference][real_tree]")
+
+# reprocheck (group C11): the reproducibility check, ci.sh's gate 13 (tools/reprocheck.cpp).  `reprocheck.behaviour` runs the tool in-process against a stand-in cmake; `reprocheck.real_cmake` builds a tiny project twice
+# with the real cmake, Ninja and compiler (a few seconds each), once clean and once with the build directory's path compiled in.  No ctest builds THIS tree twice: that is gate 13 itself, in ci.sh.
+add_test(NAME reprocheck.behaviour
+  COMMAND odl_devtools_tests "[reprocheck][behaviour]")
+add_test(NAME reprocheck.real_cmake
+  COMMAND odl_devtools_tests "[reprocheck][real_cmake]")
+add_test(NAME reprocheck.help_exits_zero
+  COMMAND reprocheck --help)
+add_test(NAME reprocheck.help_text
+  COMMAND reprocheck -h)
+set_tests_properties(reprocheck.help_text PROPERTIES PASS_REGULAR_EXPRESSION "usage: reprocheck \\[-h\\]")
+add_test(NAME reprocheck.refuses_an_argument
+  COMMAND reprocheck --bogus)
+set_tests_properties(reprocheck.refuses_an_argument PROPERTIES WILL_FAIL TRUE)
+add_test(NAME reprocheck.refusal_text
+  COMMAND reprocheck --bogus)
+set_tests_properties(reprocheck.refusal_text PROPERTIES PASS_REGULAR_EXPRESSION "reprocheck: error: unrecognized arguments: --bogus")

@@ -38,9 +38,10 @@
 #   SOURCE_DATE_EPOCH
 #       honoured by GCC where a date is genuinely unavoidable.  ci.sh pins it.
 #
-# tools/reprocheck.py proves the result by building twice into directories of
-# DIFFERENT NAME LENGTHS and comparing artefact hashes — different lengths
-# because an equal-length path can hide a leak that a differing one exposes.
+# tools/reprocheck (C++ since group C11; it was tools/reprocheck.py) proves the
+# result by building twice into directories of DIFFERENT NAME LENGTHS and
+# comparing artefact hashes — different lengths because an equal-length path
+# can hide a leak that a differing one exposes.
 
 include_guard(GLOBAL)
 
@@ -59,7 +60,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   # Applied to this tree's own code only.  Third-party sources fetched by the
   # manifest are compiled as they come; policing their macro use is not this
   # tree's business, and a dependency that used __DATE__ would show up in
-  # reprocheck.py as a differing artefact, which is the check that matters.
+  # reprocheck as a differing artefact, which is the check that matters.
   target_compile_options(odl_warnings INTERFACE -Werror=date-time)
 
   set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> qcD <TARGET> <LINK_FLAGS> <OBJECTS>")

@@ -34,7 +34,8 @@ jobs:
       - uses: actions/checkout@v4
 
       # No Python: this workflow installs none and runs none (the user's decision of 2026-10-08, "Stop CI's Python now"; PROVENANCE.md section 41.17).  Nothing in the build, the tests or the
-      # gates uses the runner's own interpreter; a check that only Python could make is OFF until its C++ replacement lands, and tools/ci.sh says which in its last line.
+      # gates uses the runner's own interpreter.  A check that only Python could make was OFF until its C++ replacement landed, and tools/ci.sh said which in its last line: gate 13, the
+      # reproducible build, is C++ since group C11 (tools/reprocheck.cpp) and builds the tree twice on the runner; the last line says "13 of 13 gates passed" when all of them ran.
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y ninja-build g++-13 cmake

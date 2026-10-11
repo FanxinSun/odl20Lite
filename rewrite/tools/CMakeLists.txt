@@ -176,6 +176,18 @@ foreach(gen msis_coefficients tides_from_conventions msis_reference penumbral_ca
   endif()
 endforeach()
 
+# The reproducibility check of group C11 (plan L0 step 8; tools/reprocheck.cpp): ci.sh's gate 13, which was tools/reprocheck.py and has been OFF since 2026-10-08 (PROVENANCE.md section 41.17).  It builds this tree
+# twice with cmake and Ninja, into directories of different name lengths, and compares the SHA-256 of every artefact.  An executable (ci.sh runs it) and an object library with its main left out, which the tests
+# call in-process against a stand-in `cmake` and, for two cases, the real one on a tiny project.  The executable is itself an artefact of the builds it compares: it holds the tree's path (ODL_TREE_ROOT, the
+# same for both) and nothing of a build directory.
+add_library(odl_tool_reprocheck OBJECT reprocheck.cpp)
+target_compile_definitions(odl_tool_reprocheck PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_include_directories(odl_tool_reprocheck PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(odl_tool_reprocheck PUBLIC odl_devkit PRIVATE odl_warnings)
+add_executable(reprocheck reprocheck.cpp)
+target_compile_definitions(reprocheck PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
+target_link_libraries(reprocheck PRIVATE odl_devkit odl_warnings)
+
 foreach(check one_secular_pole configure_is_current)
   add_library(odl_tool_${check} OBJECT ${CMAKE_SOURCE_DIR}/tests/devtools/${check}.cpp)
   target_compile_definitions(odl_tool_${check} PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")
@@ -205,7 +217,8 @@ if(BUILD_TESTING)
     ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_reference_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/measmod_fd_sizing_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/estimation_sizing_tests.cpp
     ${CMAKE_SOURCE_DIR}/tests/devtools/penumbral_cancellation_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_coefficients_tests.cpp
-    ${CMAKE_SOURCE_DIR}/tests/devtools/tides_from_conventions_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_reference_tests.cpp)
+    ${CMAKE_SOURCE_DIR}/tests/devtools/tides_from_conventions_tests.cpp ${CMAKE_SOURCE_DIR}/tests/devtools/msis_reference_tests.cpp
+    ${CMAKE_SOURCE_DIR}/tests/devtools/reprocheck_tests.cpp)
   target_include_directories(odl_devtools_tests PRIVATE devkit/tests)
   # measmod_fd_sizing_tests.cpp writes the Python's scans out again and requires the SAME DOUBLES as the tool (compiled without fused multiply-add above): no multiplication contracted there either
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -221,11 +234,11 @@ if(BUILD_TESTING)
   target_link_libraries(odl_devtools_tests PRIVATE odl_tool_fetch odl_tool_gfz_derive odl_tool_notice odl_tool_speccheck odl_tool_budgetcheck odl_tool_constraint8 odl_tool_literaturecheck odl_tool_unitcheck odl_tool_rk_coefficients
     odl_tool_gradient_reference odl_tool_forcemodel_fd_sizing odl_tool_forcemodel_comparator_header odl_tool_legendre_reference
     odl_tool_measmod_reference odl_tool_measmod_fd_sizing odl_tool_measmod_registry_facts odl_tool_measmod_g5_select odl_tool_measmod_height_sensitivity odl_tool_estimation_sizing odl_tool_penumbral_cancellation odl_tool_msis_coefficients odl_tool_tides_from_conventions odl_tool_msis_reference
-    odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
+    odl_tool_reprocheck odl_tool_one_secular_pole odl_tool_configure_is_current odl_devkit Catch2::Catch2WithMain odl_warnings)
 
   # The fetcher's download path is tested against a stand-in `curl` (tests/devtools/fake_curl.cpp), built under that name into `fakebin/` beside the
   # test executable, which the tests find at run time and put first on PATH: no test of this tree touches the network.  (Its place is NOT a compile
-  # definition: a build directory's path in an executable would make two builds differ, and tools/reprocheck.py compares them.)
+  # definition: a build directory's path in an executable would make two builds differ, and tools/reprocheck.cpp compares them.)
   add_executable(odl_fake_curl ${CMAKE_SOURCE_DIR}/tests/devtools/fake_curl.cpp)
   set_target_properties(odl_fake_curl PROPERTIES OUTPUT_NAME curl RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
   target_link_libraries(odl_fake_curl PRIVATE odl_warnings)
@@ -248,6 +261,13 @@ if(BUILD_TESTING)
   set_target_properties(odl_fake_reference PROPERTIES OUTPUT_NAME odl_fake_reference RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
   target_link_libraries(odl_fake_reference PRIVATE odl_warnings)
   add_dependencies(odl_devtools_tests odl_fake_gfortran odl_fake_reference)
+
+  # The reproducibility check runs `cmake` twice per build directory.  Its tests put a stand-in (tests/devtools/fake_cmake.cpp) on the tool's PATH, built under that name into `fakebin/` beside the test
+  # executable and copied by the tests into a directory of their own: it "builds" the artefacts a recipe lists.  Two cases use the real cmake, Ninja and compiler on a tiny project, and put nothing first on PATH.
+  add_executable(odl_fake_cmake ${CMAKE_SOURCE_DIR}/tests/devtools/fake_cmake.cpp)
+  set_target_properties(odl_fake_cmake PROPERTIES OUTPUT_NAME cmake RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fakebin)
+  target_link_libraries(odl_fake_cmake PRIVATE odl_warnings)
+  add_dependencies(odl_devtools_tests odl_fake_cmake)
   catch_discover_tests(odl_devtools_tests TEST_SPEC "[devkit]" TEST_PREFIX "devkit: " EXTRA_ARGS --warn NoAssertions)
 endif()
 

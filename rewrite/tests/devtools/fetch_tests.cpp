@@ -150,7 +150,7 @@ private:
 };
 
 // Where the stand-in `curl` is: `fakebin/` beside this executable (tools/CMakeLists.txt builds it there).  Found at RUN time and not compiled in: a
-// build directory's path inside the executable would make the build differ between two build paths (tools/reprocheck.py compares them).
+// build directory's path inside the executable would make the build differ between two build paths (tools/reprocheck compares them).
 std::string fake_curl_dir() { return (fs::canonical("/proc/self/exe").parent_path() / "fakebin").string(); }
 
 // The stand-in `curl` (tests/devtools/fake_curl.cpp, built as `curl`) first on PATH; `calls()` is every argument list it was given.

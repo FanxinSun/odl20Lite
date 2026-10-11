@@ -61,7 +61,7 @@ endforeach()
 # Literature is checked with everything else, EXCEPT under `tools/ci.sh --skip-literature`, which is GitHub's workflow and nothing else: a literature
 # entry is a provenance record that no build input and no test reads (plan §5 constraint 3, a checked property), and several of its hosts refuse GitHub's
 # runners (PROVENANCE.md section 41.7).  The one switch is ci.sh's; it reaches every configure and every ctest verify that ci.sh runs, the two inside
-# tools/reprocheck.py included, through the ONE environment variable only ci.sh sets, ODL_SKIP_LITERATURE=1 (ci.sh unsets it otherwise, so a stray value in
+# tools/reprocheck included, through the ONE environment variable only ci.sh sets, ODL_SKIP_LITERATURE=1 (ci.sh unsets it otherwise, so a stray value in
 # a shell cannot weaken a default run).  It is read here, on every configure, and not cached: a build directory configured under the flag does not keep it.
 # ODL_VERIFY_ARGS is what the configure's verify below and the ctest `manifest.verify_offline` (tests/CMakeLists.txt) both pass to `fetch verify`.
 set(ODL_VERIFY_ARGS "")
@@ -127,6 +127,11 @@ set(ENABLE_FORTRAN    OFF CACHE BOOL "" FORCE)
 set(ENABLE_PYTHON     OFF CACHE BOOL "" FORCE)
 set(ENABLE_MEX_OCTAVE OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+# Switched off is not enough: CALCEPH must not even ASK for a Fortran compiler.  Its CMakeLists.txt (4.0.5) calls check_language(Fortran) at line 81, BEFORE it reads ENABLE_FORTRAN, so with a gfortran,
+# an f95 or any Fortran compiler on PATH a configure of this tree had CMake run it a dozen times to identify it, and then discarded the answer.  check_language is skipped when CMAKE_Fortran_COMPILER is
+# already defined, and NOTFOUND is what the probe itself answers when there is no compiler (CALCEPH's own `if(CMAKE_Fortran_COMPILER)` is then false, as it was): so it is defined so, FORCEd so that a
+# build directory configured before this line, whose cache holds the compiler the old probe found, answers the same.  This tree builds no Fortran (PROVENANCE.md section 41.23).
+set(CMAKE_Fortran_COMPILER NOTFOUND CACHE FILEPATH "No Fortran compiler: this tree builds none (CALCEPH's Fortran API is off)" FORCE)
 FetchContent_MakeAvailable(calceph)
 odl_verify_populated(calceph)
 
