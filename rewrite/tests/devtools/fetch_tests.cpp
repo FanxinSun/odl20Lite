@@ -1728,3 +1728,34 @@ TEST_CASE("mirror_url: the explanation of a refusal is printed whole, and a mirr
     CHECK(f.code == kOk);
     CHECK_FALSE(contains(f.out, "served by"));
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- guards without a test before C12
+// Found by rule 5 on the lines beside the mirror change (C12_rule5_fetch/): two guards of the fetcher that no case reached.  Scratch trees only; the real cache is never touched.
+
+TEST_CASE("fetch --refresh on an entry that is NOT cached: a hash that disagrees is a HASH MISMATCH, not upstream drift -- there is no cached copy to leave untouched", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "the pinned bytes\n";
+    write_text(root / "other.bin", "what upstream serves today\n");
+    FakeCurl curl(root);
+    curl.deliver(root / "other.bin");
+    const fs::path m = write_manifest(root, {data_entry("thing", "thing.bin", sha256_hex(as_bytes(pinned)))});
+    const Result r = run(root, m, {"fetch", "--refresh"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "HASH MISMATCH"));
+    CHECK_FALSE(contains(r.err, "UPSTREAM DRIFT"));
+    CHECK_FALSE(contains(r.err, "The cached copy is untouched"));
+    CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin"));
+    CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin.part"));
+}
+
+TEST_CASE("a literature entry with an empty terms record never reaches check-licences: the loader refuses it first, so the gate's own refusal of it is a second line of defence", "[fetcher]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const Json empty_terms = object({{"id", Json("paper")}, {"kind", Json("literature")}, {"terms", Json("")}, {"url", Json("https://example.invalid/paper.pdf")},
+                                     {"filename", Json("paper.pdf")}, {"sha256", Json(std::string(64, 'b'))}});
+    const Result r = run(root, write_manifest(root, {empty_terms}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "entry 0: missing required field 'terms'"));
+    CHECK_FALSE(contains(r.err, "LITERATURE ENTRY WITHOUT A TERMS RECORD"));   // the gate's own text is behind the loader's check: no input reaches it
+}
