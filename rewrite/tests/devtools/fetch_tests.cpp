@@ -162,9 +162,13 @@ struct FakeCurl {
         const char* path = std::getenv("PATH");
         env.set("PATH", fake_curl_dir() + ":" + (path != nullptr ? path : ""));
         env.set("ODL_FAKE_CURL_LOG", log.string());
-        for (const char* steering : {"ODL_FAKE_CURL_BODY", "ODL_FAKE_CURL_EXIT", "ODL_FAKE_CURL_STDERR", "ODL_FAKE_CURL_ONLY_URL"}) env.unset(steering);
+        for (const char* steering : {"ODL_FAKE_CURL_BODY", "ODL_FAKE_CURL_EXIT", "ODL_FAKE_CURL_STDERR", "ODL_FAKE_CURL_ONLY_URL", "ODL_FAKE_CURL_BODY_FOR", "ODL_FAKE_CURL_BODY_FOR_URL"}) env.unset(steering);
     }
     void deliver(const fs::path& body) { env.set("ODL_FAKE_CURL_BODY", body.string()); }
+    void deliver_for(const std::string& url_part, const fs::path& body) {   // a URL containing `url_part` is served `body` instead
+        env.set("ODL_FAKE_CURL_BODY_FOR", body.string());
+        env.set("ODL_FAKE_CURL_BODY_FOR_URL", url_part);
+    }
     void fail(int status, const std::string& message) {
         env.set("ODL_FAKE_CURL_EXIT", std::to_string(status));
         env.set("ODL_FAKE_CURL_STDERR", message);
@@ -1548,4 +1552,155 @@ TEST_CASE("an archive entry that vendors its members must say what it vendors, o
     const Result plain = run(root, write_manifest(root, {with(entry, "vendored_members", Json(false))}), {"verify"});
     CHECK(plain.code == kMissing);
     CHECK(contains(plain.err, "vendored/bundle/bundle.zip"));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- mirror_url
+// The maintainer's ruling of 2026-10-31 (C12): an entry may name ONE dated copy of its file on a third-party host, tried only when the origin's TRANSPORT failed; the pin judges either source's bytes; a hash that
+// disagrees at the origin is never answered by the mirror.  All on a scratch tree with the stand-in curl; the real cache is never touched.
+
+namespace {
+
+Json mirrored_entry(const std::string& digest) {
+    Json e = with(data_entry("thing", "thing.bin", digest), "mirror_url", Json("https://mirror.invalid/web/20241231111627id_/thing.bin"));
+    return with(e, "mirror_note", Json("The Internet Archive's capture of 2024-12-31, a copy of the origin's file and no new source."));
+}
+
+}  // namespace
+
+TEST_CASE("mirror_url: the origin serves -- the mirror is never called, and the log says the origin served", "[fetcher][mirror]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string good = "the pinned bytes\n";
+    write_text(root / "good.bin", good);
+    FakeCurl curl(root);
+    curl.deliver(root / "good.bin");
+    const fs::path m = write_manifest(root, {mirrored_entry(sha256_hex(as_bytes(good)))});
+    const Result r = run(root, m, {"fetch"});
+    REQUIRE(r.code == kOk);
+    CHECK(contains(r.out, "(served by the origin)"));
+    CHECK_FALSE(contains(r.out, "mirror.invalid"));
+    CHECK(read_text(root / "cache" / "thing" / "thing.bin") == good);
+    REQUIRE(curl.calls().size() == 1);
+    CHECK(curl.calls()[0].back() == "https://example.invalid/thing.bin");
+}
+
+TEST_CASE("mirror_url: the origin's transport fails -- the mirror serves, through the same pin, and the log names both", "[fetcher][mirror]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string good = "the pinned bytes\n";
+    write_text(root / "good.bin", good);
+    FakeCurl curl(root);
+    curl.deliver(root / "good.bin");
+    curl.fail_only("example.invalid", 35, "curl: (35) TLS connect error");
+    const fs::path m = write_manifest(root, {mirrored_entry(sha256_hex(as_bytes(good)))});
+    const Result r = run(root, m, {"fetch"});
+    REQUIRE(r.code == kOk);
+    CHECK(contains(r.out, "origin   thing"));
+    CHECK(contains(r.out, "failed: download failed for https://example.invalid/thing.bin: curl exited 35: curl: (35) TLS connect error"));
+    CHECK(contains(r.out, "mirror   thing"));
+    CHECK(contains(r.out, "(served by the MIRROR https://mirror.invalid/web/20241231111627id_/thing.bin)"));
+    CHECK(read_text(root / "cache" / "thing" / "thing.bin") == good);
+    REQUIRE(curl.calls().size() == 2);
+    CHECK(curl.calls()[0].back() == "https://example.invalid/thing.bin");
+    CHECK(curl.calls()[1].back() == "https://mirror.invalid/web/20241231111627id_/thing.bin");
+    CHECK(run(root, m, {"verify"}).code == kOk);
+}
+
+TEST_CASE("mirror_url: a mirror that serves the wrong bytes is refused by the pin, and nothing is left", "[fetcher][mirror]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "the pinned bytes\n";
+    const std::string wrong = "something else\n";
+    write_text(root / "wrong.bin", wrong);
+    FakeCurl curl(root);
+    curl.deliver(root / "wrong.bin");
+    curl.fail_only("example.invalid", 35, "curl: (35) TLS connect error");
+    const fs::path m = write_manifest(root, {mirrored_entry(sha256_hex(as_bytes(pinned)))});
+    const Result r = run(root, m, {"fetch"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "HASH MISMATCH"));
+    CHECK(contains(r.err, "https://mirror.invalid/web/20241231111627id_/thing.bin (download discarded)"));
+    CHECK(contains(r.err, sha256_hex(as_bytes(wrong))));
+    CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin"));
+    CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin.part"));
+}
+
+TEST_CASE("mirror_url: a hash mismatch at the ORIGIN is a refusal and never falls through to the mirror", "[fetcher][mirror]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "the pinned bytes\n";
+    write_text(root / "good.bin", pinned);
+    write_text(root / "page.bin", "what the origin serves today\n");
+    FakeCurl curl(root);
+    curl.deliver(root / "page.bin");                          // the origin answers, with other bytes ...
+    curl.deliver_for("mirror.invalid", root / "good.bin");    // ... and the mirror would have the right ones
+    const fs::path m = write_manifest(root, {mirrored_entry(sha256_hex(as_bytes(pinned)))});
+    const Result r = run(root, m, {"fetch"});
+    CHECK(r.code == kMismatch);
+    CHECK(contains(r.err, "HASH MISMATCH"));
+    CHECK(contains(r.err, "https://example.invalid/thing.bin (download discarded)"));
+    CHECK_FALSE(fs::exists(root / "cache" / "thing" / "thing.bin"));
+    REQUIRE(curl.calls().size() == 1);                        // the mirror was NOT called
+    CHECK(curl.calls()[0].back() == "https://example.invalid/thing.bin");
+    // and an HTML page from the origin is the same: a refusal by the pin's sniff, no mirror
+    write_text(root / "html.bin", "<!DOCTYPE html><html><body>maintenance</body></html>\n");
+    curl.deliver(root / "html.bin");
+    const Result h = run(root, m, {"fetch"});
+    CHECK(h.code == kMalformed);
+    CHECK(contains(h.err, "returned an HTML document"));
+    CHECK(curl.calls().size() == 2);                          // one more call, the origin's; still no mirror
+}
+
+TEST_CASE("mirror_url: both sources down -- one network failure that says both errors; an entry with no mirror says what it always said", "[fetcher][mirror]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string pinned = "the pinned bytes\n";
+    FakeCurl curl(root);
+    curl.fail(35, "curl: (35) TLS connect error");
+    const fs::path m = write_manifest(root, {mirrored_entry(sha256_hex(as_bytes(pinned)))});
+    const Result r = run(root, m, {"fetch"});
+    CHECK(r.code == kNetwork);
+    CHECK(contains(r.err, "download failed from both sources -- origin: download failed for https://example.invalid/thing.bin: curl exited 35: curl: (35) TLS connect error"
+                          " -- mirror: download failed for https://mirror.invalid/web/20241231111627id_/thing.bin: curl exited 35: curl: (35) TLS connect error"));
+    CHECK(curl.calls().size() == 2);
+    const fs::path plain = write_manifest(root, {data_entry("thing", "thing.bin", sha256_hex(as_bytes(pinned)))});
+    const Result p = run(root, plain, {"fetch"});
+    CHECK(p.code == kNetwork);
+    CHECK(contains(p.err, "download failed for https://example.invalid/thing.bin: curl exited 35: curl: (35) TLS connect error"));
+    CHECK_FALSE(contains(p.err, "both sources"));
+}
+
+TEST_CASE("check-licences: a mirror needs its note, and a url on web.archive.org needs the publisher's url and its note", "[fetcher][mirror]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string digest = std::string(64, 'a');
+    const Json good = mirrored_entry(digest);
+    CHECK(run(root, write_manifest(root, {good}), {"check-licences"}).code == kOk);
+    // a mirror without its note
+    Json no_note = with(data_entry("thing", "thing.bin", digest), "mirror_url", Json("https://mirror.invalid/x"));
+    Result r = run(root, write_manifest(root, {no_note}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "THIRD-PARTY SOURCE WITHOUT ITS NOTE  thing: mirror_url without a mirror_note"));
+    // an empty note is none
+    r = run(root, write_manifest(root, {with(no_note, "mirror_note", Json(""))}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    // a mirror that is not https, and one that is the origin itself
+    r = run(root, write_manifest(root, {with(good, "mirror_url", Json("http://mirror.invalid/x"))}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "mirror_url is not an https URL"));
+    r = run(root, write_manifest(root, {with(good, "mirror_url", Json("https://example.invalid/thing.bin"))}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "mirror_url is the origin's own url"));
+    // a url on web.archive.org: both the publisher's url and its note
+    const Json archived = with(data_entry("thing", "thing.bin", digest), "url", Json("https://web.archive.org/web/20240917062146id_/https://publisher.invalid/thing.bin"));
+    r = run(root, write_manifest(root, {archived}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    CHECK(contains(r.err, "url on web.archive.org without a publisher_url"));
+    CHECK(contains(r.err, "url on web.archive.org without a publisher_note"));
+    const Json with_url = with(archived, "publisher_url", Json("https://publisher.invalid/thing.bin"));
+    r = run(root, write_manifest(root, {with_url}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    CHECK_FALSE(contains(r.err, "without a publisher_url"));
+    CHECK(contains(r.err, "without a publisher_note"));
+    CHECK(run(root, write_manifest(root, {with(with_url, "publisher_note", Json("The publisher's site was in maintenance on 2026-10-31."))}), {"check-licences"}).code == kOk);
 }

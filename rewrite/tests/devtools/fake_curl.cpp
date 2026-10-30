@@ -7,6 +7,7 @@
 //   ODL_FAKE_CURL_EXIT    the exit status (default 0).  A status other than 0 writes no output file, as `curl --fail` does for an HTTP error
 //   ODL_FAKE_CURL_STDERR  what is written to standard error when the status is not 0
 //   ODL_FAKE_CURL_ONLY_URL  when set, the non-zero status applies only to a URL (the last argument) that contains this text; the others succeed
+//   ODL_FAKE_CURL_BODY_FOR  a file whose bytes are written INSTEAD of ODL_FAKE_CURL_BODY's when the URL (the last argument) contains the text in ODL_FAKE_CURL_BODY_FOR_URL: a second host that serves other bytes
 // It understands no other option and retries nothing: the tests look at the arguments `fetch` chose, not at what curl does with them.
 
 #include <cstdlib>
@@ -34,6 +35,9 @@ int main(int argc, char** argv) {
         return code;
     }
     const char* body = std::getenv("ODL_FAKE_CURL_BODY");
+    const char* body_for = std::getenv("ODL_FAKE_CURL_BODY_FOR");
+    const char* body_for_url = std::getenv("ODL_FAKE_CURL_BODY_FOR_URL");
+    if (body_for != nullptr && body_for_url != nullptr && url.find(body_for_url) != std::string::npos) body = body_for;
     if (body != nullptr && !output.empty()) {
         std::ifstream in(body, std::ios::binary);
         std::ofstream out(output, std::ios::binary | std::ios::trunc);

@@ -594,6 +594,12 @@ namespace {
 //
 // The FIRST block is sniffed before anything is hashed (see `sniff`): an HTML error page hashes perfectly well, and on a first fetch — the one
 // whose hash goes into the manifest — the hash has nothing to disagree with.
+// A download whose TRANSPORT failed: curl could not be run, or it exited non-zero (a refused handshake, a 404, a timeout).  It carries the text `die` would have said.  A hash that disagrees, an HTML
+// page and every other refusal are NOT this: they are the pin speaking, and they are never answered by trying another source (mirror_url, below).
+struct TransportFailure {
+    std::string message;
+};
+
 std::string download(Io& io, const std::string& url, const fs::path& dest, const Json& e) {
     fs::create_directories(dest.parent_path());
     const fs::path part = dest.string() + ".part";
@@ -610,13 +616,13 @@ std::string download(Io& io, const std::string& url, const fs::path& dest, const
         r = dk::run_process(argv);
     } catch (const std::runtime_error& exc) {
         fs::remove(part, ignored);
-        die(io, kNetwork, "download failed for " + url + ": " + exc.what() + " (curl is the one host program `fetch` needs; the manifest declares it)");
+        throw TransportFailure{"download failed for " + url + ": " + exc.what() + " (curl is the one host program `fetch` needs; the manifest declares it)"};
     }
     if (r.exit_code != 0) {
         fs::remove(part, ignored);
         std::string why = r.err;
         while (!why.empty() && (why.back() == '\n' || why.back() == '\r')) why.pop_back();
-        die(io, kNetwork, "download failed for " + url + ": curl exited " + std::to_string(r.exit_code) + (why.empty() ? "" : ": " + why));
+        throw TransportFailure{"download failed for " + url + ": curl exited " + std::to_string(r.exit_code) + (why.empty() ? "" : ": " + why)};
     }
     // The first block (1 MiB, as the Python tool read it) is sniffed; the whole file is then hashed.  A refusal leaves no `.part` behind.
     try {
@@ -631,6 +637,40 @@ std::string download(Io& io, const std::string& url, const fs::path& dest, const
     } catch (const std::runtime_error& exc) {
         fs::remove(part, ignored);
         die(io, kNetwork, "download failed for " + url + ": " + exc.what());
+    }
+}
+
+// ------------------------------------------------------------------------------------------------------------------------ the origin, then the mirror
+
+// The entry's `mirror_url`, if it has one: a dated copy of the origin's file on a third-party host, named so that a clean clone can still be made while the origin refuses us (the maintainer's ruling of
+// 2026-10-31).  It is a COPY and no new source: the same pin and the same member hashes judge it.
+std::string mirror_url_of(const Json& e) {
+    const Json* url = member_of(e, "mirror_url");
+    return url != nullptr && url->is_string() ? url->as_string() : std::string();
+}
+
+struct Downloaded {
+    std::string hash;
+    std::string url;      // the URL that served the bytes
+    bool from_mirror = false;
+};
+
+// The origin first, with curl's own attempts.  ONLY when the origin's TRANSPORT failed is the mirror tried; whatever the origin served -- a wrong hash, an HTML page -- is the pin's answer and is never
+// answered by a second source.  The mirror's bytes come back to the caller like the origin's, to be held against the same pin.  The log says which source served, and a double failure says both errors.
+Downloaded download_entry(Io& io, const Json& e, const fs::path& dest) {
+    const std::string origin = text_of(e, "url");
+    const std::string mirror = mirror_url_of(e);
+    try {
+        return Downloaded{download(io, origin, dest, e), origin, false};
+    } catch (const TransportFailure& first) {
+        if (mirror.empty()) die(io, kNetwork, first.message);
+        io.out << "origin   " << dk::pad_right(str_field(e, "id"), 16) << " failed: " << first.message << '\n'
+               << "mirror   " << dk::pad_right(str_field(e, "id"), 16) << " " << mirror << '\n';
+        try {
+            return Downloaded{download(io, mirror, dest, e), mirror, true};
+        } catch (const TransportFailure& second) {
+            die(io, kNetwork, "download failed from both sources -- origin: " + first.message + " -- mirror: " + second.message);
+        }
     }
 }
 
@@ -1021,7 +1061,8 @@ int fetch_entry(Io& io, const Manifest& m, const Args& args, const Json* e, std:
 
     io.out << "fetching " << dk::pad_right(id, 16) << " " << text_of(*e, "url") << '\n';
     const fs::path part = p.string() + ".part";
-    const std::string got = download(io, text_of(*e, "url"), p, *e);
+    const Downloaded fetched = download_entry(io, *e, p);
+    const std::string& got = fetched.hash;
     std::error_code ignored;
     if (got != want) {
         if (args.refresh && fs::exists(p)) {
@@ -1031,10 +1072,11 @@ int fetch_entry(Io& io, const Manifest& m, const Args& args, const Json* e, std:
             return kMismatch;
         }
         fs::remove(part, ignored);
-        mismatch(io, *e, got, text_of(*e, "url") + " (download discarded)");
+        mismatch(io, *e, got, fetched.url + " (download discarded)");
     }
     fs::rename(part, p);
-    io.out << "ok       " << dk::pad_right(id, 16) << " " << first16(got) << "…\n";
+    io.out << "ok       " << dk::pad_right(id, 16) << " " << first16(got) << "…"
+           << (mirror_url_of(*e).empty() ? std::string() : fetched.from_mirror ? "  (served by the MIRROR " + fetched.url + ")" : std::string("  (served by the origin)")) << '\n';
     for (const auto& [member, how] : extract_members(io, m, *e, args.replace_stale)) {
         io.out << "  member " << dk::pad_right(member, 30) << " " << (how == "cached" ? how : first16(how) + "…") << '\n';
     }
@@ -1286,6 +1328,29 @@ bool has_immutable_snapshot(const Json& e) {
     return url != nullptr && url->is_string() && !url->as_string().empty();
 }
 
+// A third-party source is never silent.  An entry with a `mirror_url` must carry a `mirror_note` (who serves it, the capture's timestamp, why it exists, and that it is a copy of the origin and no new
+// source); an entry whose own `url` is on web.archive.org must carry `publisher_url` (the publisher's path) and a `publisher_note` (why the url points to a capture for now).  The mirror must be https and
+// differ from the origin.  What is wrong is returned, one phrase each, for the gate to print; nothing here judges the bytes -- the pin does.
+std::vector<std::string> third_party_notes_missing(const Json& e) {
+    std::vector<std::string> out;
+    const auto text = [&e](const char* key) {
+        const Json* v = member_of(e, key);
+        return v != nullptr && v->is_string() ? v->as_string() : std::string();
+    };
+    const std::string url = text("url");
+    if (const Json* mirror = member_of(e, "mirror_url")) {
+        const std::string m = mirror->is_string() ? mirror->as_string() : std::string();
+        if (m.rfind("https://", 0) != 0) out.emplace_back("mirror_url is not an https URL");
+        else if (m == url) out.emplace_back("mirror_url is the origin's own url");
+        if (text("mirror_note").empty()) out.emplace_back("mirror_url without a mirror_note");
+    }
+    if (url.rfind("https://web.archive.org/", 0) == 0) {
+        if (text("publisher_url").rfind("https://", 0) != 0) out.emplace_back("url on web.archive.org without a publisher_url");
+        if (text("publisher_note").empty()) out.emplace_back("url on web.archive.org without a publisher_note");
+    }
+    return out;
+}
+
 // Plan §5 constraint 3: only known-permissive licences, by allowlist.
 //
 // THE GATE'S SCOPE IS WHAT THIS TREE REDISTRIBUTES, which is code and data, not what it READS.  A `literature` entry is a provenance record
@@ -1302,6 +1367,7 @@ int cmd_check_licences(Io& io, const Manifest& m) {
     std::vector<const Json*> blockers;    // the stage exception, accepted: listed on every run
     std::vector<const Json*> misplaced;   // the exception's id or flag where it is not allowed
     std::vector<const Json*> unbacked;    // upstream_mutable, neither vendored nor backed by an immutable snapshot
+    std::vector<std::pair<const Json*, std::string>> unexplained;   // a mirror or a web.archive.org url without the note that says who serves it and why
     for (const Json& e : m.entries()) {
         if (is_literature(e)) {
             lit.push_back(&e);
@@ -1315,6 +1381,7 @@ int cmd_check_licences(Io& io, const Manifest& m) {
             continue;
         }
         if (truthy(e, "upstream_mutable") && !is_vendored(e) && !has_immutable_snapshot(e)) unbacked.push_back(&e);
+        for (const std::string& what : third_party_notes_missing(e)) unexplained.emplace_back(&e, what);
         const std::string licence = text_of(e, "licence");
         const Json* flag = member_of(e, kReleaseBlockerField);
         const bool excepted = upper_stripped(licence) == kStageExceptionId;
@@ -1373,7 +1440,13 @@ int cmd_check_licences(Io& io, const Manifest& m) {
                << "  redistributing them) unless it carries `archived_url`, a snapshot the publisher\n"
                << "  maintains and does not change.\n";
     }
-    if (!bad.empty() || !misplaced.empty() || !unbacked.empty()) return kMalformed;
+    for (const auto& [e, what] : unexplained) {
+        io.err << "THIRD-PARTY SOURCE WITHOUT ITS NOTE  " << str_field(*e, "id") << ": " << what << "\n"
+               << "  A copy of a file on a host that is not its publisher's is allowed only with the record that says\n"
+               << "  who serves it, the capture's timestamp, why it is there and that it is a copy of the origin and no new\n"
+               << "  source (manifest/MANIFEST.md, mirror_url and publisher_url).  The pin judges the bytes either way.\n";
+    }
+    if (!bad.empty() || !misplaced.empty() || !unbacked.empty() || !unexplained.empty()) return kMalformed;
     const std::size_t entries = m.entries().size() - lit.size();
     if (blockers.empty()) {
         io.out << "ok       " << entries << " entries, every licence on the permissive allowlist\n";

@@ -820,7 +820,7 @@ DATA INPUTS
   itrf2020-psd-slr  ITRF2020-psd-slr.dat as served by itrf.ign.fr 2026-10-05 (ITRF2020 solutions page); 2 001 bytes; eight SLR sites (7110, 7237, 7308, 7328, 7358, 7403, 7405, 7838)
     role      ITRF2020 post-seismic deformation parameters for the SLR sites, pinned ONLY for its list of (site, event epoch) pairs: L6 step 4's station registry REFUSES a site at an epoch after one of these events (a linear SLRF2020 position is then wrong by the unmodelled post-seismic motion; plan constraint 4). The PSD corrections themselves are not applied (ruling R3 defers them); the registry's one escape hatch names that.
     licence   IERS-public
-    url       https://itrf.ign.fr/ftp/pub/itrf/itrf2020/ITRF2020-psd-slr.dat
+    url       https://web.archive.org/web/20240917062146id_/https://itrf.ign.fr/ftp/pub/itrf/itrf2020/ITRF2020-psd-slr.dat
     sha256    b3083748490b853f9e300124138bd72acde31f62705b65079635f5401c460798
     retrieved 2026-10-05
     note      IERS ITRS Center product. No terms stated beyond a citation
@@ -1304,7 +1304,7 @@ DATA INPUTS
   itrf2020-transfo-trfs  Transfo-ITRF2020_TRFs.txt as served by itrf.ign.fr 2026-10-06 (the ITRF 'Transformation parameters' page links it); 4 125 bytes; its own title: 'Transformation parameters from ITRF2020 to past ITRFs'
     role      The ITRS Center's table of transformation parameters from ITRF2020 to past ITRFs (ITRF2014 row: Tx, Ty, Tz in mm, the scale D in ppb, Rx, Ry, Rz in .001 arcsec at epoch 2015.0, and their rates; the standard 14-parameter model (1), P(t) = P(EPOCH) + rate x (t - EPOCH)). L7 opening, the manager's small item: pinned for MEAS-A-101d (SPEC-measmod 8.9), which states the size, at G5's pass, of the ILRS backup combination's ITRF2014 frame against SLRF2020 (an ITRF2020 realisation) -- the one product of the nine whose header names ITRF2014 -- so that the orbit term's record can say that the frame difference does not change the term. Nothing else reads it.
     licence   IERS-public
-    url       https://itrf.ign.fr/docs/solutions/itrf2020/Transfo-ITRF2020_TRFs.txt
+    url       https://web.archive.org/web/20240624090921id_/https://itrf.ign.fr/docs/solutions/itrf2020/Transfo-ITRF2020_TRFs.txt
     sha256    0d8dc872e7ef994966063e614adb5b1b0fe20582359c6e77f1d83259d1ff1a68
     retrieved 2026-10-06
     note      IERS ITRS Center product, served from the ITRF site's documents
