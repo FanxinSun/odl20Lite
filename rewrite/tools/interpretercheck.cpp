@@ -12,7 +12,7 @@
 //               (.py .pyc .pyo .pyw .pyi .pyx .ipynb | .pl .pm | .rb .gemspec | .js .mjs .cjs .jsx | .php .phar | .lua | .tcl | .r .rmd | .jl) or by a conventional name (setup.cfg, pyproject.toml, Pipfile,
 //               requirements*.txt, package.json, yarn.lock, composer.json, Gemfile, Rakefile, cpanfile, ...), and a directory called __pycache__, node_modules or site-packages.
 //   (2) #!      any file whose first line is a #! that names anything but sh or bash.
-//   (3) WORDS   in every CMakeLists.txt and *.cmake below the tree, every tools/*.sh and every file of the workflows directory: a program or package tool of those languages as a WHOLE WORD (ASCII letters and digits, so that
+//   (3) WORDS   in every CMakeLists.txt and *.cmake below the tree, every *.sh file and every file that begins with a #! naming sh or bash (but for oracle/capture.sh, by exact path: kWordScanException) and every file of the workflows directory: a program or package tool of those languages as a WHOLE WORD (ASCII letters and digits, so that
 //               Python3_EXECUTABLE and ENABLE_PYTHON carry the word and "pythonic", "perlin" and "x.json" do not; compared case-insensitively, with the trailing digits removed: python3, lua5, node18), or a file extension
 //               of one after a dot ("fetch.py", not "py_sum").  Comments are read like code: the tree's own history lives in PROVENANCE.md, not in the build files.
 //
@@ -129,11 +129,15 @@ bool skipped_directory(const std::string& relative, const std::string& name) {
     return relative == "data" || name == ".git" || name == "build" || name.rfind("build-", 0) == 0 || name == "CMakeFiles" || name == "_deps";
 }
 
-/// The files read for words: every CMakeLists.txt and *.cmake, and the shell scripts directly in tools/.
+/// The ONE file whose words are not read, by exact path relative to the root, and why (the maintainer's ruling of 2026-10-31): a frozen record, outside the build, the tests and CI, closed to the Executor by the
+/// handover.  Its name and its #! line are still looked at.  Any other file of that name is read.
+constexpr const char* kWordScanException = "oracle/capture.sh";
+
+/// The files read for words: every CMakeLists.txt and *.cmake, and every *.sh anywhere outside data/ and the build trees (a file beginning with a #! naming sh or bash is added by examine_file); but for the exception.
 bool read_for_words(const std::string& relative) {
     const std::string name = last_component(relative);
     if (name == "CMakeLists.txt" || ends_with(name, ".cmake")) return true;
-    return relative.rfind("tools/", 0) == 0 && relative.find('/', 6) == std::string::npos && ends_with(name, ".sh");
+    return relative != kWordScanException && ends_with(name, ".sh");
 }
 
 std::string join(const std::vector<std::string>& parts, const char* separator) {
@@ -349,6 +353,7 @@ void examine_file(Scan& scan, const std::string& relative, const fs::path& file,
         scan.report.violations.push_back(*named);
         return;   // one refusal for the file: the name says what it is
     }
+    bool first_line_is_shebang = false;   // a #! line that names sh or bash: the file is a shell script whatever it is called
     if (const std::optional<std::string> first = first_line_if_shebang(file)) {
         const std::string interpreter = shebang_interpreter(*first).value_or(std::string());
         if (interpreter != "sh" && interpreter != "bash") {
@@ -362,8 +367,9 @@ void examine_file(Scan& scan, const std::string& relative, const fs::path& file,
             scan.report.violations.push_back(std::move(f));
             return;
         }
+        first_line_is_shebang = true;
     }
-    if (read_for_words(relative)) for_words.emplace_back(relative, file);
+    if (relative != kWordScanException && (read_for_words(relative) || first_line_is_shebang)) for_words.emplace_back(relative, file);
 }
 
 void walk(Scan& scan, const fs::path& directory, const std::string& relative, std::vector<std::pair<std::string, fs::path>>& for_words) {
@@ -435,7 +441,7 @@ const char kHelpText[] =
     "\n"
     "Refuse every script interpreter in the build, the tests and CI (plan section 5 constraint 11; ci.sh's gate 14): Python, Perl, Ruby, JavaScript, PHP, Lua, Tcl, R and Julia.  It refuses, below the tree and outside\n"
     "data/ and the build trees, a file named like a program of one of them (by extension or by its conventional name) and any file whose first line is a #! naming anything but sh or bash; and, in every CMakeLists.txt\n"
-    "and *.cmake, every tools/*.sh and every file of the workflows directory, a program or package tool of one of them as a whole word, or a file extension of one.  A line that is a false positive is accepted only by an\n"
+    "and *.cmake, every shell script (but oracle/capture.sh) and every file of the workflows directory, a program or package tool of one of them as a whole word, or a file extension of one.  A line that is a false positive is accepted only by an\n"
     "exact-line entry of the tool's allowlist, with its reason; an entry that accepts nothing is refused.\n"
     "\n"
     "options:\n"

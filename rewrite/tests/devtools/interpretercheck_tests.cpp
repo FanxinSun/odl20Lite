@@ -660,12 +660,12 @@ TEST_CASE("first lines: not the first line, an empty file, a single byte, no new
     t.put("a/one_byte", "#");
     t.put("a/hash_only_then_bang", "#\n!/usr/bin/perl\n");
     t.put("a/no_newline_sh", "#!/bin/sh");
-    t.put("a/long_sh", "#!/bin/sh" + std::string(600, ' ') + "perl\n");
-    t.put_bytes("a/binary_sh", std::string("#!/bin/sh\n") + std::string(1, '\0') + "\x01\x02perl\xFF");
+    t.put("a/long_sh", "#!/bin/sh" + std::string(600, ' ') + "xyz\n");   // a #! sh file is read for words now: no listed word in it
+    t.put_bytes("a/binary_sh", std::string("#!/bin/sh\n") + std::string(1, '\0') + "\x01\x02xyz\xFF");
     const Result r = t.run();
     CHECK(r.code == 0);
     CHECK(r.err.empty());
-    CHECK(r.out == ok_line(14, 5, 1, 0));   // 7 of the baseline and these 7
+    CHECK(r.out == ok_line(14, 8, 1, 0));   // 7 of the baseline and these 7; the three that begin with #! sh are read for words
     // a binary file that begins with a #! naming a script interpreter is refused; and so is one whose first line is only cut by the 512 bytes the tool reads
     const Tree u;
     u.put_bytes("a/binary_perl", std::string("#!/usr/bin/perl\n") + std::string(1, '\0') + "\x01\x02\xFF");
@@ -855,8 +855,8 @@ TEST_CASE("the walk: a directory that cannot be read and a file that cannot be o
 TEST_CASE("the token scan reads CMakeLists.txt and *.cmake at any depth and tools/*.sh -- and no other file", "[interpretercheck][behaviour]") {
     const std::vector<std::pair<std::string, bool>> places = {
         {"CMakeLists.txt", true},         {"a/b/c/CMakeLists.txt", true}, {"tools/CMakeLists.txt", true}, {"cmake/X.cmake", true},      {"a/b/c/deep.cmake", true},  {"FindFoo.cmake", true},
-        {".cmake", true},                 {"tools/x.sh", true},           {"tools/ci.sh", true},          {"tools/.hidden.sh", true},    {".sh", false},              {"tools/sub/x.sh", false},
-        {"modules/x.sh", false},          {"x.sh", false},                {"README.md", false},           {"tools/x.cpp", false},        {"tools/x.txt", false},      {"tools/x.SH", false},
+        {".cmake", true},                 {"tools/x.sh", true},           {"tools/ci.sh", true},          {"tools/.hidden.sh", true},    {".sh", true} ,              {"tools/sub/x.sh", true},
+        {"modules/x.sh", true} ,          {"x.sh", true},                {"README.md", false},           {"tools/x.cpp", false},        {"tools/x.txt", false},      {"tools/x.SH", false},
         {"CMakeLists.txt.in", false},     {"cmakelists.txt", false},      {"CMakeLists.cmake.in", false}, {"x.cmake.in", false},         {"tools/sh", false},         {"tools/x.sh.bak", false},
         {"modules/m/foo.cpp", false},     {"doc/guide.md", false},        {"Makefile", false},            {"tools/Makefile", false},     {"tests/CMakeLists.txt", true},
         {"xcmake", false},                {"Findcmake", false},          {"xCMakeLists.txt", false},    {"tools/xsh", false},         {"tools/.sh.txt", false},
@@ -873,6 +873,73 @@ TEST_CASE("the token scan reads CMakeLists.txt and *.cmake at any depth and tool
             CHECK(r.code == 0);
             CHECK(r.err.empty());
         }
+    }
+}
+
+TEST_CASE("item D: a shell script anywhere is read for words -- tests/*.sh, and an extensionless file whose #! names sh or bash", "[interpretercheck][behaviour]") {
+    {   // D-1
+        const Tree t;
+        t.put("tests/run_all.sh", "#!/bin/sh\npython3 gen.sh\n");
+        const Result r = t.run();
+        CHECK(r.code == 1);
+        CHECK(r.err == "tests/run_all.sh:2: Python: python3 -- python3 gen.sh\n" + refused_line(1, 1));
+    }
+    for (const char* where : {"tools/runme", "modules/m/runme", "runme", "tests/deep/er/runme"}) {   // D-2
+        INFO("in: " << where);
+        for (const char* shebang : {"#!/bin/sh", "#!/bin/bash", "#!/usr/bin/env bash"}) {
+            const Tree t;
+            t.put(where, std::string(shebang) + "\nperl -pe 's/a/b/' data.txt\n");
+            const Result r = t.run();
+            CHECK(r.code == 1);
+            CHECK(r.err == std::string(where) + ":2: Perl: perl -- perl -pe 's/a/b/' data.txt\n" + refused_line(1, 1));
+        }
+        const Tree clean;
+        clean.put(where, "#!/bin/sh\necho hello\n");
+        const Result ok = clean.run();
+        CHECK(ok.code == 0);
+        CHECK(ok.out == ok_line(8, 6, 1, 0));   // counted among the files looked at and among the files read for words
+    }
+    {   // a file that does not begin with #! and is no .sh is not read
+        const Tree t;
+        t.put("tools/runme", "echo\n# perl\n");
+        t.put("tools/notes.txt", "#!/bin/sh\n perl\n");
+        CHECK(t.run().code == 1);   // notes.txt begins with #! naming sh: it IS read
+        const Tree u;
+        u.put("tools/runme", "echo\n# perl\n");
+        CHECK(u.run().code == 0);
+    }
+}
+
+TEST_CASE("item D: oracle/capture.sh is excepted by its exact path only -- its words are not read, its name and #! line still are", "[interpretercheck][behaviour]") {
+    {   // D-3: the exception
+        const Tree t;
+        t.put("oracle/capture.sh", "#!/bin/sh\npython3 frozen.sh\nperl -e 1\n");
+        const Result r = t.run();
+        CHECK(r.code == 0);
+        CHECK(r.out == ok_line(8, 5, 1, 0));   // looked at by name and first line, not read for words
+        CHECK(r.err.empty());
+    }
+    for (const char* where : {"capture.sh", "tools/capture.sh", "oracle/sub/capture.sh", "x/oracle/capture.sh", "oracle/Capture.sh", "oracle/capture2.sh", "oracle2/capture.sh", "oracle/capture.sh/x.sh"}) {
+        for (const char* head : {"#!/bin/sh\n", ""}) {   // with a #! line (read as a shell script by its first line) and without (read as a *.sh by its name only)
+        INFO("capture.sh elsewhere: " << where << (std::string(head).empty() ? " (no #!)" : " (#!)"));
+        const Tree t;
+        t.put(where, std::string(head) + "python3 frozen.sh\n");
+        const Result r = t.run();
+        CHECK(r.code == 1);
+        CHECK(r.err == std::string(where) + (std::string(head).empty() ? ":1: Python: python3 -- python3 frozen.sh\n" : ":2: Python: python3 -- python3 frozen.sh\n") + refused_line(1, 1));
+        }
+    }
+    {   // its #! line is still read
+        const Tree t;
+        t.put("oracle/capture.sh", "#!/usr/bin/env python3\nx\n");
+        const Result r = t.run();
+        CHECK(r.code == 1);
+        CHECK(r.err == "oracle/capture.sh:1: Python: #! names python3 (only sh and bash are allowed) -- #!/usr/bin/env python3\n" + refused_line(1, 1));
+    }
+    {   // its name is still looked at (a directory called capture.sh with a script inside is a different path)
+        const Tree t;
+        t.put("oracle/capture.py", "x");
+        CHECK(t.run().code == 1);
     }
 }
 
@@ -1189,7 +1256,7 @@ TEST_CASE("run_on: -h whole, the refusals, --root and --workflows in both forms,
         "\n"
         "Refuse every script interpreter in the build, the tests and CI (plan section 5 constraint 11; ci.sh's gate 14): Python, Perl, Ruby, JavaScript, PHP, Lua, Tcl, R and Julia.  It refuses, below the tree and outside\n"
         "data/ and the build trees, a file named like a program of one of them (by extension or by its conventional name) and any file whose first line is a #! naming anything but sh or bash; and, in every CMakeLists.txt\n"
-        "and *.cmake, every tools/*.sh and every file of the workflows directory, a program or package tool of one of them as a whole word, or a file extension of one.  A line that is a false positive is accepted only by an\n"
+        "and *.cmake, every shell script (but oracle/capture.sh) and every file of the workflows directory, a program or package tool of one of them as a whole word, or a file extension of one.  A line that is a false positive is accepted only by an\n"
         "exact-line entry of the tool's allowlist, with its reason; an entry that accepts nothing is refused.\n"
         "\n"
         "options:\n"
@@ -1391,7 +1458,7 @@ bool read_for_words_second(const std::string& relative) {
     const std::size_t slash = relative.find_last_of('/');
     const std::string name = slash == std::string::npos ? relative : relative.substr(slash + 1);
     if (name == "CMakeLists.txt" || ends_with_second(name, ".cmake")) return true;
-    return relative.compare(0, 6, "tools/") == 0 && relative.find('/', 6) == std::string::npos && ends_with_second(name, ".sh");
+    return relative != "oracle/capture.sh" && ends_with_second(name, ".sh");   // any shell script but the one frozen record (the real tree has no extensionless #! file)
 }
 
 std::set<std::string> second_words() {

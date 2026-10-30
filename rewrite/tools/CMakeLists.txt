@@ -189,7 +189,7 @@ target_compile_definitions(reprocheck PRIVATE ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}
 target_link_libraries(reprocheck PRIVATE odl_devkit odl_warnings)
 
 # The script-interpreter check of group C12 (plan L0 step 8, decision D8 as ruled on 2026-10-11; tools/interpretercheck.cpp): ci.sh's gate 14 and the ctest interpreters.refused_in_build_tests_and_ci.  It refuses a
-# file named like a script, a file that begins with a #! naming anything but sh or bash, and a script interpreter named in a CMake file, a shell script of tools/ or a workflow.  An executable (ci.sh runs it) and an
+# file named like a script, a file that begins with a #! naming anything but sh or bash, and a script interpreter named in a CMake file, a shell script anywhere in the tree (but oracle/capture.sh) or a workflow.  An executable (ci.sh runs it) and an
 # object library with its main left out, which the tests call in-process on synthetic trees and on this one.
 add_library(odl_tool_interpretercheck OBJECT interpretercheck.cpp)
 target_compile_definitions(odl_tool_interpretercheck PUBLIC ODL_TOOL_NO_MAIN ODL_TREE_ROOT="${CMAKE_SOURCE_DIR}")

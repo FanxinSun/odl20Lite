@@ -127,8 +127,8 @@ gate "build is reproducible"
 "$BUILD/tools/reprocheck"
 
 # Gate 14: no script interpreter in the build, the tests or CI -- plan section 5 constraint 11, as ruled on 2026-10-11 (tools/interpretercheck.cpp, group C12, PROVENANCE.md section 41.24).  The tool is one more
-# executable of the build above.  It refuses a file below the tree that is named like a script, or begins with a #! that names anything but sh or bash, and a script interpreter named in a CMake file, in one of these
-# shell scripts or in a workflow.  It is the last gate, so that no gate above it is renumbered.
+# executable of the build above.  It refuses a file below the tree that is named like a script, or begins with a #! that names anything but sh or bash, and a script interpreter named in a CMake file, in any shell script of the tree
+# (but oracle/capture.sh, a frozen record) or in a workflow.  It is the last gate, so that no gate above it is renumbered.
 gate "no script interpreter in the build, the tests or CI"
 "$BUILD/tools/interpretercheck" --quiet
 

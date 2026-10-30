@@ -35,7 +35,7 @@ jobs:
 
       # No script interpreter: this workflow installs none and runs none (the user's decision of 2026-10-08; PROVENANCE.md sections 41.17 and 41.24).  Nothing in the build, the tests or the
       # gates uses the runner's own interpreters.  Gate 13, the reproducible build, is C++ (tools/reprocheck.cpp) and builds the tree twice on the runner; gate 14 (tools/interpretercheck.cpp) refuses a script
-      # interpreter named in the build's CMake files, in the shell scripts of tools/ and in this workflow; the last line of tools/ci.sh says how many gates passed.
+      # interpreter named in the build's CMake files, in every shell script of the tree (but oracle/capture.sh) and in this workflow; the last line of tools/ci.sh says how many gates passed.
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y ninja-build g++-13 cmake

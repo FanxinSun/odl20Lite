@@ -394,7 +394,7 @@ add_test(NAME reprocheck.refusal_text
 set_tests_properties(reprocheck.refusal_text PROPERTIES PASS_REGULAR_EXPRESSION "reprocheck: error: unrecognized arguments: --bogus")
 
 # interpretercheck (group C12): no script interpreter in the build, the tests or CI -- ci.sh's gate 14 (tools/interpretercheck.cpp).  `interpreters.refused_in_build_tests_and_ci` runs the built tool on this tree (its
-# CMake files, the shell scripts of tools/, the workflows beside it, and the name and first line of every file); `interpretercheck.behaviour` runs it in-process on synthetic trees, each made to fail in one way alone;
+# CMake files, every shell script of the tree, the workflows beside it, and the name and first line of every file); `interpretercheck.behaviour` runs it in-process on synthetic trees, each made to fail in one way alone;
 # `interpretercheck.real_tree` holds this tree to the tool's own tables and to a second method written apart from it.
 add_test(NAME interpreters.refused_in_build_tests_and_ci
   COMMAND interpretercheck --quiet)

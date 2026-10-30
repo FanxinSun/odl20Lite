@@ -7,7 +7,7 @@
 //   (1) NAMES   a file below the tree, outside data/ and the build trees, named like a program of one of those languages by its extension or by its conventional name (the table in the .cpp), and a directory called
 //               __pycache__, node_modules or site-packages;
 //   (2) #!      a file whose first line is a #! that names anything but sh or bash (an `env` is looked through);
-//   (3) WORDS   in every CMakeLists.txt and *.cmake of the tree, every tools/*.sh and every file of the workflows directory: a program or package tool of one of those languages named as a whole word (ASCII letters and
+//   (3) WORDS   in every CMakeLists.txt and *.cmake of the tree, every shell script (but oracle/capture.sh) and every file of the workflows directory: a program or package tool of one of those languages named as a whole word (ASCII letters and
 //               digits, compared case-insensitively with the trailing digits removed), or a file extension of one after a dot.  Comments are read like code.
 // A line that is a false positive is accepted ONLY by an entry of the allowlist that gives the file and the line's exact text, with its reason -- never by a pattern -- and an entry that accepts nothing is itself refused.
 // Exit 0 clean; 1 refused; 2 an argument error or something that cannot be read; 70 an error the tool did not anticipate.
@@ -54,7 +54,7 @@ struct Report {
     std::vector<Accepted> accepted;        // sorted by file, then line
     std::vector<AllowedLine> stale;        // the entries of the allowlist that accepted nothing
     std::size_t files_walked = 0;          // files looked at for their name and their first line
-    std::size_t build_files = 0;           // CMakeLists.txt, *.cmake and tools/*.sh read for words
+    std::size_t build_files = 0;           // CMakeLists.txt, *.cmake and every shell script read for words
     std::size_t workflow_files = 0;        // files of the workflows directory read for words
     bool workflows_found = false;
 };
