@@ -146,6 +146,10 @@ LmResult levenberg_marquardt(const std::vector<std::string>& names, std::span<co
     };
 
     std::size_t k = 0;
+    // THE LATEST TRIAL COULD NOT BE EVALUATED (the model refused it, its numbers were not finite, or step 2 refused the damped system): until a trial IS evaluated, no stop may be reported
+    // as arrival -- a stop in that state is `refused`, whichever test fired (the manager's ruling of 2026-10-31).
+    bool unevaluated = false;
+    std::string unevaluated_why;
     for (;;) {
         // arrival tests at the current iterate
         if (cur.objective <= opt.residual_fraction * f0) {
@@ -159,6 +163,11 @@ LmResult levenberg_marquardt(const std::vector<std::string>& names, std::span<co
             break;
         }
         if (k >= opt.max_iterations) {
+            if (unevaluated) {
+                out.status = LmStatus::refused;
+                out.message = "k_max = " + std::to_string(opt.max_iterations) + " reached while the latest trial could not be evaluated: " + unevaluated_why;
+                break;
+            }
             out.status = LmStatus::max_iterations;
             out.message = "k_max = " + std::to_string(opt.max_iterations) + " reached";
             break;
@@ -186,6 +195,10 @@ LmResult levenberg_marquardt(const std::vector<std::string>& names, std::span<co
             refusal = std::string(ne.error().id) + ": " + ne.error().message;
         }
         bool accepted = false;
+        if (!sol) {
+            unevaluated = true;
+            unevaluated_why = "the damped system was refused: " + refusal;
+        }
         if (sol) {
             const std::vector<double>& h = sol->x;
             // the step test, on the SCALED step and iterate (y = 2^e x)
@@ -200,6 +213,12 @@ LmResult levenberg_marquardt(const std::vector<std::string>& names, std::span<co
             xs = std::sqrt(xs);
             rec.step_norm_scaled = hs;
             if (hs <= opt.step_tolerance * (xs + opt.step_tolerance)) {
+                if (unevaluated) {
+                    out.status = LmStatus::refused;
+                    out.message = "the step test held (||h_s|| = " + std::to_string(hs) + ") but the latest trial could not be evaluated: " + unevaluated_why;
+                    out.history.push_back(rec);
+                    break;
+                }
                 if (cur.cosine > opt.stalled_cosine) {
                     out.status = LmStatus::stalled;
                     out.message = "the step test held (||h_s|| = " + std::to_string(hs) + ") while the gradient cosine is " + std::to_string(cur.cosine) + " > " +
@@ -217,6 +236,7 @@ LmResult levenberg_marquardt(const std::vector<std::string>& names, std::span<co
             Point trial;
             std::string trial_why;
             if (evaluate(xn, false, trial, trial_why)) {
+                unevaluated = false;
                 double hb = 0.0, hwh = 0.0;
                 for (std::size_t i = 0; i < n; ++i) {
                     hb += h[i] * cur.rhs[i];
@@ -234,9 +254,15 @@ LmResult levenberg_marquardt(const std::vector<std::string>& names, std::span<co
                             out.accepted_iterates.push_back(xn);
                             cur = std::move(next);
                             rescale();
+                        } else {
+                            unevaluated = true;
+                            unevaluated_why = "the Jacobian at the accepted trial could not be evaluated: " + next_why;
                         }
                     }
                 }
+            } else {
+                unevaluated = true;
+                unevaluated_why = "the trial could not be evaluated: " + trial_why;
             }
         }
         rec.accepted = accepted;

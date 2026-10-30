@@ -123,7 +123,7 @@ TEST_CASE("EST-A-313: the model refusing the start is `refused`; a trial the mod
         CHECK(nan_trials >= 1);
         CHECK(r.rejected_steps >= 1);
     }
-    {   // every trial refused after the start: mu climbs, the step shrinks, and with the DEFAULT step test the run stops `stalled` (the gradient is large); with the step test disabled mu reaches mu_max and it is `refused`
+    {   // every trial refused after the start: the run ends `refused` WHICHEVER test fires -- the step test (on, the default) after about ten rejections, or mu_max (step test off); a status of arrival is never reported when nothing was evaluated
         LmModel base = decay();
         bool first = true;
         const LmModel only_start = [&](std::span<const double> p, bool jac) -> odl::Result<LmEvaluation, EstimationRefusal> {
@@ -132,7 +132,8 @@ TEST_CASE("EST-A-313: the model refusing the start is `refused`; a trial the mod
         };
         const double far[2] = {10.0, 3.0};
         const LmResult stalled = levenberg_marquardt(kNames2, far, only_start);
-        CHECK(stalled.status == LmStatus::stalled);
+        CHECK(stalled.status == LmStatus::refused);
+        CHECK(stalled.message.find("the latest trial could not be evaluated") != std::string::npos);
         CHECK(stalled.rejected_steps >= 8);
         first = true;
         LmOptions o;
@@ -141,6 +142,38 @@ TEST_CASE("EST-A-313: the model refusing the start is `refused`; a trial the mod
         CHECK(r.status == LmStatus::refused);
         CHECK(r.message.find("mu_max") != std::string::npos);
         CHECK(r.rejected_steps >= 8);                 // mu is multiplied by 2, 4, 8, ...: the product is 2^(k(k+1)/2), so 1e16 is passed after about ten rejections
+    }
+    {   // a start so close to the minimum that the gradient cosine is small but above the test (1e-10): then every trial refused.  Without the rule the step test would end it `converged_step`
+        // (a small cosine, a vanishing step) at a point where nothing was ever evaluated; with it the status is `refused`, step test on or off.
+        const double x_min[2] = {2.0, 0.5};
+        const LmResult found = levenberg_marquardt(kNames2, x_min, decay());
+        REQUIRE((found.status == LmStatus::converged_gradient || found.status == LmStatus::converged_step));
+        LmModel base = decay();
+        bool first = true;
+        const LmModel only_start = [&](std::span<const double> p, bool jac) -> odl::Result<LmEvaluation, EstimationRefusal> {
+            if (first) { first = false; return base(p, jac); }
+            return odl::err(EstimationRefusal{"TST-F-003", "outside the domain"});
+        };
+        std::vector<double> near = found.x;
+        near[0] *= 1.0 + 1.0e-7;                      // the cosine there is small (well under stalled_cosine) and above gradient_cosine
+        LmOptions probe;
+        probe.gradient_cosine = 0.0;                  // never "arrived" by the gradient test: only the step test and the limit can stop it
+        for (double step_tolerance : {1.0e-12, 0.0}) {
+            first = true;
+            probe.step_tolerance = step_tolerance;
+            const LmResult r = levenberg_marquardt(kNames2, near, only_start, probe);
+            INFO("step tolerance " << step_tolerance << ": " << r.message);
+            CHECK(r.status == LmStatus::refused);
+            CHECK(r.cosine < probe.stalled_cosine);
+            CHECK(r.accepted_steps == 0);
+        }
+        // the same run with k_max small: the limit, reached while the latest trial could not be evaluated, is `refused` too
+        first = true;
+        probe.step_tolerance = 0.0;
+        probe.max_iterations = 3;
+        const LmResult limit = levenberg_marquardt(kNames2, near, only_start, probe);
+        CHECK(limit.status == LmStatus::refused);
+        CHECK(limit.message.find("k_max") != std::string::npos);
     }
 }
 

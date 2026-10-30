@@ -45,7 +45,7 @@ enum class LmStatus {
     converged_step,           ///< the step test held AND the gradient cosine is not above stalled_cosine
     stalled,                  ///< the step test held while the gradient cosine is above stalled_cosine: the iteration stopped moving without having arrived
     max_iterations,           ///< k_max reached
-    refused,                  ///< mu exceeded mu_max (every trial rejected), or the model refused the starting point; `message` says which
+    refused,                  ///< mu exceeded mu_max, or the model refused the starting point, or a stop (the step test, k_max) came while the LATEST trial could not be evaluated; `message` says which
 };
 
 [[nodiscard]] const char* to_string(LmStatus s) noexcept;
