@@ -166,3 +166,33 @@ TEST_CASE("EST-A-301: Levenberg–Marquardt on the 27 NIST nonlinear datasets: t
     // G4
     CHECK(gn_fail >= 1);
 }
+
+// EXPERIMENT X1 (hidden; not part of ci): the damping start tau over the 54 NIST starts.  Registered in L7_step3_registration.txt BEFORE it was run; REPORTED ONLY, as explanation.
+TEST_CASE("EST-X-301: the library at tau = 1e-3, 1e-2, 1e-1, 1 over the 54 NIST starts (experiment, reported only)", "[.tau]") {
+    for (double tau : {1.0e-3, 1.0e-2, 1.0e-1, 1.0}) {
+        std::size_t conv = 0, reach = 0, other = 0;
+        std::map<LmStatus, std::size_t> by_status;
+        std::string missed, others;
+        for (const std::string& nm : nls_names()) {
+            const NlsData d = load_nls(nm);
+            const double f_nist = 0.5 * static_cast<double>(d.certified_rss);
+            const std::vector<std::string> names = param_names(d.n);
+            const LmModel model = nls_problem(d);
+            for (int s : {1, 2}) {
+                LmOptions o;
+                o.tau = tau;
+                const LmResult r = levenberg_marquardt(names, s == 1 ? d.start1 : d.start2, model, o);
+                ++by_status[r.status];
+                const bool reached = r.objective <= f_nist * (1.0 + 1.0e-6) + noise_floor(d, f_nist);
+                if (converged(r.status)) ++conv;
+                if (reached) ++reach;
+                if (!reached) missed += nm + "/" + std::to_string(s) + "(" + to_string(r.status) + ") ";
+            }
+        }
+        (void)other;
+        (void)others;
+        std::printf("XTAU tau=%-6g converged_*=%zu/54 reach NIST's F=%zu/54 | statuses:", tau, conv, reach);
+        for (const auto& [st, c] : by_status) std::printf(" %s=%zu", to_string(st), c);
+        std::printf("\nXTAU tau=%-6g not reached: %s\n", tau, missed.c_str());
+    }
+}

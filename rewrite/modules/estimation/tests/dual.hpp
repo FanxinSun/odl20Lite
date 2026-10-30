@@ -9,7 +9,7 @@
 
 namespace odl::estimation::fx {
 
-inline constexpr std::size_t kMaxParameters = 9;   // ENSO has nine
+inline constexpr std::size_t kMaxParameters = 16;   // ENSO has nine, Nielsen's linear problem 1 at (32, 16) sixteen
 
 struct Dual {
     double v = 0.0;
@@ -77,6 +77,12 @@ inline Dual atan(const Dual& a) {
     for (std::size_t i = 0; i < kMaxParameters; ++i) r.g[i] = d * a.g[i];
     return r;
 }
+inline Dual sqrt(const Dual& a) {
+    Dual r(std::sqrt(a.v));
+    const double d = 0.5 / r.v;
+    for (std::size_t i = 0; i < kMaxParameters; ++i) r.g[i] = d * a.g[i];
+    return r;
+}
 /// a^p for a constant exponent p (a > 0 or p integral).
 inline Dual pow(const Dual& a, double p) {
     Dual r(std::pow(a.v, p));
@@ -88,11 +94,16 @@ inline Dual pow(const Dual& a, double p) {
 inline Dual pow(const Dual& a, const Dual& e) { return exp(e * log(a)); }
 
 // the same functions on double, so that a model written as a template over T finds std:: or these by the unqualified call
+/// the plain value of a number of either kind (a test of the sign of a coordinate, as Problem 5's branch of theta needs)
+inline double value_of(double d) { return d; }
+inline double value_of(const Dual& d) { return d.v; }
+
 using std::atan;
 using std::cos;
 using std::exp;
 using std::log;
 using std::pow;
 using std::sin;
+using std::sqrt;
 
 }  // namespace odl::estimation::fx

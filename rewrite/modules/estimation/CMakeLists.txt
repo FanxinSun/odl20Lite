@@ -9,7 +9,7 @@ odl_add_module(estimation
   SOURCES      src/dense.cpp src/normal_equations.cpp src/levenberg_marquardt.cpp
   DEPENDS      odl::core
   TEST_SOURCES tests/scale_tests.cpp tests/kernel_tests.cpp tests/nist_tests.cpp tests/decision_tests.cpp tests/hatch_tests.cpp tests/control_tests.cpp
-               tests/lm_fixture_tests.cpp tests/lm_unit_tests.cpp tests/lm_dtu_tests.cpp tests/lm_nist_tests.cpp)
+               tests/lm_fixture_tests.cpp tests/lm_unit_tests.cpp tests/lm_dtu_tests.cpp tests/lm_nielsen_tests.cpp tests/lm_nist_tests.cpp)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(odl_estimation PRIVATE -ffp-contract=off)
