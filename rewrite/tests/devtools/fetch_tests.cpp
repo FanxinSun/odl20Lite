@@ -848,7 +848,8 @@ TEST_CASE("a curl that fails, one that wrote nothing, and one that is not there 
         env.set("PATH", (root / "empty").string());
         const Result r = run(root, m, {"fetch"});
         CHECK(r.code == kNetwork);
-        CHECK(contains(r.err, "curl is the one host program"));
+        CHECK(contains(r.err, "fetch: download failed for https://example.invalid/thing.bin: "));   // the old text, in full: it now travels through a thrown TransportFailure
+        CHECK(contains(r.err, " (curl is the one host program `fetch` needs; the manifest declares it)"));
         CHECK_FALSE(fs::exists(landed.string() + ".part"));
     }
 }
@@ -1703,4 +1704,27 @@ TEST_CASE("check-licences: a mirror needs its note, and a url on web.archive.org
     CHECK_FALSE(contains(r.err, "without a publisher_url"));
     CHECK(contains(r.err, "without a publisher_note"));
     CHECK(run(root, write_manifest(root, {with(with_url, "publisher_note", Json("The publisher's site was in maintenance on 2026-10-31."))}), {"check-licences"}).code == kOk);
+}
+
+TEST_CASE("mirror_url: the explanation of a refusal is printed whole, and a mirror_url that is no string is no mirror", "[fetcher][mirror]") {
+    TempDir td;
+    const fs::path root = td.path();
+    const std::string digest = std::string(64, 'a');
+    const Json no_note = with(data_entry("thing", "thing.bin", digest), "mirror_url", Json("https://mirror.invalid/x"));
+    const Result r = run(root, write_manifest(root, {no_note}), {"check-licences"});
+    CHECK(r.code == kMalformed);
+    CHECK(r.err == "THIRD-PARTY SOURCE WITHOUT ITS NOTE  thing: mirror_url without a mirror_note\n"
+                   "  A copy of a file on a host that is not its publisher's is allowed only with the record that says\n"
+                   "  who serves it, the capture's timestamp, why it is there and that it is a copy of the origin and no new\n"
+                   "  source (manifest/MANIFEST.md, mirror_url and publisher_url).  The pin judges the bytes either way.\n");
+    // a mirror_url that is a boolean: check-licences says it is not an https URL, and a fetch that the origin serves is the plain one (no mirror, no source line)
+    const std::string good = "the pinned bytes\n";
+    write_text(root / "good.bin", good);
+    FakeCurl curl(root);
+    curl.deliver(root / "good.bin");
+    const Json odd = with(data_entry("thing", "thing.bin", sha256_hex(as_bytes(good))), "mirror_url", Json(true));
+    CHECK(contains(run(root, write_manifest(root, {odd}), {"check-licences"}).err, "mirror_url is not an https URL"));
+    const Result f = run(root, write_manifest(root, {odd}), {"fetch"});
+    CHECK(f.code == kOk);
+    CHECK_FALSE(contains(f.out, "served by"));
 }
