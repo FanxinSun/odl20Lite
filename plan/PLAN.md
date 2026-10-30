@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** **L0 step 8 open** (added 2026-10-06: the tree's development code in C++, §5 constraint 11); L1–L6 closed; **L7 paused before step 3** — steps 1–2 done, steps 3–5 after L0 step 8; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L6 closed (L0 step 8, the tree's development code in C++, §5 constraint 11, closed 2026-10-31); **L7 open** — steps 1–2 done, step 3 resumed 2026-10-31; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -203,7 +203,7 @@ still TODO, and the explanation says so. §3.11 says how any one step is execute
 
 ---
 
-### 3.1 L0 `foundation` — 7 of 8 done; exit gate passed 2026-09-18; **step 8 added 2026-10-06 and open**
+### 3.1 L0 `foundation` — 8 of 8 done; exit gate passed 2026-09-18, and again without Python 2026-10-31
 
 **Entry:** none, this is the floor. **Language: C++20** (D1, decided 2026-09-18).
 
@@ -217,7 +217,7 @@ runs existed. It is now last, which is what was actually executed.*
 5. **DONE** — Spec-coverage checker → [`subplan_L0/L0-5.md`](subplan_L0/L0-5.md)
 6. **DONE** — Reproducible-build flags → [`subplan_L0/L0-6.md`](subplan_L0/L0-6.md)
 7. **DONE** — CI running the gates offline from the cache → [`subplan_L0/L0-7.md`](subplan_L0/L0-7.md)
-8. **TODO** — The tree's development code in C++ (§5 constraint 11) → [`subplan_L0/L0-8.md`](subplan_L0/L0-8.md) — *added 2026-10-06; runs now, before L7 step 3*
+8. **DONE** — The tree's development code in C++ (§5 constraint 11) → [`subplan_L0/L0-8.md`](subplan_L0/L0-8.md) — *added 2026-10-06; runs now, before L7 step 3*
 
 **Exit gate — passed.** A clean clone builds, tests and regenerates NOTICE with one command,
 CI green from cached data alone. Verified independently 2026-09-18 from a clean copy of the
@@ -231,6 +231,13 @@ tree: **9 of 9 tests pass**, including `boundary.undeclared_dependency_refused`.
 > verifications ran from the local cache and could not see it, and the workflow's results were
 > never read. L0 step 8's gate now includes the workflow green on GitHub from a clean clone, and
 > the manager reads the workflow's result after every push.
+
+> **Exit gate passed again, 2026-10-31, without Python.** A clean clone, by one command, and CI from
+> an empty cache and from cached data alone each pass 14 of 14 gates. Four entries come from the
+> Internet Archive's dated captures, under the same pins, by the user's decision: EGM2008 and
+> `wgs84-standard` as mirrors after NGA's host refused, and the two ITRF files as their `url` while
+> IGN's site is in maintenance. Those URLs are re-examined before any release
+> ([`subplan_L0/L0-8.md`](subplan_L0/L0-8.md)).
 
 **What L0 did about C++20's structural risk, and it is the part to show a reviewer.** In C++ a
 directory is not a boundary; a link target is. Every §2 module is its own CMake target with its
