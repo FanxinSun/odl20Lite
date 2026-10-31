@@ -58,17 +58,20 @@ inline GnOutcome run_gauss_newton(const ArcModel& arc, const std::array<double, 
     GnOutcome out;
     const double w0 = wall_s();
     bool model_refused = false, exploded = false;
+    std::size_t evals = 0, refused_at_eval = 0;
+    std::string refusal_id;
     double f0 = -1.0;
     const odl::estimation::LmModel inner = lm_model_of(arc, kRangeSigmaM);
     const odl::estimation::LmModel wrapped = [&](std::span<const double> x, bool jac) -> odl::Result<odl::estimation::LmEvaluation, odl::estimation::EstimationRefusal> {
         auto e = inner(x, jac);
-        if (!e) { model_refused = true; return e; }
+        ++evals;
+        if (!e) { model_refused = true; refused_at_eval = evals; refusal_id = e.error().id; return e; }
         double s = 0.0;
         for (double r : e->residual) s += r * r;
         const double f = 0.5 * s;
-        if (!std::isfinite(f)) { model_refused = true; return odl::err(odl::estimation::EstimationRefusal{"ARC-F-002", "non-finite objective"}); }
+        if (!std::isfinite(f)) { exploded = true; refused_at_eval = evals; return odl::err(odl::estimation::EstimationRefusal{"ARC-F-002", "non-finite objective"}); }
         if (f0 < 0.0) f0 = f;
-        if (f > kDivergenceFactor * f0) { exploded = true; return odl::err(odl::estimation::EstimationRefusal{"ARC-F-003", "objective above 1e6 F(x0)"}); }
+        if (f > kDivergenceFactor * f0) { exploded = true; refused_at_eval = evals; return odl::err(odl::estimation::EstimationRefusal{"ARC-F-003", "objective above 1e6 F(x0)"}); }
         std::printf("ARCGN iter_eval F=%.6e\n", f);
         std::fflush(stdout);
         return e;
@@ -79,8 +82,9 @@ inline GnOutcome run_gauss_newton(const ArcModel& arc, const std::array<double, 
     out.f0 = f0;
     out.f_final = run.objective;
     out.error = error_at_truth(run.x, truth);
-    if (exploded) { out.cls = GnClass::diverged; out.why = "F exceeded 1e6 F(x0)"; }
-    else if (model_refused || run.ended == "non-finite") { out.cls = GnClass::diverged; out.why = "the model refused or a value was non-finite"; }
+    if (exploded) { out.cls = GnClass::diverged; out.why = "numeric divergence at step " + std::to_string(refused_at_eval - 1) + " (non-finite, or F above 1e6 F(x0))"; }
+    else if (model_refused) { out.cls = GnClass::diverged; out.why = "left the model domain at step " + std::to_string(refused_at_eval - 1) + " (" + refusal_id + ")"; }
+    else if (run.ended == "non-finite") { out.cls = GnClass::diverged; out.why = "numeric divergence (non-finite iterate)"; }
     else if (run.ended == "refused") { out.cls = GnClass::solver_refused; out.why = "step 2 refused the normal system"; }
     else if (run.ended == "step") { out.cls = out.error.within_gate() ? GnClass::reached_truth : GnClass::wrong_point; out.why = "step test"; }
     else { out.cls = GnClass::not_settled; out.why = "200 steps"; out.within_gate_at_kmax = out.error.within_gate(); }
@@ -123,4 +127,29 @@ inline constexpr double kArcGridStepS = 60.0;
 /// The two registered designs (part 2): epoch 2025-12-20 00:00 UTC; the gate arc is the sun-synchronous dawn-dusk plane with RAAN -2.0 deg (frozen), the eclipsing arc is i = 24 deg, RAAN 100 deg.
 inline ArcDesign gate_arc_design(double days) { return ArcDesign{"gate-noeclipse", 2025, 12, 20, 0, 6378137.0 + 720e3, 0.001, 98.27, -2.0, 90.0, 0.0, days, 60.0}; }
 inline ArcDesign eclipsing_arc_design(double days) { return ArcDesign{"eclipsing", 2025, 12, 20, 0, 6378137.0 + 720e3, 0.001, 24.0, 100.0, 0.0, 0.0, days, 60.0}; }
+}  // namespace l7arc
+
+namespace l7arc {
+/// The two ladders of the ruling of 2026-10-31 (L7-3.md), both a scalar s times a fixed error vector at the first epoch:
+///  P (the realistic one): ALONG-TRACK PHASE and SEMI-MAJOR AXIS only, the rest of the state at truth.  Position shifted by s km along the velocity direction; speed changed along the velocity
+///      by the vis-viva change of a semi-major axis error of s x 10 m:  dv = |v| da / (2 a).
+///  C (continuity): the old Cartesian direction ((0.5,-0.7,0.5), (-0.6,0.3,0.74), each normalised), scaled to s km and s cm/s -- used with s below the old unit.
+enum class LadderKind { P, C };
+inline std::array<double, 6> start_of(LadderKind kind, const ArcDesign& d, const std::array<double, 6>& truth, double s) {
+    if (kind == LadderKind::C) return rung_start(truth, s);
+    const Vec3 v{truth[3], truth[4], truth[5]};
+    const double speed = v.norm();
+    const Vec3 vh = (1.0 / speed) * v;
+    const double dL = 1000.0 * s, da = 10.0 * s, dv = speed * da / (2.0 * d.a_m);
+    return {truth[0] + dL * vh.x, truth[1] + dL * vh.y, truth[2] + dL * vh.z, truth[3] + dv * vh.x, truth[4] + dv * vh.y, truth[5] + dv * vh.z};
+}
+inline const char* to_string(LadderKind k) { return k == LadderKind::P ? "P" : "C"; }
+}  // namespace l7arc
+
+namespace l7arc {
+/// The FROZEN rungs (L7_step3_registration.txt, amendment 4 results).
+inline constexpr std::array<double, 5> kRungsPGate{1.0, 2.9, 8.8, 26.0, 79.0};
+inline constexpr std::array<double, 5> kRungsPEclipsing{1.0, 2.9, 8.7, 25.0, 76.0};
+inline constexpr std::array<double, 5> kRungsC{0.01, 0.034, 0.12, 0.42, 1.5};          // both arcs
+inline const std::array<double, 5>& rungs_of(LadderKind kind, bool eclipsing) { return kind == LadderKind::C ? kRungsC : (eclipsing ? kRungsPEclipsing : kRungsPGate); }
 }  // namespace l7arc
