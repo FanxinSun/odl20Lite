@@ -55,10 +55,13 @@ inline std::string fnv_hex(const std::vector<std::uint64_t>& words) {
 }
 inline std::uint64_t bits_of(double d) { std::uint64_t u; std::memcpy(&u, &d, sizeof u); return u; }
 
+/// Who is scheduled: every station (the dense arcs), or (the sparse arc of the ruling of 2026-10-31) ONLY the first station, on its FIRST pass and its LAST pass of the arc, at the same cadence and elevation limit.
+enum class ScheduleRule { AllStations, FirstStationFirstAndLastPass };
+
 class ArcModel {
 public:
     /// Builds the schedule from the truth: a node of the 60-second grid, a station that sees the satellite there at `kMinElevationDeg` or more.
-    ArcModel(const ArcForces& forces, const ArcDesign& design, const std::vector<odl::frames::GcrsState>& truth_grid, double grid_step_s)
+    ArcModel(const ArcForces& forces, const ArcDesign& design, const std::vector<odl::frames::GcrsState>& truth_grid, double grid_step_s, ScheduleRule rule = ScheduleRule::AllStations)
         : forces_(&forces), design_(design), t0_(epoch_of(design)), orientation_(fx::c04(), odl::eop::EopPolicy{}, fx::leaps()) {
         auto com = mm::SphericalCentreOfMass::make(1900000L, 0.5, "a test input (the sail's reflector offset is not LightSail-2's measured one)");
         REQUIRE(com.has_value());
@@ -79,9 +82,30 @@ public:
         }
         const auto stride = static_cast<std::size_t>(std::llround(design.spacing_s / grid_step_s));
         REQUIRE(stride >= 1);
+        std::vector<char> keep(truth_grid.size(), 1);
+        if (rule == ScheduleRule::FirstStationFirstAndLastPass) {
+            std::vector<std::size_t> first_nodes, last_nodes, current;
+            bool have_first = false;
+            auto close_run = [&] { if (current.empty()) return; if (!have_first) { first_nodes = current; have_first = true; } last_nodes = current; current.clear(); };
+            for (std::size_t k = 0; k < truth_grid.size(); k += stride) {
+                auto kin = tracks_[0]->at(truth_grid[k].epoch());
+                REQUIRE(kin.has_value());
+                const Vec3 rho = odl::metres_from_km(truth_grid[k].position()) - kin->position_m;
+                const double el = std::asin((rho.x * kin->up.x + rho.y * kin->up.y + rho.z * kin->up.z) / rho.norm()) * 180.0 / kPi;
+                if (el >= kMinElevationDeg) current.push_back(k); else close_run();
+            }
+            close_run();
+            std::fill(keep.begin(), keep.end(), 0);
+            for (std::size_t k : first_nodes) keep[k] = 1;
+            for (std::size_t k : last_nodes) keep[k] = 1;
+            first_pass_nodes_ = first_nodes.size();
+            last_pass_nodes_ = last_nodes.size();
+            same_pass_ = first_nodes == last_nodes;
+        }
         for (std::size_t k = 0; k < truth_grid.size(); k += stride) {
+            if (!keep[k]) continue;
             bool any = false;
-            for (std::size_t s = 0; s < tracks_.size(); ++s) {
+            for (std::size_t s = 0; s < (rule == ScheduleRule::AllStations ? tracks_.size() : std::size_t{1}); ++s) {
                 auto kin = tracks_[s]->at(truth_grid[k].epoch());
                 REQUIRE(kin.has_value());
                 const Vec3 rho = odl::metres_from_km(truth_grid[k].position()) - kin->position_m;
@@ -100,6 +124,9 @@ public:
     [[nodiscard]] const odl::time::Epoch& t0() const { return t0_; }
     [[nodiscard]] const ArcDesign& design() const { return design_; }
     [[nodiscard]] std::size_t count() const { return obs_.size(); }
+    [[nodiscard]] std::size_t first_pass_nodes() const { return first_pass_nodes_; }
+    [[nodiscard]] std::size_t last_pass_nodes() const { return last_pass_nodes_; }
+    [[nodiscard]] bool first_and_last_pass_are_one() const { return same_pass_; }
     [[nodiscard]] std::size_t count_of_station(std::size_t s) const { return static_cast<std::size_t>(std::count_if(obs_.begin(), obs_.end(), [&](const ArcObservation& o) { return o.station == s; })); }
 
     /// The model at x0 (metres, metres/second): residual of each observation and, when asked, the row of each.
@@ -111,10 +138,12 @@ public:
         Mat6 phi = dyn::identity6();
         std::size_t next = 0;
         for (std::size_t e = 0; e < epochs_.size(); ++e) {
-            const double dt = seconds_between(epochs_[e], state.epoch());
-            if (dt > 0.0) {
+            // A gap of more than a day is chained in pieces of a day (L7 step 3 finding, ARC-X-007: ONE call across a gap of about two days fails in a trial stage, SHDW-F-002, the satellite inside the Earth -- a refusal in
+            // a trial stage of the adaptive step is fatal there rather than a rejected step).  A gap of a day or less is a single call, as before: the dense arcs are unchanged bit for bit.
+            for (double dt = seconds_between(epochs_[e], state.epoch()); dt > 0.0; dt = seconds_between(epochs_[e], state.epoch())) {
+                const double piece = std::min(dt, 86400.0);
                 if (with_rows) {
-                    auto s = dyn::propagate_with_stm(forces_->forces(), forces_->params(), state, dt, kPropagationTolerance);
+                    auto s = dyn::propagate_with_stm(forces_->forces(), forces_->params(), state, piece, kPropagationTolerance);
                     if (!s) return odl::err(odl::Diagnostic(s.error().id, s.error().message));
                     Mat6 q{};
                     for (std::size_t i = 0; i < 6; ++i)
@@ -122,10 +151,11 @@ public:
                     phi = q;
                     state = s->state;
                 } else {
-                    auto s = dyn::propagate(forces_->forces(), forces_->params(), state, dt, kPropagationTolerance);
+                    auto s = dyn::propagate(forces_->forces(), forces_->params(), state, piece, kPropagationTolerance);
                     if (!s) return odl::err(odl::Diagnostic(s.error().id, s.error().message));
                     state = *s;
                 }
+                if (piece == dt) break;
             }
             const NodeTrajectory traj(state);
             for (; next < obs_.size() && obs_[next].epoch_index == e; ++next) {
@@ -145,7 +175,7 @@ public:
     void generate_data(const std::array<double, 6>& truth, std::uint64_t seed, double sigma_m) {
         for (int pass = 0; pass < 2; ++pass) {              // the model does not read the observed time of flight in its model, only in the residual: one pass would do; two
             auto ev = evaluate(truth, false);                // are made so that the second shows the residual at the truth to be zero (the caller checks it)
-            REQUIRE(ev.has_value());
+            if (!ev) FAIL("the model could not be evaluated at the truth: " << ev.error().id << " " << ev.error().message);
             for (std::size_t k = 0; k < obs_.size(); ++k) {
                 const double range_modelled = obs_[k].obs.time_of_flight_s * kC / 2.0 - ev->residual_m[k];     // c ToF_obs/2 - residual
                 obs_[k].obs.time_of_flight_s = 2.0 * range_modelled / kC;
@@ -182,6 +212,8 @@ private:
     std::vector<std::unique_ptr<mm::EarthFixedStation>> tracks_;
     std::vector<odl::time::Epoch> epochs_;
     std::vector<ArcObservation> obs_;
+    std::size_t first_pass_nodes_ = 0, last_pass_nodes_ = 0;
+    bool same_pass_ = false;
 };
 
 /// The estimator's model for the arc: whitened by the range sigma, the six state components as the parameters.

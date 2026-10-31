@@ -86,3 +86,58 @@ TEST_CASE("ARC-X-006  the evaluable edge of each ladder on each arc, and the run
         }
     }
 }
+
+// ARC-X-007 — the SPARSE ARC's preparation (amendment 6): schedule by the rule, data and hashes, the Jacobian's conditioning at the truth, and the evaluable edge of ladder P with its five rungs.  Model calls only.  No fit.
+TEST_CASE("ARC-X-007  the sparse arc: schedule, hashes, conditioning at the truth, edge and rungs", "[.geometry]") {
+    ArcForces forces;
+    const ArcDesign d = gate_arc_design(3.0);
+    const auto truth = cartesian_of(d);
+    const auto grid = state_grid(forces, state_from(epoch_of(d), truth), d.days * 86400.0, kArcGridStepS);
+    ArcModel arc(forces, d, grid, kArcGridStepS, ScheduleRule::FirstStationFirstAndLastPass);
+    arc.generate_data(truth, 0, 0.0);
+    std::printf("ARCSPARSE observations=%zu epochs=%zu first_pass_nodes=%zu last_pass_nodes=%zu same_pass=%d schedule_hash=%s data_hash=%s\n", arc.count(), arc.epochs().size(), arc.first_pass_nodes(), arc.last_pass_nodes(),
+                arc.first_and_last_pass_are_one() ? 1 : 0, arc.schedule_hash().c_str(), arc.data_hash().c_str());
+    std::fflush(stdout);
+    REQUIRE(arc.count() > 0);
+    // conditioning at the truth
+    auto at_truth = arc.evaluate(truth, true);
+    REQUIRE(at_truth.has_value());
+    {
+        const std::size_t m = arc.count();
+        std::vector<double> n(36, 0.0), rhs(6, 0.0);
+        for (std::size_t k = 0; k < m; ++k)
+            for (std::size_t i = 0; i < 6; ++i)
+                for (std::size_t j = 0; j < 6; ++j) n[i * 6 + j] += (at_truth->rows[k * 6 + i] / kRangeSigmaM) * (at_truth->rows[k * 6 + j] / kRangeSigmaM);
+        auto ne = odl::estimation::NormalEquations::from_normal_system(parameter_names(), n, rhs, m, 0.0);
+        if (!ne) { std::printf("ARCSPARSE conditioning REFUSED at construction: %s %s\n", ne.error().id.data(), ne.error().message.c_str()); std::fflush(stdout); FAIL("rank-deficient (refused at construction): STOP and tell the manager"); }
+        auto sol = ne->solve();
+        if (!sol) {
+            std::printf("ARCSPARSE conditioning REFUSED: %s %s (kappa_est %.3e kappa_up %.3e)\n", sol.error().id.data(), sol.error().message.c_str(), sol.error().condition.condition_estimate, sol.error().condition.condition_upper);
+            std::fflush(stdout);
+            FAIL("rank-deficient: STOP and tell the manager");
+        }
+        std::printf("ARCSPARSE conditioning at truth: kappa_est=%.6e kappa_up=%.6e sqrt(kappa_est)=%.6e B=%.3e\n", sol->condition.condition_estimate, sol->condition.condition_upper, std::sqrt(sol->condition.condition_estimate),
+                    sol->certified_relative_error);
+        for (std::size_t i = 0; i < 6; ++i) std::printf("ARCSPARSE parameter_condition %s = %.4e\n", parameter_names()[i].c_str(), sol->condition.parameter_conditions[i]);
+        std::fflush(stdout);
+    }
+    // the edge of ladder P and its five rungs
+    auto ok_at = [&](double s) { bool ok = false; (void)rms_residual_m(arc, start_of(LadderKind::P, d, truth, s), &ok); return ok; };
+    double lo = 1.0, hi = 1.0;
+    REQUIRE(ok_at(1.0));
+    while (hi < 1e4) { hi *= 2.0; if (!ok_at(hi)) break; lo = hi; }
+    if (hi >= 1e4 && ok_at(hi)) { std::printf("ARCSPARSE edge: evaluable up to the search limit 1e4: STOP for the manager\n"); std::fflush(stdout); FAIL("no refusal up to 1e4"); }
+    while (hi / lo > 1.04) { const double mid = std::sqrt(lo * hi); if (ok_at(mid)) lo = mid; else hi = mid; }
+    const double smax = two_figures(lo);
+    std::printf("ARCSPARSE edge: last_evaluable=%.4g first_refused=%.4g s_max=%.3g\n", lo, hi, smax);
+    for (int i = 0; i < 5; ++i) {
+        double s = i == 4 ? smax : two_figures(std::pow(smax, i / 4.0));
+        if (i == 0) s = 1.0;
+        auto ev = arc.evaluate(start_of(LadderKind::P, d, truth, s), false);
+        if (!ev) { std::printf("ARCSPARSE rung=%d s=%.3g REFUSED\n", i + 1, s); continue; }
+        double f = 0.0;
+        for (double r : ev->residual_m) f += 0.5 * (r / kRangeSigmaM) * (r / kRangeSigmaM);
+        std::printf("ARCSPARSE rung=%d s=%.3g F=%.6e\n", i + 1, s, f);
+        std::fflush(stdout);
+    }
+}

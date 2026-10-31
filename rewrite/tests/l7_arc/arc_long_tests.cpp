@@ -72,5 +72,8 @@ TEST_CASE("ARC-L-001  the sail arc, as registered", "[.long]") {
         std::printf("ARCRUN data arc=gate-noeclipse-noise seed=20251220 data_hash=%s\n", noisy.data_hash().c_str());
         const auto l = run_lm(noisy, arcs[0].truth, start_of(LadderKind::P, arcs[0].design, arcs[0].truth, kRungsPGate[2]));
         print_lm("gate-noeclipse-noise/P", kRungsPGate[2], l, noisy.count());
+        // amendment 5: GATED -- the stopping rule must end converged_* on real-looking noise (stalled here = the rule fails for real data: stop and report)
+        const auto st = l.result.status;
+        CHECK((st == odl::estimation::LmStatus::converged_gradient || st == odl::estimation::LmStatus::converged_residual || st == odl::estimation::LmStatus::converged_step));
     }
 }

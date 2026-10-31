@@ -1,6 +1,6 @@
 // arc_regression_tests.cpp — L7 step 3, part 2: ARC-R-001 is a REGRESSION GUARD for CI.  IT IS NOT THE STEP'S EVIDENCE: the evidence is ARC-L-001 ([.long], the full three-day experiment,
 // whose log is kept and hashed).  This case runs a ONE-DAY sub-arc of the gate arc (same truth, model, stations) from rungs 1 and 3 of ladder P (s = 1 and 8.8; the old s = 1, 30 meant nothing
-// once the ladder was found not evaluable) and asserts what was registered before its first run (amendments 3 and 4): each start EVALUATES; LM at tau = 1e-3 ends converged_* (not stalled,
+// once the ladder was found not evaluable) and asserts what was registered before its first run (amendments 3 and 4): each start EVALUATES; LM at tau = 1e-3 ends converged_*, or (amendment 5, after this case's first run failed on a wrong expectation) stalled WITH a final F below 1e-3 whitened (not
 // max_iterations or refused) and within 1 m and 1 mm/s of the truth; its cost is bounded by the ctest TIMEOUT of 300 s (tests/CMakeLists.txt).
 #include "arc_runs.hpp"
 
@@ -21,7 +21,10 @@ TEST_CASE("ARC-R-001  REGRESSION GUARD, not the step's evidence: LM on a one-day
         const auto l = run_lm(arc, truth, x0);
         print_lm(d.name, s, l, arc.count());
         const auto st = l.result.status;
-        CHECK((st == odl::estimation::LmStatus::converged_gradient || st == odl::estimation::LmStatus::converged_residual || st == odl::estimation::LmStatus::converged_step));
+        const bool converged = st == odl::estimation::LmStatus::converged_gradient || st == odl::estimation::LmStatus::converged_residual || st == odl::estimation::LmStatus::converged_step;
+        // amendment 5: `stalled` passes ONLY with the final F below 1e-3 (whitened) -- on a noise-free arc the residual is the model's own noise and the cosine test measures nothing; refused and max_iterations fail
+        const bool stalled_at_the_floor = st == odl::estimation::LmStatus::stalled && l.result.objective < 1.0e-3;
+        CHECK((converged || stalled_at_the_floor));
         CHECK(l.error.within_gate());
         ++rungs;
     }

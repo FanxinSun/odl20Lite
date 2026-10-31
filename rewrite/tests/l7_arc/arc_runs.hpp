@@ -109,12 +109,12 @@ inline LmOutcome run_lm(const ArcModel& arc, const std::array<double, 6>& truth,
 }
 
 inline void print_gn(const char* arc, double s, const GnOutcome& g) {
-    std::printf("ARCRUN GN arc=%s rung=%.0f class=%s why=\"%s\" iters=%zu F0=%.6e F=%.6e dr_m=%.6e dv_mps=%.6e inside_gate_at_200=%d wall_s=%.0f\n", arc, s, to_string(g.cls), g.why.c_str(),
+    std::printf("ARCRUN GN arc=%s rung=%.3g class=%s why=\"%s\" iters=%zu F0=%.6e F=%.6e dr_m=%.6e dv_mps=%.6e inside_gate_at_200=%d wall_s=%.0f\n", arc, s, to_string(g.cls), g.why.c_str(),
                 g.iterations, g.f0, g.f_final, g.error.position_m, g.error.velocity_mps, g.within_gate_at_kmax ? 1 : 0, g.seconds);
     std::fflush(stdout);
 }
 inline void print_lm(const char* arc, double s, const LmOutcome& l, std::size_t m) {
-    std::printf("ARCRUN LM arc=%s rung=%.0f status=%s iters=%zu accepted=%zu rejected=%zu F=%.6e chi2_per_obs=%.4f cosine=%.3e dr_m=%.6e dv_mps=%.6e gate=%s evals=%zu wall_s=%.0f msg=\"%s\"\n", arc, s,
+    std::printf("ARCRUN LM arc=%s rung=%.3g status=%s iters=%zu accepted=%zu rejected=%zu F=%.6e chi2_per_obs=%.4f cosine=%.3e dr_m=%.6e dv_mps=%.6e gate=%s evals=%zu wall_s=%.0f msg=\"%s\"\n", arc, s,
                 odl::estimation::to_string(l.result.status), l.result.iterations, l.result.accepted_steps, l.result.rejected_steps, l.result.objective, 2.0 * l.result.objective / static_cast<double>(m),
                 l.result.cosine, l.error.position_m, l.error.velocity_mps, l.error.within_gate() ? "PASS" : "FAIL", l.evaluations, l.seconds, l.result.message.c_str());
     std::fflush(stdout);
@@ -152,4 +152,18 @@ inline constexpr std::array<double, 5> kRungsPGate{1.0, 2.9, 8.8, 26.0, 79.0};
 inline constexpr std::array<double, 5> kRungsPEclipsing{1.0, 2.9, 8.7, 25.0, 76.0};
 inline constexpr std::array<double, 5> kRungsC{0.01, 0.034, 0.12, 0.42, 1.5};          // both arcs
 inline const std::array<double, 5>& rungs_of(LadderKind kind, bool eclipsing) { return kind == LadderKind::C ? kRungsC : (eclipsing ? kRungsPEclipsing : kRungsPGate); }
+}  // namespace l7arc
+
+namespace l7arc {
+inline constexpr std::array<double, 5> kRungsPSparse{1.0, 3.0, 9.2, 28.0, 86.0};     // the sparse arc's frozen ladder P (amendment 6)
+// the dense arcs' hashes, frozen at part 2 (asserted by the long cases: the fixture changed since, and must not have changed them)
+inline constexpr const char* kGateScheduleHash = "59d3bd869e56fcdf";
+inline constexpr const char* kGateDataHash = "c6394e3463de9e69";
+inline constexpr const char* kEclipsingScheduleHash = "36002f4410e37526";
+inline constexpr const char* kEclipsingDataHash = "9d17c912d5a228f2";
+inline constexpr const char* kSparseScheduleHash = "a014e539b20b975c";
+inline constexpr const char* kSparseDataHash = "04e81374e08fa9a8";
+inline bool is_converged(odl::estimation::LmStatus st) {
+    return st == odl::estimation::LmStatus::converged_gradient || st == odl::estimation::LmStatus::converged_residual || st == odl::estimation::LmStatus::converged_step;
+}
 }  // namespace l7arc
