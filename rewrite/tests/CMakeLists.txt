@@ -413,3 +413,19 @@ set_tests_properties(interpretercheck.refuses_an_argument PROPERTIES WILL_FAIL T
 add_test(NAME interpretercheck.refusal_text
   COMMAND interpretercheck --bogus)
 set_tests_properties(interpretercheck.refusal_text PROPERTIES PASS_REGULAR_EXPRESSION "interpretercheck: error: unrecognized arguments: --bogus")
+
+# L7 step 3, part 2 (SPEC-estimation.md): the solar-sail arc -- the estimator on the full chain (forcemodel + SRP + the range model of L6), kept apart from the estimation module's own
+# tests because the module depends on core alone.  The fixture is tests/l7_arc/arc_fixture.hpp; it reuses the measmod tests' and the forcemodel tests' own compile definitions
+# (the manifest-supplied paths), as the L6 exit gate does.
+add_executable(odl_l7_arc_tests l7_arc/arc_geometry_tests.cpp l7_arc/arc_timing_tests.cpp)
+target_link_libraries(odl_l7_arc_tests
+  PRIVATE odl::core odl::time odl::eop odl::frames odl::ephemerides odl::gravity odl::tides odl::thirdbody odl::relativity odl::shadow odl::macromodel odl::srp odl::dynamics
+          odl::io odl::measmod odl::forcemodel odl::estimation erfa Catch2::Catch2WithMain odl_warnings)
+if(BUILD_TESTING)
+  get_target_property(_arc_measmod_defs odl_measmod_tests COMPILE_DEFINITIONS)
+  get_target_property(_arc_forcemodel_defs odl_forcemodel_tests COMPILE_DEFINITIONS)
+  set(_arc_defs ${_arc_measmod_defs} ${_arc_forcemodel_defs})
+  list(REMOVE_DUPLICATES _arc_defs)
+  target_compile_definitions(odl_l7_arc_tests PRIVATE ${_arc_defs})
+endif()
+catch_discover_tests(odl_l7_arc_tests EXTRA_ARGS --warn NoAssertions)
