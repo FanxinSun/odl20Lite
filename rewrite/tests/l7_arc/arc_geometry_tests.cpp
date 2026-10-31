@@ -89,3 +89,54 @@ TEST_CASE("ARC-X-000  the two arcs' geometry, schedule and frozen data", "[.geom
         }
     }
 }
+
+// The attribution of the two largest Jacobian-vs-difference figures (columns 2 and 3 of the gate arc) to the difference quotient, checked by a step-size series: integration
+// noise in the model, divided by 2h, falls as 1/h; truncation of the quotient grows as h^2.  Registered in L7_step3_registration.txt (amendment 3) before it ran.
+TEST_CASE("ARC-X-003  Jacobian columns 2 and 3 against central differences at three step sizes", "[.geometry]") {
+    ArcForces forces;
+    const ArcDesign d = gate_design(-2.0);
+    const auto truth = cartesian_of(d);
+    const auto grid = state_grid(forces, state_from(epoch_of(d), truth), d.days * 86400.0, kGridStep);
+    ArcModel arc(forces, d, grid, kGridStep);
+    arc.generate_data(truth, 0, 0.0);
+    auto at_truth = arc.evaluate(truth, true);
+    REQUIRE(at_truth.has_value());
+    for (std::size_t j : {std::size_t{2}, std::size_t{3}}) {
+        const double base = j < 3 ? 100.0 : 0.1;
+        for (double mult : {0.1, 1.0, 10.0}) {
+            const double h = base * mult;
+            auto xp = truth, xm = truth;
+            xp[j] += h; xm[j] -= h;
+            auto ep = arc.evaluate(xp, false), em = arc.evaluate(xm, false);
+            if (!ep) { std::printf("ARCJAC column=%zu h=%.3g REFUSED(+) %s %s\n", j, h, ep.error().id.data(), ep.error().message.c_str()); continue; }
+            if (!em) { std::printf("ARCJAC column=%zu h=%.3g REFUSED(-) %s %s\n", j, h, em.error().id.data(), em.error().message.c_str()); continue; }
+            double colmax = 0.0, diffmax = 0.0;
+            for (std::size_t k = 0; k < arc.count(); ++k) {
+                const double fd = -(ep->residual_m[k] - em->residual_m[k]) / (2.0 * h);
+                const double an = at_truth->rows[k * 6 + j];
+                colmax = std::max(colmax, std::abs(an));
+                diffmax = std::max(diffmax, std::abs(fd - an));
+            }
+            std::printf("ARCJAC column=%zu h=%.3g max_difference=%.3e relative=%.3e\n", j, h, diffmax, diffmax / colmax);
+            std::fflush(stdout);
+        }
+    }
+}
+
+// Can the model be evaluated at the frozen ladder's starting points at all?  (The range model refuses a leg below 3 degrees of elevation.)  A feasibility look, no fit.
+TEST_CASE("ARC-X-004  the ladder's starting points: does the model evaluate there", "[.geometry]") {
+    ArcForces forces;
+    const ArcDesign d = gate_design(-2.0);
+    const auto truth = cartesian_of(d);
+    const auto grid = state_grid(forces, state_from(epoch_of(d), truth), d.days * 86400.0, kGridStep);
+    ArcModel arc(forces, d, grid, kGridStep);
+    arc.generate_data(truth, 0, 0.0);
+    for (double s : kLadder) {
+        auto ev = arc.evaluate(rung_start(truth, s), false);
+        if (!ev) { std::printf("ARCLAD s=%.0f REFUSED %s %.150s\n", s, ev.error().id.data(), ev.error().message.c_str()); std::fflush(stdout); continue; }
+        double f = 0.0;
+        for (double r : ev->residual_m) f += 0.5 * (r / kRangeSigmaM) * (r / kRangeSigmaM);
+        std::printf("ARCLAD s=%.0f ok F=%.6e rms_residual_m=%.4e\n", s, f, std::sqrt(2.0 * f / static_cast<double>(arc.count())) * kRangeSigmaM);
+        std::fflush(stdout);
+    }
+}
