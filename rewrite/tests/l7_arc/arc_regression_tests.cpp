@@ -30,3 +30,19 @@ TEST_CASE("ARC-R-001  REGRESSION GUARD, not the step's evidence: LM on a one-day
     }
     CHECK(rungs == 2);    // rule 3: the loop ran
 }
+
+// ARC-R-002 — the crash's regression (registered before it ran, in L7_step3_registration.txt): ARC-X-009's state, forces (EGM2008 degree 2 + SRP) and tolerance; spans of 2 and 3 days must PROPAGATE in ONE call
+// (they ended with SHDW-F-002 before the first-step cap of dyn::propagate).
+TEST_CASE("ARC-R-002  one call over two and three days propagates (the first-step cap)", "[arc][regression]") {
+    const ArcDesign d = gate_arc_design(3.0);
+    const auto x0 = state_from(epoch_of(d), cartesian_of(d));
+    ArcForces forces(2, false);
+    std::size_t ran = 0;
+    for (double days : {2.0, 3.0}) {
+        auto r = dyn::propagate(forces.forces(), forces.params(), x0, days * 86400.0, kPropagationTolerance);
+        INFO("span " << days << " d");
+        REQUIRE(r.has_value());
+        ++ran;
+    }
+    CHECK(ran == 2);
+}

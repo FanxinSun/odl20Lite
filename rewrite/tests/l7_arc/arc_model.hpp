@@ -141,7 +141,7 @@ public:
             // A gap of more than a day is chained in pieces of a day (L7 step 3 finding, ARC-X-007: ONE call across a gap of about two days fails in a trial stage, SHDW-F-002, the satellite inside the Earth -- a refusal in
             // a trial stage of the adaptive step is fatal there rather than a rejected step).  A gap of a day or less is a single call, as before: the dense arcs are unchanged bit for bit.
             for (double dt = seconds_between(epochs_[e], state.epoch()); dt > 0.0; dt = seconds_between(epochs_[e], state.epoch())) {
-                const double piece = std::min(dt, 86400.0);
+                const double piece = kChainLongGaps ? std::min(dt, 86400.0) : dt;
                 if (with_rows) {
                     auto s = dyn::propagate_with_stm(forces_->forces(), forces_->params(), state, piece, kPropagationTolerance);
                     if (!s) return odl::err(odl::Diagnostic(s.error().id, s.error().message));

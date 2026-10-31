@@ -176,3 +176,83 @@ TEST_CASE("ARC-X-009  SHDW-F-002 in dyn::propagate: the shortest failing span", 
         std::fflush(stdout);
     }
 }
+
+// ARC-X-011 — the stage-radius measurement of the crash's fix (registered in L7_step3_registration.txt BEFORE it ran): for near-circular orbits at four altitudes, the lowest radius over the 13 stages of the integrator's
+// FIRST trial step of size (h/T) T, with the stepper's own stages and the ARC-X-009 force set.  Model calls; no change to modules/.
+#include <odl/integrators/stepper.hpp>
+
+TEST_CASE("ARC-X-011  lowest stage radius of the first trial step against h/T, four altitudes", "[.geometry]") {
+    constexpr double Re = 6378137.0, margin = 50e3;
+    struct Config { const char* name; int degree; bool third; };
+    for (const Config c : {Config{"gravity deg 2 + SRP", 2, false}, Config{"the arc's full set", 10, true}}) {
+        ArcForces forces(c.degree, c.third);
+        for (double alt_km : {200.0, 400.0, 720.0, 1000.0}) {
+            ArcDesign d{"x011", 2025, 12, 20, 0, Re + alt_km * 1e3, 0.001, 98.27, -2.0, 90.0, 0.0, 3.0, 60.0};
+            const odl::time::Epoch t0 = epoch_of(d);
+            const auto x0 = state_from(t0, cartesian_of(d));
+            const double period = 2.0 * kPi * std::sqrt(d.a_m * d.a_m * d.a_m / fx::kGmFixture);
+            using V = odl::integrators::Vec<6>;
+            const V y0{x0.position().x, x0.position().y, x0.position().z, x0.velocity().x, x0.velocity().y, x0.velocity().z};
+            double largest_pass = 0.0, largest_prefix = 0.0;
+            bool prefix_open = true;
+            double height_at_quarter = 0.0;
+            for (int i = 0; i <= 10; ++i) {
+                const double ht = 0.20 + 0.01 * i, h = ht * period;
+                double min_r = INFINITY;
+                bool refused = false;
+                auto f = [&](double s, const V& u) -> V {
+                    min_r = std::min(min_r, odl::metres_from_km(std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2])));
+                    V dd{};
+                    const auto when = t0.add(odl::time::Duration::from_seconds(s));
+                    const odl::frames::GcrsState st{when, Vec3{u[0], u[1], u[2]}, Vec3{u[3], u[4], u[5]}};
+                    auto der = forces.forces().derivative(when, st, forces.params());
+                    if (!der) { refused = true; return dd; }
+                    dd = {der->velocity_km_s.x, der->velocity_km_s.y, der->velocity_km_s.z, der->acceleration_km_s2.x, der->acceleration_km_s2.y, der->acceleration_km_s2.z};
+                    return dd;
+                };
+                (void)odl::integrators::rkf78_step<V>(f, 0.0, y0, h);
+                const bool pass = min_r >= Re + margin && !refused;
+                std::printf("ARCSTEP %-20s alt=%4.0f km h/T=%.2f h=%7.1f s lowest_stage_height=%9.1f km %s%s\n", c.name, alt_km, ht, h, (min_r - Re) / 1e3, pass ? "pass" : "FAIL", refused ? " (a force refused)" : "");
+                if (pass) largest_pass = ht;
+                if (!pass) prefix_open = false;
+                if (prefix_open) largest_prefix = ht;
+                if (i == 5) height_at_quarter = (min_r - Re) / 1e3;
+            }
+            std::printf("ARCSTEP %-20s alt=%4.0f km T=%.1f s: largest passing h/T=%.2f, largest with every sampled fraction up to it passing=%.2f, lowest stage height at 0.25=%.1f km\n", c.name, alt_km, period, largest_pass, largest_prefix, height_at_quarter);
+            std::fflush(stdout);
+        }
+    }
+}
+
+// ARC-X-012 — the bytes of a few propagations of ARC-X-009's configuration (EGM2008 degree 2 + SRP, tolerance 1e-9, the gate arc's first state), printed in hex floats, to be run BEFORE and AFTER the first-step cap:
+// a span whose first step the cap does not touch must print the same bytes; for the others the difference is reported.  Spans (s): 3600, 86400, 111000, 125000, 129600, 160000.
+TEST_CASE("ARC-X-012  bytes of the ARC-X-009 propagations before and after the cap", "[.geometry]") {
+    const ArcDesign d = gate_arc_design(3.0);
+    const auto x0 = state_from(epoch_of(d), cartesian_of(d));
+    ArcForces forces(2, false);
+    for (double span : {3600.0, 86400.0, 111000.0, 125000.0, 129600.0, 160000.0}) {
+        auto r = dyn::propagate(forces.forces(), forces.params(), x0, span, kPropagationTolerance);
+        if (!r) { std::printf("ARCBYTES span=%.0f REFUSED %s\n", span, std::string(r.error().id).c_str()); continue; }
+        std::printf("ARCBYTES span=%.0f r=[%a %a %a] v=[%a %a %a]\n", span, r->position().x, r->position().y, r->position().z, r->velocity().x, r->velocity().y, r->velocity().z);
+    }
+}
+
+// ARC-X-013 — the three arcs' frozen hashes WITHOUT the day-piece workaround (the first-step cap makes it unnecessary, if the hashes hold): registered in L7_step3_registration.txt before it ran.
+TEST_CASE("ARC-X-013  the arcs' hashes without the day-piece workaround", "[.geometry]") {
+    kChainLongGaps = false;
+    ArcForces forces;
+    struct Case { const char* name; ArcDesign d; ScheduleRule rule; const char* sched; const char* data; };
+    const Case cases[] = {{"gate", gate_arc_design(3.0), ScheduleRule::AllStations, kGateScheduleHash, kGateDataHash},
+                          {"eclipsing", eclipsing_arc_design(3.0), ScheduleRule::AllStations, kEclipsingScheduleHash, kEclipsingDataHash},
+                          {"sparse", gate_arc_design(3.0), ScheduleRule::FirstStationFirstAndLastPass, kSparseScheduleHash, kSparseDataHash}};
+    for (const auto& c : cases) {
+        const auto truth = cartesian_of(c.d);
+        const auto grid = state_grid(forces, state_from(epoch_of(c.d), truth), c.d.days * 86400.0, kArcGridStepS);
+        ArcModel arc(forces, c.d, grid, kArcGridStepS, c.rule);
+        arc.generate_data(truth, 0, 0.0);
+        std::printf("ARCHASH %-10s schedule=%s (frozen %s) data=%s (frozen %s) %s\n", c.name, arc.schedule_hash().c_str(), c.sched, arc.data_hash().c_str(), c.data,
+                    (arc.schedule_hash() == c.sched && arc.data_hash() == c.data) ? "UNCHANGED" : "MOVED");
+        std::fflush(stdout);
+    }
+    kChainLongGaps = true;
+}

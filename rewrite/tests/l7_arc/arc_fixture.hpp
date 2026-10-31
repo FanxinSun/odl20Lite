@@ -15,8 +15,9 @@
 // The attitude assumption is therefore "sun-pointing, normal to the Sun line at every instant": a FIXED CANNONBALL IS NOT A SAIL and this is not
 // one.  The reflectivities are test-stated values of a typical aluminised film, not LightSail-2's measured ones.
 //
-// WORKAROUND (arc_model.hpp, ArcModel::evaluate): a gap between observation epochs of more than a day is propagated in pieces of a day, because ONE `dyn::propagate` call across a longer span fails with
-// SHDW-F-002 (the integrator's first trial step is span/100; a stage of it puts the satellite inside the Earth and the SRP shadow model refuses, which is fatal there, not a rejected step): see ARC-X-009.
+// WORKAROUND, KEPT BY RULING (arc_model.hpp, ArcModel::evaluate; kChainLongGaps): a gap between observation epochs of more than a day is propagated in pieces of a day.  It was needed because ONE `dyn::propagate` call across a longer span failed with
+// SHDW-F-002 (see ARC-X-009).  dyn::propagate now caps its first step (L7 step 3, the Committee's ruling of 2026-11-01), so the workaround is no longer NEEDED to propagate; it STAYS because ARC-X-013 shows that without it the
+// sparse arc's frozen DATA hash moves (2f29b6decaa72ca3 against 04e81374e08fa9a8; the gate and eclipsing arcs' hashes do not), and the ruling is: if they move, the workaround stays and nothing is re-registered.
 //
 // TRAJECTORY AT THE OBSERVATION EPOCHS ONLY.  Each observation is tagged at the BOUNCE (`EpochEvent::Bounce`), so L6 asks the trajectory
 // for the state at that very epoch and no other; the state there is the chain of the variational equations from the first epoch through the
@@ -58,6 +59,7 @@ inline constexpr double kAreaM2 = 32.0, kMassKg = 4.93;      // LightSail-2
 inline constexpr double kAbsorptivity = 0.10, kSpecular = 0.80, kDiffuse = 0.10;
 inline constexpr double kRangeSigmaM = 0.01;                 // the weight of the fit, and the noise of the one seeded run
 inline constexpr double kMinElevationDeg = 10.0;
+inline bool kChainLongGaps = true;                          // the workaround for SHDW-F-002 (ARC-X-013 tests the arcs' hashes without it)
 inline double kPropagationTolerance = 1e-9;        // the integrator tolerance for the state and the variational equations (measured: 7 mm/day against a 1e-13 reference, 4.6 s/day with the STM)
 
 /// One arc: its first epoch, the Keplerian truth, the span, and the stations.

@@ -27,6 +27,28 @@ struct Context {
     mutable DynError error{"DYN-F-006", "no fault"};
 };
 
+
+/// THE FIRST-STEP CAP (L7 step 3, the Committee's ruling of 2026-11-01, option A; SPEC-integrators INTG-Q-001's note).  `integrate` starts at span/100; across a long span that is a large part of an orbit, and a
+/// stage of such a step can be extrapolated through the Earth, where a force that refuses (SRP's shadow, SHDW-F-002) ends the call: measured, one call over about 167000 s at 720 km (ARC-X-009).  The first step is
+/// therefore min(span/100, 0.21 T), T the two-body period of the INITIAL state.  0.21 is the largest sampled fraction whose lowest stage stays at least 50 km above the surface at 200, 400, 720 and 1000 km
+/// (ARC-X-011: 1/4 does not clear 200 km or, by 1.2 km, 400 km).  Returns 0.0 -- "no override", the call is made exactly as before, bit for bit -- when the cap does not act or the orbit is not bound.
+/// mu enters a STEP BOUND, not the model.  Known gap, carried (option B and eccentric orbits): the period of the initial state is not the time scale near the perigee of an eccentric orbit.
+constexpr double kFirstStepOrbitFraction = 0.21;
+constexpr double kCapGmKm3PerS2 = 3.986004415e5;   // km^3 s^-2, the TT-compatible value
+
+double first_step_override(const frames::State<frames::Frame::GCRS>& x0, double seconds) {
+    const double r = std::sqrt(x0.position().x * x0.position().x + x0.position().y * x0.position().y + x0.position().z * x0.position().z);
+    const double v2 = x0.velocity().x * x0.velocity().x + x0.velocity().y * x0.velocity().y + x0.velocity().z * x0.velocity().z;
+    if (!(r > 0.0)) return 0.0;
+    const double inv_a = 2.0 / r - v2 / kCapGmKm3PerS2;
+    if (!(inv_a > 0.0)) return 0.0;                                  // not bound: no period
+    const double a = 1.0 / inv_a;
+    const double period = 2.0 * 3.14159265358979323846 * std::sqrt(a * a * a / kCapGmKm3PerS2);
+    const double cap = kFirstStepOrbitFraction * period;
+    if (!(std::abs(seconds) / 100.0 > cap)) return 0.0;               // the default first step is already smaller
+    return seconds > 0.0 ? cap : -cap;
+}
+
 }  // namespace
 
 odl::Result<StmSolution, DynError>
@@ -81,7 +103,7 @@ propagate_with_stm(const ForceSet& forces, const ParameterSet& params,
         return d;
     };
 
-    auto sol = odl::integrators::integrate<Vec<kN>>(rhs, 0.0, y, seconds, tolerance, ctl);
+    auto sol = odl::integrators::integrate<Vec<kN>>(rhs, 0.0, y, seconds, tolerance, ctl, first_step_override(x0, seconds));
     if (ctx.failed) return odl::err(ctx.error);
     if (!sol) {
         return odl::err(DynError{sol.error().id, sol.error().message});
@@ -200,7 +222,7 @@ propagate_with_sensitivities(const ForceSet& forces, const ParameterSet& params,
     };
 
     auto sol = odl::integrators::integrate<odl::integrators::DynVec>(
-        rhs, 0.0, y, seconds, tolerance, ctl);
+        rhs, 0.0, y, seconds, tolerance, ctl, first_step_override(x0, seconds));
     if (ctx.failed) return odl::err(ctx.error);
     if (!sol) return odl::err(DynError{sol.error().id, sol.error().message});
 
