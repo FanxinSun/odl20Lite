@@ -141,3 +141,38 @@ TEST_CASE("ARC-X-007  the sparse arc: schedule, hashes, conditioning at the trut
         std::fflush(stdout);
     }
 }
+
+// ARC-X-009 — the SMALLEST REPRODUCTION of SHDW-F-002 in `dyn::propagate` (the manager's ruling of 2026-10-31, item 5): one call, from the gate arc's first state, over a span; no observations, no estimator.
+// The integrator's first trial step is span/100 (`integrate`, h_initial = 0), here at tolerance 1e-9.
+TEST_CASE("ARC-X-009  SHDW-F-002 in dyn::propagate: the shortest failing span", "[.geometry]") {
+    const ArcDesign d = gate_arc_design(3.0);
+    const auto truth = cartesian_of(d);
+    const auto x0 = state_from(epoch_of(d), truth);
+    struct Config { const char* name; int degree; bool third; };
+    for (const Config c : {Config{"gravity deg 2 + SRP", 2, false}, Config{"the arc's full set (deg 10, Sun, Moon, SRP)", 10, true}}) {
+        ArcForces forces(c.degree, c.third);
+        auto tries = [&](double span) {
+            auto r = dyn::propagate(forces.forces(), forces.params(), x0, span, kPropagationTolerance);
+            return r.has_value() ? std::string() : std::string(r.error().id) + ": " + r.error().message.substr(0, 90);
+        };
+        double last_ok = 0.0, first_bad = 0.0;
+        for (double days : {0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0}) {
+            const std::string e = tries(days * 86400.0);
+            std::printf("ARCSHDW %-44s span=%.2f d (h0=span/100=%.0f s): %s\n", c.name, days, days * 864.0, e.empty() ? "ok" : e.c_str());
+            std::fflush(stdout);
+            if (e.empty() && first_bad == 0.0) last_ok = days * 86400.0;
+            if (!e.empty() && first_bad == 0.0) first_bad = days * 86400.0;
+        }
+        if (first_bad > 0.0) {
+            double lo = last_ok, hi = first_bad;
+            while (hi - lo > 60.0) { const double mid = 0.5 * (lo + hi); if (tries(mid).empty()) lo = mid; else hi = mid; }
+            std::printf("ARCSHDW %-44s shortest failing span ~ %.0f s (h0 = %.0f s); longest ok below it %.0f s\n", c.name, hi, hi / 100.0, lo);
+            // the same two-day span chained in pieces of a day works
+            auto s1 = dyn::propagate(forces.forces(), forces.params(), x0, 86400.0, kPropagationTolerance);
+            REQUIRE(s1.has_value());
+            auto s2 = dyn::propagate(forces.forces(), forces.params(), *s1, hi - 86400.0 > 0 ? hi - 86400.0 : 1.0, kPropagationTolerance);
+            std::printf("ARCSHDW %-44s the failing span as a day plus the rest: %s\n", c.name, s2.has_value() ? "ok" : std::string(s2.error().id).c_str());
+        }
+        std::fflush(stdout);
+    }
+}

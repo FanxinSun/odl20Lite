@@ -135,3 +135,21 @@ TEST_CASE("ARC-X-008  the noise-run diagnostic", "[.diag]") {
     // (3) the control: the same continuation from the truth with the seeded data
     (void)continuation("control-from-truth", noisy, truth, nullptr);
 }
+
+// ARC-X-010 — the manager's item 1 of 13:07 (registered with its prediction in L7_step3_registration.txt BEFORE it ran): the seeded control from the truth, ONCE, at integrator tolerance 1e-11.  The schedule is
+// the 1e-9 grid's (hash asserted); the observed times of flight are regenerated from the model at 1e-11 with the same seed and sigma, so that data and fit are consistent.  The one command:
+//     ./tests/odl_l7_arc_tests "ARC-X-010*"
+TEST_CASE("ARC-X-010  the seeded control from the truth at integrator tolerance 1e-11", "[.diag]") {
+    ArcForces forces;
+    const ArcDesign d = gate_arc_design(3.0);
+    const auto truth = cartesian_of(d);
+    const auto grid = state_grid(forces, state_from(epoch_of(d), truth), d.days * 86400.0, kArcGridStepS);      // the 1e-9 grid, as for the frozen schedule
+    kPropagationTolerance = 1e-11;
+    ArcModel noisy(forces, d, grid, kArcGridStepS);
+    REQUIRE(noisy.schedule_hash() == kGateScheduleHash);
+    noisy.generate_data(truth, 20251220ULL, kRangeSigmaM);
+    std::printf("ARCDIAG tolerance=1e-11 data_hash=%s\n", noisy.data_hash().c_str());
+    std::fflush(stdout);
+    (void)continuation("control-from-truth-1e-11", noisy, truth, nullptr);
+    kPropagationTolerance = 1e-9;
+}

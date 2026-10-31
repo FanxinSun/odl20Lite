@@ -15,6 +15,9 @@
 // The attitude assumption is therefore "sun-pointing, normal to the Sun line at every instant": a FIXED CANNONBALL IS NOT A SAIL and this is not
 // one.  The reflectivities are test-stated values of a typical aluminised film, not LightSail-2's measured ones.
 //
+// WORKAROUND (arc_model.hpp, ArcModel::evaluate): a gap between observation epochs of more than a day is propagated in pieces of a day, because ONE `dyn::propagate` call across a longer span fails with
+// SHDW-F-002 (the integrator's first trial step is span/100; a stage of it puts the satellite inside the Earth and the SRP shadow model refuses, which is fatal there, not a rejected step): see ARC-X-009.
+//
 // TRAJECTORY AT THE OBSERVATION EPOCHS ONLY.  Each observation is tagged at the BOUNCE (`EpochEvent::Bounce`), so L6 asks the trajectory
 // for the state at that very epoch and no other; the state there is the chain of the variational equations from the first epoch through the
 // earlier observation epochs (Phi(t_k, t_0) = Phi(t_k, t_{k-1}) Phi(t_{k-1}, t_0)), and the row of the Jacobian is L6's 1x6 partial times that
@@ -55,7 +58,7 @@ inline constexpr double kAreaM2 = 32.0, kMassKg = 4.93;      // LightSail-2
 inline constexpr double kAbsorptivity = 0.10, kSpecular = 0.80, kDiffuse = 0.10;
 inline constexpr double kRangeSigmaM = 0.01;                 // the weight of the fit, and the noise of the one seeded run
 inline constexpr double kMinElevationDeg = 10.0;
-inline constexpr double kPropagationTolerance = 1e-9;        // the integrator tolerance for the state and the variational equations (measured: 7 mm/day against a 1e-13 reference, 4.6 s/day with the STM)
+inline double kPropagationTolerance = 1e-9;        // the integrator tolerance for the state and the variational equations (measured: 7 mm/day against a 1e-13 reference, 4.6 s/day with the STM)
 
 /// One arc: its first epoch, the Keplerian truth, the span, and the stations.
 struct ArcDesign {
@@ -101,16 +104,17 @@ inline std::array<double, 6> metres_of(const odl::frames::GcrsState& s) {
 /// The force model of the arc: gravity to degree 10, the Sun and the Moon, SRP with the conical shadow.  No drag, no tides, no relativity (stated above).
 class ArcForces {
 public:
-    ArcForces() : set_(registry_), params_(registry_) {
+    /// `gravity_degree` and `with_third_bodies` exist for the SHDW-F-002 reproduction (ARC-X-009); the arcs use the defaults (degree 10, Sun and Moon).
+    explicit ArcForces(int gravity_degree = 10, bool with_third_bodies = true) : set_(registry_), params_(registry_) {
         const auto eo = fx::orientation_series();
         odl::forcemodel::GravityOptions go;
         go.extrapolate_secular = true;
         go.sources = fx::sources();
-        REQUIRE(set_.add(std::make_shared<odl::forcemodel::Gravity>(fx::model(), eo, fx::deg(10), fx::ord(10), go)).has_value());
+        REQUIRE(set_.add(std::make_shared<odl::forcemodel::Gravity>(fx::model(), eo, fx::deg(gravity_degree), fx::ord(gravity_degree), go)).has_value());
         const std::vector<odl::eph::Body> bodies{odl::eph::Body::Sun, odl::eph::Body::Moon};
         auto tb = odl::forcemodel::third_bodies(bodies, fx::ephemeris(), fx::gm(), fx::leaps(), fx::sources());
         REQUIRE(tb.has_value());
-        for (auto& f : *tb) REQUIRE(set_.add(f).has_value());
+        if (with_third_bodies) for (auto& f : *tb) REQUIRE(set_.add(f).has_value());
         auto area = odl::macromodel::cited(kAreaM2, "LightSail-2 sail area, 32 m^2 (the project's stated value)");
         auto ab = odl::macromodel::cited(kAbsorptivity, "test-stated");
         auto sp = odl::macromodel::cited(kSpecular, "test-stated");
