@@ -83,3 +83,33 @@ TEST_CASE("ARC-L-003  the sparse arc", "[.long]") {
         CHECK(l.error.within_gate());
     }
 }
+
+// ARC-L-002b — stages b to d of Amendment 9 (L7_step3_registration.txt, 2026-11-25), each ONCE: b = Gauss-Newton on the eclipsing arc, c = LM on the gate arc (gated by the error gate), d = LM on the eclipsing arc (recorded).
+// ARC-L-002 above is the historical record of Amendments 5 and 6 and is untouched.  The name contains a comma, which Catch2 reads as a filter separator, and "ARC-L-002*" would also match ARC-L-002 above: the ONE command is
+//     ./tests/odl_l7_arc_tests "ARC-L-002b*"
+TEST_CASE("ARC-L-002b  the sail arc, stages b to d (Amendment 9)", "[.long]") {
+    ArcForces forces;
+    Prepared gate = prepare(forces, false, ScheduleRule::AllStations);
+    Prepared ecl = prepare(forces, true, ScheduleRule::AllStations);
+    REQUIRE(gate.arc->schedule_hash() == kGateScheduleHash);
+    REQUIRE(gate.arc->data_hash() == kGateDataHash);
+    REQUIRE(ecl.arc->schedule_hash() == kEclipsingScheduleHash);
+    REQUIRE(ecl.arc->data_hash() == kEclipsingDataHash);
+    const LadderKind kinds[] = {LadderKind::P, LadderKind::C};
+    // stage b: Gauss-Newton on the eclipsing arc, all ten frozen rungs
+    for (LadderKind k : kinds)
+        for (double s : rungs_of(k, true)) print_gn(label(ecl, k).c_str(), s, run_gauss_newton(*ecl.arc, ecl.truth, start_of(k, ecl.design, ecl.truth, s)));
+    // stage c: LM on the gate arc, all ten frozen rungs, under the registered error gate
+    for (LadderKind k : kinds)
+        for (double s : rungs_of(k, false)) {
+            const auto l = run_lm(*gate.arc, gate.truth, start_of(k, gate.design, gate.truth, s));
+            print_lm(label(gate, k).c_str(), s, l, gate.arc->count());
+            CHECK(l.error.within_gate());
+        }
+    // stage d: LM on the eclipsing arc, all ten frozen rungs, recorded and not gated
+    for (LadderKind k : kinds)
+        for (double s : rungs_of(k, true)) {
+            const auto l = run_lm(*ecl.arc, ecl.truth, start_of(k, ecl.design, ecl.truth, s));
+            print_lm(label(ecl, k).c_str(), s, l, ecl.arc->count());
+        }
+}
