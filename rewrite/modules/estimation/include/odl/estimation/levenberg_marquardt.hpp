@@ -51,11 +51,13 @@ enum class LmStatus {
 [[nodiscard]] const char* to_string(LmStatus s) noexcept;
 
 struct LmOptions {
+    // NOT-A-UNIT-CROSSING: dimensionless initial damping factor tau of DTU Algorithm 3.16 (mu_0 = tau * max scaled diagonal)
     double tau = 1.0e-3;                 ///< mu_0 = tau * max_i (N_s)_ii; the scaled diagonal lies in [1/2, 2), so this is tau * (a number of order one)
     double gradient_cosine = 1.0e-10;    ///< converged_gradient: the largest |cosine| between the residual and a Jacobian column, DIMENSIONLESS
     double residual_fraction = 1.0e-24;  ///< converged_residual: F <= residual_fraction * F(x0) (the zero-residual problems' own test; the cosine is indeterminate there).  1e-30 was the first registration; it sits at the rounding floor of F and reported success as `stalled` (the manager's ruling of 2026-10-31)
     double step_tolerance = 1.0e-12;     ///< eps_2 of (3.14), applied to the SCALED step and iterate: ||h_s|| <= eps_2 (||x_s|| + eps_2)
     double stalled_cosine = 1.0e-4;      ///< a step stop with a gradient cosine above this is `stalled`
+    // NOT-A-UNIT-CROSSING: default iteration count limit k_max (loop passes, dimensionless count)
     std::size_t max_iterations = 1000;   ///< k_max (every pass of the loop, accepted or rejected)
     double mu_max = 1.0e16;              ///< the registered limit at which the run ends `refused`
 };

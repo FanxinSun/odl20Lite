@@ -1,7 +1,7 @@
 // arc_regression_tests.cpp — L7 step 3, part 2: ARC-R-001 is a REGRESSION GUARD for CI.  IT IS NOT THE STEP'S EVIDENCE: the evidence is ARC-L-001 ([.long], the full three-day experiment,
 // whose log is kept and hashed).  This case runs a ONE-DAY sub-arc of the gate arc (same truth, model, stations) from rungs 1 and 3 of ladder P (s = 1 and 8.8; the old s = 1, 30 meant nothing
 // once the ladder was found not evaluable) and asserts what was registered before its first run (amendments 3 and 4): each start EVALUATES; LM at tau = 1e-3 ends converged_*, or (amendment 5, after this case's first run failed on a wrong expectation) stalled WITH a final F below 1e-3 whitened (not
-// max_iterations or refused) and within 1 m and 1 mm/s of the truth; its cost is bounded by the ctest TIMEOUT of 300 s (tests/CMakeLists.txt).
+// max_iterations or refused) and within 1 m and 1 mm/s of the truth; its cost is bounded by the ctest TIMEOUT of 900 s (tests/CMakeLists.txt; raised from 300 s by Amendment 8 for ~1.8x slower GitHub runners, local run 197 s).
 #include "arc_runs.hpp"
 
 using namespace l7arc;
