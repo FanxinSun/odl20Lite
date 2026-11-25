@@ -85,6 +85,19 @@ TEST_CASE("EST-A-311: a nonlinear fit converges, from a start where the plain it
         if (it.accepted) CHECK(it.rho > 0.0);
         else CHECK(!(it.rho > 0.0));
     }
+    {   // the guard of PREP-02's survivor M3 (a mutant accepting only rho > 0.5 instead of rho > 0): a start where the iteration meets a gain ratio in (0, 0.5], an acceptable step that a stricter rule would reject.
+        // Measured (2026-11-25, scratch program, the default options): from (20, 1) two passes have a gain ratio in (0, 0.5], the first at pass 2 with rho = 0.2572.
+        const double x1[2] = {20.0, 1.0};
+        const LmResult q = levenberg_marquardt(kNames2, x1, decay());
+        std::size_t modest = 0;
+        for (const LmIteration& it : q.history)
+            if (it.rho > 0.0 && it.rho <= 0.5) {
+                ++modest;
+                INFO("pass " << it.k << " rho " << it.rho);
+                CHECK(it.accepted);
+            }
+        CHECK(modest >= 1);                           // the guard is not vacuous: such a pass occurs
+    }
 }
 
 TEST_CASE("EST-A-312: a step stop while the gradient is large is `stalled`, never converged", "[estimation][lm][unit]") {
@@ -142,6 +155,16 @@ TEST_CASE("EST-A-313: the model refusing the start is `refused`; a trial the mod
         CHECK(r.status == LmStatus::refused);
         CHECK(r.message.find("mu_max") != std::string::npos);
         CHECK(r.rejected_steps >= 8);                 // mu is multiplied by 2, 4, 8, ...: the product is 2^(k(k+1)/2), so 1e16 is passed after about ten rejections
+        // the guard of PREP-02's survivor M5 (a mutant with nu *= 1.0 instead of nu *= 2.0).  Measured (2026-11-25, scratch program): 11 rejections; with nu stuck at 2 the damping grows as 2^k and takes about 64.
+        CHECK(r.rejected_steps <= 15);
+        // and the damping used at pass k+1 is nu_k times the one at pass k with nu_k = 2^k (DTU (2.21): mu *= nu, nu *= 2): the ratios of consecutive rejected passes are 2, 4, 8, ... exactly
+        REQUIRE(r.history.size() >= 9);
+        double ratio_expected = 2.0;
+        for (std::size_t k = 1; k < 9; ++k, ratio_expected *= 2.0) {
+            INFO("pass " << k + 1 << ", expected ratio " << ratio_expected);
+            CHECK(!r.history[k].accepted);
+            CHECK(std::fabs(r.history[k].mu / r.history[k - 1].mu - ratio_expected) <= 1.0e-12 * ratio_expected);
+        }
     }
     {   // a start so close to the minimum that the gradient cosine is small but above the test (1e-10): then every trial refused.  Without the rule the step test would end it `converged_step`
         // (a small cosine, a vanishing step) at a point where nothing was ever evaluated; with it the status is `refused`, step test on or off.
