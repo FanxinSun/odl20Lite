@@ -581,7 +581,7 @@ Two of the predecessor's defects are design requirements here rather than lesson
 
 1. **DONE** — The whole force model through the registry → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md) — *added 2026-09-24*
 2. **DONE** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
-3. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md)
+3. **TODO** — Levenberg–Marquardt → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md) *(Evidence complete; awaiting final ci.sh --prove-offline and green GitHub push to mark DONE.)*
 4. **TODO** — A priori constraints → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md)
 5. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-5.md`](subplan_L7/L7-5.md)
 
