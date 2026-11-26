@@ -1,6 +1,7 @@
 #include <odl/estimation/normal_equations.hpp>
 
 #include <odl/estimation/dense.hpp>
+#include <odl/estimation/prior.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -203,6 +204,46 @@ odl::Result<void, EstimationRefusal> NormalEquations::add(std::span<const double
     return {};
 }
 
+odl::Result<void, EstimationRefusal> NormalEquations::add_prior(const PriorBlock& block, std::span<const double> linearisation_point) {
+    const std::size_t n = names_.size();
+    if (system_mode_)
+        return odl::err(EstimationRefusal{"EST-F-204", "a prior cannot be added to a system built by from_normal_system (it needs the rows)"});
+    if (linearisation_point.size() != n)
+        return odl::err(EstimationRefusal{"EST-F-204", "the linearisation point has " + std::to_string(linearisation_point.size()) + " values; the estimator has " + std::to_string(n) + " parameters"});
+    // EST-R-401: everything is validated before any row is formed, and a refused call changes nothing
+    if (auto v = block.validate(); !v) return odl::err(v.error());
+    if (constrained_.empty()) {
+        constrained_.assign(n, 0);
+        constrained_by_.assign(n, std::string{});
+    }
+    std::vector<std::size_t> at;
+    for (const std::string& nm : block.names) {
+        std::size_t k = n;
+        for (std::size_t i = 0; i < n; ++i)
+            if (names_[i] == nm) k = i;
+        if (k == n) return odl::err(EstimationRefusal{"EST-F-401", "the prior names '" + nm + "', which is not a parameter of the estimator", nm});
+        if (constrained_[k])
+            return odl::err(EstimationRefusal{"EST-F-405", "the parameter '" + nm + "' is constrained by two blocks: the earlier " + constrained_by_[k] + " and the new " + block.label() +
+                                                           "; no silent combination: build one block", nm});
+        at.push_back(k);
+    }
+    for (const std::size_t k : at)
+        if (!std::isfinite(linearisation_point[k]))
+            return odl::err(EstimationRefusal{"EST-F-204", "the linearisation point of '" + names_[k] + "' is not finite", names_[k]});
+    std::vector<double> departure(at.size());
+    for (std::size_t j = 0; j < at.size(); ++j) departure[j] = block.centre[j] - linearisation_point[at[j]];     // d = fl(x_A - x_lin)
+    std::vector<double> rows, res;
+    block.whitened(names_, departure, rows, res);
+    for (const double v : rows) prior_rows_.push_back(v);
+    for (const double v : res) prior_residuals_.push_back(v);
+    for (const std::size_t k : at) {
+        constrained_[k] = 1;
+        constrained_by_[k] = block.label();
+    }
+    ++prior_blocks_;
+    return {};
+}
+
 odl::Result<FormedSystem, EstimationRefusal> NormalEquations::formed_system() const {
     const std::size_t n = names_.size();
     FormedSystem out;
@@ -220,6 +261,13 @@ odl::Result<FormedSystem, EstimationRefusal> NormalEquations::formed_system() co
         for (std::size_t i = 0; i < n; ++i) {
             for (std::size_t j = 0; j <= i; ++j) out.matrix[i * n + j] += a[i] * a[j];
             out.rhs[i] += a[i] * residuals_[k];
+        }
+    }
+    for (std::size_t k = 0; k < prior_residuals_.size(); ++k) {          // EST-R-402: the prior's rows follow the data's, in the order the blocks were added
+        const double* a = &prior_rows_[k * n];
+        for (std::size_t i = 0; i < n; ++i) {
+            for (std::size_t j = 0; j <= i; ++j) out.matrix[i * n + j] += a[i] * a[j];
+            out.rhs[i] += a[i] * prior_residuals_[k];
         }
     }
     for (std::size_t i = 0; i < n; ++i)
@@ -242,6 +290,9 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
         if (at == n) return odl::err(EstimationRefusal{"EST-F-204", "the elimination names '" + e.name + "', which is not a parameter", e.name});
         if (elim[at]) return odl::err(EstimationRefusal{"EST-F-204", "the parameter '" + e.name + "' is eliminated twice", e.name});
         if (!std::isfinite(e.value)) return odl::err(EstimationRefusal{"EST-F-204", "the elimination of '" + e.name + "' has a value that is not finite", e.name});
+        if (!constrained_.empty() && constrained_[at])
+            return odl::err(EstimationRefusal{"EST-F-406", "the parameter '" + e.name + "' is both constrained by a prior and eliminated (EST-R-209): drop one of the two; a hard fix is the elimination, "
+                                                           "never a small sigma", e.name});
         elim[at] = 1;
         evalue[at] = e.value;
     }
@@ -251,6 +302,8 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
     const std::size_t nf = free_index.size();
     if (nf == 0) return odl::err(EstimationRefusal{"EST-F-204", "every parameter is eliminated; nothing is left to estimate"});
     const std::size_t m = observations();
+    const std::size_t npr = prior_residuals_.size();            // step 4: the prior's rows (0 without a prior; always 0 in system mode)
+    const std::size_t mrows = m + npr;                          // every row of the formed system: the sums of EST-R-206 run over all of them
 
     // ------------------------------------------------------------------------------------------- forming (EST-R-203, -209)
     std::vector<double> N(nf * nf, 0.0), b(nf, 0.0);
@@ -276,6 +329,10 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
             s1 += acc * acc;
             s2 += mag * mag;
         }
+        for (std::size_t k = 0; k < prior_residuals_.size(); ++k) {   // the prior rows act on free parameters only (EST-F-406): no elimination term, nothing in mu_e
+            s0 += prior_residuals_[k] * prior_residuals_[k];
+            s1 += prior_residuals_[k] * prior_residuals_[k];
+        }
         rho0 = std::sqrt(s0);
         rhobar = std::sqrt(s1);
         mu_e = std::sqrt(s2);
@@ -285,6 +342,14 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
                 const double ai = a[free_index[ii]];
                 for (std::size_t jj = 0; jj <= ii; ++jj) N[ii * nf + jj] += ai * a[free_index[jj]];
                 b[ii] += ai * rprime[k];
+            }
+        }
+        for (std::size_t k = 0; k < prior_residuals_.size(); ++k) {   // EST-R-402: the prior's rows, after the data's, in the order the blocks were added: before the scaling
+            const double* a = &prior_rows_[k * n];
+            for (std::size_t ii = 0; ii < nf; ++ii) {
+                const double ai = a[free_index[ii]];
+                for (std::size_t jj = 0; jj <= ii; ++jj) N[ii * nf + jj] += ai * a[free_index[jj]];
+                b[ii] += ai * prior_residuals_[k];
             }
         }
     } else {
@@ -425,8 +490,8 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
             if (system_mode_) {
                 bracket = theta_s(nf);
             } else {
-                const double g = gamma_k(m);
-                bracket = theta_n(nf, m) + std::sqrt(static_cast<double>(nf)) * (g * rhobar + gamma_k(2 * n_elim) * (rho0 + mu_e)) / X;
+                const double g = gamma_k(mrows);
+                bracket = theta_n(nf, mrows) + std::sqrt(static_cast<double>(nf)) * (g * rhobar + gamma_k(2 * n_elim) * (rho0 + mu_e)) / X;
             }
             B = 4.0 * q1 * bracket;
         }
@@ -469,7 +534,8 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
     s.certified_relative_error = B;
     s.observations = m;
     s.free_parameters = nf;
-    s.degrees_of_freedom = static_cast<std::ptrdiff_t>(m) - static_cast<std::ptrdiff_t>(nf);
+    s.degrees_of_freedom = static_cast<std::ptrdiff_t>(m) + static_cast<std::ptrdiff_t>(npr) - static_cast<std::ptrdiff_t>(nf);   // nu = m + r - n_free (EST-R-403, EST-Q-007)
+    s.prior_rows = npr;
 
     // the residual (EST-R-210)
     if (!system_mode_) {
@@ -481,7 +547,17 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
             const double rho = residuals_[k] - sk;
             omega += rho * rho;
         }
-        s.weighted_rss = omega;
+        double omega_prior = 0.0;                                        // EST-R-403: the prior rows' residuals fl(d~ - sum L~ x), x the correction
+        for (std::size_t k = 0; k < prior_residuals_.size(); ++k) {
+            const double* a = &prior_rows_[k * n];
+            double sk = 0.0;
+            for (std::size_t i = 0; i < n; ++i) sk += a[i] * s.x[i];
+            const double rho = prior_residuals_[k] - sk;
+            omega_prior += rho * rho;
+        }
+        s.weighted_rss_data = omega;
+        s.weighted_rss_prior = omega_prior;
+        s.weighted_rss = prior_blocks_ == 0 ? omega : omega + omega_prior;   // without a prior, step 2's Omega-hat unchanged
     } else if (system_residual_square_sum_) {
         double bx = 0.0;
         for (std::size_t i = 0; i < n; ++i) bx += system_rhs_[i] * s.x[i];
@@ -502,6 +578,7 @@ odl::Result<Solution, EstimationRefusal> NormalEquations::solve(const SolveOptio
         p += ";exponents=";
         for (std::size_t i = 0; i < nf; ++i) p += (i ? "," : "") + std::to_string(e[i]);
         p += ";";
+        if (prior_blocks_ > 0) p += "priors=" + std::to_string(prior_blocks_) + ";prior_rows=" + std::to_string(npr) + ";";   // EST-R-403: only when a block was added
         s.provenance = std::move(p);
     }
     return s;

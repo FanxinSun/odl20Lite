@@ -6,10 +6,11 @@
 # (EST-R-203, -204) and the registered figures replicate them (tools/estimation_sizing.cpp); the bounds hold with or without contraction, but the
 # predictions and the bit-for-bit claims of EST-R-211 are registered for the plain operations.
 odl_add_module(estimation
-  SOURCES      src/dense.cpp src/normal_equations.cpp src/levenberg_marquardt.cpp
+  SOURCES      src/dense.cpp src/normal_equations.cpp src/levenberg_marquardt.cpp src/prior.cpp
   DEPENDS      odl::core
   TEST_SOURCES tests/scale_tests.cpp tests/kernel_tests.cpp tests/nist_tests.cpp tests/decision_tests.cpp tests/hatch_tests.cpp tests/control_tests.cpp
-               tests/lm_fixture_tests.cpp tests/lm_unit_tests.cpp tests/lm_dtu_tests.cpp tests/lm_nielsen_tests.cpp tests/lm_nist_tests.cpp)
+               tests/lm_fixture_tests.cpp tests/lm_unit_tests.cpp tests/lm_dtu_tests.cpp tests/lm_nielsen_tests.cpp tests/lm_nist_tests.cpp
+               tests/prior_tests.cpp)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(odl_estimation PRIVATE -ffp-contract=off)

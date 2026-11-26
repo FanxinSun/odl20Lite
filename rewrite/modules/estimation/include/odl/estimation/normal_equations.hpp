@@ -50,6 +50,8 @@ struct EstimationRefusal : odl::Diagnostic {
           condition(std::move(report)) {}
 };
 
+struct PriorBlock;                                    // prior.hpp (step 4)
+
 /// The one hatch (EST-R-209): a named parameter held at a stated value.
 struct Elimination {
     std::string name;
@@ -82,8 +84,10 @@ struct Solution {
     double certified_relative_error = 0.0;           ///< B of EST-R-206: the scaled relative error this solve certifies (< 1/2 or it is refused)
     std::size_t observations = 0;                    ///< m
     std::size_t free_parameters = 0;                 ///< n_free
-    std::ptrdiff_t degrees_of_freedom = 0;           ///< nu = m - n_free
-    std::optional<double> weighted_rss;              ///< Omega-hat; empty for a system built without a residual square sum
+    std::ptrdiff_t degrees_of_freedom = 0;           ///< nu = m + r - n_free (r = 0 without a prior: step 2's nu = m - n_free; EST-R-403, EST-Q-007)
+    std::optional<double> weighted_rss;              ///< Omega-hat; empty for a system built without a residual square sum; with a prior, Omega-hat_data + Omega-hat_prior (EST-R-403)
+    std::size_t prior_rows = 0;                      ///< r: the prior rows added (EST-R-403); 0 when no block was added
+    std::optional<double> weighted_rss_data, weighted_rss_prior;   ///< EST-R-403: the data rows' and the prior rows' residual sums (rows mode only)
     std::string provenance;                          ///< EST-R-212
 
     /// sigma_0^2 = Omega-hat / nu (EST-F-205 when nu <= 0 or no residual information).
@@ -111,7 +115,13 @@ public:
     /// defaulted (EST-R-202).  Whitened on entry: fl(a/sigma), fl(r/sigma).
     [[nodiscard]] odl::Result<void, EstimationRefusal> add(std::span<const double> row, double residual, double sigma);
 
+    /// STEP 4 (EST-R-402): the prior's rows, formed with the data's and therefore BEFORE the scaling.  `linearisation_point` holds x_lin for ALL parameters in index order; the
+    /// departure is d = fl(x_A - x_lin).  Validated first and in full (EST-F-401 .. EST-F-403, EST-F-405); a refused call leaves the object unchanged.  The prior rows follow
+    /// the data's in the order the blocks were added, whatever the order of the calls.  EST-F-406 (a constrained parameter that is also eliminated) is raised by solve().
+    [[nodiscard]] odl::Result<void, EstimationRefusal> add_prior(const PriorBlock& block, std::span<const double> linearisation_point);
+
     [[nodiscard]] std::size_t parameters() const noexcept { return names_.size(); }
+    /// m, the DATA observations: the prior's rows are counted apart (Solution::prior_rows).
     [[nodiscard]] std::size_t observations() const noexcept { return system_mode_ ? system_observations_ : residuals_.size(); }
     [[nodiscard]] const std::vector<std::string>& names() const noexcept { return names_; }
 
@@ -128,6 +138,12 @@ private:
     // rows mode
     std::vector<double> rows_;                       ///< m x n, whitened, row-major, in the order added
     std::vector<double> residuals_;                  ///< whitened
+    // step 4: the prior's rows (whitened, r x n row-major) and residuals, in the order the blocks were added; which parameters are constrained
+    std::vector<double> prior_rows_;
+    std::vector<double> prior_residuals_;
+    std::size_t prior_blocks_ = 0;
+    std::vector<unsigned char> constrained_;
+    std::vector<std::string> constrained_by_;        ///< the label of the block that constrains each parameter (for EST-F-405)
     // system mode
     bool system_mode_ = false;
     std::vector<double> system_matrix_;

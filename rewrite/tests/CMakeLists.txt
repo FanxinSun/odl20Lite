@@ -429,3 +429,9 @@ if(BUILD_TESTING)
   target_compile_definitions(odl_l7_arc_tests PRIVATE ${_arc_defs})
 endif()
 catch_discover_tests(odl_l7_arc_tests EXTRA_ARGS --warn NoAssertions PROPERTIES TIMEOUT 900)
+
+# L7 step 4 (SPEC-estimation.md v0.5, EST-A-403 (d)): the integration comparison of the a priori constraints' RTN basis with frames::rtn_basis.  A target of its own because
+# `modules/estimation` depends on `core` alone (EST-Q-008, ruled 2026-11-27) and must not see `frames`; the test links both.
+add_executable(odl_l7_prior_tests l7_prior/prior_frames_tests.cpp)
+target_link_libraries(odl_l7_prior_tests PRIVATE odl::core odl::time odl::eop odl::frames odl::estimation Catch2::Catch2WithMain odl_warnings)
+catch_discover_tests(odl_l7_prior_tests EXTRA_ARGS --warn NoAssertions)
