@@ -592,6 +592,8 @@ the `G-*` frozen residuals with their force parameters stated in the test, and a
 reading the L5 library reaches them too — the stronger claim, since the frozen fits are
 cannonball fits (`oracle/ORACLE.md` §6).
 
+*(Exit-gate progress, 2026-11-27, TREE-17.)* The L7 exit gate's code (`ScaledForce`, `tools/exit_gate_fd_sizing.cpp`, `tests/l7_exit/`), tests, frozen finite-difference sizing, the single pre-registered runs and Amendment 1's re-runs (Run 2 of `EST-A-900`, `-901`, `-902`), `PREP-06` (9/9 `ScaledForce` mutants killed) and `RUN-07` (`ci.sh --prove-offline` on `tip-e2f5d25`: 14/14 gates, 820/820 ctests, 967/967 artefacts byte-identical) are complete; **the exit gate is marked passed only when the GitHub Actions run on the push of `427c41a..HEAD` is green** (not yet pushed; the push is the user's). Evidence: `SPEC-estimation.md` §8.1 (v0.7b), `PROVENANCE.md` §40.12 – §40.12d, `L7.REPORT.md` §J.
+
 ---
 
 ### 3.9 L8 `campaigns` — 0 of 5 done — **the MVP gate**
