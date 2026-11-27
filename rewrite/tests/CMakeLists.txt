@@ -435,3 +435,9 @@ catch_discover_tests(odl_l7_arc_tests EXTRA_ARGS --warn NoAssertions PROPERTIES 
 add_executable(odl_l7_prior_tests l7_prior/prior_frames_tests.cpp)
 target_link_libraries(odl_l7_prior_tests PRIVATE odl::core odl::time odl::eop odl::frames odl::estimation Catch2::Catch2WithMain odl_warnings)
 catch_discover_tests(odl_l7_prior_tests EXTRA_ARGS --warn NoAssertions)
+
+# L7 step 5 (SPEC-estimation.md v0.6, EST-A-506): the joint covariance assembled over the six state parameters and L3's registered parameters, in registry order.  A target of its own because
+# `modules/estimation` depends on `core` alone (EST-Q-008) and must not see `dynamics`; the test links both.
+add_executable(odl_l7_joint_tests l7_joint/joint_tests.cpp)
+target_link_libraries(odl_l7_joint_tests PRIVATE odl::core odl::time odl::eop odl::frames odl::integrators odl::dynamics odl::estimation Catch2::Catch2WithMain odl_warnings)
+catch_discover_tests(odl_l7_joint_tests EXTRA_ARGS --warn NoAssertions)
