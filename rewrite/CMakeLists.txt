@@ -203,6 +203,8 @@ add_subdirectory(modules/measmod)
 add_subdirectory(modules/forcemodel)
 # L7 step 2 (SPEC-estimation.md v0.3): the batch estimator, the normal equations scaled by default.  Depends on core alone.
 add_subdirectory(modules/estimation)
+# L8 step 1 (plan/subplan_L8/L8-1.md, 2026-11-27): the GNSS campaign library, its tests, and (in tools/) tools/odl_campaign_gnss.
+add_subdirectory(modules/harness)
 
 add_subdirectory(tools)
 

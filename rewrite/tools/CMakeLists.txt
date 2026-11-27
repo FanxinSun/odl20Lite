@@ -347,3 +347,11 @@ if(BUILD_TESTING)
     target_compile_options(exit_gate_fd_sizing PRIVATE -ffp-contract=off)
   endif()
 endif()
+
+# L8 step 1 (plan/subplan_L8/L8-1.md; TREE-24): the GNSS campaign runner.  Every path is a command-line argument; no path is built in.  Not run by ci.sh (the full B-* and E-* sweeps are logged runs on odl-runner, "2. ok").
+find_package(Threads REQUIRED)
+add_executable(odl_campaign_gnss odl_campaign_gnss.cpp)
+target_link_libraries(odl_campaign_gnss PRIVATE odl::harness Threads::Threads odl_warnings)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(odl_campaign_gnss PRIVATE -ffp-contract=off)
+endif()
