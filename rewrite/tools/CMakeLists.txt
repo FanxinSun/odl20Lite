@@ -316,3 +316,34 @@ target_link_libraries(orbex_qzss_check PRIVATE
 add_executable(doris_jason_check doris_jason_check.cpp)
 target_link_libraries(doris_jason_check PRIVATE
   odl::attitude odl::frames odl::eop odl::ephemerides odl::time odl::io)
+
+# L7 exit gate (SPEC-estimation.md v0.7, EST-R-904 / -905 / -906; TREE-14): the finite-difference sizing and the shadow check of the three rows, frozen BEFORE any exit-gate fit.  It evaluates the model (the sizing is a
+# property of the model's own residual, measured from model calls only), so unlike the generators above it links the modules; it is a tool of its own and no test links it.
+if(BUILD_TESTING)
+  odl_manifest_get(iers-leap-seconds _eg_leap)
+  odl_manifest_get(de440s-spk _eg_de440s)
+  odl_manifest_get(naif-gm-de440 _eg_gm)
+  odl_manifest_get(eop-c04-20 _eg_c04)
+  odl_manifest_get(egm2008-coefficients _eg_egm)
+  odl_manifest_get(fes2004-ocean-tide _eg_fes)
+  add_executable(exit_gate_fd_sizing exit_gate_fd_sizing.cpp)
+  target_link_libraries(exit_gate_fd_sizing PRIVATE odl::core odl::time odl::eop odl::frames odl::ephemerides odl::gravity odl::tides odl::thirdbody odl::relativity odl::dynamics odl::forcemodel
+                                                    odl::macromodel odl::shadow odl::spacecraft odl::srp odl::io odl_warnings)
+  target_compile_definitions(exit_gate_fd_sizing PRIVATE
+    ODL_LEAP_SECOND_FILE="${_eg_leap_CACHE_PATH}"
+    ODL_DE440S_BSP="${_eg_de440s_CACHE_PATH}"
+    ODL_GM_DE440_TPC="${_eg_gm_CACHE_PATH}"
+    ODL_C04_FILE="${_eg_c04_CACHE_PATH}"
+    ODL_EGM2008_COEFFICIENTS="${ODL_CACHE_DIR}/egm2008-coefficients/extracted/EGM2008_to2190_TideFree"
+    ODL_FES2004_CNM_SNM="${ODL_CACHE_DIR}/fes2004-ocean-tide/fes2004_Cnm-Snm.dat"
+    ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}"
+    ODL_CACHE_DIR_STR="${ODL_CACHE_DIR}"
+    ODL_EGM2008_SHA256="${_eg_egm_SHA256}"
+    ODL_GM_DE440_SHA256="${_eg_gm_SHA256}"
+    ODL_DE440S_SHA256="${_eg_de440s_SHA256}"
+    ODL_C04_SHA256="${_eg_c04_SHA256}"
+    ODL_FES2004_SHA256="${_eg_fes_SHA256}")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(exit_gate_fd_sizing PRIVATE -ffp-contract=off)
+  endif()
+endif()

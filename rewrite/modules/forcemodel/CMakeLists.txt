@@ -2,10 +2,10 @@
 # (the manager's ruling R1): steps 2-5 depend on dynamics' Force interface and on none of these.
 odl_add_module(forcemodel
   SOURCES      src/common.cpp src/earth_orientation.cpp src/gravity_force.cpp src/third_body_force.cpp
-               src/relativity_force.cpp src/tides_force.cpp src/truncation.cpp
+               src/relativity_force.cpp src/tides_force.cpp src/truncation.cpp src/scaled_force.cpp
   DEPENDS      odl::core odl::time odl::eop odl::frames odl::ephemerides odl::gravity odl::tides odl::thirdbody
                odl::relativity odl::dynamics
-  TEST_SOURCES tests/registry_tests.cpp tests/fd_gate_tests.cpp tests/truncation_tests.cpp)
+  TEST_SOURCES tests/registry_tests.cpp tests/fd_gate_tests.cpp tests/truncation_tests.cpp tests/scaled_force_tests.cpp)
 
 if(BUILD_TESTING)
   odl_manifest_get(iers-leap-seconds _leap)
