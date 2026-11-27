@@ -1504,6 +1504,21 @@
       ]
     },
     {
+      "id": "igs-satellite-metadata",
+      "kind": "data",
+      "vendored": true,
+      "role": "IGS satellite metadata (SINEX 2.02, DLR, release 2446): SATELLITE/IDENTIFIER (SVN, COSPAR, block), SATELLITE/PRN (SVN to PRN with validity intervals), SATELLITE/MASS and the other blocks. L8 step 1 (plan/subplan_L8/L8-1.md): the PRN -> SVN -> block table of the 31 GPS satellites of the pinned IGS final orbits igs-final-sp3-2023-022 / -023 (block recovery B-*), and the closing of EST-Q-012 (G01 = SVN063 = GPS-IIF and G05 = SVN050 = GPS-IIR-M on 2023-01-22 and 2023-01-23). A DATED SNAPSHOT: the file is rewritten in place by its maintainers.",
+      "version": "release 2446; header %=SNX 2.02 DLR 26:329:39545 (generated 2026-11-25 10:59:05 UTC); 3 859 lines, 279 240 bytes; maintained by P. Steigenberger and O. Montenbruck (DLR); retrieved 2026-11-27",
+      "url": "https://files.igs.org/pub/station/general/igs_satellite_metadata.snx",
+      "filename": "igs_satellite_metadata.snx",
+      "sha256": "189274f65f8a512f5ccca9a7e86966d1e727bb3645fe9247d8e03244f255b96c",
+      "licence": "IGS-PUBLIC",
+      "licence_note": "\"The IGS products and station data are provided openly for the benefit of all scientific, educational, and commercial users. For 25 years, IGS data and products have been made openly available for use without restriction, and continue to be offered free of cost or obligation.\" -- \"By accessing data, products, and any other information from the IGS, users agree to appropriately cite and attribute these resources to providers and their sponsors, acknowledgment of IGS and its contributing organizations, and to adherence to professional and ethical standards.\" -- \"IGS makes no guarantee of the quality, reliability, usability, availability, or suitability of any IGS data and products for any particular purpose.\" (International GNSS Service, Data and Product Disclaimer and Terms of Use, 5 August 2020, igs.org/wp-content/uploads/2020/09/IGS-Data-and-Product-Disclaimer-and-Terms-of-Use-200805.pdf, 3 pages, pinned as the literature entry igs-2020-data-product-terms-of-use, sha256 7b4e253c24073af930c38ac65b30ae5208850c4a5681a0e2c6bbf388e72f8226). The same terms as the IGS final orbits igs-final-sp3-2023-022 / -023: a grant of unrestricted use with an attribution term and a disclaimer. The file's own FILE/COMMENT block names, as its description, 'Steigenberger P, Montenbruck O (2024) IGS Satellite Metadata File Description, Version 1.10, September 30, 2024, doi: 10.57677/metadata-sinex' (read in the pinned bytes; a description, not a stated citation request). This tree VENDORS the file: the tracked copy at data/vendored/igs-satellite-metadata/igs_satellite_metadata.snx, byte for byte as pinned (why, in upstream_mutable_note).",
+      "upstream_mutable": true,
+      "upstream_mutable_note": "Rewritten in place by its maintainers (the release number is in its own header: release 2446 here; PROVENANCE.md section 30.2 read the same URL on 2026-09-24, and SPEC-thrust-yaw cites its release 2434), and no publisher snapshot of a given release is known to this tree (none was searched for on the network), so fetch check-licences requires the entry to be VENDORED: the tracked copy is the pin and `fetch` never re-acquires it. The bytes are those fetched with curl on 2026-11-27, SHA-256 and size recorded above.",
+      "retrieved": "2026-11-27"
+    },
+    {
       "id": "nist-strd-lls-norris",
       "kind": "data",
       "role": "NIST StRD linear least squares regression dataset Norris (linear, 2 parameters, 36 observations, level of difficulty lower, observed data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.",

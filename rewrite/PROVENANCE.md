@@ -9104,3 +9104,57 @@ The other nine tilt rows are within ±0.0050 of the converged values at their qu
 | 2026-09-18 | Acceptance coverage completed at spec v1.2 — twenty tests added, complete §8 coverage tables, no requirement changed. |
 | 2026-09-18 | Manager verdict recorded: specs adopted at v1.1; §0 split into declarations, **disclosed context exposure** and adoption; plan rules **R11** and **R12** added at §8.6–8.7; the Horizons determination added to the oracle log; decision register added at §10; D5/D6 marked escalated. |
 | 2026-09-18 | Seeded from `doc/REWRITE_PLAN.md` §8; populated for the P1 specification tranche. |
+
+## 42. L8 campaigns
+
+*(Opened 2026-11-27 with L8 step 1. L0 – L7 are closed: `ci.sh --prove-offline` 14/14 on `tip-e2f5d25` and GitHub Actions run `45967141812` green on `ff297d6`, §40.12e. Entries here are increase-only, like the rest of this file.)*
+
+### 42.1 Step 1 (L8-1): GNSS against IGS precise orbits — igs-satellite-metadata pin, EST-Q-012 resolution, and pre-registration (TREE-23, 2026-11-27)
+
+**Authority.** The user's plain text in `odl-manager` at `2026-11-27 21:13:35 CST` (as quoted in the order, checked there against `~/.claude/agy-bridge/send.log`): "1. A" and "2. ok" (scope and CI split, registered in `plan/subplan_L8/L8-1.md`). **Nothing of `modules/harness/` or `tools/odl_campaign_gnss` exists in this commit: it is the data pin, `NOTICE` and the pre-registration only; no C++ file changed.**
+
+**Task 1 — the fetch.** `curl -fsSL --max-time 120 -o data/vendored/igs-satellite-metadata/igs_satellite_metadata.snx.partial https://files.igs.org/pub/station/general/igs_satellite_metadata.snx` → exit 0; then `mv` to `igs_satellite_metadata.snx`. `sha256sum`: **`189274f65f8a512f5ccca9a7e86966d1e727bb3645fe9247d8e03244f255b96c`**; `wc -c`: **279 240**; `wc -l`: 3 859. Line 1: `%=SNX 2.02 DLR 26:329:39545 DLR 78:053:00000 00:000:00000 P 00000 0` (the generation epoch `26:329:39545` is 2026 day 329, 39 545 s: 2026-11-25 10:59:05 UTC); the file's description line: `IGS satellite meta data of GNSS satellites, release 2446`; last line `%ENDSNX`. Section markers (line numbers by `grep -n`): `+SATELLITE/IDENTIFIER` 979, `+SATELLITE/PRN` 1553, `+SATELLITE/MASS` 2132 (and `+FILE/REFERENCE` 4, `+FILE/COMMENT` 21, `+SATELLITE/PLANE` 1284, `+SATELLITE/FREQUENCY_CHANNEL` 1968, `+SATELLITE/COM` 2654, `+SATELLITE/ECCENTRICITY` 3170, `+SATELLITE/TX_POWER` 3620). Release 2446 differs from the release 2434 that `SPEC-thrust-yaw.md` cites for the 2026-09-24 read: the file is rewritten in place, which is why it is a dated snapshot.
+
+**Task 2 — the pin.** Entry `igs-satellite-metadata` added after `igs-final-sp3-2023-023` in `manifest/manifest.json` (`kind data`, `vendored true`, `licence IGS-PUBLIC` with the three quoted IGS terms of 5 August 2020 as the SP3 entries carry them, `upstream_mutable true` with its note, `url`, `filename`, `sha256`, `retrieved 2026-11-27`; no `vendored_path` field exists in this manifest's schema — vendored entries resolve to `data/vendored/<id>/<filename>` — so none was written). `fetch verify`: exit 0 (`ok igs-satellite-metadata 189274f65f8a512f…` resolved to the tracked copy); `fetch check-licences`: exit 0. **`data/cache/igs-satellite-metadata/` was not created:** `fetch` skips a vendored entry and `verify` reads the tracked copy, so there is nothing to stage. `notice --check` was **1** before and **0** after `cmake --build build --target regenerate_notice` (`wrote NOTICE (119 entries)`); the NOTICE diff is the new entry only (the earlier 118 entries unchanged: `diff` shows additions only). The manifest was edited by inserting the entry's text; the pre-edit copy is kept in the work area.
+
+**Task 3 — the 31 active PRNs on `2023-01-22` and `2023-01-23`.** Method: an `awk` script (`odl20Lite-work/tree15/prn_map.awk`, run on the vendored file) reads `SATELLITE/IDENTIFIER` (SVN → `Block` field, columns 24–38) and `SATELLITE/PRN` (SVN, `Valid_From`, `Valid_To`, PRN) and keeps, for each PRN, the rows with `Valid_From <= t < Valid_To` (`0000:000:00000` = open), at `t` = `2023:022:00000`, `2023:023:00000`, `2023:022:86399`, `2023:023:86399`. **Results:** exactly one interval per PRN `G01..G32` except `G28`, which has none (absent, as in both SP3 files); **the four tables are identical** (no PRN changes SVN or block between the two days or inside either day); **no interval begins or ends inside `2023:022 .. 2023:024`** (the script's boundary report printed nothing). The first version of the script cut the block column at the wrong offset (it printed `IF`, then `PS-IIF`); the column was corrected to start at 24 and the table regenerated, and the counts below are from the corrected run. The 31 triples (identical for both days):
+
+| PRN | SVN | block | PRN row's validity (`Valid_From .. Valid_To`) |
+|---|---|---|---|
+| `G01` | `G063` | `GPS-IIF` | 2011:197:00000 .. 2024:103:00000 |
+| `G02` | `G061` | `GPS-IIR-B` | 2004:311:00000 .. open (0000:000:00000) |
+| `G03` | `G069` | `GPS-IIF` | 2014:302:00000 .. open (0000:000:00000) |
+| `G04` | `G074` | `GPS-IIIA` | 2019:294:00000 .. open (0000:000:00000) |
+| `G05` | `G050` | `GPS-IIR-M` | 2009:229:00000 .. open (0000:000:00000) |
+| `G06` | `G067` | `GPS-IIF` | 2014:137:00000 .. open (0000:000:00000) |
+| `G07` | `G048` | `GPS-IIR-M` | 2008:075:00000 .. open (0000:000:00000) |
+| `G08` | `G072` | `GPS-IIF` | 2015:196:00000 .. open (0000:000:00000) |
+| `G09` | `G068` | `GPS-IIF` | 2014:214:00000 .. open (0000:000:00000) |
+| `G10` | `G073` | `GPS-IIF` | 2015:304:00000 .. open (0000:000:00000) |
+| `G11` | `G078` | `GPS-IIIA` | 2021:168:00000 .. open (0000:000:00000) |
+| `G12` | `G058` | `GPS-IIR-M` | 2006:321:00000 .. open (0000:000:00000) |
+| `G13` | `G043` | `GPS-IIR-A` | 1997:204:00000 .. 2026:114:79200 |
+| `G14` | `G077` | `GPS-IIIA` | 2020:310:00000 .. open (0000:000:00000) |
+| `G15` | `G055` | `GPS-IIR-M` | 2007:290:00000 .. open (0000:000:00000) |
+| `G16` | `G056` | `GPS-IIR-A` | 2003:029:00000 .. open (0000:000:00000) |
+| `G17` | `G053` | `GPS-IIR-M` | 2005:269:00000 .. open (0000:000:00000) |
+| `G18` | `G075` | `GPS-IIIA` | 2020:073:00000 .. open (0000:000:00000) |
+| `G19` | `G059` | `GPS-IIR-B` | 2004:080:00000 .. open (0000:000:00000) |
+| `G20` | `G051` | `GPS-IIR-A` | 2000:132:00000 .. 2026:008:79200 |
+| `G21` | `G045` | `GPS-IIR-A` | 2003:090:00000 .. 2025:095:00000 |
+| `G22` | `G041` | `GPS-IIR-A` | 2022:020:00000 .. 2023:220:00000 |
+| `G23` | `G076` | `GPS-IIIA` | 2020:196:00000 .. open (0000:000:00000) |
+| `G24` | `G065` | `GPS-IIF` | 2012:278:00000 .. open (0000:000:00000) |
+| `G25` | `G062` | `GPS-IIF` | 2010:148:00000 .. open (0000:000:00000) |
+| `G26` | `G071` | `GPS-IIF` | 2015:084:00000 .. open (0000:000:00000) |
+| `G27` | `G066` | `GPS-IIF` | 2013:135:00000 .. open (0000:000:00000) |
+| `G29` | `G057` | `GPS-IIR-M` | 2007:354:00000 .. open (0000:000:00000) |
+| `G30` | `G064` | `GPS-IIF` | 2014:052:00000 .. open (0000:000:00000) |
+| `G31` | `G052` | `GPS-IIR-M` | 2006:268:00000 .. open (0000:000:00000) |
+| `G32` | `G070` | `GPS-IIF` | 2016:036:00000 .. open (0000:000:00000) |
+
+**Per-block counts `n_b`: GPS-IIF 12, GPS-IIR-B 2, GPS-IIR-A 5, GPS-IIR-M 7, GPS-IIIA 5; total 31 — equal to the `B-*` rows of `oracle/cases.tsv` (n = 12, 2, 5, 7, 5), so there is no difference in block composition between those rows and these two days.** `G01 = G063 = GPS-IIF` (PRN row `2011:197:00000 .. 2024:103:00000`) and `G05 = G050 = GPS-IIR-M` (`2009:229:00000 .. open`) hold on both days: **`EST-Q-012`'s carried interval note is closed** (`G01`'s PRN row ends on `2024:103`, after the arcs; the earlier "February 2023" reading of §30.1 remains the stale one noted in §40.12). `G063`'s `SATELLITE/MASS` row (1633 kg) and `G050`'s (1080 kg) are the figures `SPEC-spacecraft` already cites (`2195` and `2182` in the file).
+
+**Task 4 — the registration.** `plan/subplan_L8/L8-1.md` gains the full design (architecture, CLI contract and exit codes, SP3 and SINEX rules, every statistic's formula, the `ctest` acceptance checks, the sweeps' predictions) after its original eight lines, which are untouched; `plan/PLAN.md` line 3 and the §3.9 heading are updated with the earlier wording kept beside the new. **Two open points are recorded there and not decided here:** the cannonball template's `A`, `C_R` and `m` for `B-*` (the library has cited macromodels for IIF and IIR-M only; `gps_block_iiia()` refuses; a common template as the predecessor's is the alternative), and whether block statistics are per day or pooled over the two days.
+
+**Not done here.** No C++; no fit; no sweep; `tools/ci.sh` unchanged; the user's push gate is untouched (nothing pushed).

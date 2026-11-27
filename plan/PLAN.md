@@ -1,6 +1,6 @@
 # Rewrite plan — a fully-owned reimplementation of the validated ODL pipeline
 
-**Status:** L0–L6 closed (L0 step 8, the tree's development code in C++, §5 constraint 11, closed 2026-10-31); **L7 open** — steps 1–2 done, step 3 resumed 2026-10-31; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).
+**Status:** L0–L7 closed (L7's exit gate passed 2026-11-27: `ci.sh --prove-offline` 14/14 and GitHub Actions run 45967141812 green; L0 step 8 closed 2026-10-31); **L8 open** — step 1 (GNSS against IGS precise orbits) in progress, pre-registered 2026-11-27; L9 optional. *(was: L0–L6 closed (L0 step 8, the tree's development code in C++, §5 constraint 11, closed 2026-10-31); **L7 open** — steps 1–2 done, step 3 resumed 2026-10-31; L8–L9 not started. **D1 decided 2026-09-18: C++20** (§7).)*
 **Canonical:** `plan/PLAN.md` at the repository root — this file — with one file per layer step
 under `plan/subplan_L0/` … `plan/subplan_L9/`, laid out by the owner's plan-file rule of
 2026-09-23. This project has a single outcome, so it has one plan and one execution order: §3,
@@ -598,7 +598,7 @@ cannonball fits (`oracle/ORACLE.md` §6).
 
 ---
 
-### 3.9 L8 `campaigns` — 0 of 5 done — **the MVP gate**
+### 3.9 L8 `campaigns` — 0 of 5 done — **the MVP gate; the open layer (step 1 in progress)**
 
 The validation campaigns as executable definitions, run by CI. The campaign *logic* of the
 revival's `validate_*.sh` scripts carries over — already this tree's own work — re-pointed at

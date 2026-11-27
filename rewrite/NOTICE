@@ -71,6 +71,7 @@ SUMMARY
   itrf2020-transfo-trfs Transfo-ITRF2020_TRFs.txt as served by itrf.ign.fr 2026-10-06 (the ITRF 'Transformation parameters' page links it); 4 125 bytes; its own title: 'Transformation parameters from ITRF2020 to past ITRFs' IERS-public      data
   igs-final-sp3-2023-022 IGS0OPSFIN_20230220000_01D_15M_ORB.SP3.gz, BKG root_ftp/IGS/products/2246/, 97 869 bytes gzipped, 245 474 decompressed; the file's own header: #cP, PCV:IGS20_2233, OL/AL:FES2014b, ORB:CMB CLK:CMB, combination of cod esa gfz grg jpl mit ngs sio IGS-PUBLIC       data
   igs-final-sp3-2023-023 IGS0OPSFIN_20230230000_01D_15M_ORB.SP3.gz, BKG root_ftp/IGS/products/2246/, 97 823 bytes gzipped, 245 474 decompressed; the file's own header: #cP, PCV:IGS20_2233, OL/AL:FES2014b, ORB:CMB CLK:CMB, combination of cod esa gfz grg jpl mit ngs sio IGS-PUBLIC       data
+  igs-satellite-metadata release 2446; header %=SNX 2.02 DLR 26:329:39545 (generated 2026-11-25 10:59:05 UTC); 3 859 lines, 279 240 bytes; maintained by P. Steigenberger and O. Montenbruck (DLR); retrieved 2026-11-27 IGS-PUBLIC       data
   nist-strd-lls-norris Norris.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 688 bytes NIST-PUBLIC      data
   nist-strd-lls-pontius Pontius.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 748 bytes NIST-PUBLIC      data
   nist-strd-lls-noint1 NoInt1.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 1 608 bytes NIST-PUBLIC      data
@@ -1417,6 +1418,40 @@ DATA INPUTS
               comment lines state), distributed by the International GNSS
               Service through the Bundesamt fuer Kartographie und Geodaesie
               (BKG) IGS data centre.
+
+  igs-satellite-metadata  release 2446; header %=SNX 2.02 DLR 26:329:39545 (generated 2026-11-25 10:59:05 UTC); 3 859 lines, 279 240 bytes; maintained by P. Steigenberger and O. Montenbruck (DLR); retrieved 2026-11-27
+    role      IGS satellite metadata (SINEX 2.02, DLR, release 2446): SATELLITE/IDENTIFIER (SVN, COSPAR, block), SATELLITE/PRN (SVN to PRN with validity intervals), SATELLITE/MASS and the other blocks. L8 step 1 (plan/subplan_L8/L8-1.md): the PRN -> SVN -> block table of the 31 GPS satellites of the pinned IGS final orbits igs-final-sp3-2023-022 / -023 (block recovery B-*), and the closing of EST-Q-012 (G01 = SVN063 = GPS-IIF and G05 = SVN050 = GPS-IIR-M on 2023-01-22 and 2023-01-23). A DATED SNAPSHOT: the file is rewritten in place by its maintainers.
+    licence   IGS-PUBLIC
+    url       https://files.igs.org/pub/station/general/igs_satellite_metadata.snx
+    sha256    189274f65f8a512f5ccca9a7e86966d1e727bb3645fe9247d8e03244f255b96c
+    retrieved 2026-11-27
+    note      "The IGS products and station data are provided openly for the
+              benefit of all scientific, educational, and commercial users.
+              For 25 years, IGS data and products have been made openly
+              available for use without restriction, and continue to be
+              offered free of cost or obligation." -- "By accessing data,
+              products, and any other information from the IGS, users agree to
+              appropriately cite and attribute these resources to providers
+              and their sponsors, acknowledgment of IGS and its contributing
+              organizations, and to adherence to professional and ethical
+              standards." -- "IGS makes no guarantee of the quality,
+              reliability, usability, availability, or suitability of any IGS
+              data and products for any particular purpose." (International
+              GNSS Service, Data and Product Disclaimer and Terms of Use, 5
+              August 2020, igs.org/wp-content/uploads/2020/09/IGS-Data-and-
+              Product-Disclaimer-and-Terms-of-Use-200805.pdf, 3 pages, pinned
+              as the literature entry igs-2020-data-product-terms-of-use,
+              sha256 7b4e253c24073af930c38ac65b30ae5208850c4a5681a0e2c6bbf388e
+              72f8226). The same terms as the IGS final orbits igs-final-
+              sp3-2023-022 / -023: a grant of unrestricted use with an
+              attribution term and a disclaimer. The file's own FILE/COMMENT
+              block names, as its description, 'Steigenberger P, Montenbruck O
+              (2024) IGS Satellite Metadata File Description, Version 1.10,
+              September 30, 2024, doi: 10.57677/metadata-sinex' (read in the
+              pinned bytes; a description, not a stated citation request).
+              This tree VENDORS the file: the tracked copy at
+              data/vendored/igs-satellite-metadata/igs_satellite_metadata.snx,
+              byte for byte as pinned (why, in upstream_mutable_note).
 
   nist-strd-lls-norris  Norris.dat, NIST/ITL Statistical Reference Datasets (Standard Reference Database 140), strd/lls/data/LINKS/DATA/, 2 688 bytes
     role      NIST StRD linear least squares regression dataset Norris (linear, 2 parameters, 36 observations, level of difficulty lower, observed data): one ASCII file holding the data and the certified values (parameter estimates, their standard deviations, the residual standard deviation, R-squared, the ANOVA table), which NIST states to 15-16 significant digits. L7 step 2 (SPEC-estimation): a published acceptance value for the scaled normal equations -- the estimator's certified-value gate, the covariance's standard deviations.
