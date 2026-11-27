@@ -9166,3 +9166,71 @@ The other nine tilt rows are within ±0.0050 of the converged values at their qu
 **`odl_harness_tests`, run 1, once (the whole binary): `All tests passed (568 assertions in 8 test cases)`, exit 0**, `2026-11-27T13:40:24Z` – `13:44:01Z`. `--list-tests` first (`l8_1_harness_tests_list.txt`: 8 cases). Log `l8_1_harness_tests_run1.log`, SHA-256 **`a0ea451cc6687a0fedc696130eb4cc992c3dd4fd041b0ef24cee03847f884a37`**, in both `…L8.REPORT.files/` directories (primary `~/.claude/handover/`, backup `odl20Lite-work/backups/`; `cmp -s` exit 0). `ctest -R "harness|gnss|HARN"`: `100% tests passed, 0 tests failed out of 8` (`Total Test time (real) = 220.60 sec`). **Measured (not predicted):** `G-01` cannonball `S_N = 0.06227840846 m` (`converged_step`, ratio `681.89`), `G-02` `0.06969506568` (`568.135`), `G-03` `0.2421966389` (`91.3939`), `G-01` box-wing `0.09478942589` (`stalled`, ratio `181.467`, as in the L7 exit gate), all within `10⁻⁶` relative of the recorded minima; **`G-01` ECOM2 `d4b1_order()`: `converged_step`, 8 passes (7 accepted), `S_N(start) = 84.4931733 m`, `S_N = 0.02053179359 m` (ratio `4115.24`), `S_{N−15} = 0.02235218568 m`, `S_N/√3 = 0.01185403655 m`, RMS radial / along / cross `0.017257965 / 0.0066525761 / 0.00891405759 m`, largest epoch `0.0300916977 m`, `min ν = 1`** — below the cannonball's `0.0622784085` and the `E-02` bound `0.0884`. `G27` on `-023`: 96 epochs, 2 clock-absent records accepted.
 
 **CLI smoke tests** (`odl20Lite-work/tree15/smoke24.sh`): `--mode blocks --sat G01` exit 0, `G01 GPS-IIF G063 … S_N = 0.06227834656 m, A·C_R/m = 0.0236378313 m²/kg, srp_scale = 1.18189156653` (the blind template of `L8-R1`; the frozen `B-IIF` mean is `0.023576`); `--mode ecom --sat G01` exit 0, `S_N = 0.02053179359 m` (the same value as the test's, to the printed digits); the `.partial` file is gone and the final file exists after each; usage errors exit **2**: `--mode blocks` without `--sp3`, `ecom` without the world flags, a bad mode, a satellite not in the file, `--threads 0`. **Not run: `--threads` greater than 1, and the full 31-satellite sweeps** (they are the logged runs on `odl-runner`). **Gates** (`gates24.sh`): `speccheck`, `budgetcheck --quiet`, `constraint8` (349 files), `literaturecheck --quiet`, `unitcheck --quiet`, `interpretercheck --quiet`, `notice --check`, `fetch verify`: all exit 0. **Difference from the order's text, kept visible:** the order gave `G05`'s cannonball area as `19.45 m²`; the code takes the Block IIR-M sun-pointing area from the library, `13.92 m²` (printed by `HARN-A-012`: `A = 13.92 m^2, m = 1080 kg`), which is what reproduces `0.242196639 m` to `10⁻⁶`.
+
+### 42.2 Step 1 (L8-1): Verification, 14-gate offline CI, 31-satellite sweeps, and cross-seat audits (PREP-07, RUN-08, AUDIT-17/18/18P, TREE-25, 2026-11-27)
+
+**Inputs (read whole, numbers copied from them):** `P1/PREP-07.REPORT.md`, `R1/RUN-08.REPORT.md`, `P1/AUDIT-17.REPORT.md`, `P1/AUDIT-18.REPORT.md`, `R1/AUDIT-18P.REPORT.md` (all under `/home/rog/odl20Lite-work/`). Rules gate: `~/AI-management` at `a744c3c`. The five reports were written by other seats (`odl-prep`, `odl-runner`); this record copies them and re-derives nothing except the seven digests, re-checked by TREE-25 (see "Mirror").
+
+### TREE-23 (`c359054`) — SINEX pin, `EST-Q-012`, pre-registration
+IGS satellite metadata SINEX release 2446 pinned: `279240` bytes, SHA-256 `189274f65f8a512f5ccca9a7e86966d1e727bb3645fe9247d8e03244f255b96c`. `EST-Q-012` resolved: `31` active PRNs on 2023-022 and -023, blocks `GPS-IIF 12 / GPS-IIR-B 2 / GPS-IIR-A 5 / GPS-IIR-M 7 / GPS-IIIA 5`, `G28` absent (`0` intervals at the four instants `2023:022:00000`, `2023:022:86399`, `2023:023:00000`, `2023:023:86399`); `G01 -> G063 -> GPS-IIF` and `G05 -> G050 -> GPS-IIR-M`. Pre-registration of `L8-1` recorded before any harness code.
+
+### TREE-24 (`d0c57ff`) — harness, tool, first run
+Rulings `L8-R1` (blind template `A = 1.0 m^2`, `m = 50.0 kg`, `C_R = 1.0`; baselines keep EST-Q-011's block-referenced parameters) and `L8-R2` (constellation statistics per single-day file, never pooled). `modules/harness` (`odl::harness`), `tools/odl_campaign_gnss`, `odl_harness_tests` run 1: `All tests passed (568 assertions in 8 test cases)`, log SHA-256 `a0ea451cc6687a0fedc696130eb4cc992c3dd4fd041b0ef24cee03847f884a37`. `G05` area: the library's `13.92 m^2` (the order's note said `19.45 m^2`; `13.92 m^2` is what reproduces L7's `0.242196639 m`). `G-01` ECOM2 `d4b1_order()` `S_N = 0.02053179359 m`. Measured baselines: `G-01` `0.06227840846`, `G-02` `0.06969506568`, `G-03` `0.2421966389`, `G-01` box-wing `0.09478942589` m.
+
+### PREP-07 — mutation testing of `modules/harness` (sandbox `tip-d0c57ff`; executor `odl-prep`)
+Build `CXX=g++-13`, `-DCMAKE_BUILD_TYPE=Release`, `-DODL_WERROR=ON`. **14 / 14 mutants KILLED** (every mutant compiled with exit `0`; every test filter exited `42`). Baseline filters: `HARN-A-001*` 73, `-002*` 416, `-003*` 47, `-010*` 9, `-014*` 8 assertions passed.
+
+| ID | File:line | Mutation | Filter | Failing assertion(s) | Test log SHA-256 |
+|---|---|---|---|---|---|
+| H1 | `statistics.cpp:17` | `parameters >= n` -> `parameters > n` | `HARN-A-003*` | `harness_unit_tests.cpp:217` | `e2a26e309b96b0839d833b14276c9c86a87eac080695dd2209c59dcafde95659` |
+| H2 | `statistics.cpp:39` | `nd - static_cast<double>(parameters)` -> `nd` | `HARN-A-003*` | `:209` | `5fe85297fe609f68f00f5824c695f055b0829ee0423ae14faf1e1333a0b1315b` |
+| H3 | `statistics.cpp:62` | `ss / (nb - 1.0)` -> `ss / nb` | `HARN-A-003*` | `:150,161,162,171,172` | `4ada80ca72eaa013c3f2bb94eaf7fedba78be905f2f72ae34cc8902f83bca7c4` |
+| H4 | `statistics.cpp:75` | `d_pooled = ... / pooled` -> `... / sem` | `HARN-A-003*` | `:161,163,171` | `0df286e4a2c6b83a7e67f4273e374264e68647cd25f402fe7fd049cbaed5d97e` |
+| H5 | `statistics.cpp:69` | `(n1 + n2 - 2.0)` -> `(n1 + n2)` | `HARN-A-003*` | `:161,163,171` | `63e2453ba69312ac4bc5fb6918ece3badaf9ea23d0ac8eb9341377824a884bc9` |
+| H6 | `statistics.cpp:86` | `n % 2 == 1 ? ... : 0.5*(...)` -> `values[n / 2]` | `HARN-A-003*` | `:188,196` | `653aca6c147dde4c7c11c7dc17fc80da4c6ea90f5f2ede7cd862fd5c05ea73a9` |
+| H7 | `igs_metadata.cpp:39` | `leap_year(c.year)` -> `!leap_year(c.year)` | `HARN-A-002*` | `:138` | `71ff4dfca2deece6b58cedd3309b23b73112c2bc2ed4600907f31b3d39f2700b` |
+| H8 | `igs_metadata.cpp:81` | `!(epoch < e.valid_to)` -> `(e.valid_to < epoch)` | `HARN-A-002*` | `:131` | `9738940ce8a9870bb5c8ef1af780c0ea8f1433b69d51f97a4cce7a8d5087fb35` |
+| H9 | `igs_metadata.cpp:81` | `!e.valid_to.open() && !(epoch < e.valid_to)` -> `!(epoch < e.valid_to)` | `HARN-A-002*` | `:100` | `9c3a977b23b5af5572abd2962401581801cd54fc72c5d84052ae4d22390ed118` |
+| H10 | `gnss_campaign.cpp:129` | add `\|\| rec->clock_us >= kBadPosition` | `HARN-A-001*` | `:63` | `9013a00be1e62fe5aaca0e9e927b35e5fd1b277747cf6a6e6c76247d12aa91f6` |
+| H11 | `gnss_campaign.cpp:129` | drop `rec->x_km >= kBadPosition \|\|` | `HARN-A-001*` | `:69` | `422bedb23db63c223713f510dff25c0c5162d2756dc4aae6994da489d6dc6769` |
+| H12 | `gnss_campaign.cpp:227-228` | `degree` -> `degree - 2` | `HARN-A-010*` | `gnss_baselines_tests.cpp:40` | `f56e8c9dde4112a1339bfd4d5babc8765449407622e067cbcc32004499a302d4` |
+| H13 | `gnss_campaign.cpp:334` | drop `odl::metres_from_km(...)` | `HARN-A-010*` | `:39,40,41,42` | `362253964e8d1fa721fe8ca6a5616916f60c59718fb9484dfdf56fd517b2056e` |
+| H14 | `gnss_campaign.cpp:279` | `theta[6 + i]` -> `0.0` | `HARN-A-014*` | `:66,67,68,69` | `aa8546fce150029939f87350a6f1b8a498f41c6b6cb82797cd625c3311cb1bcf` |
+
+Restoration: the three mutated sources are byte-identical to `tip-d0c57ff` (`cmp` exit `0`): `statistics.cpp` `cbfca0f878f6d688af80c4e4d561f5cc49deb7aca7df5b792f393a0390196f8e`, `igs_metadata.cpp` `fbb3b3e8c790f78bddb781e46e26445ce4f1b5ed039b23c5d501b236b02ce1f6`, `gnss_campaign.cpp` `277a53591b07b5555f6589c09b7480a43b3b400ad04e97c265c624b0048328e0`. Job log: `jobs_p1.jsonl` SHA-256 `818866ed7ba24987a1376a32e420a6dee55fe3b5a5dc48505696485753ac35a1`; PREP-07 slice (rows 124-158) `35` jobs, `14` non-zero, `wall_s = 1418.536`; cumulative `158` rows, `62` non-zero, `wall_s = 2497.184`.
+
+### RUN-08 — offline CI, thread determinism, four 31-satellite sweeps (isolated `tip-d0c57ff`; executor `odl-runner`)
+- **Stage 1** `CXX=g++-13 tools/ci.sh --prove-offline`: exit `0`, `wall_s = 1278`, `== 14 of 14 gates passed ==`; `100% tests passed, 0 tests failed out of 828` (0 skipped, `670.33 s`); `unitcheck`: `178` production sources, `30` literals (`1` in `units.hpp`, `15` `UNIT-CROSSING`, `14` `NOT-A-UNIT-CROSSING`, `0` unaccounted); `reprocheck`: `976` artefacts, `all 976 artefacts byte-identical across two build paths`; gate 14: `ok` (files by name and first line `534`, build files `40`, workflow files `1`, allowlisted lines `3`).
+- **Stage 2** `--mode baselines`: `--threads 1` (`163 s`, exit `0`) and `--threads 3` (`62 s`, exit `0`); outputs byte-identical (`cmp -s` exit `0`), `baselines: every criterion met`.
+- **Stage 3, `--mode blocks`** (`--threads 8`): `2023-022` `367 s` and `2023-023` `352 s`, **both exit `1`**. Summaries (verbatim, `-022` then `-023`):
+
+| block | n_b | m_b -022 (m^2/kg) | s_b -022 | m_b -023 | s_b -023 |
+|---|---|---|---|---|---|
+| GPS-IIF | 12 | 0.0235879268 | 5.78380085e-05 | 0.0235916755 | 5.41821087e-05 |
+| GPS-IIR-B | 2 | 0.022509737 | 9.32025978e-05 | 0.0225132147 | 9.6144198e-05 |
+| GPS-IIR-A | 5 | 0.02235226 | 0.000110750309 | 0.0223584249 | 0.000112228827 |
+| GPS-IIR-M | 7 | 0.021627361 | 0.000408498023 | 0.0216355723 | 0.0003986939 |
+| GPS-IIIA | 5 | 0.0176382333 | 0.00114850579 | 0.0176417832 | 0.00115009468 |
+
+Ordering of the block means on both days: `IIF > IIR-B > IIR-A > IIR-M > IIIA` (the frozen `B-*` prediction, not a criterion). Separations (`d_pooled` / `t_sem`): `IIF-IIR-A` `16.33 / 23.64` (-022), `16.61 / 23.46` (-023); `IIF-IIR-M` `7.934 / 12.62`, `8.122 / 12.91`; `IIF-IIIA` `9.997 / 11.58`, `9.988 / 11.56` (frozen `B-*` at a different epoch: `IIF-IIR-A 14.1 / 20.8`, `IIF-IIIA 9.8 / 11.3`).
+  **Why the exit is `1`:** the tool's criterion is `every fit converged with S_N(start)/S_N(end) >= 10`, printed `MISSED`. On both days `26` eclipse-free satellites ended `status=converged_step` with `min_nu = 1`, and the `5` eclipsing satellites `G08` (`GPS-IIF G072`), `G17` (`GPS-IIR-M G053`), `G19` (`GPS-IIR-B G059`), `G27` (`GPS-IIF G066`), `G29` (`GPS-IIR-M G057`), all `min_nu = 0`, ended `status=stalled`. The exit is `1` because of those five stalled blind-template fits; no block statistic was failed.
+- **Stage 3, `--mode ecom`** (`--threads 8`): `2023-022` `373 s`, `2023-023` `368 s`, **both exit `0`**; `31/31` `converged_step`; the same five satellites have `min_nu = 0`.
+
+| quantity | 2023-022 | 2023-023 |
+|---|---|---|
+| eclipse-free (26) `median(S_N)` (m), bound `<= 0.0728`: MET | 0.02075189902 | 0.02125489619 |
+| eclipse-free (26) `max(S_N)` (m), `G15`, bound `<= 0.0884`: MET | 0.03021750828 | 0.02996425117 |
+| all 31 `median(S_N)` (m) | 0.02227468962 | 0.02274766843 |
+| all 31 `max(S_N)` (m), `G08` | 0.2080064218 | 0.2026130766 |
+
+- **Archived files, SHA-256** (the seven RUN-08 files): `ci_d0c57ff_prove_offline.log` `9aacb4c5a39c4c76279f934f7029e698b18811af53413e5fe5d80966d65729cc`; `l8_1_baselines_t1.txt` and `l8_1_baselines_t3.txt` `5ea2f7bf9cf1880f7479e80feb013fcfb58607375aff6592e5ac90ef0195dca4`; `l8_1_blocks_2023_022.txt` `a6d49d9673b951d16ca703c1dd3ae37765270ba57a9f127a2091ae9c52014fe8`; `l8_1_blocks_2023_023.txt` `d57587e22149d8ed476c5cb0b0256e648da063378e1a335d230cefc43aced5cb`; `l8_1_ecom_2023_022.txt` `0d7facc6154ea33d007cefef975ee85333be39878af5851f074054214964367b`; `l8_1_ecom_2023_023.txt` `7c62c37c0104024866ca764fa98e37460e24e2ba6268b9524b84498d6e529592`.
+- **Job log** `jobs_r1.jsonl`: RUN-08 slice `7` jobs, `wall_s = 2963` (`1278 + 163 + 62 + 367 + 352 + 373 + 368`); cumulative `17` jobs, `wall_s = 28754`. Note by the runner: `/home/rog/odl20Lite-work/bin/run_logged` does not exist; the jobs ran through `R1/run_logged.sh`.
+
+### Cross-seat audits
+- **AUDIT-17** (`odl-prep`, on TREE-23 / TREE-24): **PASS**. Commit chain `732342968…` <- `c359054` <- `d0c57ff`, both local-only (`origin/main` `732342968b6c46541ecac3f1032c8a5d06215210`); an independent `awk` re-derivation of the 31 PRN -> SVN -> block rows at four instants matched the table in this file (`TABLE_DIFF_OK`); zero L1–L7 or `tests/l7_exit/` edits; zero embedded paths in `modules/harness/{src,include}`; run-1 log parity primary/backup `cmp` `0`; snapshots `tip-c359054` and `tip-d0c57ff` equal to `git archive` (`SNAPSHOT_DIFF_OK`).
+- **AUDIT-18** (`odl-prep`, on RUN-08): **PASS**. `awk` re-derivation of `jobs_r1.jsonl` (`7` jobs, `2963 s`; `17` jobs, `28754 s`), CI-log lines, `T1_T3_CMP_OK`, the seven files `cmp` `0` with matching SHA-256, and of the `B-*` and `E-*` statistics from the raw PRN rows (block means and `s_b` within `3.1e-9` relative; the auditor notes that `A*C_R/m=` is printed to 10 digits, which truncates `GPS-IIF` `s_b` on -022 at `1.78e-07` relative; separations within `3.6e-4` relative of the 4-digit print; ordering OK; `E-*` medians and maxima reproduced, `G25`/`G06` the all-31 median satellites, `G15` the eclipse-free maximum, `G08` the all-31 maximum).
+- **AUDIT-18P** (`odl-runner`, on PREP-07): **PASS**. `jobs_p1.jsonl` digest and totals match; the three sources `cmp` `0`; the seven baseline-log and fourteen mutant-log digests match; all 14 mutant logs show Catch2 `FAILED:`.
+- `odl-audit` (`codex:152636`): per the order's text (TREE-25 order), it hit its weekly usage limit (`0% left`, resets Dec 1st) during `CX-17`, before running audit checks. No saved report of it was read; this line is the order's statement, not a checked fact.
+
+### Status
+`L8-1` stays `TODO`: the evidence is complete, but green GitHub Actions CI on a push of `7323429..HEAD` is outstanding and the remote (`FanxinSun/odl20Lite`) is public, so the push needs the user's fresh yes. Nothing was pushed by TREE-25.
