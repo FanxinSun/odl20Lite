@@ -562,7 +562,7 @@ T-01's time offset, a candidate cause unconfirmed (`subplan_L6/L6-3.md`).
 
 ---
 
-### 3.8 L7 `estimation` — 2 of 5 done; **the open layer**
+### 3.8 L7 `estimation` — 5 of 5 done; **the open layer (exit gate in progress)**
 
 Two of the predecessor's defects are design requirements here rather than lessons learned.
 
@@ -582,8 +582,8 @@ Two of the predecessor's defects are design requirements here rather than lesson
 1. **DONE** — The whole force model through the registry → [`subplan_L7/L7-1.md`](subplan_L7/L7-1.md) — *added 2026-09-24*
 2. **DONE** — Batch least squares with normal equations **scaled by default** → [`subplan_L7/L7-2.md`](subplan_L7/L7-2.md)
 3. **DONE** *(was **TODO**)* — Levenberg–Marquardt → [`subplan_L7/L7-3.md`](subplan_L7/L7-3.md) *(Evidence complete; awaiting final ci.sh --prove-offline and green GitHub push to mark DONE.)* (CLOSED 2026-11-27: CI run 45863593859 on ca6f342 completed success, all closing criteria met.) *(3 of 5 done in §3.8.)*
-4. **TODO** — A priori constraints → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md) *(Evidence complete: code, tests, sandboxed mutation suite (`PREP-05`, 10/10 killed) and offline CI (`RUN-06`, 14/14 gates) recorded 2026-11-27; awaiting L7 exit gate / green GitHub push to mark DONE.)*
-5. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-5.md`](subplan_L7/L7-5.md) *(Evidence complete: code, tests, sandboxed mutation suite (`PREP-05`, 8/8 killed) and offline CI (`RUN-06`, 14/14 gates) recorded 2026-11-27; awaiting L7 exit gate / green GitHub push to mark DONE.)*
+4. **TODO** — A priori constraints → [`subplan_L7/L7-4.md`](subplan_L7/L7-4.md) *(Evidence complete: code, tests, sandboxed mutation suite (`PREP-05`, 10/10 killed) and offline CI (`RUN-06`, 14/14 gates) recorded 2026-11-27; awaiting L7 exit gate / green GitHub push to mark DONE.)* (CLOSED 2026-11-27: CI run 45941836277 on 427c41a completed success, all closing criteria met.) *(5 of 5 done in §3.8; exit gate open.)*
+5. **TODO** — Joint covariance over the state and every parameter registered in L3 → [`subplan_L7/L7-5.md`](subplan_L7/L7-5.md) *(Evidence complete: code, tests, sandboxed mutation suite (`PREP-05`, 8/8 killed) and offline CI (`RUN-06`, 14/14 gates) recorded 2026-11-27; awaiting L7 exit gate / green GitHub push to mark DONE.)* (CLOSED 2026-11-27: CI run 45941836277 on 427c41a completed success, all closing criteria met.) *(5 of 5 done in §3.8; exit gate open.)*
 
 **Exit gate:** a fit over real data reaches its frozen residual and reports a joint covariance
 whose correlations are reproduced by finite differences. **Amended 2026-09-24**, taking the two

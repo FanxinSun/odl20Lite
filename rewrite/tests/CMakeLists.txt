@@ -441,3 +441,38 @@ catch_discover_tests(odl_l7_prior_tests EXTRA_ARGS --warn NoAssertions)
 add_executable(odl_l7_joint_tests l7_joint/joint_tests.cpp)
 target_link_libraries(odl_l7_joint_tests PRIVATE odl::core odl::time odl::eop odl::frames odl::integrators odl::dynamics odl::estimation Catch2::Catch2WithMain odl_warnings)
 catch_discover_tests(odl_l7_joint_tests EXTRA_ARGS --warn NoAssertions)
+
+# L7 exit gate (SPEC-estimation.md v0.7 / v0.7a, EST-A-900, -900b, -901, -902; TREE-15): the three rows' seven-parameter fits, the finite-difference correlations and the orbit-fit regions against the objective's profile.
+# Registered in ed5462c and 897361e / e1a7275 (the frozen sizing) BEFORE this file existed; each case is run once, alone.  A target of its own (it links the estimator, the force model, the spacecraft library and L4).
+odl_manifest_get(iers-leap-seconds _ex_leap)
+odl_manifest_get(de440s-spk _ex_de440s)
+odl_manifest_get(naif-gm-de440 _ex_gm)
+odl_manifest_get(eop-c04-20 _ex_c04)
+odl_manifest_get(egm2008-coefficients _ex_egm)
+odl_manifest_get(fes2004-ocean-tide _ex_fes)
+odl_manifest_get(desai-ocean-pole-tide _ex_desai)
+add_executable(odl_l7_exit_tests l7_exit/exit_gate_tests.cpp)
+target_include_directories(odl_l7_exit_tests PRIVATE l7_exit)
+target_link_libraries(odl_l7_exit_tests PRIVATE odl::core odl::time odl::eop odl::frames odl::ephemerides odl::gravity odl::tides odl::thirdbody odl::relativity odl::integrators odl::dynamics odl::forcemodel
+                                                 odl::macromodel odl::shadow odl::spacecraft odl::srp odl::io odl::estimation Catch2::Catch2WithMain odl_warnings)
+target_compile_definitions(odl_l7_exit_tests PRIVATE
+  ODL_LEAP_SECOND_FILE="${_ex_leap_CACHE_PATH}"
+  ODL_DE440S_BSP="${_ex_de440s_CACHE_PATH}"
+  ODL_GM_DE440_TPC="${_ex_gm_CACHE_PATH}"
+  ODL_C04_FILE="${_ex_c04_CACHE_PATH}"
+  ODL_EGM2008_COEFFICIENTS="${ODL_CACHE_DIR}/egm2008-coefficients/extracted/EGM2008_to2190_TideFree"
+  ODL_FES2004_CNM_SNM="${ODL_CACHE_DIR}/fes2004-ocean-tide/fes2004_Cnm-Snm.dat"
+  ODL_DESAI_POLE_COEF="${ODL_CACHE_DIR}/desai-ocean-pole-tide/extracted/desaiscopolecoef.txt"
+  ODL_MANIFEST_CACHE_ROOT="${ODL_CACHE_DIR}"
+  ODL_SP3_022="${ODL_CACHE_DIR}/igs-final-sp3-2023-022/extracted/IGS0OPSFIN_20230220000_01D_15M_ORB.SP3"
+  ODL_SP3_023="${ODL_CACHE_DIR}/igs-final-sp3-2023-023/extracted/IGS0OPSFIN_20230230000_01D_15M_ORB.SP3"
+  ODL_EGM2008_SHA256="${_ex_egm_SHA256}"
+  ODL_GM_DE440_SHA256="${_ex_gm_SHA256}"
+  ODL_DE440S_SHA256="${_ex_de440s_SHA256}"
+  ODL_C04_SHA256="${_ex_c04_SHA256}"
+  ODL_FES2004_SHA256="${_ex_fes_SHA256}"
+  ODL_DESAI_SHA256="${_ex_desai_SHA256}")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(odl_l7_exit_tests PRIVATE -ffp-contract=off)
+endif()
+# No catch_discover_tests: the cases are the exit gate's fits (hours), run once and alone by hand, never by `ctest`.
