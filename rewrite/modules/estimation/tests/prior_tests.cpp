@@ -422,6 +422,33 @@ TEST_CASE("EST-A-401: the constrained solve is the stacked least-squares solutio
     control(iso, p1_rtn(transposed(B)), "401-control-i-transposed-basis");
     control(p1_iso(-1.0), rtn, "401-control-ii-reversed-centres");
     control(p1_iso(1.0, 1.0 + 1.0e-6), rtn, "401-control-iii-sigma-1e-6");
+
+    // THE M10 GUARD (PREP-04, 2026-11-27, added by TREE-10 at the Committee's order; the criteria above are untouched): every add_prior call above used a ZERO linearisation point, so the mutant that
+    // reads d = block.centre[j] (dropping - linearisation_point[at[j]], normal_equations.cpp line 234) survived.  Here the prior is added at a NONZERO point x_lin != 0 with centre != x_lin, and the
+    // solved correction must be the exact shifted system N dx = b + Lambda (x_A - x_lin): phi to the stacked QR reference (built with the same x_lin) <= B + the reference bound.  Control (must fail,
+    // by >= 10^3 B): the same block added with x_lin = 0 -- which is what the mutant computes -- against the shifted reference.
+    {
+        const std::vector<double> x_off = {0.3, -0.2, 0.1, 0.5, -0.4, 0.25};
+        auto nm = make_ne(kP1Names, d);
+        REQUIRE(nm.add_prior(iso, x_off).has_value());
+        REQUIRE(nm.add_prior(rtn, x_off).has_value());
+        const auto sm = nm.solve();
+        REQUIRE(sm.has_value());
+        const Reference refm = reference_solve(d, {ref_prior(iso, at_iso, 6, x_off), ref_prior(rtn, at_rtn, 6, x_off)});
+        const double phim = phi_of(nm, sm->x, refm.x);
+        const double bound = sm->certified_relative_error + 46.0 * 0x1p-64 * sm->condition.condition_upper;
+        std::printf("PRIOR 401-m10-guard nonzero x_lin: phi %.3e against B + reference bound %.3e\n", phim, bound);
+        CHECK(phim <= bound);
+        auto nz = make_ne(kP1Names, d);
+        REQUIRE(nz.add_prior(iso, x_lin).has_value());
+        REQUIRE(nz.add_prior(rtn, x_lin).has_value());
+        const auto sz = nz.solve();
+        REQUIRE(sz.has_value());
+        const double phiz = phi_of(nz, sz->x, refm.x);
+        std::printf("PRIOR 401-m10-control x_lin = 0 (what the mutant computes) against the shifted reference: phi %.3e (B %.3e, ratio %.3e, must be >= 1e3)\n", phiz, sz->certified_relative_error,
+                    phiz / sz->certified_relative_error);
+        CHECK(phiz >= 1.0e3 * sz->certified_relative_error);   // NOT-A-UNIT-CROSSING: registered "10^3 B"
+    }
 }
 
 // =====================================================================================================================================================================================
